@@ -1,0 +1,46 @@
+const ROLES = {
+    ADMIN: "admin",
+    USER: "user",
+    // Business Group Owner (Phase 2): manages every business linked to their
+    // business group through a single login. Stored in the same `users` table.
+    GROUP_OWNER: "group_owner"
+}
+
+// Access level a Business Group Owner has across their group's businesses.
+const GROUP_PERMISSION_LEVELS = {
+    READ: "read",
+    WRITE: "write"
+}
+
+const SCOPES = {
+    DASHBOARD: "DASHBOARD",
+    POS: "POS",
+    CUSTOMER_DISPLAY: "CUSTOMER_DISPLAY",
+    KITCHEN_DISPLAY: "KITCHEN_DISPLAY",
+    ORDER_STATUS_DISPLAY: "ORDER_STATUS_DISPLAY",
+    ORDER_STATUS: "ORDER_STATUS",
+    ORDERS: "ORDERS",
+    KITCHEN: "KITCHEN",
+    WAITER: "WAITER",
+    RESERVATIONS: "RESERVATIONS",
+    VIEW_RESERVATIONS: "VIEW_RESERVATIONS",
+    MANAGE_RESERVATIONS: "MANAGE_RESERVATIONS",
+    CUSTOMERS: "CUSTOMERS",
+    VIEW_CUSTOMERS: "VIEW_CUSTOMERS",
+    MANAGE_CUSTOMERS: "MANAGE_CUSTOMERS",
+    INVOICES: "INVOICES",
+    VOID_INVOICES: "VOID_INVOICES",
+    VIEW_INVOICE_AUDIT_LOG: "VIEW_INVOICE_AUDIT_LOG",
+    MEMBERSHIP: "MEMBERSHIP",
+    INVENTORY: "INVENTORY",
+    VIEW_INVENTORY: "VIEW_INVENTORY",
+    MANAGE_INVENTORY: "MANAGE_INVENTORY",
+    SETTINGS: "SETTINGS",
+    REPORTS: "REPORTS",
+    FEEDBACK: "FEEDBACK",
+    USER: "USER",
+}
+
+exports.ROLES = ROLES;
+exports.SCOPES = SCOPES;
+exports.GROUP_PERMISSION_LEVELS = GROUP_PERMISSION_LEVELS;

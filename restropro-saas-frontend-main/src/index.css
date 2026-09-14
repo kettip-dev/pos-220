@@ -1,0 +1,398 @@
+@import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: 'Nunito', 'Kantumruy Pro', 'Khmer OS Battambang', 'Segoe UI', sans-serif;
+}
+
+:root {
+    --background: #fff;
+    --foreground: #000;
+    --restro-green-light: #f4f4f5;
+    --restro-green: #18181b;
+    --restro-green-10: rgba(24, 24, 27, 0.08);
+    --restro-border-green: #e4e4e7;
+    --restro-text: #6b7280;
+    --restro-gray: #f4f4f5;
+    --restro-ring: #18181b;
+    --restro-bg-gray: #f4f4f5;
+    --restro-card-bg: #ffffff;
+    --restro-button-hover: #e4e4e7;
+    --restro-green-button-hover: #27272a;
+    --restro-red: #f87171;
+    --restro-red-hover: #fee2e2;
+    --restro-yellow: #f4d6a1;
+    --restro-bg-yellow: #a23ca6;
+    --restro-yellow-hover: #e1920a;
+    --restro-checkbox: #e4e4e7;
+
+    --restro-green-dark: #09090b;
+    --restro-border-green-light: #e4e4e7;
+    --restro-superadmin-widget-bg: #18181b;
+    --restro-superadmin-text-green: #ffffff;
+    --restro-superadmin-text-black: #ffffff;
+
+    --scroll-wrapper-start: rgba(255, 255, 255, 1);
+    --scroll-wrapper-end: rgba(255, 255, 255, 0);
+}
+
+.dark {
+    --background: #000;
+    --foreground: #fff;
+    --restro-green-light: #18181b;
+    --restro-green: #ffffff;
+    --restro-green-10: rgba(255, 255, 255, 0.12);
+    --restro-border-green: #27272a;
+    --restro-text: #F0F0F0;
+    --restro-gray: #232323;
+    --restro-ring: #ffffff;
+    --restro-bg-gray: #242526;
+    --restro-card-bg: #121212;
+    --restro-button-hover: #353535;
+    --restro-green-button-hover: #f4f4f5;
+    --restro-red: #dc2626;
+    --restro-red-hover: #fecaca;
+    --restro-yellow: #f0a523;
+    --restro-bg-yellow: #fef9c3;
+    --restro-yellow-hover: #dbb743;
+    --restro-checkbox: #242526;
+
+    --restro-green-dark: #ffffff;
+    --restro-border-green-light: #27272a;
+    --restro-superadmin-widget-bg: #27272a;
+    --restro-superadmin-text-green: #ffffff;
+    --restro-superadmin-text-black: #ffffff;
+
+    --scroll-wrapper-start: rgba(0, 0, 0, 1);
+    --scroll-wrapper-end: rgba(0, 0, 0, 0);
+}
+
+/* Light Mode (default styles) */
+::-webkit-scrollbar {
+    width: 1px;
+    height: 1px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #88888888;
+    border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #989898;
+}
+
+/* Left Gradient Overlay */
+.custom-scroll-wrapper {
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Smooth scrolling on iOS */
+}
+
+/* Right Gradient Overlay */
+.custom-scroll-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50px;
+    /* Width of the gradient overlay */
+    height: 100%;
+    background: linear-gradient(to left, var(--scroll-wrapper-start), var(--scroll-wrapper-end));
+    /* Adjust color as needed */
+    z-index: 2;
+    /* Keep it above content */
+    pointer-events: none;
+    /* Ensure it doesn’t block interactions */
+}
+
+
+@layer base {
+    html {
+        font-family: 'Nunito', sans-serif;
+        font-optical-sizing: auto;
+    }
+}
+
+.outline-text {
+    text-shadow:
+        1px 1px 0 #000,
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+}
+.react-hot-toast {
+  z-index: 99999 !important;
+}
+
+/* Hide scrollbar for ecosystem widget tab strip */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== Ecosystem widget (Apple-style) animations ===== */
+@keyframes eco-float-in {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.004);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.eco-float-in {
+  animation: eco-float-in 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes eco-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.eco-slide-up {
+  animation: eco-slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes eco-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.eco-fade {
+  animation: eco-fade 0.5s ease both;
+}
+
+@keyframes eco-pulse-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.eco-pulse-ring {
+  animation: eco-pulse-ring 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes eco-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.eco-shimmer {
+  background-size: 200% 100%;
+  animation: eco-shimmer 2.2s linear infinite;
+}
+
+/* ===== Launcher (premium) ===== */
+@keyframes eco-launch-in {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.eco-launch-in {
+  animation: eco-launch-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* slow ambient sheen sweeping across the launcher */
+@keyframes eco-sheen {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(260%) skewX(-18deg);
+  }
+}
+.eco-sheen {
+  animation: eco-sheen 6.5s ease-in-out infinite;
+}
+
+/* gentle attention nudge for the sparkle */
+@keyframes eco-sparkle {
+  0%, 88%, 100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  92% {
+    transform: rotate(-12deg) scale(1.18);
+    opacity: 0.92;
+  }
+  96% {
+    transform: rotate(10deg) scale(1.12);
+  }
+}
+.eco-sparkle {
+  animation: eco-sparkle 5.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* teaser bubble pop-in (from the right, near the launcher) */
+@keyframes eco-bubble-in {
+  0% {
+    opacity: 0;
+    transform: translateX(16px) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.eco-bubble-in {
+  animation: eco-bubble-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes eco-bubble-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(10px) scale(0.95);
+  }
+}
+.eco-bubble-out {
+  animation: eco-bubble-out 0.3s ease-in both;
+}
+
+/* tiny typing dots inside the bubble */
+@keyframes eco-typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+.eco-typing {
+  animation: eco-typing 1.2s ease-in-out infinite;
+}
+
+/* gentle bob for the launcher to draw the eye */
+@keyframes eco-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.eco-bob {
+  animation: eco-bob 3.2s ease-in-out infinite;
+}
+
+/* clean 2x2 dot-grid glyph — dots breathe in sequence */
+@keyframes eco-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+.eco-dot {
+  animation: eco-dot 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Custom ApexCharts Tooltip Styles */
+.apexcharts-xaxistooltip {
+  background: var(--restro-green-light) !important;
+  border: 1px solid var(--restro-border-green) !important;
+  color: var(--restro-green-dark) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+}
+
+.apexcharts-xaxistooltip-bottom:after {
+  border-bottom-color: var(--restro-green-light) !important;
+}
+
+.apexcharts-xaxistooltip-bottom:before {
+  border-bottom-color: var(--restro-border-green) !important;
+}
+
+.dark .apexcharts-xaxistooltip {
+  background: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+.dark .apexcharts-xaxistooltip-bottom:after {
+  border-bottom-color: #27272a !important;
+}
+
+.dark .apexcharts-xaxistooltip-bottom:before {
+  border-bottom-color: #3f3f46 !important;
+}
+
+/* Dark Mode auto-contrast: ensure white buttons & pills have dark text & icons */
+.dark .bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light),
+.dark button.bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light),
+.dark a.bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light),
+.dark .bg-restro-green-dark-mode,
+.dark button.bg-restro-green-dark-mode,
+.dark a.bg-restro-green-dark-mode {
+  color: #18181b !important;
+}
+
+.dark .bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light) svg,
+.dark button.bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light) svg,
+.dark a.bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light) svg,
+.dark .bg-restro-green-dark-mode svg,
+.dark button.bg-restro-green-dark-mode svg,
+.dark a.bg-restro-green-dark-mode svg {
+  stroke: #18181b !important;
+}
+
+.dark .hover\:bg-restro-green-button-hover:hover,
+.dark button.hover\:bg-restro-green-button-hover:hover,
+.dark a.hover\:bg-restro-green-button-hover:hover {
+  color: #18181b !important;
+}

@@ -1,0 +1,2 @@
+Drop CaptainApp screenshots here (PNG/JPG/WEBP).
+They are auto-detected by EcosystemWidget.jsx via import.meta.glob — no code change needed.

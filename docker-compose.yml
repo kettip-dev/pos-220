@@ -1,0 +1,78 @@
+services:
+  db:
+    build:
+      context: ./docker/mysql
+      dockerfile: Dockerfile
+    container_name: restropro_db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-restropro_saas}
+      MYSQL_USER: ${DB_USER:-restro}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-restropass}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./restropro-saas-backend-main
+      dockerfile: Dockerfile
+    container_name: restropro_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: mysql://${DB_USER:-restro}:${DB_PASSWORD:-restropass}@db:3306/${DB_NAME:-restropro_saas}
+      JWT_SECRET: ${JWT_SECRET:-restro_jwt_secret_dev_key_change_in_production}
+      JWT_EXPIRY: ${JWT_EXPIRY:-15m}
+      JWT_EXPIRY_REFRESH: ${JWT_EXPIRY_REFRESH:-30d}
+      COOKIE_EXPIRY: ${COOKIE_EXPIRY:-900000}
+      COOKIE_EXPIRY_REFRESH: ${COOKIE_EXPIRY_REFRESH:-2592000000}
+      PASSWORD_SALT: ${PASSWORD_SALT:-10}
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-http://localhost:5173}
+      FRONTEND_DOMAIN_COOKIE: ${FRONTEND_DOMAIN_COOKIE:-localhost}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-uiflow}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-cb78b647f4d0c4ff64163317440ff83bc14edd17bd92e100aff4a492f1911c0c}
+      STRIPE_SECRET: ${STRIPE_SECRET:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PORTAL_CONFIG_ID: ${STRIPE_PORTAL_CONFIG_ID:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_EMAIL: ${SMTP_EMAIL:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - backend_uploads:/usr/src/app/public
+
+  frontend:
+    build:
+      context: ./restropro-saas-frontend-main
+      dockerfile: Dockerfile
+      args:
+        VITE_BACKEND: /api/v1
+        VITE_BACKEND_SOCKET_IO: ""
+        VITE_BACKEND_IMAGES_BASE_URL: ""
+        VITE_FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-http://localhost:5173}
+        VITE_STRIPE_PRODUCT_SUBSCRIPTION_KEY: price_1POsjYSCWiCS3BoQN2lnBMTz
+    container_name: restropro_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+volumes:
+  mysql_data:
+  backend_uploads:

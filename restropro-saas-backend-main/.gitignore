@@ -1,0 +1,8 @@
+node_modules
+log
+tmp
+/public/**
+!public/.gitkeep
+DS_Store
+Thumbs.db
+firebase-key.json
