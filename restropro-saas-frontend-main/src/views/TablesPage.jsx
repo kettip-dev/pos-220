@@ -70,15 +70,19 @@ export default function TablesPage() {
   // Edit Mode state
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDrawingWall, setIsDrawingWall] = useState(false);
   const [editableTables, setEditableTables] = useState([]);
   const [floorSettings, setFloorSettings] = useState({
     show_cashier: true,
     cashier_x: 60,
     cashier_y: 260,
+    cashier_w: 80,
+    cashier_h: 180,
+    cashier_rotation: 0,
     floor_plan_image: null,
     floor_plan_opacity: 0.8,
     floor_plan_fit: "contain",
-    walls: null,
+    walls: [],
   });
 
   // Drawer and Selection State
@@ -126,10 +130,11 @@ export default function TablesPage() {
         cashier_y: currentLayout?.cashier_y ?? 260,
         cashier_w: currentLayout?.cashier_w ?? 80,
         cashier_h: currentLayout?.cashier_h ?? 180,
+        cashier_rotation: currentLayout?.cashier_rotation ?? 0,
         floor_plan_image: currentLayout?.floor_plan_image ?? null,
         floor_plan_opacity: currentLayout?.floor_plan_opacity ?? 0.8,
         floor_plan_fit: currentLayout?.floor_plan_fit ?? "contain",
-        walls: currentLayout?.walls || null,
+        walls: Array.isArray(currentLayout?.walls) ? currentLayout.walls : [],
       });
     }
   }, [rawTables, rawLayouts, currentFloor, isEditMode]);
@@ -265,6 +270,7 @@ export default function TablesPage() {
   const handleEnterEditMode = () => {
     setEditableTables([...rawTables]);
     setIsEditMode(true);
+    setIsDrawingWall(false);
     setSelectedTableId(null);
     setIsMergeMode(false);
   };
@@ -272,6 +278,7 @@ export default function TablesPage() {
   const handleCancelEditMode = () => {
     setEditableTables([...rawTables]);
     setIsEditMode(false);
+    setIsDrawingWall(false);
     setSelectedTableId(null);
   };
 
@@ -448,6 +455,21 @@ export default function TablesPage() {
         onEnterEditMode={handleEnterEditMode}
         onSaveEditMode={handleSaveLayout}
         onCancelEditMode={handleCancelEditMode}
+        isDrawingWall={isDrawingWall}
+        onToggleDrawingWall={() => setIsDrawingWall((prev) => !prev)}
+        hasWalls={Array.isArray(floorSettings.walls) && floorSettings.walls.length > 0}
+        onClearWalls={() => {
+          const confirmClear = window.confirm(
+            t("tables.confirm_clear_walls", "Are you sure you want to clear all walls on this floor?")
+          );
+          if (confirmClear) {
+            setFloorSettings((prev) => ({ ...prev, walls: [] }));
+          }
+        }}
+        showCashier={Boolean(floorSettings.show_cashier)}
+        onToggleCashier={() =>
+          setFloorSettings((prev) => ({ ...prev, show_cashier: !prev.show_cashier }))
+        }
         dineInCount={dineInCount}
         pickUpCount={pickUpCount}
         isSocketConnected={isSocketConnected}
@@ -467,6 +489,7 @@ export default function TablesPage() {
             isMergeMode={isMergeMode}
             mergeSourceId={mergeSourceId}
             isEditMode={isEditMode}
+            isDrawingWall={isDrawingWall}
             selectedTableId={selectedTableId}
             activeFilter={activeFilter}
             onSelectTable={(id) => setSelectedTableId(id)}

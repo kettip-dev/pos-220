@@ -42,15 +42,16 @@ exports.ensureTableFloorSchema = async (pool) => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
-      // Check if floor_plan_image exists in store_floor_layouts
+      // Check if columns exist in store_floor_layouts
       const [layoutCols] = await conn.query(`
         SELECT COLUMN_NAME 
         FROM INFORMATION_SCHEMA.COLUMNS 
         WHERE TABLE_SCHEMA = DATABASE() 
-          AND TABLE_NAME = 'store_floor_layouts' 
-          AND COLUMN_NAME = 'floor_plan_image'
+          AND TABLE_NAME = 'store_floor_layouts'
       `);
-      if (layoutCols.length === 0) {
+      const existingCols = layoutCols.map((c) => c.COLUMN_NAME);
+
+      if (!existingCols.includes("floor_plan_image")) {
         await conn.query(`
           ALTER TABLE store_floor_layouts 
             ADD COLUMN floor_plan_image VARCHAR(500) DEFAULT NULL,
@@ -58,6 +59,22 @@ exports.ensureTableFloorSchema = async (pool) => {
             ADD COLUMN floor_plan_fit VARCHAR(20) DEFAULT 'contain'
         `);
         console.log("Migration: Added floor_plan_image, floor_plan_opacity, floor_plan_fit to store_floor_layouts");
+      }
+
+      if (!existingCols.includes("walls")) {
+        await conn.query(`
+          ALTER TABLE store_floor_layouts 
+            ADD COLUMN walls JSON DEFAULT NULL
+        `);
+        console.log("Migration: Added walls to store_floor_layouts");
+      }
+
+      if (!existingCols.includes("cashier_rotation")) {
+        await conn.query(`
+          ALTER TABLE store_floor_layouts 
+            ADD COLUMN cashier_rotation INT DEFAULT 0
+        `);
+        console.log("Migration: Added cashier_rotation to store_floor_layouts");
       }
     } finally {
       conn.release();

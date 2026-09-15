@@ -12,6 +12,7 @@ import {
   IconMinus,
   IconFocusCentered,
   IconLink,
+  IconGridDots,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getImageURL } from "../../helpers/ImageHelper";
@@ -39,15 +40,17 @@ export default function FloorPlanCanvas({
     show_cashier: true,
     cashier_x: 60,
     cashier_y: 260,
+    cashier_rotation: 0,
     floor_plan_image: null,
     floor_plan_opacity: 0.8,
     floor_plan_fit: "contain",
-    walls: null,
+    walls: [],
   },
   mergedPairs = [], // e.g. [ [id1, id2], [id2, id3] ]
   isMergeMode = false,
   mergeSourceId = null,
   isEditMode = false,
+  isDrawingWall = false,
   selectedTableId = null,
   activeFilter = null,
   onSelectTable = () => {},
@@ -65,27 +68,28 @@ export default function FloorPlanCanvas({
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const floorSettingsRef = useRef(floorSettings);
+  useEffect(() => {
+    floorSettingsRef.current = floorSettings;
+  }, [floorSettings]);
+
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [showGrid, setShowGrid] = useState(true);
+
+  // Wall drawing states
+  const [drawingWall, setDrawingWall] = useState(null); // { x1, y1, x2, y2 }
+  const [hoveredWallId, setHoveredWallId] = useState(null);
 
   // Dragging state for tables, walls, and cashier
   const [draggingItem, setDraggingItem] = useState(null); // { type, id, startMouseX, startMouseY, startX, startY }
 
-  // Default architectural walls if none saved in floorSettings
-  const defaultWalls = useMemo(() => [
-    { id: "w1", x1: 50, y1: 80, x2: 50, y2: 560 },
-    { id: "w2", x1: 50, y1: 80, x2: 500, y2: 80 },
-    { id: "w3", x1: 260, y1: 120, x2: 480, y2: 120 },
-    { id: "w4", x1: 480, y1: 180, x2: 600, y2: 280 },
-    { id: "w5", x1: 240, y1: 420, x2: 380, y2: 560 },
-    { id: "w6", x1: 160, y1: 580, x2: 520, y2: 580 },
-  ], []);
-
-  const walls = floorSettings.walls || defaultWalls;
+  // Custom walls (starts completely clean, no fake default lines)
+  const walls = Array.isArray(floorSettings?.walls) ? floorSettings.walls : [];
 
   // Compute layout positions for tables lacking coordinates
   const processedTables = useMemo(() => {
@@ -170,6 +174,7 @@ export default function FloorPlanCanvas({
   // Pointer down handler for dragging items on canvas
   const handlePointerDownItem = (e, itemType, itemId, currentX, currentY) => {
     if (!isEditMode) return;
+    if (isDrawingWall) return;
     e.stopPropagation();
 
     if (itemType === "table") {
@@ -186,8 +191,19 @@ export default function FloorPlanCanvas({
     });
   };
 
-  // Canvas pan handler (when clicking blank canvas in non-edit mode)
+  // Canvas pan or wall drawing handler
   const handleCanvasPointerDown = (e) => {
+    if (isDrawingWall) {
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const rawX = (e.clientX - rect.left - panOffset.x) / zoomLevel;
+      const rawY = (e.clientY - rect.top - panOffset.y) / zoomLevel;
+      const snapX = Math.round(rawX / 10) * 10;
+      const snapY = Math.round(rawY / 10) * 10;
+      setDrawingWall({ x1: snapX, y1: snapY, x2: snapX, y2: snapY });
+      return;
+    }
+
     if (e.target !== canvasRef.current && !e.target.classList.contains("canvas-pan-surface")) return;
     if (isEditMode) {
       onSelectTable(null);
@@ -199,6 +215,25 @@ export default function FloorPlanCanvas({
 
   useEffect(() => {
     const handlePointerMove = (e) => {
+      if (drawingWall) {
+        if (!canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const rawX = (e.clientX - rect.left - panOffset.x) / zoomLevel;
+        const rawY = (e.clientY - rect.top - panOffset.y) / zoomLevel;
+        let snapX = Math.round(rawX / 10) * 10;
+        let snapY = Math.round(rawY / 10) * 10;
+
+        if (e.shiftKey) {
+          const dx = Math.abs(snapX - drawingWall.x1);
+          const dy = Math.abs(snapY - drawingWall.y1);
+          if (dx > dy) snapY = drawingWall.y1;
+          else snapX = drawingWall.x1;
+        }
+
+        setDrawingWall((prev) => (prev ? { ...prev, x2: snapX, y2: snapY } : null));
+        return;
+      }
+
       if (isPanning) {
         setPanOffset({
           x: e.clientX - panStart.x,
@@ -224,7 +259,7 @@ export default function FloorPlanCanvas({
         });
       } else if (draggingItem.type === "cashier") {
         onFloorSettingsChange({
-          ...floorSettings,
+          ...floorSettingsRef.current,
           cashier_x: Math.max(10, snappedX),
           cashier_y: Math.max(10, snappedY),
         });
@@ -232,6 +267,27 @@ export default function FloorPlanCanvas({
     };
 
     const handlePointerUp = () => {
+      if (drawingWall) {
+        const dist = Math.hypot(drawingWall.x2 - drawingWall.x1, drawingWall.y2 - drawingWall.y1);
+        if (dist >= 20) {
+          const newWall = {
+            id: `w_${Date.now()}`,
+            x1: drawingWall.x1,
+            y1: drawingWall.y1,
+            x2: drawingWall.x2,
+            y2: drawingWall.y2,
+          };
+          const currentWalls = Array.isArray(floorSettingsRef.current?.walls)
+            ? floorSettingsRef.current.walls
+            : [];
+          onFloorSettingsChange({
+            ...floorSettingsRef.current,
+            walls: [...currentWalls, newWall],
+          });
+        }
+        setDrawingWall(null);
+      }
+
       setIsPanning(false);
       setDraggingItem(null);
     };
@@ -243,7 +299,7 @@ export default function FloorPlanCanvas({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [isPanning, panStart, draggingItem, zoomLevel, onTableUpdate, onFloorSettingsChange, floorSettings]);
+  }, [isPanning, panStart, draggingItem, drawingWall, zoomLevel, panOffset, onTableUpdate, onFloorSettingsChange]);
 
   const handleRotateTable = (e, table) => {
     e.stopPropagation();
@@ -280,20 +336,24 @@ export default function FloorPlanCanvas({
       className="relative w-full h-full bg-[#f8fafc] dark:bg-zinc-950 overflow-hidden select-none"
       style={{
         height: typeof canvasHeight === "number" ? `${canvasHeight}px` : canvasHeight,
-        cursor: isPanning ? "grabbing" : "default",
+        cursor: isDrawingWall ? "crosshair" : isPanning ? "grabbing" : "default",
       }}
     >
       {/* Blueprint Grid Lines Background (Faint Bindo pattern) */}
-      <div
-        className="canvas-pan-surface absolute inset-0 pointer-events-auto"
-        style={{
-          backgroundImage: isDark
-            ? "linear-gradient(to right, #27272a 1px, transparent 1px), linear-gradient(to bottom, #27272a 1px, transparent 1px)"
-            : "linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
-          backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
-        }}
-      />
+      {showGrid ? (
+        <div
+          className="canvas-pan-surface absolute inset-0 pointer-events-auto"
+          style={{
+            backgroundImage: isDark
+              ? "linear-gradient(to right, #27272a 1px, transparent 1px), linear-gradient(to bottom, #27272a 1px, transparent 1px)"
+              : "linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)",
+            backgroundSize: "28px 28px",
+            backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
+          }}
+        />
+      ) : (
+        <div className="canvas-pan-surface absolute inset-0 pointer-events-auto" />
+      )}
 
       {/* Main Transform Container for Zoom & Pan */}
       <div
@@ -323,20 +383,82 @@ export default function FloorPlanCanvas({
           xmlns="http://www.w3.org/2000/svg"
         >
           {/* Architectural Wall Dividers */}
-          <g opacity={isDark ? "0.6" : "0.75"}>
-            {walls.map((w) => (
-              <line
-                key={w.id}
-                x1={w.x1}
-                y1={w.y1}
-                x2={w.x2}
-                y2={w.y2}
-                stroke={isDark ? "#3f3f46" : "#cbd5e1"}
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ))}
+          <g>
+            {walls.map((w) => {
+              const isHovered = isEditMode && hoveredWallId === w.id;
+              const midX = (w.x1 + w.x2) / 2;
+              const midY = (w.y1 + w.y2) / 2;
+              return (
+                <g
+                  key={w.id}
+                  onMouseEnter={() => isEditMode && setHoveredWallId(w.id)}
+                  onMouseLeave={() => isEditMode && setHoveredWallId(null)}
+                  className={isEditMode ? "pointer-events-auto cursor-pointer" : "pointer-events-none"}
+                >
+                  {/* Visual wall line */}
+                  <line
+                    x1={w.x1}
+                    y1={w.y1}
+                    x2={w.x2}
+                    y2={w.y2}
+                    stroke={isHovered ? "#ef4444" : (isDark ? "#475569" : "#94a3b8")}
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="transition-colors duration-150"
+                  />
+                  {/* Wider transparent line for easy hover/tap in edit mode */}
+                  {isEditMode && (
+                    <line
+                      x1={w.x1}
+                      y1={w.y1}
+                      x2={w.x2}
+                      y2={w.y2}
+                      stroke="transparent"
+                      strokeWidth="26"
+                      strokeLinecap="round"
+                    />
+                  )}
+                  {/* Delete button at midpoint on hover in Edit Mode */}
+                  {isHovered && (
+                    <g
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextWalls = walls.filter((item) => item.id !== w.id);
+                        onFloorSettingsChange({
+                          ...floorSettingsRef.current,
+                          walls: nextWalls,
+                        });
+                        setHoveredWallId(null);
+                      }}
+                    >
+                      <circle cx={midX} cy={midY} r="13" fill="#ef4444" className="shadow-lg" />
+                      <line x1={midX - 4} y1={midY - 4} x2={midX + 4} y2={midY + 4} stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1={midX + 4} y1={midY - 4} x2={midX - 4} y2={midY + 4} stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                    </g>
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Currently drawing wall preview */}
+            {drawingWall && (
+              <g className="pointer-events-none">
+                <line
+                  x1={drawingWall.x1}
+                  y1={drawingWall.y1}
+                  x2={drawingWall.x2}
+                  y2={drawingWall.y2}
+                  stroke="#0ea5e9"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray="8 6"
+                />
+                <circle cx={drawingWall.x1} cy={drawingWall.y1} r="5" fill="#0ea5e9" />
+                <circle cx={drawingWall.x2} cy={drawingWall.y2} r="5" fill="#0ea5e9" />
+              </g>
+            )}
           </g>
 
           {/* Curved Bezier Connection Lines for Merged Tables */}
@@ -368,24 +490,64 @@ export default function FloorPlanCanvas({
                 floorSettings.cashier_y ?? 260
               )
             }
-            className={`absolute rounded-2xl border-2 border-slate-300 dark:border-zinc-700 bg-slate-100/90 dark:bg-zinc-800/90 flex items-center justify-center text-xs font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase shadow-xs pointer-events-auto ${
-              isEditMode ? "cursor-grab active:cursor-grabbing hover:border-[#0ea5e9]" : ""
+            className={`absolute rounded-2xl border-2 border-slate-300 dark:border-zinc-700 bg-slate-100/90 dark:bg-zinc-800/90 flex items-center justify-center font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase shadow-xs pointer-events-auto z-20 group transition-shadow ${
+              isEditMode ? "cursor-grab active:cursor-grabbing hover:border-[#0ea5e9] hover:shadow-md" : ""
             }`}
             style={{
               left: `${floorSettings.cashier_x ?? 60}px`,
               top: `${floorSettings.cashier_y ?? 260}px`,
-              width: "74px",
-              height: "160px",
+              width: (floorSettings.cashier_rotation || 0) % 180 === 90 ? "160px" : "74px",
+              height: (floorSettings.cashier_rotation || 0) % 180 === 90 ? "74px" : "160px",
             }}
           >
-            <span className="rotate-[-90deg] select-none pointer-events-none">
+            <span
+              className={`select-none pointer-events-none text-xs px-2 text-center leading-snug ${
+                (floorSettings.cashier_rotation || 0) % 180 === 90 ? "" : "rotate-[-90deg]"
+              }`}
+            >
               {t("tables.cashier", "CASHIER")}
             </span>
+
+            {/* In Edit Mode: rotate & hide buttons */}
+            {isEditMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const nextRot = ((floorSettings.cashier_rotation || 0) + 90) % 360;
+                    onFloorSettingsChange({
+                      ...floorSettingsRef.current,
+                      cashier_rotation: nextRot,
+                    });
+                  }}
+                  title={t("tables.rotate", "Rotate 90°")}
+                  className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-600 shadow-md flex items-center justify-center text-slate-600 dark:text-slate-200 hover:text-[#0ea5e9] hover:border-[#0ea5e9] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                >
+                  <IconRotate size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFloorSettingsChange({
+                      ...floorSettingsRef.current,
+                      show_cashier: false,
+                    });
+                  }}
+                  title={t("tables.hide_cashier", "Hide Cashier")}
+                  className="absolute -top-3 -left-3 w-6 h-6 rounded-full bg-white dark:bg-zinc-800 border border-rose-300 dark:border-rose-900 shadow-md flex items-center justify-center text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                >
+                  <IconTrash size={13} />
+                </button>
+              </>
+            )}
           </div>
         )}
 
         {/* Interactive Bindo Tables */}
-        <div className="absolute inset-0 pointer-events-auto z-10">
+        <div className="absolute inset-0 pointer-events-none z-10">
           {processedTables.map((table) => {
             const isSelected = selectedTableId === table.id;
             const isMergeSource = mergeSourceId === table.id;
@@ -419,8 +581,23 @@ export default function FloorPlanCanvas({
         </div>
       </div>
 
-      {/* Floating Bottom Left Zoom Controls (Matching Bindo Labs iPad POS) */}
+      {/* Floating Bottom Left Zoom & Grid Controls */}
       <div className="absolute bottom-4 left-4 flex items-center gap-1 p-1 bg-white/95 dark:bg-zinc-900/95 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg backdrop-blur-md z-30 select-none">
+        <button
+          type="button"
+          onClick={() => setShowGrid((prev) => !prev)}
+          title={showGrid ? t("tables.hide_grid", "Hide Grid Lines") : t("tables.show_grid", "Show Grid Lines")}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
+            showGrid
+              ? "text-[#0ea5e9] bg-sky-50 dark:bg-zinc-800"
+              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+          }`}
+        >
+          <IconGridDots size={16} />
+        </button>
+
+        <div className="w-[1px] h-4 bg-slate-200 dark:bg-zinc-700 my-auto mx-0.5" />
+
         <button
           type="button"
           onClick={() => setZoomLevel((z) => Math.max(0.5, Number((z - 0.15).toFixed(2))))}

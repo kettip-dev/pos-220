@@ -566,13 +566,28 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
         const [tables] = await conn.query(sql, [CONFIG.ENCRYPTION_KEY, tenantId, tenantId]);
 
         const [layouts] = await conn.query(
-            `SELECT floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit FROM store_floor_layouts WHERE tenant_id = ?`,
+            `SELECT floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, cashier_rotation FROM store_floor_layouts WHERE tenant_id = ?`,
             [tenantId]
         );
 
+        const parsedLayouts = layouts.map((l) => {
+            let parsedWalls = null;
+            if (l.walls) {
+                try {
+                    parsedWalls = typeof l.walls === "string" ? JSON.parse(l.walls) : l.walls;
+                } catch {
+                    parsedWalls = null;
+                }
+            }
+            return {
+                ...l,
+                walls: parsedWalls,
+            };
+        });
+
         return {
             tables,
-            layouts
+            layouts: parsedLayouts
         };
     } catch (error) {
         console.error(error);
@@ -605,23 +620,29 @@ exports.saveTableLayoutPositionsDB = async (tenantId, floor, tables = [], floorS
             const cashierY = floorSettings.cashier_y !== undefined ? floorSettings.cashier_y : 300;
             const cashierW = floorSettings.cashier_w !== undefined ? floorSettings.cashier_w : 90;
             const cashierH = floorSettings.cashier_h !== undefined ? floorSettings.cashier_h : 200;
+            const cashierRotation = floorSettings.cashier_rotation !== undefined ? Number(floorSettings.cashier_rotation) : 0;
             const floorPlanImage = floorSettings.floor_plan_image !== undefined ? floorSettings.floor_plan_image : null;
             const floorPlanOpacity = floorSettings.floor_plan_opacity !== undefined ? floorSettings.floor_plan_opacity : 0.8;
             const floorPlanFit = floorSettings.floor_plan_fit || 'contain';
+            const walls = floorSettings.walls !== undefined && floorSettings.walls !== null
+                ? (typeof floorSettings.walls === "string" ? floorSettings.walls : JSON.stringify(floorSettings.walls))
+                : null;
 
             await conn.query(
-                `INSERT INTO store_floor_layouts (tenant_id, floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `INSERT INTO store_floor_layouts (tenant_id, floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, cashier_rotation, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE 
                     show_cashier = VALUES(show_cashier),
                     cashier_x = VALUES(cashier_x),
                     cashier_y = VALUES(cashier_y),
                     cashier_w = VALUES(cashier_w),
                     cashier_h = VALUES(cashier_h),
+                    cashier_rotation = VALUES(cashier_rotation),
                     floor_plan_image = VALUES(floor_plan_image),
                     floor_plan_opacity = VALUES(floor_plan_opacity),
-                    floor_plan_fit = VALUES(floor_plan_fit)`,
-                [tenantId, floor, showCashier, cashierX, cashierY, cashierW, cashierH, floorPlanImage, floorPlanOpacity, floorPlanFit]
+                    floor_plan_fit = VALUES(floor_plan_fit),
+                    walls = VALUES(walls)`,
+                [tenantId, floor, showCashier, cashierX, cashierY, cashierW, cashierH, cashierRotation, floorPlanImage, floorPlanOpacity, floorPlanFit, walls]
             );
         }
 

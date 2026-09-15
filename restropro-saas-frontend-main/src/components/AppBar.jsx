@@ -237,25 +237,14 @@ export default function AppBar() {
             sits beside the search box instead of being spread to the middle by
             the container's justify-between. */}
         <div className="flex items-center gap-3">
-          {/* search */}
+          {/* search icon button */}
           <button
             onClick={btnShowSearchModal}
-            className="rounded-full flex items-center px-3 py-2 gap-2 bg-restro-green-light text-restro-text"
+            title={`${t('appbar.search_placeholder', 'Search')} (Cmd+K)`}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-restro-green-light text-restro-text hover:bg-restro-border-green transition cursor-pointer"
           >
-            <IconSearch stroke={iconStroke} />
-            <div
-              type="text"
-              className="bg-transparent outline-none text-start w-48 md:flex items-center justify-between hidden"
-              placeholder={t('appbar.search_placeholder')}
-            >
-              <p>{t('appbar.search_placeholder')}</p>
-              <div className="flex items-center gap-2">
-                <div className="kbd kbd-sm rounded-lg"><IconCommand stroke={iconStroke} size={20}/></div>
-                <div className="kbd kbd-sm rounded-lg">K</div>
-              </div>
-            </div>
+            <IconSearch stroke={iconStroke} size={20} />
           </button>
-          {/* search */}
 
           {/* business switcher — renders null for every role except group_owner */}
           <BusinessSwitcher />

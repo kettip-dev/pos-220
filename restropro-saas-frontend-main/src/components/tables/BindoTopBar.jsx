@@ -10,6 +10,7 @@ import {
   IconAdjustmentsHorizontal,
   IconWifi,
   IconWifiOff,
+  IconTrash,
 } from "@tabler/icons-react";
 
 export default function BindoTopBar({
@@ -21,6 +22,12 @@ export default function BindoTopBar({
   onEnterEditMode = () => {},
   onSaveEditMode = () => {},
   onCancelEditMode = () => {},
+  isDrawingWall = false,
+  onToggleDrawingWall = () => {},
+  hasWalls = false,
+  onClearWalls = () => {},
+  showCashier = true,
+  onToggleCashier = () => {},
   dineInCount = 0,
   pickUpCount = 0,
   isSocketConnected = true,
@@ -114,6 +121,53 @@ export default function BindoTopBar({
         {/* Edit Layout vs Normal Mode Actions */}
         {isEditMode ? (
           <div className="flex items-center gap-2">
+            {/* Draw Wall Tool Toggle */}
+            <button
+              type="button"
+              onClick={onToggleDrawingWall}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                isDrawingWall
+                  ? "bg-amber-500 border-amber-600 text-white shadow-xs"
+                  : "border-slate-300 dark:border-zinc-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              }`}
+              title={t("tables.draw_wall_tooltip", "Click and drag on floor to draw partition walls")}
+            >
+              <IconPencil size={14} />
+              <span>{isDrawingWall ? t("tables.drawing_wall", "Drawing...") : t("tables.draw_wall", "Draw Wall")}</span>
+            </button>
+
+            {/* Clear All Walls button */}
+            {hasWalls && (
+              <button
+                type="button"
+                onClick={onClearWalls}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+                title={t("tables.clear_walls", "Clear All Walls")}
+              >
+                <IconTrash size={14} />
+                <span className="hidden xl:inline">{t("tables.clear_walls", "Clear Walls")}</span>
+              </button>
+            )}
+
+            {/* Cashier Station Toggle */}
+            <button
+              type="button"
+              onClick={onToggleCashier}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                showCashier
+                  ? "border-[#0ea5e9]/50 bg-sky-50 dark:bg-sky-950/40 text-[#0ea5e9]"
+                  : "border-slate-300 dark:border-zinc-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              }`}
+              title={showCashier ? t("tables.hide_cashier", "Hide Cashier Desk") : t("tables.show_cashier", "Show Cashier Desk")}
+            >
+              <span>{t("tables.cashier", "Cashier")}</span>
+              <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${showCashier ? "bg-[#0ea5e9] text-white" : "bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-slate-300"}`}>
+                {showCashier ? "ON" : "OFF"}
+              </span>
+            </button>
+
+            <div className="w-[1px] h-4 bg-slate-300 dark:bg-zinc-700 mx-0.5" />
+
             <button
               type="button"
               onClick={onCancelEditMode}
