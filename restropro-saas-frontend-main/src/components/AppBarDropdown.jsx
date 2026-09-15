@@ -22,7 +22,7 @@ import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { useTheme } from "../contexts/ThemeContext";
 import clsx from "clsx";
 
-export default function AppBarDropdown() {
+export default function AppBarDropdown({ isCollapsed = false, className = "" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = getUserDetailsInLocalStorage();
@@ -49,19 +49,38 @@ export default function AppBarDropdown() {
     "group flex gap-2 w-full items-center rounded-2xl px-3 py-2 text-sm transition-colors ";
 
   return (
-    <Menu as="div" className="relative inline-block text-left z-50">
+    <Menu as="div" className="relative inline-block text-left z-50 w-full">
       <div>
         <Menu.Button
           className={clsx(
-            "text-sm transition rounded-full flex items-center gap-0 md:gap-2",
-            theme === "black"
-              ? "bg-restro-gray hover:bg-restro-button-hover text-white"
-              : "bg-restro-green-light hover:bg-restro-button-hover text-restro-green-dark"
+            "text-sm transition rounded-2xl flex items-center justify-between gap-2 p-1.5 w-full cursor-pointer",
+            isCollapsed
+              ? "w-11 h-11 justify-center rounded-full hover:bg-restro-border-green-light dark:hover:bg-zinc-800"
+              : "hover:bg-restro-border-green-light/60 dark:hover:bg-zinc-800/60 border border-transparent hover:border-slate-200 dark:hover:border-zinc-700",
+            className
           )}
         >
-          <img src={AvatarImg} alt="avatar" className="w-10 h-10 rounded-full p-1" />
-          <p className="font-medium hidden md:block">{user.name}</p>
-          <IconChevronDown stroke={iconStroke} className="mr-1" size={18} />
+          <div className="flex items-center gap-2.5 overflow-hidden text-left">
+            <img
+              src={AvatarImg}
+              alt="avatar"
+              className="w-10 h-10 rounded-full shrink-0 border border-slate-200 dark:border-zinc-700 p-0.5 bg-white dark:bg-zinc-800"
+            />
+            {!isCollapsed && (
+              <div className="truncate">
+                <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
+                  {user.name}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize">
+                  {user.role}
+                  {user.designation ? ` • ${user.designation}` : ""}
+                </p>
+              </div>
+            )}
+          </div>
+          {!isCollapsed && (
+            <IconChevronDown stroke={iconStroke} className="text-slate-400 shrink-0 mr-1" size={18} />
+          )}
         </Menu.Button>
       </div>
 
@@ -76,8 +95,7 @@ export default function AppBarDropdown() {
       >
         <Menu.Items
           className={clsx(
-            "absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 dark:divide-gray-600 rounded-2xl shadow-lg ring-1 ring-black/5 focus:outline-none bg-background border-restro-border-green"
-            
+            "absolute left-0 mt-2 w-60 origin-top-left divide-y divide-gray-100 dark:divide-zinc-800 rounded-2xl shadow-2xl ring-1 ring-black/5 focus:outline-none bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 z-50 p-1"
           )}
         >
           <div className="px-1 py-1">

@@ -17,6 +17,8 @@ import {
   IconStars,
   IconToolsKitchen3,
   IconUsersGroup,
+  IconSearch,
+  IconCommand,
 } from "@tabler/icons-react";
 import { clsx } from "clsx";
 import AvatarImg from "../assets/avatar.svg";
@@ -27,6 +29,9 @@ import { toggleNavbar } from "../helpers/NavbarSettings";
 import { PLAN_FEATURES, SCOPES, hasFullBusinessAccess } from "../config/scopes";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
+import AppBarDropdown from "./AppBarDropdown";
+import BusinessSwitcher from "./BusinessSwitcher";
+import { showSearchModal } from "./SearchModal";
 
 export const getNavbarItems = (t) => [
   {
@@ -189,7 +194,23 @@ export default function Navbar() {
 
   if (isNavbarCollapsed) {
     return (
-      <div className="flex flex-col items-start gap-4 h-screen px-5 py-6 overflow-y-auto fixed left-0 top-0 bg-restro-green-light">
+      <div className="flex flex-col items-center gap-3 h-screen px-3 py-4 overflow-y-auto fixed left-0 top-0 bg-restro-green-light border-r border-restro-border-green z-40">
+        {/* User Profile Avatar with dropdown */}
+        <div className="mb-1 w-full flex justify-center">
+          <AppBarDropdown isCollapsed={true} />
+        </div>
+
+        {/* Search button (Cmd+K) */}
+        <button
+          type="button"
+          onClick={showSearchModal}
+          title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-800/70 hover:bg-restro-border-green-light text-slate-600 dark:text-slate-300 border border-restro-border-green transition cursor-pointer shadow-2xs"
+        >
+          <IconSearch size={18} stroke={iconStroke} />
+        </button>
+
+        <div className="w-8 h-[1px] bg-restro-border-green my-1" />
 
         {navbarItems.filter(item => {
           if (userRole === "admin") return true;
@@ -253,22 +274,33 @@ export default function Navbar() {
 
   return (
     <div className="relative h-screen">
-      <div className="flex flex-col items-start gap-2 md:w-72 md:gap-3 h-screen px-5 py-6 overflow-y-auto fixed left-0 top-0 bg-restro-green-light">
+      <div className="flex flex-col items-start gap-2 md:w-72 md:gap-2.5 h-screen px-4 py-5 overflow-y-auto fixed left-0 top-0 bg-restro-green-light border-r border-restro-border-green z-40">
 
-        <div className="hidden md:flex items-center gap-2 w-full md:mb-6">
-          <img
-            src={AvatarImg}
-            alt="avatar"
-            className="md:w-12 md:h-12 rounded-full block"
-          />
-          <div>
-            <p className="font-medium">{user.name}</p>
-            <p className="text-xs text-gray-500">
-              {new String(user.role).toUpperCase()}
-              {user.designation && <span>, {user.designation}</span>}
-            </p>
-          </div>
+        {/* Top Header in Sidebar: User Profile Dropdown & Business Switcher */}
+        <div className="w-full space-y-2 mb-2">
+          <AppBarDropdown isCollapsed={false} />
+          <BusinessSwitcher />
+
+          {/* Quick Search Bar Button */}
+          <button
+            type="button"
+            onClick={showSearchModal}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-restro-border-green bg-white/70 dark:bg-zinc-800/70 hover:bg-restro-border-green-light transition text-sm shadow-2xs cursor-pointer group"
+          >
+            <div className="flex items-center gap-2">
+              <IconSearch size={16} stroke={iconStroke} className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {t("appbar.search_placeholder", "Search...")}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 opacity-60">
+              <div className="kbd kbd-xs rounded px-1 text-[10px] font-mono"><IconCommand size={10} /></div>
+              <div className="kbd kbd-xs rounded px-1 text-[10px] font-mono">K</div>
+            </div>
+          </button>
         </div>
+
+        <div className="w-full h-[1px] bg-restro-border-green mb-1" />
 
         {
           navbarItems.filter(item => {

@@ -19,6 +19,7 @@ import {
   IconPhone,
   IconUsers,
   IconCheck,
+  IconPencil,
 } from "@tabler/icons-react";
 
 export default function BindoActionDrawer({
@@ -33,6 +34,7 @@ export default function BindoActionDrawer({
   onSplitChecks = () => {},
   onMoveLineItem = () => {},
   onNewOrder = () => {}, // (orderType: "dine_in" | "take_away" | "delivery", table)
+  onEditTable = () => {},
   onReservationOverview = () => {},
   onPrintReservation = () => {},
   // Table list & reservations data
@@ -130,14 +132,26 @@ export default function BindoActionDrawer({
                   )}
                 </div>
 
-                {selectedTable.active_order_total && (
-                  <div className="text-right">
-                    <span className="text-xs text-slate-400 block">{t("orders.total", "Total")}</span>
-                    <span className="text-base font-black text-[#0ea5e9]">
-                      {currency}{Number(selectedTable.active_order_total).toFixed(2)}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {selectedTable.active_order_total && (
+                    <div className="text-right">
+                      <span className="text-xs text-slate-400 block">{t("orders.total", "Total")}</span>
+                      <span className="text-base font-black text-[#0ea5e9]">
+                        {currency}{Number(selectedTable.active_order_total).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => onEditTable(selectedTable)}
+                    title={t("table_settings.update_table", "Edit Table")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-700 text-xs font-bold shadow-2xs transition active:scale-95 cursor-pointer"
+                  >
+                    <IconPencil size={14} />
+                    <span>{t("common.edit", "Edit")}</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-dashed border-slate-200 dark:border-zinc-700 text-center text-xs text-slate-400">
@@ -233,32 +247,6 @@ export default function BindoActionDrawer({
                     {t("orders.delivery", "Delivery")}
                   </span>
                   <span className="text-xs opacity-80">→</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Section: Other Actions */}
-            <div>
-              <h4 className="text-xs font-bold tracking-wider uppercase text-slate-400 dark:text-slate-500 mb-2.5">
-                {t("tables.other_actions", "Other Actions")}
-              </h4>
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={onReservationOverview}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-[#0ea5e9] text-[#0ea5e9] hover:bg-sky-50 dark:hover:bg-sky-950/40 font-bold text-xs transition cursor-pointer"
-                >
-                  <IconCalendarEvent size={16} />
-                  <span>{t("tables.reservation_overview", "Reservation Overview")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onPrintReservation}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-[#0ea5e9] text-[#0ea5e9] hover:bg-sky-50 dark:hover:bg-sky-950/40 font-bold text-xs transition cursor-pointer"
-                >
-                  <IconPrinter size={16} />
-                  <span>{t("tables.print_reservation", "Print Reservation")}</span>
                 </button>
               </div>
             </div>

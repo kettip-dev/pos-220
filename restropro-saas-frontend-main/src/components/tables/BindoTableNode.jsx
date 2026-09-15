@@ -307,6 +307,10 @@ const BindoTableNode = memo(function BindoTableNode({
         e.stopPropagation();
         onClick && onClick(table);
       }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onEdit && onEdit(table);
+      }}
       className={`absolute select-none transition-all duration-150 group ${
         isEditMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
       } ${isDimmed ? "opacity-30 pointer-events-none" : "opacity-100"}`}

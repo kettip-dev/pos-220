@@ -7,29 +7,42 @@ export default function AddEditTableModal({
   onClose,
   onSave,
   initialData = null,
-  currentFloor = "1",
+  tableData = null,
+  currentFloor = "0",
 }) {
   const { t } = useTranslation();
+  const activeData = initialData || tableData || null;
+
+  const parseFloor = (data, fallback) => {
+    if (data?.floor !== undefined && data?.floor !== null && String(data.floor).trim() !== "") {
+      return String(data.floor);
+    }
+    if (fallback !== undefined && fallback !== null && String(fallback).trim() !== "") {
+      return String(fallback);
+    }
+    return "0";
+  };
 
   const [title, setTitle] = useState("");
-  const [floor, setFloor] = useState(currentFloor || "1");
+  const [floor, setFloor] = useState(parseFloor(activeData, currentFloor));
   const [shape, setShape] = useState("round");
   const [seatingCapacity, setSeatingCapacity] = useState(2);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.table_title || "");
-      setFloor(initialData.floor || currentFloor || "1");
-      setShape(initialData.shape || "round");
-      setSeatingCapacity(initialData.seating_capacity || 2);
+    const data = initialData || tableData;
+    if (data) {
+      setTitle(data.table_title || "");
+      setFloor(parseFloor(data, currentFloor));
+      setShape(data.shape || "round");
+      setSeatingCapacity(data.seating_capacity || 2);
     } else {
       setTitle("");
-      setFloor(currentFloor || "1");
+      setFloor(parseFloor(null, currentFloor));
       setShape("round");
       setSeatingCapacity(2);
     }
-  }, [initialData, currentFloor, isOpen]);
+  }, [initialData, tableData, currentFloor, isOpen]);
 
   const handleShapeChange = (newShape) => {
     setShape(newShape);
@@ -42,15 +55,16 @@ export default function AddEditTableModal({
     e.preventDefault();
     if (!title.trim()) return;
 
+    const data = initialData || tableData;
     try {
       setIsSubmitting(true);
       await onSave({
-        id: initialData?.id,
+        id: data?.id,
         table_title: title.trim(),
-        floor: floor.trim() || "1",
+        floor: floor.trim() || "0",
         seating_capacity: Number(seatingCapacity) || 2,
         shape,
-        rotation: initialData?.rotation || 0,
+        rotation: data?.rotation || 0,
       });
       onClose();
     } catch (err) {
@@ -66,7 +80,7 @@ export default function AddEditTableModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
       <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-zinc-800 p-6">
         <h3 className="text-xl font-semibold text-center text-gray-900 dark:text-white mb-6">
-          {initialData ? t("table_settings.update_table", "Edit Table") : t("table_settings.add_new_table", "Add Table")}
+          {activeData ? t("table_settings.update_table", "Edit Table") : t("table_settings.add_new_table", "Add Table")}
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -19,6 +19,7 @@ import { useReservations } from "../controllers/reservations.controller";
 import FloorPlanCanvas from "../components/tables/FloorPlanCanvas";
 import TableDetailsModal from "../components/tables/TableDetailsModal";
 import AddEditTableModal from "../components/tables/AddEditTableModal";
+import AllTablesCardsModal from "../components/tables/AllTablesCardsModal";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
@@ -102,6 +103,7 @@ export default function TablesPage() {
   // Modals state
   const [activeDetailsTable, setActiveDetailsTable] = useState(null);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [isAllTablesModalOpen, setIsAllTablesModalOpen] = useState(false);
   const [editingTableData, setEditingTableData] = useState(null);
 
   // Sync state when floor changes
@@ -421,7 +423,7 @@ export default function TablesPage() {
   };
 
   return (
-    <Page className="h-[calc(100vh-65px)] max-h-[calc(100vh-65px)] flex flex-col p-0 overflow-hidden w-full bg-[#f8fafc] dark:bg-zinc-950">
+    <Page className="h-screen max-h-screen flex flex-col p-0 overflow-hidden w-full bg-[#f8fafc] dark:bg-zinc-950">
       {/* 1. Top Zone & Order Counters Bar */}
       <BindoTopBar
         zones={zones}
@@ -506,6 +508,10 @@ export default function TablesPage() {
             seatedTables={seatedTablesList}
             pendingOrders={[]}
             onSeatReservation={handleSeatReservation}
+            onEditTable={(table) => {
+              setEditingTableData(table);
+              setIsAddEditModalOpen(true);
+            }}
             currency={currency}
           />
         )}
@@ -520,9 +526,19 @@ export default function TablesPage() {
         isRefreshing={isLoading}
         isDrawerOpen={isDrawerOpen}
         onToggleDrawer={() => setIsDrawerOpen((prev) => !prev)}
-        onOpenOptionsMenu={() => {
+        onAddTable={() => {
           setEditingTableData(null);
           setIsAddEditModalOpen(true);
+        }}
+        onOpenAllTables={() => setIsAllTablesModalOpen(true)}
+        onOpenOptionsMenu={() => {
+          if (selectedTable) {
+            setEditingTableData(selectedTable);
+            setIsAddEditModalOpen(true);
+          } else {
+            setEditingTableData(null);
+            setIsAddEditModalOpen(true);
+          }
         }}
       />
 
@@ -533,6 +549,7 @@ export default function TablesPage() {
           setIsAddEditModalOpen(false);
           setEditingTableData(null);
         }}
+        initialData={editingTableData}
         tableData={editingTableData}
         currentFloor={currentFloor}
         onSave={async (formData) => {
@@ -575,6 +592,29 @@ export default function TablesPage() {
           onUpdate={() => mutate()}
         />
       )}
+
+      {/* All Tables Overview (Cards View) Modal */}
+      <AllTablesCardsModal
+        isOpen={isAllTablesModalOpen}
+        onClose={() => setIsAllTablesModalOpen(false)}
+        tables={rawTables}
+        zones={zones}
+        currentFloor={currentFloor}
+        onSelectTable={(table) => {
+          if (table.floor !== undefined && table.floor !== null && String(table.floor) !== String(currentFloor)) {
+            setCurrentFloor(String(table.floor));
+          }
+          setSelectedTableId(table.id);
+          setIsDrawerOpen(true);
+          setDrawerMode("actions");
+          setIsAllTablesModalOpen(false);
+        }}
+        onNewOrder={(orderType, table) => {
+          setIsAllTablesModalOpen(false);
+          handleNewOrder(orderType, table);
+        }}
+        currency={currency}
+      />
     </Page>
   );
 }
