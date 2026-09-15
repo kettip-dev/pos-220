@@ -302,7 +302,10 @@ const BindoTableNode = memo(function BindoTableNode({
 
   return (
     <div
-      onPointerDown={(e) => onPointerDown && onPointerDown(e, table)}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPointerDown && onPointerDown(e, table);
+      }}
       onClick={(e) => {
         e.stopPropagation();
         onClick && onClick(table);
@@ -311,9 +314,9 @@ const BindoTableNode = memo(function BindoTableNode({
         e.stopPropagation();
         onEdit && onEdit(table);
       }}
-      className={`absolute select-none transition-all duration-150 group ${
-        isEditMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
-      } ${isDimmed ? "opacity-30 pointer-events-none" : "opacity-100"}`}
+      className={`absolute select-none transition-all duration-150 group pointer-events-auto ${
+        isDimmed ? "opacity-30 pointer-events-none" : "opacity-100"
+      } ${isEditMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
       style={{
         left: `${table.pos_x}px`,
         top: `${table.pos_y}px`,

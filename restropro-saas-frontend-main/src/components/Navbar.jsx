@@ -194,79 +194,84 @@ export default function Navbar() {
 
   if (isNavbarCollapsed) {
     return (
-      <div className="flex flex-col items-center gap-3 h-screen px-3 py-4 overflow-y-auto fixed left-0 top-0 bg-restro-green-light border-r border-restro-border-green z-40">
-        {/* User Profile Avatar with dropdown */}
-        <div className="mb-1 w-full flex justify-center">
-          <AppBarDropdown isCollapsed={true} />
-        </div>
+      <div className="relative h-screen">
+        <div className="flex flex-col items-center gap-3 h-screen w-20 px-3 py-4 pb-20 overflow-y-auto fixed left-0 top-0 bg-restro-green-light border-r border-restro-border-green z-40">
+          {/* User Profile Avatar with dropdown */}
+          <div className="mb-1 w-full flex justify-center">
+            <AppBarDropdown isCollapsed={true} />
+          </div>
 
-        {/* Search button (Cmd+K) */}
-        <button
-          type="button"
-          onClick={showSearchModal}
-          title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
-          className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-800/70 hover:bg-restro-border-green-light text-slate-600 dark:text-slate-300 border border-restro-border-green transition cursor-pointer shadow-2xs"
-        >
-          <IconSearch size={18} stroke={iconStroke} />
-        </button>
+          {/* Search button (Cmd+K) */}
+          <button
+            type="button"
+            onClick={showSearchModal}
+            title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
+            className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-800/70 hover:bg-restro-border-green-light text-slate-600 dark:text-slate-300 border border-restro-border-green transition cursor-pointer shadow-2xs"
+          >
+            <IconSearch size={18} stroke={iconStroke} />
+          </button>
 
-        <div className="w-8 h-[1px] bg-restro-border-green my-1" />
+          <div className="w-8 h-[1px] bg-restro-border-green my-1" />
 
-        {navbarItems.filter(item => {
-          if (userRole === "admin") return true;
-          const requiredScopes = item.features
-          if (requiredScopes?.length == 0) {
-            return true;
-          }
-          return requiredScopes?.some(scope => userPlanFeatures.includes(scope))
-        }).filter((navItem) => {
-          const requiredScopes = navItem.scopes;
-          if (navItem.type == "link") {
-            if (hasFullBusinessAccess(userRole)) {
+          {navbarItems.filter(item => {
+            if (userRole === "admin") return true;
+            const requiredScopes = item.features
+            if (requiredScopes?.length == 0) {
               return true;
             }
+            return requiredScopes?.some(scope => userPlanFeatures.includes(scope))
+          }).filter((navItem) => {
+            const requiredScopes = navItem.scopes;
+            if (navItem.type == "link") {
+              if (hasFullBusinessAccess(userRole)) {
+                return true;
+              }
 
-            return requiredScopes.some((scope) => userScopes.includes(scope));
-          }
-        }).map((item, index) => {
-          if (item.type == "text") {
-            return;
-          }
+              return requiredScopes.some((scope) => userScopes.includes(scope));
+            }
+          }).map((item, index) => {
+            if (item.type == "text") {
+              return;
+            }
 
-          const isActive = isItemActive(item.path, pathname);
+            const isActive = isItemActive(item.path, pathname);
 
-          return (
-            <Link
-              key={index}
-              className={clsx(
-                `w-12 h-12 flex items-center justify-center rounded-full transition`,
-                {
-                  "bg-restro-bg-hover-dark-mode font-medium text-white": theme === 'black' && isActive,
-                  "bg-restro-border-green-light font-medium text-black": theme !== 'black' && isActive,
-                  "hover:bg-restro-bg-hover-dark-mode": theme === 'black' && !isActive,
-                  "hover:bg-restro-border-green-light": theme !== 'black' && !isActive,
-                }
-              )}
-              to={item.path}
-            >
-              {React.cloneElement(item.icon, {
-                className: clsx(
-                  "transition-colors text-current",
+            return (
+              <Link
+                key={index}
+                className={clsx(
+                  `w-12 h-12 flex items-center justify-center rounded-full transition`,
                   {
-                    'text-white': theme === 'black' && isActive,
-                    'text-black': theme !== 'black' && isActive,
+                    "bg-restro-bg-hover-dark-mode font-medium text-white": theme === 'black' && isActive,
+                    "bg-restro-border-green-light font-medium text-black": theme !== 'black' && isActive,
+                    "hover:bg-restro-bg-hover-dark-mode": theme === 'black' && !isActive,
+                    "hover:bg-restro-border-green-light": theme !== 'black' && !isActive,
                   }
-                ),
-              })}
-            </Link>
-          );
-        })}
+                )}
+                to={item.path}
+              >
+                {React.cloneElement(item.icon, {
+                  className: clsx(
+                    "transition-colors text-current",
+                    {
+                      'text-white': theme === 'black' && isActive,
+                      'text-black': theme !== 'black' && isActive,
+                    }
+                  ),
+                })}
+              </Link>
+            );
+          })}
+        </div>
 
+        {/* Toggle Uncollapse / Expand Button */}
         <button
+          type="button"
           onClick={btnToggleNavbar}
-          className="w-12 h-12 flex items-center justify-center rounded-full transitionborder border-restro-green-light hover:bg-restro-border-green text-restro-text"
+          title={t("navbar.expand", "Expand sidebar")}
+          className="w-8 h-8 hidden md:flex items-center justify-center rounded-full border transition bg-white dark:bg-zinc-800 border-restro-border-green hover:bg-restro-border-green-light shadow-md text-slate-600 dark:text-slate-200 fixed bottom-6 left-20 -translate-x-1/2 z-50 cursor-pointer"
         >
-          <IconChevronRight stroke={iconStroke} />
+          <IconChevronRight stroke={iconStroke} size={16} />
         </button>
       </div>
     );
@@ -371,11 +376,14 @@ export default function Navbar() {
           })}
       </div>
 
+      {/* Toggle Collapse Button */}
       <button
+        type="button"
         onClick={btnToggleNavbar}
-        className="w-9 h-9 hidden md:flex items-center justify-center rounded-full border transition bg-restro-green-light border-restro-border-green dark:bg-restro-gray hover:bg-gray-100 dark:hover:bg-restro-button-hover text-gray-500 fixed bottom-4 left-[17.5rem] -translate-x-1/2"
+        title={t("navbar.collapse", "Collapse sidebar")}
+        className="w-8 h-8 hidden md:flex items-center justify-center rounded-full border transition bg-white dark:bg-zinc-800 border-restro-border-green hover:bg-restro-border-green-light shadow-md text-slate-600 dark:text-slate-200 fixed bottom-6 left-72 -translate-x-1/2 z-50 cursor-pointer"
       >
-        <IconChevronLeft stroke={iconStroke} size={18} />
+        <IconChevronLeft stroke={iconStroke} size={16} />
       </button>
     </div>
   );

@@ -80,7 +80,7 @@ export default function HorizontalSettingsNav() {
   ];
 
   return (
-    <div className="w-full border-b border-restro-border-green px-4 py-3 bg-white dark:bg-[#1a1a1a] sticky top-[57px] z-[990]">
+    <div className="w-full border-b border-restro-border-green px-4 py-3 bg-white dark:bg-[#1a1a1a] sticky top-0 z-30">
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth">
         {/* Setting Navigation Pills */}
         {navItems.map((item, index) => {

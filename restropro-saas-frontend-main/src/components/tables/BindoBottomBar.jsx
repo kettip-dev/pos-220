@@ -37,7 +37,22 @@ export default function BindoBottomBar({
   const { t } = useTranslation();
 
   const statusChips = [
+    { key: "seated", label: t("tables.seated", "SEATED"), count: metrics.seated, bg: "bg-[#0ea5e9]", text: "text-white" },
+    { key: "ordered", label: t("tables.ordered", "ORDERED"), count: metrics.ordered, bg: "bg-[#1e293b]", text: "text-white" },
+    { key: "ck_dropped", label: t("tables.ck_dropped", "CK DROPPED"), count: metrics.ck_dropped, bg: "bg-[#f97316]", text: "text-white" },
+    { key: "paid", label: t("tables.paid", "PAID"), count: metrics.paid, bg: "bg-[#4ade80]", text: "text-[#064e3b]" },
+    { key: "unsent", label: t("tables.unsent_items", "UNSENT ITEMS"), count: metrics.unsent, bg: "bg-[#facc15]", text: "text-[#713f12]" },
+    { key: "alert", label: t("tables.alert", "ALERT"), count: metrics.alert, bg: "bg-[#d946ef]", text: "text-white" },
+    { key: "over_time", label: t("tables.over_time", "OVER TIME"), count: metrics.over_time, bg: "bg-[#f87171]", text: "text-white" },
+    { key: "reserved", label: t("tables.reserved", "RESERVED"), count: metrics.reserved, bg: "bg-[#c084fc]", text: "text-white" },
+    { key: "multiple", label: t("tables.multiple", "MULTIPLE"), count: metrics.multiple, bg: "bg-[#f472b6]", text: "text-white" },
+    { key: "available", label: t("tables.available", "AVAILABLE"), count: metrics.available, bg: "bg-[#475569]", text: "text-white" },
+    { key: "blocked", label: t("tables.blocked", "BLOCKED"), count: metrics.blocked, bg: "bg-[#94a3b8]", text: "text-white" },
+    { key: "pax", label: t("tables.pax", "PAX"), count: metrics.total_pax, bg: "bg-[#334155]", text: "text-white" },
+  ];
 
+  return (
+    <footer className="flex items-center justify-between gap-2 md:gap-4 px-3 md:px-5 py-2 md:py-2.5 bg-[#0f172a] text-white border-t border-slate-800 shadow-2xl shrink-0 select-none z-20 min-h-[56px] md:min-h-[66px] lg:min-h-[72px]">
       {/* Center: Scrollable Live Status KPI Chips */}
       <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto no-scrollbar py-0.5 px-1">
         {statusChips.map((chip) => {

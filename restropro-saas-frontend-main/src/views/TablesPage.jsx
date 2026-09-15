@@ -85,9 +85,9 @@ export default function TablesPage() {
     walls: [],
   });
 
-  // Drawer and Selection State
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [drawerMode, setDrawerMode] = useState("list"); // 'actions' | 'list'
+  // Drawer and Selection State (starts closed by default for full-screen floor plan)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerMode, setDrawerMode] = useState("actions"); // 'actions' | 'list'
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null); // Bindo status filter key
 
@@ -258,12 +258,18 @@ export default function TablesPage() {
         return;
       }
 
+      // If in edit mode, select table for editing without opening drawer
+      if (isEditMode) {
+        setSelectedTableId(table.id);
+        return;
+      }
+
       // Normal click: select table and show actions in drawer
       setSelectedTableId(table.id);
       setIsDrawerOpen(true);
       setDrawerMode("actions");
     },
-    [isMergeMode, mergeSourceId, currentFloor, t]
+    [isMergeMode, mergeSourceId, currentFloor, isEditMode, t]
   );
 
   // Edit Mode Actions
@@ -492,7 +498,10 @@ export default function TablesPage() {
             isDrawingWall={isDrawingWall}
             selectedTableId={selectedTableId}
             activeFilter={activeFilter}
-            onSelectTable={(id) => setSelectedTableId(id)}
+            onSelectTable={(id) => {
+              setSelectedTableId(id);
+              if (!id) setIsDrawerOpen(false);
+            }}
             onTableClick={handleTableClick}
             onTableUpdate={handleTableUpdate}
             onTableDelete={handleTableDelete}
@@ -511,7 +520,10 @@ export default function TablesPage() {
         {isDrawerOpen && (
           <BindoActionDrawer
             isOpen={isDrawerOpen}
-            onClose={() => setIsDrawerOpen(false)}
+            onClose={() => {
+              setIsDrawerOpen(false);
+              setSelectedTableId(null);
+            }}
             activeTab={drawerMode}
             onTabChange={(tab) => setDrawerMode(tab)}
             selectedTable={selectedTable}
