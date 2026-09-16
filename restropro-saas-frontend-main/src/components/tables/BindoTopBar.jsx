@@ -40,6 +40,13 @@ export default function BindoTopBar({
 
   const displayZones = zones.length > 0 ? zones : ["0"];
 
+  const normalizeFloor = (f) => {
+    if (f === null || f === undefined) return "";
+    return String(f)
+      .trim()
+      .replace(/[០-៩]/g, (d) => "0123456789"["០១២៣៤៥៦៧៨៩".indexOf(d)]);
+  };
+
   const formatZoneLabel = (zone) => {
     const s = String(zone).trim();
     if (/^(zone|floor)\b/i.test(s)) return s;
@@ -58,7 +65,7 @@ export default function BindoTopBar({
         {/* Zone Pills (e.g. Zone 0) */}
         <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-zinc-800/90 p-1 rounded-xl">
           {displayZones.map((zone) => {
-            const isActive = String(currentZone) === String(zone);
+            const isActive = normalizeFloor(currentZone) === normalizeFloor(zone);
             return (
               <button
                 key={zone}

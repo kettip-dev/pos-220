@@ -1,22 +1,22 @@
-import React, { useContext } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import React from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import TopNavbar from "../components/TopNavbar";
+import OperationalBar from "../components/OperationalBar";
 import SearchModal from "../components/SearchModal";
 import MobileNavbar from "../components/MobileNavbar";
-import { NavbarContext } from "../contexts/NavbarContext";
 import useAuth from "../helpers/useAuth";
-import { useEffect } from "react";
-import Cookies from "js-cookie";
-import { jwtDecode } from "jwt-decode";
 
 export default function DashboardLayout() {
   const { ready } = useAuth();
-  const [isNavbarCollapsed] = useContext(NavbarContext);
-  const navigate = useNavigate();
+  const location = useLocation();
 
-  const contentPaddingClass = isNavbarCollapsed
-    ? "w-full md:pl-[5.5rem]"
-    : "w-full md:pl-72";
+  const isOperationalRoute = [
+    "/dashboard/pos",
+    "/dashboard/tables",
+    "/dashboard/kitchen",
+    "/dashboard/orders",
+    "/dashboard/reservation",
+  ].some((route) => location.pathname.startsWith(route));
 
   // Don't render (and thus don't fire any data requests) until the session has
   // been refreshed once. Guarantees the first request carries a fresh token.
@@ -29,15 +29,31 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans">
-      <div className="hidden md:block">
-        <Navbar />
-      </div>
-      <div className={`${contentPaddingClass} pb-24 md:pb-0 min-h-screen bg-background`}>
+    <div
+      className={
+        isOperationalRoute
+          ? "flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans"
+          : "flex flex-col min-h-screen bg-background text-foreground font-sans"
+      }
+    >
+      {/* Navigation: Operational Bar for POS/Tables/Kitchen OR TopNavbar for Backoffice */}
+      {isOperationalRoute ? <OperationalBar /> : <TopNavbar />}
+
+      {/* Main View Canvas */}
+      <main
+        className={
+          isOperationalRoute
+            ? "w-full flex-1 flex flex-col min-h-0 h-[calc(100vh-52px)] max-h-[calc(100vh-52px)] overflow-hidden"
+            : "w-full flex-1 min-h-[calc(100vh-60px)] pb-16 md:pb-8"
+        }
+      >
         <Outlet />
-      </div>
-      <MobileNavbar />
+      </main>
+
+      {/* Mobile nav only in Backoffice, never covering operational screens */}
+      {!isOperationalRoute && <MobileNavbar />}
       <SearchModal />
     </div>
   );
 }
+

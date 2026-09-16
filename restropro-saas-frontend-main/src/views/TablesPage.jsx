@@ -120,10 +120,17 @@ export default function TablesPage() {
     }
   }, [currentFloor]);
 
+  const normalizeFloor = (f) => {
+    if (f === null || f === undefined) return "";
+    return String(f)
+      .trim()
+      .replace(/[០-៩]/g, (d) => "0123456789"["០១២៣៤៥៦៧៨៩".indexOf(d)]);
+  };
+
   useEffect(() => {
     if (!isEditMode) {
       setEditableTables(rawTables);
-      const currentLayout = rawLayouts.find((l) => String(l.floor) === String(currentFloor));
+      const currentLayout = rawLayouts.find((l) => normalizeFloor(l.floor) === normalizeFloor(currentFloor));
       setFloorSettings({
         show_cashier: currentLayout?.show_cashier !== 0,
         cashier_x: currentLayout?.cashier_x ?? 60,
@@ -160,7 +167,7 @@ export default function TablesPage() {
   // Tables on current floor
   const tablesOnFloor = useMemo(() => {
     const list = isEditMode ? editableTables : rawTables;
-    return list.filter((tbl) => String(tbl.floor) === String(currentFloor));
+    return list.filter((tbl) => normalizeFloor(tbl.floor) === normalizeFloor(currentFloor));
   }, [isEditMode, editableTables, rawTables, currentFloor]);
 
   // Selected table object
@@ -436,7 +443,7 @@ export default function TablesPage() {
   };
 
   return (
-    <Page className="h-screen max-h-screen flex flex-col p-0 overflow-hidden w-full bg-[#f8fafc] dark:bg-zinc-950">
+    <Page className="flex-1 w-full h-[calc(100vh-52px)] max-h-[calc(100vh-52px)] min-h-0 flex flex-col p-0 overflow-hidden bg-[#f8fafc] dark:bg-zinc-950">
       {/* 1. Top Zone & Order Counters Bar */}
       <BindoTopBar
         zones={zones}
@@ -485,7 +492,7 @@ export default function TablesPage() {
       />
 
       {/* 2. Main Floor Plan Canvas & Right Drawer */}
-      <div className="relative flex-1 flex overflow-hidden w-full">
+      <div className="relative flex-1 w-full min-h-0 overflow-hidden flex">
         {/* Floor Plan Canvas */}
         <div className="flex-1 h-full relative overflow-hidden">
           <FloorPlanCanvas

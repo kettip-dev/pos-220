@@ -308,7 +308,7 @@ export default function FloorPlanCanvas({
     onTableUpdate(table.id, { rotation: nextRot });
   };
 
-  const isDark = theme === "black";
+  const isDark = theme === "black" || theme === "dark";
 
   // Build curved connection paths for merged table groups
   const mergeConnections = useMemo(() => {
@@ -333,9 +333,8 @@ export default function FloorPlanCanvas({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="relative w-full h-full bg-[#f8fafc] dark:bg-zinc-950 overflow-hidden select-none"
+      className="absolute inset-0 w-full h-full bg-[#f8fafc] dark:bg-zinc-950 overflow-hidden select-none"
       style={{
-        height: typeof canvasHeight === "number" ? `${canvasHeight}px` : canvasHeight,
         cursor: isDrawingWall ? "crosshair" : isPanning ? "grabbing" : "default",
       }}
     >
