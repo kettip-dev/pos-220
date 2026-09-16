@@ -35,7 +35,7 @@ import {
 import { FRONTEND_DOMAIN, VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { CURRENCIES } from "../config/currencies.config";
 import { PAYMENT_ICONS } from "../config/payment_icons";
-import { setDetailsForReceiptPrint } from "../helpers/ReceiptHelper";
+import { setDetailsForReceiptPrint, triggerPrintReceipt } from "../helpers/ReceiptHelper";
 
 import { SocketContext } from "../contexts/SocketContext";
 import { initSocket } from "../utils/socket";
@@ -496,7 +496,7 @@ export default function OrdersPage() {
             paymentMethodText = paymentType.title;
           }
 
-          setDetailsForReceiptPrint({
+          triggerPrintReceipt({
             cartItems: orders,
             deliveryType: delivery_type,
             customerType: customer_type,
@@ -516,17 +516,6 @@ export default function OrdersPage() {
             orderId: orderIds,
             paymentMethod: paymentMethodText
           });
-
-          const receiptWindow = window.open(
-            "/print-receipt",
-            "_blank",
-            "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400"
-          );
-          receiptWindow.onload = (e) => {
-            setTimeout(() => {
-              receiptWindow.print();
-            }, 400);
-          };
         }
 
 
@@ -607,7 +596,7 @@ export default function OrdersPage() {
           delivery_type,
         } = ordersArr;
 
-        setDetailsForReceiptPrint({
+        triggerPrintReceipt({
           cartItems: orders,
           deliveryType: delivery_type,
           customerType: customer_type,
@@ -626,17 +615,6 @@ export default function OrdersPage() {
           tokenNo: tokens,
           orderId: orderIds,
         });
-
-        const receiptWindow = window.open(
-          "/print-receipt",
-          "_blank",
-          "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400"
-        );
-        receiptWindow.onload = (e) => {
-          setTimeout(() => {
-            receiptWindow.print();
-          }, 400);
-        };
       }
     } catch (error) {
       const message =

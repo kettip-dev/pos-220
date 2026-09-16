@@ -29,11 +29,11 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background text-foreground font-sans">
       <div className="hidden md:block">
         <Navbar />
       </div>
-      <div className={`${contentPaddingClass} pb-24 md:pb-0`}>
+      <div className={`${contentPaddingClass} pb-24 md:pb-0 min-h-screen bg-background`}>
         <Outlet />
       </div>
       <MobileNavbar />

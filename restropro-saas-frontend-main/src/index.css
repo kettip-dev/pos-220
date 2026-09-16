@@ -1,72 +1,72 @@
-@import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-    font-family: 'Nunito', 'Kantumruy Pro', 'Khmer OS Battambang', 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Kantumruy Pro', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 :root {
-    --background: #fff;
-    --foreground: #000;
-    --restro-green-light: #f4f4f5;
-    --restro-green: #18181b;
-    --restro-green-10: rgba(24, 24, 27, 0.08);
-    --restro-border-green: #e4e4e7;
-    --restro-text: #6b7280;
-    --restro-gray: #f4f4f5;
-    --restro-ring: #18181b;
-    --restro-bg-gray: #f4f4f5;
-    --restro-card-bg: #ffffff;
-    --restro-button-hover: #e4e4e7;
-    --restro-green-button-hover: #27272a;
-    --restro-red: #f87171;
-    --restro-red-hover: #fee2e2;
-    --restro-yellow: #f4d6a1;
-    --restro-bg-yellow: #a23ca6;
-    --restro-yellow-hover: #e1920a;
-    --restro-checkbox: #e4e4e7;
+    --background: #F4F5F8;
+    --foreground: #1B2533;
+    --restro-green: #2CA01C;
+    --restro-green-light: #0D233A;
+    --restro-green-10: rgba(44, 160, 28, 0.10);
+    --restro-border-green: #D4D7DC;
+    --restro-text: #393A3D;
+    --restro-gray: #F4F5F8;
+    --restro-ring: #2CA01C;
+    --restro-bg-gray: #F4F5F8;
+    --restro-card-bg: #FFFFFF;
+    --restro-button-hover: #E9ECEF;
+    --restro-green-button-hover: #248417;
+    --restro-red: #D52B1E;
+    --restro-red-hover: #FCE8E6;
+    --restro-yellow: #E89800;
+    --restro-bg-yellow: #FEF7E0;
+    --restro-yellow-hover: #C68200;
+    --restro-checkbox: #D4D7DC;
 
-    --restro-green-dark: #09090b;
-    --restro-border-green-light: #e4e4e7;
-    --restro-superadmin-widget-bg: #18181b;
-    --restro-superadmin-text-green: #ffffff;
-    --restro-superadmin-text-black: #ffffff;
+    --restro-green-dark: #1C6B12;
+    --restro-border-green-light: #E3E8EE;
+    --restro-superadmin-widget-bg: #0D233A;
+    --restro-superadmin-text-green: #2CA01C;
+    --restro-superadmin-text-black: #FFFFFF;
 
-    --scroll-wrapper-start: rgba(255, 255, 255, 1);
-    --scroll-wrapper-end: rgba(255, 255, 255, 0);
+    --scroll-wrapper-start: rgba(244, 245, 248, 1);
+    --scroll-wrapper-end: rgba(244, 245, 248, 0);
 }
 
 .dark {
-    --background: #000;
-    --foreground: #fff;
-    --restro-green-light: #18181b;
-    --restro-green: #ffffff;
-    --restro-green-10: rgba(255, 255, 255, 0.12);
-    --restro-border-green: #27272a;
-    --restro-text: #F0F0F0;
-    --restro-gray: #232323;
-    --restro-ring: #ffffff;
-    --restro-bg-gray: #242526;
-    --restro-card-bg: #121212;
-    --restro-button-hover: #353535;
-    --restro-green-button-hover: #f4f4f5;
-    --restro-red: #dc2626;
-    --restro-red-hover: #fecaca;
-    --restro-yellow: #f0a523;
-    --restro-bg-yellow: #fef9c3;
-    --restro-yellow-hover: #dbb743;
-    --restro-checkbox: #242526;
+    --background: #0D1117;
+    --foreground: #F0F6FC;
+    --restro-green: #2CA01C;
+    --restro-green-light: #081426;
+    --restro-green-10: rgba(44, 160, 28, 0.16);
+    --restro-border-green: #30363D;
+    --restro-text: #C9D1D9;
+    --restro-gray: #161B22;
+    --restro-ring: #2CA01C;
+    --restro-bg-gray: #161B22;
+    --restro-card-bg: #161B22;
+    --restro-button-hover: #21262D;
+    --restro-green-button-hover: #248417;
+    --restro-red: #F85149;
+    --restro-red-hover: #3E1616;
+    --restro-yellow: #E3B341;
+    --restro-bg-yellow: #382A09;
+    --restro-yellow-hover: #F0B72B;
+    --restro-checkbox: #30363D;
 
-    --restro-green-dark: #ffffff;
-    --restro-border-green-light: #27272a;
-    --restro-superadmin-widget-bg: #27272a;
-    --restro-superadmin-text-green: #ffffff;
-    --restro-superadmin-text-black: #ffffff;
+    --restro-green-dark: #2CA01C;
+    --restro-border-green-light: #30363D;
+    --restro-superadmin-widget-bg: #161B22;
+    --restro-superadmin-text-green: #2CA01C;
+    --restro-superadmin-text-black: #FFFFFF;
 
-    --scroll-wrapper-start: rgba(0, 0, 0, 1);
-    --scroll-wrapper-end: rgba(0, 0, 0, 0);
+    --scroll-wrapper-start: rgba(13, 17, 23, 1);
+    --scroll-wrapper-end: rgba(13, 17, 23, 0);
 }
 
 /* Light Mode (default styles) */

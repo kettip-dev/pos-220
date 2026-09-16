@@ -10,7 +10,7 @@ import { PAYMENT_ICONS } from "../config/payment_icons";
 import { toast } from "react-hot-toast";
 import { searchCustomer } from '../controllers/customers.controller';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { setDetailsForReceiptPrint } from '../helpers/ReceiptHelper';
+import { setDetailsForReceiptPrint, triggerPrintReceipt, triggerPrintToken, getDetailsForReceiptPrint } from '../helpers/ReceiptHelper';
 import { SocketContext } from "../contexts/SocketContext";
 import { initSocket } from '../utils/socket';
 import { getImageURL, setImageStorageConfig } from '../helpers/ImageHelper';
@@ -1314,14 +1314,19 @@ export default function POSPage() {
         _initPOS()
 
         if(is_enable_print) {
-          setTimeout(()=>{
-            const receiptWindow = window.open("/print-receipt", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
-            receiptWindow.onload = (e) => {
-              setTimeout(()=>{
-                receiptWindow.print();
-              },800)
-            }
-          }, 100)
+          triggerPrintReceipt({
+            cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
+            itemsTotal: state.itemsTotal,
+            discountType: state.discountType,
+            discountValue: state.discountValue,
+            discountAmount: state.discountAmount,
+            taxTotal: state.taxTotal,
+            serviceChargeTotal:state.serviceChargeTotal,
+            payableTotal: state.payableTotal,
+            tokenNo: data.tokenNo,
+            orderId: data.orderId,
+            paymentMethod: paymentMethodText
+          });
           return;
         }
 
@@ -1421,14 +1426,19 @@ export default function POSPage() {
         _initPOS()
 
         if(is_enable_print) {
-          setTimeout(()=>{
-            const receiptWindow = window.open("/print-receipt", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
-            receiptWindow.onload = (e) => {
-              setTimeout(()=>{
-                receiptWindow.print();
-              },800)
-            }
-          }, 100)
+          triggerPrintReceipt({
+            cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
+            itemsTotal: state.itemsTotal,
+            discountType: state.discountType,
+            discountValue: state.discountValue,
+            discountAmount: state.discountAmount,
+            taxTotal: state.taxTotal,
+            serviceChargeTotal:state.serviceChargeTotal,
+            payableTotal: state.payableTotal,
+            tokenNo: data.tokenNo,
+            orderId: data.orderId,
+            paymentMethod: paymentMethodText
+          });
           return;
         }
 
@@ -1450,13 +1460,10 @@ export default function POSPage() {
     }
   };
   const btnPrintTokenOnly = () => {
-    const tokenWindow = window.open("/print-token", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
-    tokenWindow.onload = (e) => {
-      setTimeout(()=>{
-        tokenWindow.print();
-      }, 400)
+    const details = getDetailsForReceiptPrint();
+    if (details) {
+      triggerPrintToken(details);
     }
-    return;
   };
   // send to kitchen modal
 

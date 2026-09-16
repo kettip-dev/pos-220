@@ -87,10 +87,11 @@ export function usePrintSettings() {
   };
 }
 
-export async function savePrintSettings(pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken) {
+export async function savePrintSettings(pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken, printMode = 'browser', autoCut = true, cashDrawerKick = true) {
   try {
     const response = await ApiClient.post("/settings/print-setting", {
-      pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, printToken, showCustomerDetails
+      pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, printToken, showCustomerDetails,
+      printMode, autoCut, cashDrawerKick
     });
     return response;
   } catch (error) {

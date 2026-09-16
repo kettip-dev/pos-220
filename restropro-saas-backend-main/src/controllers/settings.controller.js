@@ -285,7 +285,10 @@ exports.getPrintSettings = async (req, res) => {
             isEnablePrint: result?.is_enable_print || null,
             showStoreDetails: result?.show_store_details || null,
             showCustomerDetails: result?.show_customer_details || null,
-            printToken: result?.print_token || null
+            printToken: result?.print_token || null,
+            printMode: result?.print_mode || 'browser',
+            autoCut: result?.auto_cut !== undefined && result?.auto_cut !== null ? Boolean(result.auto_cut) : true,
+            cashDrawerKick: result?.cash_drawer_kick !== undefined && result?.cash_drawer_kick !== null ? Boolean(result.cash_drawer_kick) : true,
         };
 
         return res.status(200).json(printSettings);
@@ -310,8 +313,11 @@ exports.setPrintSettings = async (req, res) => {
         const showStoreDetails = req.body.showStoreDetails;
         const showCustomerDetails = req.body.showCustomerDetails;
         const printToken = req.body.printToken;
+        const printMode = req.body.printMode || 'browser';
+        const autoCut = req.body.autoCut !== undefined ? req.body.autoCut : 1;
+        const cashDrawerKick = req.body.cashDrawerKick !== undefined ? req.body.cashDrawerKick : 1;
 
-        await setPrintSettingDB(pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken, tenantId);
+        await setPrintSettingDB(pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken, printMode, autoCut, cashDrawerKick, tenantId);
 
         return res.status(200).json({
             success: true,

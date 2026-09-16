@@ -18,7 +18,7 @@ import {
 import { iconStroke } from "../config/config";
 import { useCustomer, useCustomerInsights, useCustomerInvoices } from "../controllers/customers.controller";
 import { getInvoiceOrders, getInvoicesInit } from "../controllers/invoices.controller";
-import { setDetailsForReceiptPrint } from '../helpers/ReceiptHelper';
+import { setDetailsForReceiptPrint, triggerPrintReceipt } from '../helpers/ReceiptHelper';
 import { getImageURL } from '../helpers/ImageHelper';
 import { CURRENCIES } from "../config/currencies.config";
 import Chart from "react-apexcharts";
@@ -207,13 +207,11 @@ export default function CustomerInsightsPage() {
         }
         const {customer_id, customer_type, customer_name, delivery_type} = ordersArr;
 
-        setDetailsForReceiptPrint({
+        triggerPrintReceipt({
           cartItems: orders, deliveryType:delivery_type, customerType:customer_type, customer:{id: customer_id, name: customer_name}, tableId: null, currency:state.currency, storeSettings: state.storeSettings, printSettings:state.printSettings,
           itemsTotal: subtotal, discountType, discountValue, discountAmount: discountTotal || 0, taxTotal: taxTotal, serviceChargeTotal:serviceChargeTotal, payableTotal: total,
           tokenNo: invoice.token_no, orderId: invoice.order_id, paymentMethod: invoice.payment_type
         });
-
-        window.open("/print-receipt", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
       }
     } catch (error) {
       toast.dismiss();
@@ -238,16 +236,11 @@ export default function CustomerInsightsPage() {
         }
         const {customer_id, customer_type, customer_name, delivery_type} = ordersArr;
 
-        setDetailsForReceiptPrint({
+        triggerPrintReceipt({
           cartItems: orders, deliveryType:delivery_type, customerType:customer_type, customer:{id: customer_id, name: customer_name}, tableId: null, currency:state.currency, storeSettings: state.storeSettings, printSettings:state.printSettings,
           itemsTotal: subtotal, discountType, discountValue, discountAmount: discountTotal || 0, taxTotal: taxTotal, serviceChargeTotal:serviceChargeTotal, payableTotal: total,
           tokenNo: invoice.token_no, orderId: invoice.order_id, paymentMethod: invoice.payment_type
         });
-
-        const receiptWindow = window.open("/print-receipt", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
-        receiptWindow.onload = (e) => {
-          setTimeout(()=>{ receiptWindow.print(); }, 400)
-        }
       }
     } catch (error) {
       toast.dismiss();

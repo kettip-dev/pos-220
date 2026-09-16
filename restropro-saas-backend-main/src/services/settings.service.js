@@ -219,7 +219,7 @@ exports.getPrintSettingDB = async (tenantId) => {
 
     try {
         const sql = `
-        SELECT  page_format, header, footer, show_notes, is_enable_print, show_store_details, show_customer_details, print_token FROM print_settings
+        SELECT page_format, header, footer, show_notes, is_enable_print, show_store_details, show_customer_details, print_token, print_mode, auto_cut, cash_drawer_kick FROM print_settings
         WHERE tenant_id = ?
         LIMIT 1;
         `;
@@ -234,15 +234,15 @@ exports.getPrintSettingDB = async (tenantId) => {
     }
 };
 
-exports.setPrintSettingDB = async (pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken, tenantId) => {
+exports.setPrintSettingDB = async (pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken, printMode, autoCut, cashDrawerKick, tenantId) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
         const sql = `
         INSERT INTO print_settings
-        ( page_format, header, footer, show_notes, is_enable_print, show_store_details, show_customer_details, print_token, tenant_id)
+        ( page_format, header, footer, show_notes, is_enable_print, show_store_details, show_customer_details, print_token, print_mode, auto_cut, cash_drawer_kick, tenant_id)
         VALUES
-        ( ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
         page_format = VALUES(page_format),
         header = VALUES(header),
@@ -252,10 +252,26 @@ exports.setPrintSettingDB = async (pageFormat, header, footer, showNotes, isEnab
         show_store_details = VALUES(show_store_details),
         show_customer_details = VALUES(show_customer_details),
         print_token = VALUES(print_token),
+        print_mode = VALUES(print_mode),
+        auto_cut = VALUES(auto_cut),
+        cash_drawer_kick = VALUES(cash_drawer_kick),
         tenant_id = VALUES(tenant_id);
         `;
 
-        await conn.query(sql, [pageFormat, header, footer, showNotes, isEnablePrint, showStoreDetails, showCustomerDetails, printToken, tenantId]);
+        await conn.query(sql, [
+            pageFormat,
+            header,
+            footer,
+            showNotes,
+            isEnablePrint,
+            showStoreDetails,
+            showCustomerDetails,
+            printToken,
+            printMode || 'browser',
+            autoCut !== undefined ? (autoCut ? 1 : 0) : 1,
+            cashDrawerKick !== undefined ? (cashDrawerKick ? 1 : 0) : 1,
+            tenantId
+        ]);
         return;
     } catch (error) {
         console.error(error);

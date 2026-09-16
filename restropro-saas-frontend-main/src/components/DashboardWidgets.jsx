@@ -44,12 +44,12 @@ const chartBaseConfig = {
   chart: {
     toolbar: { show: false },
     sparkline: { enabled: false },
-    fontFamily: "Nunito, sans-serif",
+    fontFamily: "Inter, sans-serif",
   },
   grid: { show: false },
   tooltip: {
     theme: "dark",
-    style: { fontFamily: "Nunito, sans-serif" },
+    style: { fontFamily: "Inter, sans-serif" },
   },
 };
 
@@ -60,14 +60,14 @@ export function KPICard({ label, value, delta, icon: Icon, iconColor, isMoney, c
   const isNeutral = deltaVal === 0;
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-restro-border-green bg-background p-5 transition-all hover:shadow-lg hover:-translate-y-0.5">
+    <div className="group relative overflow-hidden rounded-xl border border-restro-border-green bg-restro-card-bg p-5 transition-all shadow-xs hover:shadow-md hover:-translate-y-0.5">
       {/* Subtle background gradient on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-restro-green/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2CA01C]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
       <div className="relative flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-restro-text truncate">{label}</p>
-          <p className="mt-2 text-3xl font-extrabold tracking-tight text-foreground">
+          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">{label}</p>
+          <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground">
             {isMoney ? formatCurrency(value, currencySymbol) : formatNumber(value)}
           </p>
 

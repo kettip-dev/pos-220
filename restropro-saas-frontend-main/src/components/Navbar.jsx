@@ -32,6 +32,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import AppBarDropdown from "./AppBarDropdown";
 import BusinessSwitcher from "./BusinessSwitcher";
 import { showSearchModal } from "./SearchModal";
+import QuickNewMenu from "./QuickNewMenu";
 
 export const getNavbarItems = (t) => [
   {
@@ -195,73 +196,83 @@ export default function Navbar() {
   if (isNavbarCollapsed) {
     return (
       <div className="relative h-screen">
-        <div className="flex flex-col items-center gap-3 h-screen w-20 px-3 py-4 pb-20 overflow-y-auto fixed left-0 top-0 bg-restro-green-light border-r border-restro-border-green z-40">
-          {/* User Profile Avatar with dropdown */}
-          <div className="mb-1 w-full flex justify-center">
-            <AppBarDropdown isCollapsed={true} />
+        <div className="flex flex-col items-center h-screen w-20 fixed left-0 top-0 bg-[#0D233A] dark:bg-[#081426] border-r border-[#1C3550] dark:border-[#1E293B] z-40">
+          {/* Fixed top header area: overflow visible so popups fly out without clipping */}
+          <div className="w-full flex flex-col items-center gap-2.5 pt-4 px-2.5 shrink-0 z-50">
+            {/* User Profile Avatar with dropdown */}
+            <div className="w-full flex justify-center">
+              <AppBarDropdown isCollapsed={true} />
+            </div>
+
+            {/* QuickBooks "+ New" Button */}
+            <div className="w-full flex justify-center">
+              <QuickNewMenu isCollapsed={true} />
+            </div>
+
+            {/* Search button (Cmd+K) */}
+            <button
+              type="button"
+              onClick={showSearchModal}
+              title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
+              className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 transition cursor-pointer shadow-2xs"
+            >
+              <IconSearch size={18} stroke={iconStroke} />
+            </button>
+
+            <div className="w-8 h-[1px] bg-[#1C3550] my-1" />
           </div>
 
-          {/* Search button (Cmd+K) */}
-          <button
-            type="button"
-            onClick={showSearchModal}
-            title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
-            className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-800/70 hover:bg-restro-border-green-light text-slate-600 dark:text-slate-300 border border-restro-border-green transition cursor-pointer shadow-2xs"
-          >
-            <IconSearch size={18} stroke={iconStroke} />
-          </button>
-
-          <div className="w-8 h-[1px] bg-restro-border-green my-1" />
-
-          {navbarItems.filter(item => {
-            if (userRole === "admin") return true;
-            const requiredScopes = item.features
-            if (requiredScopes?.length == 0) {
-              return true;
-            }
-            return requiredScopes?.some(scope => userPlanFeatures.includes(scope))
-          }).filter((navItem) => {
-            const requiredScopes = navItem.scopes;
-            if (navItem.type == "link") {
-              if (hasFullBusinessAccess(userRole)) {
+          {/* Scrollable nav items list */}
+          <div className="flex-1 w-full flex flex-col items-center gap-2 px-2.5 overflow-y-auto overflow-x-hidden pb-20 pt-1">
+            {navbarItems.filter(item => {
+              if (userRole === "admin") return true;
+              const requiredScopes = item.features;
+              if (requiredScopes?.length == 0) {
                 return true;
               }
+              return requiredScopes?.some(scope => userPlanFeatures.includes(scope));
+            }).filter((navItem) => {
+              const requiredScopes = navItem.scopes;
+              if (navItem.type == "link") {
+                if (hasFullBusinessAccess(userRole)) {
+                  return true;
+                }
+                return requiredScopes.some((scope) => userScopes.includes(scope));
+              }
+            }).map((item, index) => {
+              if (item.type == "text") {
+                return null;
+              }
 
-              return requiredScopes.some((scope) => userScopes.includes(scope));
-            }
-          }).map((item, index) => {
-            if (item.type == "text") {
-              return;
-            }
+              const isActive = isItemActive(item.path, pathname);
 
-            const isActive = isItemActive(item.path, pathname);
-
-            return (
-              <Link
-                key={index}
-                className={clsx(
-                  `w-12 h-12 flex items-center justify-center rounded-full transition`,
-                  {
-                    "bg-restro-bg-hover-dark-mode font-medium text-white": theme === 'black' && isActive,
-                    "bg-restro-border-green-light font-medium text-black": theme !== 'black' && isActive,
-                    "hover:bg-restro-bg-hover-dark-mode": theme === 'black' && !isActive,
-                    "hover:bg-restro-border-green-light": theme !== 'black' && !isActive,
-                  }
-                )}
-                to={item.path}
-              >
-                {React.cloneElement(item.icon, {
-                  className: clsx(
-                    "transition-colors text-current",
+              return (
+                <Link
+                  key={index}
+                  title={item.text}
+                  className={clsx(
+                    "w-11 h-11 flex items-center justify-center rounded-lg transition-all",
                     {
-                      'text-white': theme === 'black' && isActive,
-                      'text-black': theme !== 'black' && isActive,
+                      "bg-[#1C3B5E] text-white font-semibold border-l-4 border-[#2CA01C] rounded-r-lg shadow-sm": isActive,
+                      "text-slate-300 hover:bg-[#152E4A] hover:text-white": !isActive,
                     }
-                  ),
-                })}
-              </Link>
-            );
-          })}
+                  )}
+                  to={item.path}
+                >
+                  {React.cloneElement(item.icon, {
+                    className: clsx(
+                      "transition-colors",
+                      {
+                        "text-white": isActive,
+                        "text-slate-400 group-hover:text-white": !isActive,
+                      }
+                    ),
+                    size: 20,
+                  })}
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
         {/* Toggle Uncollapse / Expand Button */}
@@ -269,9 +280,9 @@ export default function Navbar() {
           type="button"
           onClick={btnToggleNavbar}
           title={t("navbar.expand", "Expand sidebar")}
-          className="w-8 h-8 hidden md:flex items-center justify-center rounded-full border transition bg-white dark:bg-zinc-800 border-restro-border-green hover:bg-restro-border-green-light shadow-md text-slate-600 dark:text-slate-200 fixed bottom-6 left-20 -translate-x-1/2 z-50 cursor-pointer"
+          className="w-7 h-7 hidden md:flex items-center justify-center rounded-full border transition bg-[#0D233A] dark:bg-[#081426] border-[#23456C] hover:bg-[#152E4A] shadow-md text-slate-300 hover:text-white fixed bottom-6 left-20 -translate-x-1/2 z-50 cursor-pointer"
         >
-          <IconChevronRight stroke={iconStroke} size={16} />
+          <IconChevronRight stroke={iconStroke} size={15} />
         </button>
       </div>
     );
@@ -279,10 +290,10 @@ export default function Navbar() {
 
   return (
     <div className="relative h-screen">
-      <div className="flex flex-col items-start gap-2 md:w-72 md:gap-2.5 h-screen px-4 py-5 overflow-y-auto fixed left-0 top-0 bg-restro-green-light border-r border-restro-border-green z-40">
+      <div className="flex flex-col items-start h-screen md:w-72 fixed left-0 top-0 bg-[#0D233A] dark:bg-[#081426] border-r border-[#1C3550] dark:border-[#1E293B] text-slate-200 z-40">
 
         {/* Top Header in Sidebar: User Profile Dropdown & Business Switcher */}
-        <div className="w-full space-y-2 mb-2">
+        <div className="w-full px-3.5 pt-4 pb-2 shrink-0 z-50 space-y-2">
           <div className="flex items-center gap-2 w-full">
             <div className="flex-1 min-w-0">
               <AppBarDropdown isCollapsed={false} />
@@ -292,22 +303,28 @@ export default function Navbar() {
               type="button"
               onClick={showSearchModal}
               title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
-              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-white/70 dark:bg-zinc-800/70 hover:bg-restro-border-green-light text-slate-500 hover:text-slate-800 dark:text-slate-300 dark:hover:text-white border border-restro-border-green transition cursor-pointer shadow-2xs"
+              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white border border-white/10 transition cursor-pointer shadow-2xs"
             >
               <IconSearch size={17} stroke={iconStroke} />
             </button>
           </div>
           <BusinessSwitcher />
+
+          {/* QuickBooks "+ New" Button */}
+          <div className="w-full my-1">
+            <QuickNewMenu isCollapsed={false} />
+          </div>
+
+          <div className="w-full h-[1px] bg-[#1C3550] my-1" />
         </div>
 
-        <div className="w-full h-[1px] bg-restro-border-green mb-1" />
-
-        {
-          navbarItems.filter(item => {
+        {/* Scrollable navigation items */}
+        <div className="flex-1 w-full px-3.5 pb-20 overflow-y-auto overflow-x-hidden space-y-1">
+          {navbarItems.filter(item => {
             if (userRole === "admin") return true;
-            const requiredScopes = item.features
+            const requiredScopes = item.features;
             if (requiredScopes?.length == 0) return true;
-            return requiredScopes?.some(scope => userPlanFeatures.includes(scope))
+            return requiredScopes?.some(scope => userPlanFeatures.includes(scope));
           }).filter((navItem) => {
             const requiredScopes = navItem.scopes;
             if (navItem.type == "text") {
@@ -317,13 +334,12 @@ export default function Navbar() {
               if (hasFullBusinessAccess(userRole)) {
                 return true;
               }
-
               return requiredScopes.some((scope) => userScopes.includes(scope));
             }
           }).map((item, index) => {
             if (item.type == "text") {
               return (
-                <p key={index} className="font-bold hidden md:block">
+                <p key={index} className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-3 pb-1 hidden md:block">
                   {item.text}
                 </p>
               );
@@ -332,48 +348,34 @@ export default function Navbar() {
             const isActive = isItemActive(item.path, pathname);
 
             return (
-
               <Link
                 key={index}
                 to={item.path}
                 className={clsx(
-                  `w-12 h-12 md:w-full flex justify-center md:justify-normal items-center md:gap-1 md:px-4 md:py-3 rounded-full transition group`,
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all group",
                   {
-                    'bg-restro-border-green-light font-medium': theme !== 'black' && isActive,
-                    'bg-restro-bg-hover-dark-mode font-medium text-white': theme === 'black' && isActive,
-                    'hover:bg-restro-bg-hover-dark-mode hover:text-white': theme === 'black' && !isActive,
-                    'hover:bg-restro-border-green-light': theme !== 'black' && !isActive,
-                    'text-white': theme === 'black' && !isActive,
-                    'text-black': theme === 'black' && isActive,
-                    'text-restro-text-light-mode hover:text-black': theme !== 'black',
+                    "bg-[#1C3B5E] text-white font-semibold border-l-4 border-[#2CA01C] rounded-l-none shadow-xs": isActive,
+                    "text-slate-300 hover:bg-[#152E4A] hover:text-white": !isActive,
                   }
                 )}
               >
                 {React.cloneElement(item.icon, {
                   className: clsx(
-                    'transition-colors',
+                    "transition-colors shrink-0",
                     {
-                      'text-white group-hover:text-white hover:text-white': theme === 'black',
-                      'text-black': theme !== 'black',
+                      "text-[#2CA01C]": isActive,
+                      "text-slate-400 group-hover:text-white": !isActive,
                     }
                   ),
+                  size: 19,
                 })}
-                <p
-                  className={clsx(
-                    'hidden md:block transition-colors',
-                    {
-                      'text-white group-hover:text-white hover:text-white': theme === 'black',
-                      'text-gray-900 group-hover:text-black': theme !== 'black',
-                      'text-black': theme !== 'black' && isActive,
-                    }
-                  )}
-                >
+                <p className="hidden md:block truncate">
                   {item.text}
                 </p>
               </Link>
-
             );
           })}
+        </div>
       </div>
 
       {/* Toggle Collapse Button */}
@@ -381,9 +383,9 @@ export default function Navbar() {
         type="button"
         onClick={btnToggleNavbar}
         title={t("navbar.collapse", "Collapse sidebar")}
-        className="w-8 h-8 hidden md:flex items-center justify-center rounded-full border transition bg-white dark:bg-zinc-800 border-restro-border-green hover:bg-restro-border-green-light shadow-md text-slate-600 dark:text-slate-200 fixed bottom-6 left-72 -translate-x-1/2 z-50 cursor-pointer"
+        className="w-7 h-7 hidden md:flex items-center justify-center rounded-full border transition bg-[#0D233A] dark:bg-[#081426] border-[#23456C] hover:bg-[#152E4A] shadow-md text-slate-300 hover:text-white fixed bottom-6 left-72 -translate-x-1/2 z-50 cursor-pointer"
       >
-        <IconChevronLeft stroke={iconStroke} size={16} />
+        <IconChevronLeft stroke={iconStroke} size={15} />
       </button>
     </div>
   );

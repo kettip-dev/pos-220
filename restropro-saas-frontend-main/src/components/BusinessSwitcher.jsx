@@ -167,29 +167,31 @@ export default function BusinessSwitcher() {
     <Menu as="div" className="relative inline-block text-left">
       <Menu.Button
         disabled={state.isSwitching}
-        className="rounded-full flex items-center gap-2 px-3 py-2 bg-restro-green-light text-restro-text disabled:opacity-60"
+        className="rounded-lg w-full flex items-center justify-between gap-2 px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white disabled:opacity-60 transition cursor-pointer shadow-2xs"
       >
-        {isAllBusinesses ? (
-          <IconBuilding size={18} stroke={iconStroke} />
-        ) : (
-          <IconBuildingStore size={18} stroke={iconStroke} />
-        )}
-        <div className="text-start hidden sm:block">
-          <div className="text-xs text-gray-500 leading-none">
-            {isAllBusinesses
-              ? t("business_switcher.viewing", "Viewing")
-              : t("business_switcher.current_business", "Current Business")}
-          </div>
-          <div className="text-sm font-semibold leading-tight">
-            {isAllBusinesses
-              ? t("business_switcher.all_businesses", "All Businesses")
-              : state.isLoading
-                ? t("business_switcher.loading", "Loading...")
-                : activeBusiness?.name ||
-                  t("business_switcher.no_business_selected", "Select a business")}
+        <div className="flex items-center gap-2 min-w-0">
+          {isAllBusinesses ? (
+            <IconBuilding size={18} stroke={iconStroke} className="text-emerald-400 shrink-0" />
+          ) : (
+            <IconBuildingStore size={18} stroke={iconStroke} className="text-emerald-400 shrink-0" />
+          )}
+          <div className="text-start truncate">
+            <div className="text-[11px] text-slate-300 leading-none">
+              {isAllBusinesses
+                ? t("business_switcher.viewing", "Viewing")
+                : t("business_switcher.current_business", "Current Business")}
+            </div>
+            <div className="text-sm font-semibold leading-tight text-white truncate mt-0.5">
+              {isAllBusinesses
+                ? t("business_switcher.all_businesses", "All Businesses")
+                : state.isLoading
+                  ? t("business_switcher.loading", "Loading...")
+                  : activeBusiness?.name ||
+                    t("business_switcher.no_business_selected", "Select a business")}
+            </div>
           </div>
         </div>
-        <IconChevronDown size={16} stroke={iconStroke} />
+        <IconChevronDown size={16} stroke={iconStroke} className="text-slate-300 shrink-0" />
       </Menu.Button>
 
       <Transition
@@ -201,16 +203,16 @@ export default function BusinessSwitcher() {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute left-0 z-[10000] mt-2 w-72 origin-top-left divide-y divide-restro-border-green rounded-2xl border border-restro-border-green bg-restro-card-bg shadow-lg focus:outline-none">
+        <Menu.Items className="absolute left-0 z-[10000] mt-2 w-72 origin-top-left divide-y divide-gray-100 dark:divide-zinc-800 rounded-2xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl focus:outline-none">
           <div className="px-4 py-3">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {t("business_switcher.business_group", "Business Group")}
             </p>
-            <p className="text-sm font-semibold">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
               {state.businessGroupName || "-"}
             </p>
             {isReadOnly && (
-              <span className="mt-2 inline-flex items-center gap-1 rounded-[42px] bg-restro-gray px-2 py-1 text-xs text-gray-600 dark:text-gray-300">
+              <span className="mt-2 inline-flex items-center gap-1 rounded-[42px] bg-gray-100 dark:bg-zinc-800 px-2 py-1 text-xs text-gray-600 dark:text-gray-300">
                 <IconEye size={12} stroke={iconStroke} />
                 {t("business_switcher.read_only", "Read Only")}
               </span>
@@ -226,8 +228,8 @@ export default function BusinessSwitcher() {
                 <button
                   onClick={btnSelectAllBusinesses}
                   disabled={state.isSwitching}
-                  className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-sm text-restro-text ${
-                    active ? "bg-restro-button-hover" : ""
+                  className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 transition-colors ${
+                    active ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white" : ""
                   }`}
                 >
                   <span className="flex items-center gap-2">
@@ -240,7 +242,7 @@ export default function BusinessSwitcher() {
                     <IconCheck
                       size={16}
                       stroke={iconStroke}
-                      className="text-restro-green"
+                      className="text-[#2CA01C]"
                     />
                   )}
                 </button>
@@ -248,9 +250,9 @@ export default function BusinessSwitcher() {
             </Menu.Item>
           </div>
 
-          <div className="max-h-72 overflow-y-auto py-2">
+          <div className="max-h-72 overflow-y-auto py-2 divide-y divide-gray-100 dark:divide-zinc-800/50">
             {state.businesses.length === 0 ? (
-              <p className="px-4 py-2 text-sm text-gray-500">
+              <p className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                 {t("business_switcher.no_businesses", "No businesses in this group")}
               </p>
             ) : (
@@ -260,8 +262,8 @@ export default function BusinessSwitcher() {
                     <button
                       onClick={() => btnSwitch(business.tenantId)}
                       disabled={state.isSwitching}
-                      className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-sm text-restro-text ${
-                        active ? "bg-restro-button-hover" : ""
+                      className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 transition-colors ${
+                        active ? "bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white" : ""
                       }`}
                     >
                       <span className="flex flex-col items-start">

@@ -21,7 +21,7 @@ import { mutate } from "swr";
 import { getInvoiceOrders, getInvoicesInit, searchInvoices, useInvoices, voidInvoice } from "../controllers/invoices.controller";
 import { getOrdersInit } from "../controllers/orders.controller";
 import { CURRENCIES } from "../config/currencies.config";
-import { setDetailsForReceiptPrint } from '../helpers/ReceiptHelper';
+import { setDetailsForReceiptPrint, triggerPrintReceipt } from '../helpers/ReceiptHelper';
 import { useTheme } from "../contexts/ThemeContext";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { SCOPES, hasFullBusinessAccess } from "../config/scopes";
@@ -335,7 +335,7 @@ export default function InvoicesPage() {
           }
         }
 
-        setDetailsForReceiptPrint({
+        triggerPrintReceipt({
           cartItems: orders, deliveryType: delivery_type, customerType: customer_type, customer: { id: customer_id, name: customer_name }, tableId: null, currency: state.currency, storeSettings: state.storeSettings, printSettings: state.printSettings,
           itemsTotal: subtotal,
           discountType: discountType,
@@ -348,8 +348,6 @@ export default function InvoicesPage() {
           orderId: orderIds,
           paymentMethod: paymentMethodText
         });
-
-        const receiptWindow = window.open("/print-receipt", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
       }
     } catch (error) {
       const message = error?.response?.data?.message || t('invoices.error_processing_request');
@@ -407,7 +405,7 @@ export default function InvoicesPage() {
           }
         }
 
-        setDetailsForReceiptPrint({
+        triggerPrintReceipt({
           cartItems: orders, deliveryType: delivery_type, customerType: customer_type, customer: { id: customer_id, name: customer_name }, tableId: null, currency: state.currency, storeSettings: state.storeSettings, printSettings: state.printSettings,
           itemsTotal: subtotal,
           discountType: discountType,
@@ -420,14 +418,6 @@ export default function InvoicesPage() {
           orderId: orderIds,
           paymentMethod: paymentMethodText
         });
-
-        const receiptWindow = window.open("/print-receipt", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
-        receiptWindow.onload = (e) => {
-          setTimeout(() => {
-            receiptWindow.print();
-          }, 400)
-        }
-
       }
     } catch (error) {
       const message = error?.response?.data?.message || t('invoices.error_processing_request');
@@ -520,10 +510,14 @@ export default function InvoicesPage() {
       >
         {/* 1. Invoice ID (First column - px-4 for left edge padding) */}
         <td className="px-4 py-3 text-xs font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">
-          #{invoice_id}
-          {isVoid && (
-            <span className="ml-1.5 badge badge-error text-white text-[10px] px-1.5 py-0.5 align-middle">
-              {t("invoices.void_badge")}
+          <span className="font-mono">#{invoice_id}</span>
+          {isVoid ? (
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+              {t("invoices.void_badge", "VOID")}
+            </span>
+          ) : (
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+              PAID
             </span>
           )}
         </td>
@@ -700,10 +694,10 @@ export default function InvoicesPage() {
           <p className="mt-4">{t('invoices.no_invoices')}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto mt-6 border rounded-2xl border-restro-border-green bg-white dark:bg-restro-bg-card-dark-mode">
+        <div className="overflow-x-auto mt-6 border rounded-lg border-restro-border-green bg-restro-card-bg shadow-xs">
           <table className='table table-xs md:table-sm w-full'>
             <thead>
-              <tr className="border-b border-restro-border-green bg-restro-green-light dark:bg-[#1a1a1a] text-restro-green-dark dark:text-gray-300 uppercase tracking-wider text-[11px]">
+              <tr className="border-b border-restro-border-green bg-gray-50/80 dark:bg-[#161B22] text-gray-700 dark:text-gray-300 uppercase tracking-wider text-[11px] font-semibold">
                 <th className="px-4 py-3 font-bold">{t('invoices.invoice_id')}</th>
                 {isConsolidated && <th className="px-3 py-3 font-bold">{t("business_switcher.business", "Business")}</th>}
                 <th className="px-3 py-3 font-bold">{t('invoices.tokens')}</th>
