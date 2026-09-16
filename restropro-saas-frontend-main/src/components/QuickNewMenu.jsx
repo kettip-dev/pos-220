@@ -138,7 +138,7 @@ export default function QuickNewMenu({ isCollapsed = false }) {
       {isOpen && (
         <div
           className={`absolute z-[100] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
-            isCollapsed ? "left-full ml-3 top-0 w-80" : "left-0 top-full mt-2 w-full min-w-[280px]"
+            isCollapsed ? "left-full ml-3 top-0 w-80" : "right-0 top-full mt-2 w-72"
           }`}
         >
           <div className="px-4 py-3 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">

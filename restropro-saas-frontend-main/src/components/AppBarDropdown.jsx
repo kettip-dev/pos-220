@@ -22,7 +22,7 @@ import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { useTheme } from "../contexts/ThemeContext";
 import clsx from "clsx";
 
-export default function AppBarDropdown({ isCollapsed = false, className = "" }) {
+export default function AppBarDropdown({ isCollapsed = false, className = "", align = "right" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = getUserDetailsInLocalStorage();
@@ -49,7 +49,7 @@ export default function AppBarDropdown({ isCollapsed = false, className = "" }) 
     "group flex gap-2.5 w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 cursor-pointer";
 
   return (
-    <Menu as="div" className="relative inline-block text-left z-50 w-full">
+    <Menu as="div" className="relative inline-block text-left z-50">
       <div>
         <Menu.Button
           className={clsx(
@@ -95,8 +95,12 @@ export default function AppBarDropdown({ isCollapsed = false, className = "" }) 
       >
         <Menu.Items
           className={clsx(
-            "absolute z-[100] origin-top-left divide-y divide-gray-100 dark:divide-zinc-800 rounded-2xl shadow-2xl ring-1 ring-black/10 focus:outline-none bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-1.5",
-            isCollapsed ? "left-full ml-3 top-0 w-64" : "left-0 top-full mt-2 w-64"
+            "absolute z-[100] divide-y divide-gray-100 dark:divide-zinc-800 rounded-2xl shadow-2xl ring-1 ring-black/10 focus:outline-none bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-1.5 w-64",
+            align === "left"
+              ? isCollapsed
+                ? "left-full ml-3 top-0 origin-top-left"
+                : "left-0 top-full mt-2 origin-top-left"
+              : "right-0 top-full mt-2 origin-top-right"
           )}
         >
           {/* User Profile Card Header */}
