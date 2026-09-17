@@ -1,11 +1,25 @@
 import React, { useRef, useEffect } from 'react';
 import { getImageURL } from '../helpers/ImageHelper';
-import { IconAlertTriangleFilled, IconCarrot } from "@tabler/icons-react";
+import { IconAlertTriangleFilled, IconCarrot, IconPlus, IconMinus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from '../contexts/ThemeContext';
 
-
-const POSMenuItemDetailedView = ({ menuItems, selectedCategory, categories, searchQuery, currency, btnOpenVariantAndAddonModal, addItemToCart, isReadOnly = false, hoveredItemId = null, onItemHover = null, onScroll = null, scrollTopRatio = null }) => {
+const POSMenuItemDetailedView = ({ 
+  menuItems, 
+  selectedCategory, 
+  categories, 
+  searchQuery, 
+  currency, 
+  btnOpenVariantAndAddonModal, 
+  addItemToCart, 
+  onMinusItem = null,
+  cartItems = [], 
+  isReadOnly = false, 
+  hoveredItemId = null, 
+  onItemHover = null, 
+  onScroll = null, 
+  scrollTopRatio = null 
+}) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const containerRef = useRef(null);
@@ -37,20 +51,22 @@ const POSMenuItemDetailedView = ({ menuItems, selectedCategory, categories, sear
   return (
     <div className='w-full h-full overflow-hidden'>
       {filteredMenuItems.length === 0 ? (
-        <div className="flex flex-col justify-center items-center w-full h-full">
-          <img src="/assets/illustrations/pos-not-found.webp" alt={t('pos.not_found_img_alt')} className="w-1/4 mb-4" />
+        <div className="flex flex-col justify-center items-center w-full h-full py-12">
+          <img src="/assets/illustrations/pos-not-found.webp" alt={t('pos.not_found_img_alt')} className="w-1/4 max-w-[180px] mb-4 opacity-80" />
           <p className="text-lg text-restro-green font-bold">{t("pos_menu.not_found_title")}</p>
-          <p className="text-gray-500">{t("pos_menu.not_found_message")}</p>
-          <p className="text-gray-500">{t("pos_menu.not_found_carrot")}</p>
+          <p className="text-gray-500 text-sm">{t("pos_menu.not_found_message")}</p>
+          <p className="text-gray-400 text-xs mt-1">{t("pos_menu.not_found_carrot")}</p>
         </div>
       ) : (
-        <div ref={containerRef} onScroll={onScroll} className='grid grid-cols-1 lg:grid-cols-2 gap-4 w-full z-0 px-4 pb-4 rounded-b-2xl overflow-y-auto h-full content-start '>
+        <div ref={containerRef} onScroll={onScroll} className='grid grid-cols-1 lg:grid-cols-2 gap-3.5 w-full z-0 px-4 pb-6 rounded-b-2xl overflow-y-auto h-full content-start'>
           {filteredMenuItems.map((menuItem, i) => {
             const { title, description, id, price, image, category_id, category_title, addons, variants } = menuItem;
 
             const imageURL = image ? getImageURL(image) : null;
             const hasVariantOrAddon = variants?.length > 0 || addons?.length > 0;
             const isHovered = String(hoveredItemId) === String(id);
+
+            const inCartCount = cartItems?.reduce((acc, c) => c.id === id ? acc + (Number(c.quantity) || 1) : acc, 0) || 0;
 
             const baseRecipeItems = menuItem.recipeItems?.filter(
               (r) => r.variant_id === 0 && r.addon_id === 0
@@ -60,73 +76,131 @@ const POSMenuItemDetailedView = ({ menuItems, selectedCategory, categories, sear
               (r) => parseFloat(r.current_quantity) <= parseFloat(r.min_quantity_threshold)
             );
 
-            const quantitiesPossible = baseRecipeItems.map(r => {
+            const quantitiesPossible = baseRecipeItems?.map(r => {
               const currentQty = parseFloat(r.current_quantity || "0");
               const requiredQty = parseFloat(r.recipe_quantity || "1");
               return Math.floor(currentQty / requiredQty);
             });
 
-            const minItemsCanBeMade = quantitiesPossible.length > 0
+            const minItemsCanBeMade = quantitiesPossible?.length > 0
               ? Math.min(...quantitiesPossible)
               : null;
 
             return (
               <div
-                className={`flex gap-2 min-h-32 max-h-36 rounded-2xl shadow-sm md:shadow-none border text-restro-text bg-background transition-all duration-200 ${
-                  isHovered
-                    ? 'ring-2 ring-restro-green border-restro-green scale-[1.02] shadow-lg z-10'
-                    : 'border-restro-border-green'
+                className={`group relative flex gap-3 min-h-32 max-h-36 rounded-2xl shadow-sm border text-restro-text bg-restro-card-bg transition-all duration-200 overflow-hidden select-none ${
+                  inCartCount > 0
+                    ? 'ring-2 ring-restro-green border-restro-green shadow-emerald-500/10 shadow-md'
+                    : isHovered
+                    ? 'ring-2 ring-restro-green/60 border-restro-green scale-[1.01] shadow-md z-10'
+                    : 'border-restro-border-green hover:border-restro-green/50 hover:shadow-md'
                 }`}
                 key={i}
                 onMouseEnter={() => onItemHover && onItemHover(id)}
                 onMouseLeave={() => onItemHover && onItemHover(null)}
               >
-                <div>
-                  <div className='w-20 md:w-28 flex-shrink-0 h-full flex items-center justify-center text-gray-300 relative rounded-l-2xl text-restro-text bg-restro-gray'>
-                    {image ? <img src={imageURL} alt={title} className="w-full h-full absolute top-0 left-0 rounded-l-2xl object-cover " /> : <IconCarrot />}
-                    {!isReadOnly && category_title && (
-                      <div className="absolute top-0 left-0 bg-restro-green-dark text-white text-xs font-semibold px-2 py-1 rounded-tl-xl rounded-br-lg">
-                        {category_title}
-                      </div>
-                    )}
-                    {!isReadOnly && isLowStock && (
-                      <div className="absolute left-0 bottom-0 bg-amber-50 text-amber-600 text-[10px] font-medium px-1 py-[1px] z-10 w-full flex flex-col items-center gap-[2px] rounded-bl-2xl">
-                        <div className="flex items-center gap-1">
-                          <IconAlertTriangleFilled size={12} />
-                          <span>Low Stock - {minItemsCanBeMade} Qty</span>
-                        </div>
-                      </div>
-                    )}
+                {/* In-Cart Badge for items with variants */}
+                {inCartCount > 0 && !isReadOnly && hasVariantOrAddon && (
+                  <div className="absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full text-xs font-bold bg-restro-green text-white shadow-lg flex items-center gap-1 border border-white/40 backdrop-blur-sm">
+                    <span>x{inCartCount}</span>
                   </div>
-                </div>
-                <div className="p-2 flex flex-col justify-between gap-2 w-full">
-                  <div>
-                    <div className='flex justify-between gap-4 mr-1'>
-                      <p className='line-clamp-1 text-sm text-ellipsis font-semibold w-[75%]'>{title}</p>
-                      <p className='text-restro-green font-bold'>{currency}{price}</p>
+                )}
+
+                <div className='relative w-28 md:w-32 flex-shrink-0 h-full flex items-center justify-center text-gray-300 rounded-l-2xl text-restro-text bg-restro-gray overflow-hidden'>
+                  {image ? (
+                    <img
+                      src={imageURL}
+                      alt={title}
+                      className="w-full h-full absolute top-0 left-0 rounded-l-2xl object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <IconCarrot size={32} />
+                  )}
+
+                  {!isReadOnly && category_title && (
+                    <div className="absolute top-0 left-0 bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold px-2 py-0.5 rounded-tl-xl rounded-br-lg shadow-sm">
+                      {category_title}
                     </div>
-                    <p className='line-clamp-2 text-ellipsis text-xs text-gray-500 mt-0.5'>{description}</p>
+                  )}
+
+                  {!isReadOnly && isLowStock && (
+                    <div className="absolute left-0 bottom-0 bg-amber-500/95 text-white text-[10px] font-semibold px-1.5 py-0.5 z-10 w-full flex items-center justify-center gap-1 backdrop-blur-sm">
+                      <IconAlertTriangleFilled size={12} />
+                      <span>{t('inventory.low_stock', 'Low Stock')} ({minItemsCanBeMade})</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 flex flex-col justify-between gap-1.5 w-full min-w-0">
+                  <div>
+                    <div className='flex items-start justify-between gap-2 pr-2'>
+                      <p className='line-clamp-1 text-sm text-ellipsis font-semibold text-restro-text group-hover:text-restro-green transition-colors'>{title}</p>
+                    </div>
+                    <p className='line-clamp-2 text-ellipsis text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed'>{description}</p>
                   </div>
-                  <div className="flex justify-between items-end gap-4 w-full">
-                    <p className="text-xs text-gray-500">{variants?.length > 0 && <span>{variants?.length} {t("pos_menu.variants")}</span>} {addons?.length > 0 && <span>{addons?.length} {t("pos_menu.addons")}</span>}</p>
+
+                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-restro-border-green/50">
+                    <div className="flex flex-col">
+                      <p className='text-restro-green font-bold text-sm leading-none'>{currency}{Number(price).toFixed(2)}</p>
+                      {(variants?.length > 0 || addons?.length > 0) && (
+                        <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                          {variants?.length > 0 && <span className="bg-restro-gray px-1.5 py-0.5 rounded">{variants?.length} {t("pos_menu.variants")}</span>}
+                          {addons?.length > 0 && <span className="bg-restro-gray px-1.5 py-0.5 rounded">{addons?.length} {t("pos_menu.addons")}</span>}
+                        </p>
+                      )}
+                    </div>
+
                     {!isReadOnly && (
-                      <button onClick={() => {
-                        if (hasVariantOrAddon) {
-                          btnOpenVariantAndAddonModal(id);
-                        } else {
-                          addItemToCart(menuItem);
-                        }
-                      }} className='rounded-lg px-6 py-1 transition active:scale-95 text-white flex items-center justify-center font-bold bg-restro-green hover:bg-restro-green-button-hover'>
-                        {t("pos_menu.add")}
-                      </button>
+                      inCartCount > 0 && !hasVariantOrAddon && onMinusItem ? (
+                        <div className="flex items-center gap-1 bg-restro-green text-white rounded-full p-0.5 shadow-sm">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onMinusItem(id);
+                            }}
+                            aria-label="Decrease quantity"
+                            className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 active:scale-90 transition"
+                          >
+                            <IconMinus size={13} stroke={2.5} />
+                          </button>
+                          <span className="text-xs font-bold px-1.5 min-w-[16px] text-center">{inCartCount}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addItemToCart(menuItem);
+                            }}
+                            aria-label="Increase quantity"
+                            className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 active:scale-90 transition"
+                          >
+                            <IconPlus size={13} stroke={2.5} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (hasVariantOrAddon) {
+                              btnOpenVariantAndAddonModal(id);
+                            } else {
+                              addItemToCart(menuItem);
+                            }
+                          }}
+                          className={`rounded-xl px-3.5 py-1.5 transition active:scale-95 text-white flex items-center justify-center font-semibold text-xs shadow-sm hover:shadow ${
+                            inCartCount > 0 ? 'bg-restro-green ring-2 ring-restro-green/40' : 'bg-restro-green hover:bg-restro-green-button-hover'
+                          }`}
+                        >
+                          {inCartCount > 0 ? `+ ${t("pos_menu.add")}` : t("pos_menu.add")}
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
               </div>
             );
           })}
-
-          <div className="h-40"></div>
         </div>
       )}
     </div>

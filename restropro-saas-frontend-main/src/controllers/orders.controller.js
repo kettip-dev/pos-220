@@ -115,3 +115,17 @@ export async function payAndCompleteKitchenOrder(
         throw error;
     }
 }
+
+export async function updateOrderCustomer(orderId, customerPhone, customerType) {
+    try {
+        const response = await ApiClient.post(`/orders/update-order-customer`, {
+            orderId,
+            customerPhone,
+            customerType,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+

@@ -16,6 +16,7 @@ const {
   getOrdersPaymentSummary,
   payAndCompleteKitchenOrder,
   getInvoiceIdFromOrderId,
+  updateOrderCustomer,
 } = require("../controllers/orders.controller");
 
 const router = Router();
@@ -126,6 +127,20 @@ router.post(
     SCOPES.ORDER_STATUS_DISPLAY,
   ]),
   getInvoiceIdFromOrderId
+);
+
+router.post(
+  "/update-order-customer",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+    SCOPES.ORDER_STATUS,
+    SCOPES.ORDER_STATUS_DISPLAY,
+  ]),
+  updateOrderCustomer
 );
 
 module.exports = router;

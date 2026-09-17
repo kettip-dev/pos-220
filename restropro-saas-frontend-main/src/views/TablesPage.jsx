@@ -14,12 +14,21 @@ import {
   updateStoreTable,
   deleteTable,
   useStoreSettings,
+  usePaymentTypes,
+  usePrintSettings,
 } from "../controllers/settings.controller";
 import { useReservations } from "../controllers/reservations.controller";
+import {
+  getCompleteOrderPaymentSummary,
+  updateKitchenOrderItemStatus,
+  updateOrderCustomer,
+} from "../controllers/orders.controller";
 import FloorPlanCanvas from "../components/tables/FloorPlanCanvas";
 import TableDetailsModal from "../components/tables/TableDetailsModal";
 import AddEditTableModal from "../components/tables/AddEditTableModal";
 import AllTablesCardsModal from "../components/tables/AllTablesCardsModal";
+import TablePayModal from "../components/tables/TablePayModal";
+import TableCustomerModal from "../components/tables/TableCustomerModal";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
@@ -36,7 +45,10 @@ export default function TablesPage() {
   const { data: storeData, isLoading, mutate } = useStoreTablesLiveStatus();
   const { data: storeSettings } = useStoreSettings();
   const { data: reservationsData } = useReservations({ type: "today" });
+  const { data: paymentTypesData } = usePaymentTypes();
+  const { data: printSettingsData } = usePrintSettings();
 
+  const paymentTypes = Array.isArray(paymentTypesData) ? paymentTypesData : paymentTypesData?.paymentTypes || [];
   const currency = storeSettings?.currency || "$";
   const rawTables = storeData?.tables || [];
   const rawLayouts = storeData?.layouts || [];
@@ -87,7 +99,6 @@ export default function TablesPage() {
 
   // Drawer and Selection State (starts closed by default for full-screen floor plan)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState("actions"); // 'actions' | 'list'
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null); // Bindo status filter key
 
@@ -109,6 +120,13 @@ export default function TablesPage() {
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isAllTablesModalOpen, setIsAllTablesModalOpen] = useState(false);
   const [editingTableData, setEditingTableData] = useState(null);
+
+  // In-place Payment Modal & Live Order Items Summary
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [payTable, setPayTable] = useState(null);
+  const [activeOrderSummary, setActiveOrderSummary] = useState(null);
+  const [isLoadingOrderSummary, setIsLoadingOrderSummary] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // Sync state when floor changes
   useEffect(() => {
@@ -274,7 +292,6 @@ export default function TablesPage() {
       // Normal click: select table and show actions in drawer
       setSelectedTableId(table.id);
       setIsDrawerOpen(true);
-      setDrawerMode("actions");
     },
     [isMergeMode, mergeSourceId, currentFloor, isEditMode, t]
   );
@@ -394,16 +411,131 @@ export default function TablesPage() {
     }
   };
 
+  // Fetch active order breakdown when an occupied table is selected
+  useEffect(() => {
+    if (!selectedTable || !selectedTable.active_order_id) {
+      setActiveOrderSummary(null);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingOrderSummary(true);
+    getCompleteOrderPaymentSummary([selectedTable.active_order_id])
+      .then((res) => {
+        if (isMounted && res?.status === 200 && res?.data) {
+          setActiveOrderSummary(res.data);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load active order summary:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingOrderSummary(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedTable?.id, selectedTable?.active_order_id]);
+
+  // Primary Table Action 1: Add Menu Items -> Direct POS Launch
+  const handleAddMenuItems = (table) => {
+    if (!table) return;
+    navigate("/dashboard/pos", {
+      state: {
+        selectedTableId: table.id,
+        selectedTableTitle: `${table.table_title} (${table.seating_capacity || 2} ${t("pos.person", "persons")}) - ${table.floor}`,
+        deliveryType: "dinein",
+        activeOrderId: table.active_order_id || null,
+        activeTokenNo: table.active_order_token || null,
+      },
+    });
+  };
+
+  // Primary Table Action 2: In-place Settle Bill & Free Table
+  const handlePayTable = (table) => {
+    if (!table || !table.active_order_id) {
+      toast.error(t("tables.no_active_order_to_pay", "This table does not have an active order to pay."));
+      return;
+    }
+    setPayTable(table);
+    setIsPayModalOpen(true);
+  };
+
+  // Customer Management Handlers
+  const handleOpenCustomerModal = () => {
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleAssignCustomer = async (customer) => {
+    if (!selectedTable) return;
+    try {
+      if (selectedTable.active_order_id) {
+        await updateOrderCustomer(selectedTable.active_order_id, customer.phone, "CUSTOM");
+        toast.success(t("customers.assigned_to_table", `Assigned ${customer.name} to Table ${selectedTable.table_title}`));
+        await mutate();
+      } else {
+        // Available table: launch POS with this customer pre-selected
+        navigate("/dashboard/pos", {
+          state: {
+            selectedTableId: selectedTable.id,
+            selectedTableTitle: `${selectedTable.table_title} (${selectedTable.seating_capacity || 2} ${t("pos.person", "persons")}) - ${selectedTable.floor}`,
+            deliveryType: "dinein",
+            customer: customer,
+            customerType: "CUSTOM",
+          },
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || t("common.error", "Failed to assign customer"));
+    }
+  };
+
+  const handleResetToWalkin = async () => {
+    if (!selectedTable || !selectedTable.active_order_id) return;
+    try {
+      await updateOrderCustomer(selectedTable.active_order_id, null, "WALKIN");
+      toast.success(t("customers.reset_to_walkin_success", "Table reset to Walk-in Guest"));
+      await mutate();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || t("common.error", "Failed to reset customer"));
+    }
+  };
+
+  // Item Void / Cancellation Handler
+  const handleVoidOrderItem = async (item) => {
+    const isConfirmed = window.confirm(
+      t("orders.confirm_void_item", `Are you sure you want to void / remove "${item.title}" from this order?`)
+    );
+    if (!isConfirmed) return;
+
+    try {
+      toast.loading(t("common.processing", "Voiding item..."));
+      const res = await updateKitchenOrderItemStatus(item.id, "cancelled");
+      toast.dismiss();
+      if (res?.status === 200) {
+        toast.success(t("orders.item_voided_successfully", `Voided ${item.title}`));
+        await mutate();
+        if (selectedTable?.active_order_id) {
+          const updatedSummary = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
+          if (updatedSummary?.data) {
+            setActiveOrderSummary(updatedSummary.data);
+          }
+        }
+      }
+    } catch (err) {
+      toast.dismiss();
+      console.error(err);
+      toast.error(err?.response?.data?.message || t("common.error", "Failed to void item"));
+    }
+  };
+
   // Quick Order Action -> Direct POS Launch
   const handleNewOrder = (orderType, table) => {
     if (orderType === "dine_in" && table) {
-      navigate("/dashboard/pos", {
-        state: {
-          selectedTableId: table.id,
-          selectedTableTitle: table.table_title,
-          deliveryType: "dinein",
-        },
-      });
+      handleAddMenuItems(table);
     } else if (orderType === "take_away") {
       navigate("/dashboard/pos", { state: { deliveryType: "takeaway" } });
     } else if (orderType === "delivery") {
@@ -531,8 +663,6 @@ export default function TablesPage() {
               setIsDrawerOpen(false);
               setSelectedTableId(null);
             }}
-            activeTab={drawerMode}
-            onTabChange={(tab) => setDrawerMode(tab)}
             selectedTable={selectedTable}
             isMergeMode={isMergeMode}
             onToggleMergeMode={() => {
@@ -543,13 +673,12 @@ export default function TablesPage() {
             onSplitChecks={handleSplitChecks}
             onMoveLineItem={() => toast(t("tables.move_line_item_hint", "Select item in order modal to transfer"))}
             onNewOrder={handleNewOrder}
-            onReservationOverview={() => navigate("/dashboard/reservation")}
-            onPrintReservation={() => window.print()}
-            reservations={todayReservations}
-            queueList={[]}
-            seatedTables={seatedTablesList}
-            pendingOrders={[]}
-            onSeatReservation={handleSeatReservation}
+            onAddMenuItems={handleAddMenuItems}
+            onPayTable={handlePayTable}
+            onOpenCustomerModal={handleOpenCustomerModal}
+            onVoidItem={handleVoidOrderItem}
+            activeOrderSummary={activeOrderSummary}
+            isLoadingOrderSummary={isLoadingOrderSummary}
             onEditTable={(table) => {
               setEditingTableData(table);
               setIsAddEditModalOpen(true);
@@ -648,7 +777,6 @@ export default function TablesPage() {
           }
           setSelectedTableId(table.id);
           setIsDrawerOpen(true);
-          setDrawerMode("actions");
           setIsAllTablesModalOpen(false);
         }}
         onNewOrder={(orderType, table) => {
@@ -657,6 +785,42 @@ export default function TablesPage() {
         }}
         currency={currency}
       />
+
+      {/* 5. In-Place Table Checkout & Settle Bill Modal */}
+      {isPayModalOpen && (
+        <TablePayModal
+          isOpen={isPayModalOpen}
+          onClose={() => {
+            setIsPayModalOpen(false);
+            setPayTable(null);
+          }}
+          table={payTable}
+          currency={currency}
+          paymentTypes={paymentTypes}
+          printSettings={printSettingsData}
+          storeSettings={storeSettings}
+          onSuccess={async () => {
+            await mutate();
+            setSelectedTableId(null);
+            setIsDrawerOpen(false);
+          }}
+        />
+      )}
+
+      {/* 6. Customer Search, Create & Assign Modal */}
+      {isCustomerModalOpen && (
+        <TableCustomerModal
+          isOpen={isCustomerModalOpen}
+          onClose={() => setIsCustomerModalOpen(false)}
+          currentCustomer={
+            selectedTable?.customer_name
+              ? { name: selectedTable.customer_name, phone: selectedTable.customer_phone }
+              : null
+          }
+          onSelectCustomer={handleAssignCustomer}
+          onResetToWalkin={handleResetToWalkin}
+        />
+      )}
     </Page>
   );
 }

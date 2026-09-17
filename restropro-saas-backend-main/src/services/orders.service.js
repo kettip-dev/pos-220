@@ -396,3 +396,23 @@ exports.completeOrdersAndSaveInvoiceIdDB = async (orderIds, invoiceId, tenantId)
     conn.release();
   }
 }
+
+exports.updateOrderCustomerDB = async (orderId, customerPhone, customerType, tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const sql = `
+    UPDATE orders SET
+      customer_id = ?,
+      customer_type = ?
+    WHERE id = ? AND tenant_id = ?;
+    `;
+    await conn.query(sql, [customerPhone || null, customerType || (customerPhone ? "CUSTOM" : "WALKIN"), orderId, tenantId]);
+    return true;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+

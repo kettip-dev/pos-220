@@ -493,6 +493,7 @@ export default function DisplayPage() {
               currency={currency}
               btnOpenVariantAndAddonModal={noop}
               addItemToCart={noop}
+              cartItems={cartItems}
               isReadOnly={true}
               hoveredItemId={hoveredItemId}
               scrollTopRatio={scrollTopRatio}

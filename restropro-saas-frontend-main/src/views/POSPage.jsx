@@ -99,12 +99,56 @@ export default function POSPage() {
 
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [isPaySummaryExpanded, setIsPaySummaryExpanded] = useState(true);
+  const [isPaySummaryExpanded, setIsPaySummaryExpanded] = useState(false);
   const [dualScreenRoomId, setDualScreenRoomId] = useState(null);
   const [dualScreenUrl, setDualScreenUrl] = useState(null);
   const [newCounterInput, setNewCounterInput] = useState('');
+  const [selectedDiningOption, setSelectedDiningOption] = useState('dinein');
+  const [tenderedAmount, setTenderedAmount] = useState('');
+  const [isDiscountDrawerOpen, setIsDiscountDrawerOpen] = useState(false);
+  const [activeTableContext, setActiveTableContext] = useState(null);
 
   const { categories, menuItems, paymentTypes, printSettings, storeSettings, storeTables, currency, cartItems, searchQuery, selectedCategory, selectedItemId, drafts, customer, customerType, isLoading } = state;
+
+  const categoryCounts = React.useMemo(() => {
+    const counts = { all: 0 };
+    (menuItems || []).forEach(item => {
+      if (item.is_enabled) {
+        counts.all = (counts.all || 0) + 1;
+        if (item.category_id) {
+          counts[item.category_id] = (counts[item.category_id] || 0) + 1;
+        }
+      }
+    });
+    return counts;
+  }, [menuItems]);
+
+  const handleMinusItemByMenuId = (menuItemId) => {
+    const index = cartItems.findIndex(c => c.id === menuItemId && !c.variant && (!c.addons || c.addons.length === 0));
+    if (index !== -1) {
+      minusCartItemQuantity(index, cartItems[index].quantity);
+    }
+  };
+
+  const btnClearCart = () => {
+    if (!cartItems || cartItems.length === 0) return;
+    setState(prev => ({
+      ...prev,
+      cartItems: [],
+      discountValue: 0,
+      discountAmount: 0,
+    }));
+    playTapSound();
+    toast.success(t('pos.cart_cleared', 'Cart cleared'));
+  };
+
+  const handleSelectDiningOption = (option) => {
+    setSelectedDiningOption(option);
+    if (diningOptionRef.current) {
+      diningOptionRef.current.value = option;
+    }
+    broadcastOrderMeta(undefined, option, tableRef.current?.value);
+  };
 
   useEffect(()=>{
     _initPOS();
@@ -114,10 +158,23 @@ export default function POSPage() {
   useEffect(() => {
     if (location.state?.selectedTableId && tableRef.current && state.storeTables?.length > 0) {
       tableRef.current.value = location.state.selectedTableId;
-      if (diningOptionRef.current && location.state?.deliveryType) {
-        diningOptionRef.current.value = location.state.deliveryType;
+      const delType = location.state?.deliveryType || "dinein";
+      setSelectedDiningOption(delType);
+      if (diningOptionRef.current) {
+        diningOptionRef.current.value = delType;
       }
-      broadcastOrderMeta(undefined, location.state?.deliveryType || "dinein", location.state.selectedTableId);
+      const tblObj = state.storeTables.find(t => String(t.id) === String(location.state.selectedTableId));
+      if (tblObj) {
+        setSelectedTableTitle(`${tblObj.table_title} (${tblObj.seating_capacity} ${t('pos.person')}) - ${tblObj.floor}`);
+      }
+      if (location.state?.activeTokenNo) {
+        setActiveTableContext({
+          tableTitle: tblObj?.table_title || location.state?.selectedTableTitle || "Table",
+          tokenNo: location.state.activeTokenNo,
+          orderId: location.state.activeOrderId,
+        });
+      }
+      broadcastOrderMeta(undefined, delType, location.state.selectedTableId);
     }
   }, [location.state, state.storeTables]);
 
@@ -1219,13 +1276,16 @@ export default function POSPage() {
     }
 
     const summary = calculateOrderSummary();
+    const defaultPayType = state.selectedPaymentType || (paymentTypes?.length > 0 ? paymentTypes[0].id : null);
 
     setState({
       ...state,
+      selectedPaymentType: defaultPayType,
       ...summary
     });
+    setTenderedAmount(summary.payableTotal > 0 ? summary.payableTotal.toFixed(2) : '');
     document.getElementById('modal-pay-and-send-kitchen-summary').showModal();
-    broadcastPaymentModalOpen(paymentTypes, state.selectedPaymentType);
+    broadcastPaymentModalOpen(paymentTypes, defaultPayType);
   };
   const btnPayAndSendToKitchen = async () => {
     if(!state.selectedPaymentType) {
@@ -1386,6 +1446,9 @@ export default function POSPage() {
         const page_format = printSettings?.page_format || null;
         const is_enable_print = printSettings?.is_enable_print || 0;
 
+        const paymentType = paymentTypes.find((v) => v.id == state.selectedPaymentType);
+        let paymentMethodText = paymentType ? paymentType.title : (t('orders.unpaid', 'Unpaid') || 'Pay Later');
+
         setDetailsForReceiptPrint({
           cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
           itemsTotal: state.itemsTotal,
@@ -1396,7 +1459,8 @@ export default function POSPage() {
           serviceChargeTotal:state.serviceChargeTotal,
           payableTotal: state.payableTotal,
           tokenNo: data.tokenNo,
-          orderId: data.orderId
+          orderId: data.orderId,
+          paymentMethod: paymentMethodText
         });
 
         sendNewOrderEvent(data.tokenNo, data.orderId);
@@ -1498,127 +1562,211 @@ export default function POSPage() {
   // search customer modal
 
   const cartItemsCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const mobileCartSummary = calculateOrderSummary();
+  const liveCartSummary = calculateOrderSummary();
+
+  const currentSelectedTable = storeTables.find(t => String(t.id) === String(tableRef.current?.value));
 
   return (
     <Page className='px-4 py-3 flex flex-col min-h-0'>
-      {/* mobile app bar */}
-      <div className="md:hidden flex items-center justify-between gap-2">
-        <h3 className="text-lg font-bold">{t('pos.title')}</h3>
-        <div className="flex items-center gap-2">
-          <button onClick={handleDualScreenClick} aria-label={t('pos.dual_screen', 'Dual Screen')} className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
-            <IconScreenShare size={20} stroke={iconStroke} />
+      {/* Hidden legacy select elements to preserve 100% backend, print, and ref compatibility */}
+      <select ref={diningOptionRef} className="hidden" value={selectedDiningOption} onChange={() => broadcastOrderMeta()}>
+        <option value="">{t('pos.select_dining_option')}</option>
+        <option value="dinein">{t('pos.dinein')}</option>
+        <option value="delivery">{t('pos.delivery')}</option>
+        <option value="takeaway">{t('pos.takeaway')}</option>
+      </select>
+
+      <select ref={tableRef} className="hidden" onChange={() => broadcastOrderMeta()}>
+        <option value="">{t('pos.select_table')}</option>
+        {storeTables.map((table, index) => (
+          <option value={table.id} key={index}>
+            {table.table_title} ({table.seating_capacity} {t('pos.person')}) - {table.floor}
+          </option>
+        ))}
+      </select>
+
+      {/* Mobile top bar */}
+      <div className="md:hidden flex items-center justify-between gap-2 pb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-base font-bold truncate">{t('pos.title')}</h3>
+          <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Live
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={handleDualScreenClick} aria-label={t('pos.dual_screen', 'Dual Screen')} className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
+            <IconScreenShare size={18} stroke={iconStroke} />
           </button>
-          <button onClick={btnInitNewOrder} aria-label={t('pos.new_order')} className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-white bg-restro-green hover:bg-restro-green-button-hover active:scale-95 transition shadow-sm">
-            <IconPlus size={20} stroke={iconStroke} />
+          <button onClick={btnInitNewOrder} aria-label={t('pos.new_order')} className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-white bg-restro-green hover:bg-restro-green-button-hover active:scale-95 transition shadow-sm">
+            <IconPlus size={18} stroke={iconStroke} />
           </button>
-          <button onClick={btnShowQROrdersModal} aria-label={t('pos.qr_menu_orders')} className="relative w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
-            <IconQrcode size={20} stroke={iconStroke} />
-            {state.qrOrdersCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{state.qrOrdersCount}</span>}
+          <button onClick={btnShowQROrdersModal} aria-label={t('pos.qr_menu_orders')} className="relative w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
+            <IconQrcode size={18} stroke={iconStroke} />
+            {state.qrOrdersCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{state.qrOrdersCount}</span>}
           </button>
-          <button onClick={btnOpenDraftsModal} aria-label={t('pos.drafts_list')} className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
-            <IconNotes size={20} stroke={iconStroke} />
+          <button onClick={btnOpenDraftsModal} aria-label={t('pos.drafts_list')} className="relative w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
+            <IconNotes size={18} stroke={iconStroke} />
+            {drafts?.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">{drafts.length}</span>}
           </button>
-          <Link to="/dashboard/orders" aria-label={t('pos.table_orders')} className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
-            <IconArmchair size={20} stroke={iconStroke} />
+          <Link to="/dashboard/orders" aria-label={t('pos.table_orders')} className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover active:scale-95 transition">
+            <IconArmchair size={18} stroke={iconStroke} />
           </Link>
         </div>
       </div>
-      {/* mobile app bar */}
 
-      {/* desktop header */}
-      <div className="hidden md:flex md:items-center justify-between flex-row gap-2">
-        <h3>{t('pos.title')}</h3>
-        <div className='flex flex-wrap items-center gap-4'>
-          <button onClick={handleDualScreenClick} className="relative text-sm rounded-lg border transition active:scale-95 hover:shadow-lg text-gray-500 px-2 py-1 flex items-center gap-1 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover">
-            <IconScreenShare size={18} stroke={iconStroke} /> {t('pos.dual_screen', 'Dual Screen')}
+      {/* Desktop modern unified action bar */}
+      <div className="hidden md:flex md:items-center justify-between flex-row gap-3 py-1">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-xl font-bold tracking-tight text-restro-text">{t('pos.title')}</h2>
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Live Terminal</span>
+          </div>
+        </div>
+
+        <div className='flex items-center gap-2'>
+          <button 
+            onClick={handleDualScreenClick} 
+            className="text-xs font-medium rounded-xl border transition active:scale-95 px-3 py-2 flex items-center gap-1.5 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover shadow-sm"
+          >
+            <IconScreenShare size={16} stroke={iconStroke} /> 
+            <span>{t('pos.dual_screen', 'Dual Screen')}</span>
+            {dualScreenRoomId && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
           </button>
 
-          <button onClick={btnInitNewOrder} className = "text-sm rounded-lg border transition active:scale-95 hover:shadow-lg px-2 py-1 flex items-center gap-1 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover">
-            <IconPlus size={18} stroke={iconStroke}  /> {t('pos.new_order')}
+          <button 
+            onClick={btnShowQROrdersModal}
+            className="relative text-xs font-medium rounded-xl border transition active:scale-95 px-3 py-2 flex items-center gap-1.5 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover shadow-sm"
+          >
+            <IconQrcode size={16} stroke={iconStroke} /> 
+            <span>{t('pos.qr_menu_orders')}</span>
+            {state.qrOrdersCount > 0 && (
+              <span className='min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center'>
+                {state.qrOrdersCount}
+              </span>
+            )}
           </button>
 
-          {/* QR Menu Orders */}
-          <button
-          onClick={btnShowQROrdersModal}
-          className = "relative text-sm rounded-lg border transition active:scale-95 hover:shadow-lg px-2 py-1 flex items-center gap-1 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover">
-            <IconQrcode size={18} stroke={iconStroke}  /> {t('pos.qr_menu_orders')}
-
-            {state.qrOrdersCount > 0 && <div className='absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center'> {state.qrOrdersCount}
-            </div>}
-          </button>
-          {/* QR Menu Orders */}
-
-          <button onClick={btnOpenDraftsModal} className = "relative text-sm rounded-lg border transition active:scale-95 hover:shadow-lg text-gray-500 px-2 py-1 flex items-center gap-1 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover">
-            <IconNotes size={18} stroke={iconStroke}  /> {t('pos.drafts_list')}
+          <button 
+            onClick={btnOpenDraftsModal} 
+            className="relative text-xs font-medium rounded-xl border transition active:scale-95 px-3 py-2 flex items-center gap-1.5 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover shadow-sm"
+          >
+            <IconNotes size={16} stroke={iconStroke} /> 
+            <span>{t('pos.drafts_list')}</span>
+            {drafts?.length > 0 && (
+              <span className='min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center'>
+                {drafts.length}
+              </span>
+            )}
           </button>
 
-          <Link to="/dashboard/orders" className = "relative text-sm rounded-lg border transition active:scale-95 hover:shadow-lg text-gray-500 px-2 py-1 flex items-center gap-1 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover">
-            <IconArmchair size={18} stroke={iconStroke} /> {t('pos.table_orders')}
+          <Link 
+            to="/dashboard/orders" 
+            className="text-xs font-medium rounded-xl border transition active:scale-95 px-3 py-2 flex items-center gap-1.5 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover shadow-sm"
+          >
+            <IconArmchair size={16} stroke={iconStroke} /> 
+            <span>{t('pos.table_orders')}</span>
           </Link>
+
+          <button 
+            onClick={btnInitNewOrder} 
+            className="text-xs font-semibold rounded-xl transition active:scale-95 px-3.5 py-2 flex items-center gap-1.5 text-white bg-restro-green hover:bg-restro-green-button-hover shadow-sm"
+          >
+            <IconPlus size={16} stroke={iconStroke} /> 
+            <span>{t('pos.new_order')}</span>
+          </button>
         </div>
       </div>
-      {/* desktop header */}
 
-      <div className='mt-4 h-[calc(100vh-190px)] md:h-[calc(100vh-136px)] flex flex-col md:flex-row gap-4'>
+      {/* Main Split Layout: Catalog (Left) + Cart Sidebar (Right) */}
+      <div className='mt-2.5 h-[calc(100vh-175px)] md:h-[calc(100vh-125px)] flex flex-col md:flex-row gap-3.5'>
 
-        {/* pos items */}
-        <div className = "h-full md:w-[70%] overflow-y-auto scrollbar-none md:border md:rounded-2xl md:border-restro-border-green">
-          {/* categories, search, toggle View*/}
-         <div className="bg-background flex flex-col md:flex-row gap-2.5 md:gap-2 md:justify-between sticky top-0 w-full z-10 px-4 pt-1 pb-3 md:py-3 md:rounded-t-2xl border-b border-restro-border-green md:border-b-0">
+        {/* Catalog Panel (70%) */}
+        <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-2xl border-restro-border-green bg-background shadow-sm">
+          {/* Sub-bar: Category Tabs + Search + View Toggle */}
+          <div className="bg-background flex flex-col md:flex-row gap-2.5 md:gap-3 md:items-center justify-between sticky top-0 w-full z-10 px-4 py-2.5 border-b border-restro-border-green">
+            {/* Category horizontal pill bar with counts */}
             <div className={clsx(
-              "flex overflow-x-auto space-x-2 text-sm custom-scroll-wrapper scrollbar scrollbar-none custom-scroll-div-horizon-smooth -mx-4 px-4 md:mx-0 md:px-0",
+              "flex overflow-x-auto space-x-1.5 text-sm custom-scroll-wrapper scrollbar scrollbar-none custom-scroll-div-horizon-smooth -mx-2 px-2 md:mx-0 md:px-0 py-0.5",
               isMobileSearchOpen && "max-md:hidden"
             )}>
-              <div className="flex overflow-x-auto space-x-2 text-sm scrollbar scrollbar-none custom-scroll-div-horizon-smooth">
-                <button
-                  className={`flex-shrink-0 min-w-fit px-4 py-2 rounded-full text-sm font-medium transition active:scale-95 ${selectedCategory === "all"  ? theme === 'black' ? 'bg-restro-green-dark-mode text-white' : 'bg-restro-green text-white' : theme=== 'black' ? 'bg-restro-bg-seconday-dark-mode' : 'bg-gray-100 text-gray-600'}`}
-                  onClick={() => {
-                    setState({
-                      ...state,
-                      selectedCategory: 'all'
-                    })
-                  }}
-                >
-                  {t('pos.all')}
-                </button>
-                {categories.filter((category) => category.is_enabled).map((category, index) => (
-                <button
+              <button
+                className={`flex-shrink-0 min-w-fit px-3.5 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                  selectedCategory === "all" 
+                    ? 'bg-restro-green text-white shadow-emerald-500/20' 
+                    : theme === 'black' 
+                    ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                onClick={() => {
+                  setState({
+                    ...state,
+                    selectedCategory: 'all'
+                  });
+                }}
+              >
+                <span>{t('pos.all')}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  selectedCategory === "all" ? 'bg-white/20 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
+                }`}>
+                  {categoryCounts.all || 0}
+                </span>
+              </button>
+
+              {categories.filter((category) => category.is_enabled).map((category, index) => {
+                const count = categoryCounts[category.id] || 0;
+                const isSelected = selectedCategory === category.id;
+                return (
+                  <button
                     key={index}
-                    className={`flex-shrink-0 min-w-fit px-4 py-2 rounded-full text-sm font-medium transition active:scale-95 ${selectedCategory === category.id  ? theme === 'black' ? 'bg-restro-green-dark-mode text-white' : 'bg-restro-green text-white' : theme=== 'black' ? 'bg-restro-bg-seconday-dark-mode' : 'bg-gray-100 text-gray-600'}`}
+                    className={`flex-shrink-0 min-w-fit px-3.5 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 flex items-center gap-1.5 shadow-sm ${
+                      isSelected 
+                        ? 'bg-restro-green text-white shadow-emerald-500/20' 
+                        : theme === 'black' 
+                        ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                     onClick={() => {
                       setState({
                         ...state,
                         selectedCategory: category.id
-                      })
+                      });
                     }}
                   >
-                    {category.title}
-                </button>
-                ))}
-              </div>
+                    <span>{category.title}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-2">
-              {/* mobile: collapsed search icon / expanded search input */}
+
+            {/* Search + View Toggle */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Mobile Search */}
               <div className="md:hidden flex items-center gap-2 flex-1 min-w-0">
                 {!isMobileSearchOpen ? (
                   <button
                     onClick={() => setIsMobileSearchOpen(true)}
                     aria-label={t('appbar.search_placeholder')}
-                    className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-restro-gray border border-restro-border-green text-restro-text active:scale-90 transition"
+                    className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center bg-restro-gray border border-restro-border-green text-restro-text active:scale-90 transition"
                   >
-                    <IconSearch size={18} stroke={iconStroke} />
+                    <IconSearch size={16} stroke={iconStroke} />
                   </button>
                 ) : (
-                  <label className="flex flex-1 min-w-0 items-center rounded-full px-3 py-2.5 gap-2 bg-restro-gray border border-restro-green">
-                    <IconSearch size={18} stroke={iconStroke} className="flex-shrink-0 text-restro-green" />
+                  <label className="flex flex-1 min-w-0 items-center rounded-xl px-3 py-1.5 gap-2 bg-restro-gray border border-restro-green">
+                    <IconSearch size={16} stroke={iconStroke} className="flex-shrink-0 text-restro-green" />
                     <input
                       autoFocus
                       value={searchQuery}
-                      onChange={e=>setState({...state, searchQuery: e.target.value})}
+                      onChange={e => setState({...state, searchQuery: e.target.value})}
                       type="search"
                       placeholder={t('appbar.search_placeholder')}
-                      className='w-full min-w-0 bg-transparent outline-none'
+                      className='w-full min-w-0 bg-transparent text-xs outline-none'
                     />
                     <button
                       onClick={() => {
@@ -1626,251 +1774,539 @@ export default function POSPage() {
                         setIsMobileSearchOpen(false);
                       }}
                       aria-label={t('pos.close')}
-                      className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-restro-button-hover text-restro-text"
+                      className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-restro-button-hover text-restro-text"
                     >
-                      <IconX size={14} stroke={iconStroke} />
+                      <IconX size={12} stroke={iconStroke} />
                     </button>
                   </label>
                 )}
               </div>
-              {/* mobile: collapsed search icon / expanded search input */}
 
-              {/* desktop: always-expanded search */}
-              <label className="hidden md:flex items-center w-60 rounded-xl px-3 py-2 gap-2 bg-restro-gray border border-restro-border-green">
-                <IconSearch size={18} stroke={iconStroke} className="flex-shrink-0 text-restro-text" />
-                 <input value={searchQuery} onChange={e=>setState({...state, searchQuery: e.target.value})} type="search" placeholder={t('appbar.search_placeholder')} className='w-full min-w-0 bg-transparent outline-none' />
+              {/* Desktop Search */}
+              <label className="hidden md:flex items-center w-52 rounded-xl px-3 py-1.5 gap-2 bg-restro-gray border border-restro-border-green focus-within:border-restro-green transition">
+                <IconSearch size={16} stroke={iconStroke} className="flex-shrink-0 text-gray-400" />
+                <input 
+                  value={searchQuery} 
+                  onChange={e => setState({...state, searchQuery: e.target.value})} 
+                  type="search" 
+                  placeholder={t('appbar.search_placeholder')} 
+                  className='w-full min-w-0 bg-transparent text-xs outline-none text-restro-text' 
+                />
+                {searchQuery && (
+                  <button 
+                    type="button"
+                    onClick={() => setState({...state, searchQuery: ''})}
+                    className="text-gray-400 hover:text-restro-text"
+                  >
+                    <IconX size={14} stroke={iconStroke} />
+                  </button>
+                )}
               </label>
-              {/* desktop: always-expanded search */}
 
+              {/* View Switcher Button */}
               <button
-              className={clsx(`flex-shrink-0 px-3 py-2.5 md:py-2 rounded-full md:rounded-xl`,
-                isMobileSearchOpen && "max-md:hidden",
-                theme === "black" ? state.view === "compact" ? "text-restro-green bg-restro-bg-seconday-dark-mode hover:bg-restro-bg-hover-dark-mode" : "text-gray-300 bg-restro-bg-seconday-dark-mode hover:bg-restro-bg-hover-dark-mode" : state.view === "compact" ? "text-restro-green bg-gray-100  hover:bg-gray-200" : "text-gray-400 bg-gray-100  hover:bg-gray-200"
-)}
-              onClick={() => {
-                const newView = state.view === 'detailed' ? 'compact' : 'detailed';
-                setState((prev) => ({
-                  ...prev,
-                  view: newView
-                }));
-                sessionStorage.setItem('view', newView);
-              }}>
-                <IconLayout2 size={24} stroke={2}/>
+                className={clsx(
+                  "flex-shrink-0 px-2.5 py-1.5 rounded-xl border border-restro-border-green text-xs font-medium flex items-center gap-1 transition active:scale-95",
+                  isMobileSearchOpen && "max-md:hidden",
+                  state.view === "compact" 
+                    ? "text-restro-green bg-emerald-500/10" 
+                    : "text-restro-text bg-restro-gray hover:bg-restro-button-hover"
+                )}
+                title="Toggle Grid / List View"
+                onClick={() => {
+                  const newView = state.view === 'detailed' ? 'compact' : 'detailed';
+                  setState((prev) => ({
+                    ...prev,
+                    view: newView
+                  }));
+                  sessionStorage.setItem('view', newView);
+                }}
+              >
+                <IconLayout2 size={18} stroke={iconStroke} />
               </button>
             </div>
           </div>
-          {/* categories, search */}
 
-
-          {/* list */}
-          <div className='flex-1 h-full pt-3'>
-          {state.view == 'detailed' ?
-            <POSMenuItemDetailedView
-              menuItems={menuItems}
-              selectedCategory={selectedCategory}
-              categories={categories}
-              searchQuery={searchQuery}
-              currency={currency}
-              btnOpenVariantAndAddonModal={btnOpenVariantAndAddonModal}
-              addItemToCart={addItemToCart}
-              onItemHover={handleItemHover}
-              onScroll={handleMenuScroll}
-            />:
-            <POSMenuItemCompactView
-              menuItems={menuItems}
-              selectedCategory={selectedCategory}
-              categories={categories}
-              searchQuery={searchQuery}
-              currency={currency}
-              btnOpenVariantAndAddonModal={btnOpenVariantAndAddonModal}
-              addItemToCart={addItemToCart}
-              onItemHover={handleItemHover}
-              onScroll={handleMenuScroll}
-            />
-          }
+          {/* Menu Catalog Grid / List */}
+          <div className='flex-1 h-full overflow-hidden pt-2'>
+            {state.view === 'detailed' ? (
+              <POSMenuItemDetailedView
+                menuItems={menuItems}
+                selectedCategory={selectedCategory}
+                categories={categories}
+                searchQuery={searchQuery}
+                currency={currency}
+                btnOpenVariantAndAddonModal={btnOpenVariantAndAddonModal}
+                addItemToCart={addItemToCart}
+                onMinusItem={handleMinusItemByMenuId}
+                cartItems={cartItems}
+                onItemHover={handleItemHover}
+                onScroll={handleMenuScroll}
+              />
+            ) : (
+              <POSMenuItemCompactView
+                menuItems={menuItems}
+                selectedCategory={selectedCategory}
+                categories={categories}
+                searchQuery={searchQuery}
+                currency={currency}
+                btnOpenVariantAndAddonModal={btnOpenVariantAndAddonModal}
+                addItemToCart={addItemToCart}
+                onMinusItem={handleMinusItemByMenuId}
+                cartItems={cartItems}
+                onItemHover={handleItemHover}
+                onScroll={handleMenuScroll}
+              />
+            )}
           </div>
-          {/* list */}
-
-
         </div>
-        {/* pos items */}
 
-        {/* mobile: floating "view cart" bar */}
+        {/* Mobile floating "view cart" bar */}
         {cartItemsCount > 0 && !isMobileCartOpen && (
           <button
             onClick={() => setIsMobileCartOpen(true)}
-            className="md:hidden fixed bottom-24 inset-x-4 z-30 flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-white bg-restro-green hover:bg-restro-green-button-hover shadow-lg transition active:scale-95"
+            className="md:hidden fixed bottom-20 inset-x-4 z-30 flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-white bg-restro-green hover:bg-restro-green-button-hover shadow-xl transition active:scale-95 border border-white/20"
           >
-            <span className="flex items-center gap-2">
-              <span className="relative">
-                <IconShoppingCart size={20} stroke={iconStroke} />
-                <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-white text-restro-green text-[10px] font-bold flex items-center justify-center">{cartItemsCount}</span>
+            <span className="flex items-center gap-2.5">
+              <span className="relative flex items-center justify-center">
+                <IconShoppingCart size={22} stroke={iconStroke} />
+                <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-restro-green text-[10px] font-bold flex items-center justify-center shadow">
+                  {cartItemsCount}
+                </span>
               </span>
-              <span className="font-semibold text-sm">{currency}{mobileCartSummary.payableTotal.toFixed(2)}</span>
+              <span className="font-bold text-base">{currency}{liveCartSummary.payableTotal.toFixed(2)}</span>
             </span>
             <span className="flex items-center gap-1 text-sm font-semibold">
-              {t('pos.view')} {t('pos.cart')} <IconChevronUp size={16} stroke={iconStroke} />
+              {t('pos.view')} {t('pos.cart')} <IconChevronUp size={18} stroke={iconStroke} />
             </span>
           </button>
         )}
-        {/* mobile: floating "view cart" bar */}
 
-        {/* mobile: cart sheet backdrop */}
+        {/* Mobile backdrop */}
         {isMobileCartOpen && (
           <button
             type="button"
             aria-label={t('pos.close')}
             onClick={() => setIsMobileCartOpen(false)}
-            className="md:hidden fixed inset-0 z-40 bg-black/30"
+            className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
           />
         )}
-        {/* mobile: cart sheet backdrop */}
 
-        {/* cart */}
+        {/* Cart & Order Sidebar (30%) */}
         <div className={clsx(
           "flex flex-col border-restro-border-green bg-background",
-          "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-3xl shadow-[0_24px_60px_rgba(15,23,42,0.25)] dark:shadow-none dark:max-md:border dark:max-md:border-b-0 transition-transform duration-300 ease-out",
+          "fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-3xl shadow-[0_24px_60px_rgba(15,23,42,0.25)] dark:shadow-none dark:max-md:border dark:max-md:border-b-0 transition-transform duration-300 ease-out",
           isMobileCartOpen ? "translate-y-0" : "translate-y-full",
-          "md:static md:z-auto md:h-full md:w-[30%] md:max-h-none md:rounded-2xl md:border md:shadow-none md:translate-y-0 md:transition-none md:relative"
+          "md:static md:z-auto md:h-full md:w-[32%] lg:w-[30%] md:max-h-none md:rounded-2xl md:border md:shadow-sm md:translate-y-0 md:transition-none md:relative overflow-hidden"
         )}>
-
-          {/* mobile sheet header */}
-          <div className="md:hidden flex flex-col items-center flex-shrink-0 pt-2">
+          {/* Mobile sheet drag handle */}
+          <div className="md:hidden flex flex-col items-center flex-shrink-0 pt-2 pb-1">
             <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-            <div className="w-full flex items-center justify-between px-4 pt-2 pb-1">
-              <h3 className="font-bold text-base">{t('pos.cart')}</h3>
-              <button onClick={() => setIsMobileCartOpen(false)} className="text-restro-red p-2 rounded-full bg-restro-gray hover:bg-restro-button-hover">
+            <div className="w-full flex items-center justify-between px-4 pt-1">
+              <h3 className="font-bold text-base">{t('pos.cart')} ({cartItemsCount})</h3>
+              <button onClick={() => setIsMobileCartOpen(false)} className="text-restro-red p-1.5 rounded-full bg-restro-gray hover:bg-restro-button-hover">
                 <IconX size={18} stroke={iconStroke} />
               </button>
             </div>
           </div>
-          {/* mobile sheet header */}
 
-          <div className = "w-full px-4 py-3 border-b border-restro-border-green md:sticky">
-            {/* search customer */}
-            <div onClick={btnOpenSearchCustomerModal} className="flex items-center gap-2">
-              <input value={customerType=="WALKIN"?t('pos.walkin_customer'):`${customer.name}`} type="text" placeholder={t('pos.search_customer')} className= "flex items-center gap-1 text-sm w-full px-4 py-2.5 md:py-2 transition active:scale-95 hover:shadow-lg border rounded-lg bg-restro-gray border-restro-border-green hover:bg-restro-button-hover outline-restro-border-green"/>
-              <button onClick={btnOpenSearchCustomerModal} className = "flex items-center justify-center w-10 h-10 md:w-9 md:h-9 flex-shrink-0 transition active:scale-95 rounded-lg hover:shadow-lg bg-restro-gray border border-restro-border-green hover:bg-restro-button-hover">
-                <IconSearch size={18} stroke={iconStroke} />
-              </button>
-            </div>
-            {/* search customer */}
-
-            {/* delivery type + table selection */}
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <select ref={diningOptionRef} onChange={() => broadcastOrderMeta()} className="text-sm w-full border rounded-lg px-3 py-2.5 md:py-2 justify-center bg-restro-gray border-restro-border-green hover:bg-restro-button-hover focus:outline-restro-border-green">
-                <option value="">{t('pos.select_dining_option')}</option>
-                <option value="dinein">{t('pos.dinein')}</option>
-                <option value="delivery">{t('pos.delivery')}</option>
-                <option value="takeaway">{t('pos.takeaway')}</option>
-              </select>
-
-              <div className="flex items-center gap-1.5 w-full">
-                <select ref={tableRef} onChange={() => broadcastOrderMeta()} className="text-sm w-full border rounded-lg px-3 py-2.5 md:py-2 justify-center bg-restro-gray border-restro-border-green hover:bg-restro-button-hover focus:outline-restro-border-green">
-                  <option value="">{t('pos.select_table')}</option>
-                  {
-                    storeTables.map((table, index)=>{
-                      return <option value={table.id} key={index}>{table.table_title} ({table.seating_capacity} {t('pos.person')}) - {table.floor}</option>
-                    })
-                  }
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setIsTablePickerOpen(true)}
-                  title={t('tables.choose_floor_plan', 'Choose from Floor Plan')}
-                  className="px-3 py-2 border rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition active:scale-95 flex items-center gap-1.5 shrink-0 text-xs font-semibold"
-                >
-                  <IconArmchair2 size={18} />
-                  <span className="hidden sm:inline">{t('tables.floor_plan', 'Floor Plan')}</span>
-                </button>
+          {/* Cart Header: Customer + Dining Segmented Tabs + Table Chip */}
+          <div className="w-full px-3.5 pt-3 pb-2.5 border-b border-restro-border-green space-y-2.5 bg-restro-gray/40">
+            {/* Customer Chip / Search Trigger */}
+            <div 
+              onClick={btnOpenSearchCustomerModal} 
+              className="flex items-center justify-between p-2 rounded-xl border border-restro-border-green bg-background hover:bg-restro-button-hover cursor-pointer transition active:scale-[0.99] shadow-xs"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-restro-green/10 text-restro-green flex items-center justify-center shrink-0">
+                  <IconUser size={18} stroke={iconStroke} />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-[11px] text-gray-500 leading-none">{t('pos.customer', 'Customer')}</p>
+                  <p className="text-xs font-semibold text-restro-text truncate mt-0.5">
+                    {customerType === "WALKIN" ? t('pos.walkin_customer') : `${customer.name}`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {customerType !== "WALKIN" && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      btnClearSearchCustomer();
+                    }}
+                    title="Reset to Walk-in"
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-restro-red hover:bg-restro-gray"
+                  >
+                    <IconX size={14} stroke={iconStroke} />
+                  </button>
+                )}
+                <span className="text-[11px] text-restro-green font-medium px-2 py-0.5 rounded-md bg-restro-green/10">
+                  {customerType === "WALKIN" ? t('pos.change', 'Change') : t('pos.edit', 'Edit')}
+                </span>
               </div>
             </div>
-            {/* delivery type + table selection */}
-          </div>
 
+            {/* Segmented Dining Option Tabs */}
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-restro-gray border border-restro-border-green/80">
+              {[
+                { key: 'dinein', label: t('pos.dinein'), icon: '🍽️' },
+                { key: 'takeaway', label: t('pos.takeaway'), icon: '🛍️' },
+                { key: 'delivery', label: t('pos.delivery'), icon: '🛵' }
+              ].map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleSelectDiningOption(key)}
+                  className={clsx(
+                    "py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1",
+                    selectedDiningOption === key
+                      ? "bg-restro-green text-white shadow-xs"
+                      : "text-restro-text hover:bg-background/80"
+                  )}
+                >
+                  <span>{icon}</span>
+                  <span className="truncate">{label}</span>
+                </button>
+              ))}
+            </div>
 
-          {/* items */}
-          <div onScroll={handleCartScroll} className='flex-1 flex flex-col gap-4 overflow-y-auto px-4 pb-4 md:pb-36'>
-            <div className="h-1"></div>
-            {cartItems?.map((cartItem, i)=>{
-              const {quantity, notes, title, price, variant, addons} = cartItem;
-              const itemTotal = price * quantity;
-              return <div key={i} className="text-sm rounded-2xl p-3 relative border border-restro-border-green bg-background shadow-sm md:shadow-none">
-                <p className="pr-6 font-medium">#{i+1} {title} x {quantity}</p>
-                <p className='mt-1'>{currency}{Number(price).toFixed(2)} <span className='text-xs'>x {quantity}</span> <span className='font-bold'>= {currency}{itemTotal.toFixed(2)}</span></p>
-                {notes && <p className="mt-1 text-xs text-gray-400">
-                  {t('pos.notes')}: {notes}
-                </p>
-                }
-
-                {variant && <p className="mt-1 text-xs text-gray-400">{t('pos.variant')}: {variant.title}</p>}
-                {(addons && addons?.length > 0 ) && <p className="mt-1 text-xs text-gray-400">{t('pos.addons')}: {addons?.map((addon)=>(`${addon.title}`))?.join(", ")}</p>}
-
-                <div className="flex items-center justify-between gap-2 w-full mt-3">
-                  <div className='flex items-center gap-2.5 rounded-full bg-restro-gray px-1 py-1'>
-                    <button onClick={()=>{
-                      minusCartItemQuantity(i, quantity);
-                    }} className="w-8 h-8 md:w-7 md:h-7 flex-shrink-0 rounded-full flex items-center justify-center bg-background hover:bg-restro-button-hover transition active:scale-90">
-                      <IconMinus stroke={iconStroke} size={16} />
-                    </button>
-                    <div className='w-5 flex items-center justify-center font-semibold'>
-                      {quantity}
-                    </div>
-                    <button onClick={()=>{
-                      addCartItemQuantity(i, quantity);
-                    }} className = "w-8 h-8 md:w-7 md:h-7 flex-shrink-0 rounded-full flex items-center justify-center bg-background hover:bg-restro-button-hover transition active:scale-90">
-                      <IconPlus stroke={iconStroke} size={16} />
-                    </button>
-                  </div>
-                  <div>
-                    <button onClick={()=>{btnOpenNotesModal(i, notes)}} className = "flex items-center text-sm transition active:scale-95 hover:shadow-lg  px-2 py-2 md:py-1 gap-1 rounded-lg border border-restro-border-green bg-restro-gray hover:bg-restro-button-hover">
-                      <div><IconNote size={18} stroke={iconStroke}  /></div> <p className="hidden sm:inline">{t('pos.add_notes')}</p>
-                    </button>
+            {/* Table Selector / Floor Plan Launcher (for Dine-in) */}
+            {selectedDiningOption === 'dinein' && (
+              <div className="flex items-center justify-between gap-2 p-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                <div 
+                  onClick={() => setIsTablePickerOpen(true)}
+                  className="flex items-center gap-2 cursor-pointer flex-1 min-w-0"
+                >
+                  <IconArmchair2 size={18} className="text-restro-green shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-none">
+                      {t('pos.table', 'Table')}
+                    </p>
+                    <p className="text-xs font-semibold text-restro-text truncate mt-0.5">
+                      {currentSelectedTable 
+                        ? `${currentSelectedTable.table_title} (${currentSelectedTable.seating_capacity} seats) - Floor ${currentSelectedTable.floor}`
+                        : t('pos.select_table')}
+                    </p>
                   </div>
                 </div>
 
-                {/* action btn delete */}
-                <button onClick={()=>{
-                  removeItemFromCart(i);
-                }} className = "flex items-center justify-center absolute right-2.5 top-2.5 text-restro-red rounded-full w-7 h-7 transition bg-restro-gray hover:bg-restro-button-hover active:scale-90">
-                  <IconTrash stroke={iconStroke} size={14} />
+                <button
+                  type="button"
+                  onClick={() => setIsTablePickerOpen(true)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition active:scale-95 shrink-0 shadow-xs flex items-center gap-1"
+                >
+                  <IconArmchair2 size={14} />
+                  <span>{currentSelectedTable ? t('pos.change', 'Change') : t('tables.floor_plan', 'Floor Plan')}</span>
                 </button>
-                {/* action btn delete */}
-              </div>
-            })}
-          </div>
-          {/* items */}
-
-
-
-          {/* actions */}
-          <div className = "flex-shrink-0 w-full pb-4 md:pb-4 rounded-b-2xl px-4 backdrop-blur border border-t border-b-0 border-l-0 border-r-0 border-restro-border-green md:absolute md:bottom-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-            {cartItemsCount > 0 && (
-              <div className="flex items-center justify-between pt-3">
-                <span className="text-sm font-medium text-restro-text">{t('pos.payable_total')} <span className="text-xs">({cartItemsCount} {t('pos.cart_items')})</span></span>
-                <span className="text-lg font-bold text-restro-green">{currency}{mobileCartSummary.payableTotal.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex items-center flex-row gap-2 mt-4">
-              <button onClick={btnOpenSaveDraftModal} className = "flex items-center flex-1 lg:flex-none text-sm transition active:scale-95 hover:shadow-lg px-3 py-3 md:py-2 gap-1 text-restro-text border rounded-xl md:rounded-lg border-restro-border-green bg-restro-gray hover:bg-restro-button-hover">
-                <IconDeviceFloppy size={18} stroke={iconStroke}  /> {t('pos.draft')}
-              </button>
 
-              <button onClick={btnShowSendToKitchenModal} className = "flex-1 flex justify-center items-center text-sm transition active:scale-95 hover:shadow-lg px-3 py-3 md:py-2  gap-1 text-restro-text border rounded-xl md:rounded-lg border-restro-border-green bg-restro-gray hover:bg-restro-button-hover">
-                <div><IconChefHat size={18} stroke={iconStroke}  /></div> <p>{t('pos.send_to_kitchen')}</p>
-              </button>
+            {/* Context Banner: Adding items to an existing seated table */}
+            {activeTableContext && (
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold min-w-0">
+                  <IconArmchair size={16} className="shrink-0 text-amber-600" />
+                  <span className="truncate">
+                    {t("pos.adding_to_table", "Adding items to")} {activeTableContext.tableTitle}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/60 font-mono text-[10px] shrink-0">
+                    #{activeTableContext.tokenNo}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTableContext(null)}
+                  className="text-amber-500 hover:text-amber-700 dark:hover:text-white p-0.5"
+                >
+                  <IconX size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Cart Items List Area */}
+          <div onScroll={handleCartScroll} className='flex-1 flex flex-col gap-2.5 overflow-y-auto px-3.5 py-3 scrollbar-thin'>
+            {cartItems?.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4 opacity-75">
+                <div className="w-16 h-16 rounded-full bg-restro-gray border border-restro-border-green flex items-center justify-center text-gray-400 mb-3 shadow-inner">
+                  <IconShoppingCart size={28} stroke={1.5} />
+                </div>
+                <p className="text-sm font-bold text-restro-text">{t('pos.empty_cart_title', 'Order ticket is empty')}</p>
+                <p className="text-xs text-gray-400 mt-1 max-w-[200px]">
+                  {t('pos.empty_cart_hint', 'Tap items on the menu catalog to build your order')}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between pb-1">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    {t('pos.order_items', 'Order Items')} ({cartItemsCount})
+                  </span>
+                  <button 
+                    type="button"
+                    onClick={btnClearCart}
+                    className="text-[11px] font-semibold text-red-500 hover:text-red-600 flex items-center gap-0.5 hover:underline"
+                  >
+                    <IconTrash size={12} />
+                    <span>{t('pos.clear_all', 'Clear')}</span>
+                  </button>
+                </div>
+
+                {cartItems.map((cartItem, i) => {
+                  const { quantity, notes, title, price, variant, addons } = cartItem;
+                  const itemTotal = price * quantity;
+
+                  return (
+                    <div 
+                      key={i} 
+                      className="text-xs rounded-xl p-2.5 border border-restro-border-green bg-restro-card-bg shadow-xs transition hover:border-restro-green/40"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-restro-text truncate text-[13px]">
+                            <span className="text-gray-400 text-xs font-normal mr-1">#{i + 1}</span>
+                            {title}
+                          </p>
+
+                          {/* Variant & Addons Tag Chips */}
+                          {(variant || (addons && addons.length > 0)) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {variant && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-restro-gray text-gray-600 dark:text-gray-300">
+                                  {variant.title}
+                                </span>
+                              )}
+                              {addons?.map((addon, aIdx) => (
+                                <span key={aIdx} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                                  +{addon.title}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {notes && (
+                            <div className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
+                              <IconNote size={12} className="shrink-0" />
+                              <span className="truncate">{notes}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Line Total */}
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-restro-text text-sm">{currency}{itemTotal.toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-400">{currency}{Number(price).toFixed(2)} ea</p>
+                        </div>
+                      </div>
+
+                      {/* Stepper & Actions */}
+                      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-restro-border-green/60">
+                        {/* Stepper */}
+                        <div className="flex items-center gap-1.5 rounded-lg bg-restro-gray border border-restro-border-green/80 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => minusCartItemQuantity(i, quantity)}
+                            className="w-6 h-6 rounded-md flex items-center justify-center bg-background hover:bg-restro-button-hover text-restro-text transition active:scale-90"
+                          >
+                            <IconMinus size={13} stroke={2.5} />
+                          </button>
+                          <span className="w-5 text-center font-bold text-xs text-restro-text">{quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => addCartItemQuantity(i, quantity)}
+                            className="w-6 h-6 rounded-md flex items-center justify-center bg-background hover:bg-restro-button-hover text-restro-text transition active:scale-90"
+                          >
+                            <IconPlus size={13} stroke={2.5} />
+                          </button>
+                        </div>
+
+                        {/* Add note & Delete */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => btnOpenNotesModal(i, notes)}
+                            title={t('pos.add_notes')}
+                            className={clsx(
+                              "p-1.5 rounded-lg transition text-xs flex items-center gap-1 border",
+                              notes 
+                                ? "bg-amber-500/10 border-amber-500/30 text-amber-600" 
+                                : "bg-restro-gray border-restro-border-green text-gray-400 hover:text-restro-text hover:bg-restro-button-hover"
+                            )}
+                          >
+                            <IconNote size={14} stroke={iconStroke} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => removeItemFromCart(i)}
+                            title={t('pos.remove_item', 'Remove')}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-500/20 transition active:scale-90"
+                          >
+                            <IconTrash size={14} stroke={iconStroke} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+
+          {/* Persistent Live Financial Calculation Tray & Actions */}
+          <div className="flex-shrink-0 w-full p-3.5 border-t border-restro-border-green bg-restro-gray/40 backdrop-blur-md space-y-2.5">
+            {/* Live Financial Breakdown */}
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-gray-500">
+                <span>{t('pos.items_net_total', 'Subtotal')}</span>
+                <span className="font-medium text-restro-text">{currency}{liveCartSummary.itemsTotal.toFixed(2)}</span>
+              </div>
+
+              {/* Discount line with quick toggle */}
+              <div className="flex items-center justify-between text-gray-500">
+                <div className="flex items-center gap-1">
+                  <span>{t('pos.discount_total', 'Discount')}</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsDiscountDrawerOpen(!isDiscountDrawerOpen)}
+                    className="text-[10px] text-restro-green hover:underline font-semibold"
+                  >
+                    ({liveCartSummary.discountAmount > 0 ? `${currency}${liveCartSummary.discountAmount.toFixed(2)} applied` : '+ add'})
+                  </button>
+                </div>
+                <span className={liveCartSummary.discountAmount > 0 ? "font-semibold text-emerald-600" : "text-gray-400"}>
+                  {liveCartSummary.discountAmount > 0 ? `-${currency}${liveCartSummary.discountAmount.toFixed(2)}` : `${currency}0.00`}
+                </span>
+              </div>
+
+              {/* Inline Discount Adjuster */}
+              {isDiscountDrawerOpen && (
+                <div className="p-2 rounded-xl bg-background border border-restro-border-green space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center gap-1">
+                    <div className="flex rounded-lg overflow-hidden border border-restro-border-green p-0.5 bg-restro-gray shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleDiscountChange('fixed', state.discountValue)}
+                        className={clsx(
+                          "px-2 py-0.5 text-[10px] font-semibold rounded transition",
+                          state.discountType === 'fixed' ? "bg-restro-green text-white" : "text-gray-500"
+                        )}
+                      >
+                        Fixed
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDiscountChange('percentage', state.discountValue)}
+                        className={clsx(
+                          "px-2 py-0.5 text-[10px] font-semibold rounded transition",
+                          state.discountType === 'percentage' ? "bg-restro-green text-white" : "text-gray-500"
+                        )}
+                      >
+                        %
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Amount"
+                      value={state.discountValue || ''}
+                      onChange={(e) => handleDiscountChange(state.discountType, e.target.value)}
+                      className="flex-1 text-xs rounded-lg px-2 py-1 border border-restro-border-green bg-background focus:outline-restro-green"
+                    />
+                    {state.discountValue > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDiscountChange(state.discountType, 0)}
+                        className="text-[10px] text-gray-400 hover:text-red-500 px-1"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-gray-500">
+                <span>{t('pos.tax_total', 'Taxes')}</span>
+                <span className="font-medium text-restro-text">+{currency}{liveCartSummary.taxTotal.toFixed(2)}</span>
+              </div>
+
+              {state.serviceCharge && (
+                <div className="flex items-center justify-between text-gray-500">
+                  <span>{t('pos.service_charge_total', 'Service Charge')}</span>
+                  <span className="font-medium text-restro-text">+{currency}{liveCartSummary.serviceChargeTotal.toFixed(2)}</span>
+                </div>
+              )}
+
+              {/* Total Payable Prominent Highlight */}
+              <div className="flex items-baseline justify-between pt-1.5 border-t border-restro-border-green">
+                <span className="text-sm font-bold text-restro-text">{t('pos.payable_total')}</span>
+                <span className="text-xl font-extrabold text-restro-green tracking-tight">
+                  {currency}{liveCartSummary.payableTotal.toFixed(2)}
+                </span>
+              </div>
             </div>
-            <div className="mt-2">
-              <button onClick={btnShowPayAndSendToKitchenModal} className="flex items-center justify-center text-sm transition active:scale-95 hover:shadow-lg px-3 py-3 md:py-2 w-full gap-1 text-white border rounded-xl md:rounded-lg border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover">
-                <div><IconCash size={18} stroke={iconStroke}  /></div> <p>{t('pos.create_receipt_pay')}</p>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  type="button"
+                  onClick={btnOpenSaveDraftModal} 
+                  disabled={cartItemsCount === 0}
+                  className={clsx(
+                    "text-xs font-semibold py-2 px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs",
+                    cartItemsCount === 0 
+                      ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
+                      : "bg-restro-gray hover:bg-restro-button-hover text-restro-text"
+                  )}
+                >
+                  <IconDeviceFloppy size={16} stroke={iconStroke} /> 
+                  <span>{t('pos.draft')}</span>
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={btnShowSendToKitchenModal} 
+                  disabled={cartItemsCount === 0}
+                  className={clsx(
+                    "text-xs font-semibold py-2 px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs",
+                    cartItemsCount === 0 
+                      ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
+                      : "bg-restro-gray hover:bg-restro-button-hover text-restro-text"
+                  )}
+                >
+                  <IconChefHat size={16} stroke={iconStroke} /> 
+                  <span>{t('pos.send_to_kitchen')}</span>
+                </button>
+              </div>
+
+              {/* Pay & Settle Full Width Primary Action */}
+              <button 
+                type="button"
+                onClick={btnShowPayAndSendToKitchenModal} 
+                disabled={cartItemsCount === 0}
+                className={clsx(
+                  "w-full py-3 px-4 rounded-xl font-bold text-sm text-white flex items-center justify-between transition active:scale-[0.98] shadow-md",
+                  cartItemsCount === 0 
+                    ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                    : "bg-restro-green hover:bg-restro-green-button-hover shadow-emerald-600/20"
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <IconCash size={20} stroke={iconStroke} />
+                  <span>{t('pos.create_receipt_pay')}</span>
+                </span>
+                <span className="font-extrabold text-base bg-white/20 px-2.5 py-0.5 rounded-lg">
+                  {currency}{liveCartSummary.payableTotal.toFixed(2)}
+                </span>
               </button>
             </div>
           </div>
-          {/* actions */}
-
         </div>
-        {/* cart */}
-
       </div>
 
 
@@ -2229,77 +2665,213 @@ export default function POSPage() {
 
       {/* dialog: collect payment & send to kitchen summary */}
       <dialog id="modal-pay-and-send-kitchen-summary" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-lg">{t('pos.collect_payment_send_order_to_kitchen')}</h3>
+        <div className='modal-box border border-restro-border-green dark:rounded-2xl max-h-[88vh] overflow-y-auto scrollbar-thin'>
+          <div className="flex items-center justify-between sticky top-0 bg-background z-10 pb-2 border-b border-restro-border-green/40">
+            <h3 className="font-bold text-base md:text-lg text-restro-text">{t('pos.collect_payment_send_order_to_kitchen')}</h3>
             <form method='dialog'>
-              <button onClick={closePaymentModalSync} className='text-red-500 p-2 rounded-full bg-restro-gray hover:bg-restro-button-hover'><IconX size={18} stroke={iconStroke} /></button>
+              <button onClick={closePaymentModalSync} className='text-red-500 p-1.5 rounded-full bg-restro-gray hover:bg-restro-button-hover'>
+                <IconX size={18} stroke={iconStroke} />
+              </button>
             </form>
           </div>
 
-          <div className="my-6 space-y-3">
-            <div className="rounded-2xl border border-restro-border-green overflow-hidden bg-restro-gray">
+          <div className="my-4 space-y-3">
+            {/* Total Payable Banner Card */}
+            <div className="rounded-2xl border border-restro-border-green overflow-hidden bg-restro-gray/60">
+              <button
+                type="button"
+                onClick={() => setIsPaySummaryExpanded(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3"
+              >
+                <span className="flex items-center gap-1.5 text-base font-bold text-restro-text">
+                  {t('pos.payable_total')}
+                  <IconChevronUp size={16} stroke={iconStroke} className={clsx("transition-transform text-gray-400", !isPaySummaryExpanded && "rotate-180")} />
+                </span>
+                <span className="text-xl font-extrabold text-restro-green">{currency}{state.payableTotal.toFixed(2)}</span>
+              </button>
+
               {isPaySummaryExpanded && (
-                <div className="px-4 pt-4 space-y-2.5">
+                <div className="px-4 pb-3 pt-1 space-y-1.5 border-t border-restro-border-green/40 text-xs">
                   {[
                     { label: t('pos.items_net_total'), value: state.itemsTotal },
                     { label: t('pos.discount_total', 'Discount Total'), value: state.discountAmount || 0, prefix: "-" },
                     { label: t('pos.tax_total'), value: state.taxTotal, prefix: "+" },
                     { label: t('pos.service_charge_total'), value: state.serviceChargeTotal, prefix: "+" },
                   ].map(({ label, value, prefix = "" }, index) => (
-                    <div key={index} className='flex items-center justify-between text-restro-text text-sm'>
+                    <div key={index} className='flex items-center justify-between text-gray-500'>
                       <p>{label}</p>
-                      <p>{value > 0 ? prefix : ""}{currency}{value.toFixed(2)}</p>
+                      <p className="font-semibold text-restro-text">{value > 0 ? prefix : ""}{currency}{value.toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => setIsPaySummaryExpanded(v => !v)}
-                className="w-full flex items-center justify-between px-4 py-3.5"
-              >
-                <span className="flex items-center gap-1 text-lg font-semibold">
-                  {t('pos.payable_total')}
-                  <IconChevronUp size={18} stroke={iconStroke} className={clsx("transition-transform", !isPaySummaryExpanded && "rotate-180")} />
-                </span>
-                <span className="text-xl font-bold text-restro-green">{currency}{state.payableTotal.toFixed(2)}</span>
-              </button>
             </div>
-                        {/* Apply Discount Control */}
-            <div className="p-3 rounded-2xl border border-restro-border-green bg-restro-gray">
-              <label className="text-xs font-semibold text-restro-text block mb-2">
+
+            {/* Payment Method Selector Grid */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-restro-text uppercase tracking-wider block">
+                {t('orders.select_payment_method', 'Payment Method')}
+              </label>
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+                {paymentTypes.map((paymentType, i) => {
+                  const uniqueId = `icon-${paymentType?.id}`;
+                  const isSelected = state?.selectedPaymentType == paymentType?.id;
+                  return (
+                    <label key={i} className='cursor-pointer'>
+                      <input
+                        checked={isSelected}
+                        onChange={e => {
+                          const newSelected = e.target.value;
+                          setState({
+                            ...state,
+                            selectedPaymentType: newSelected,
+                          });
+                          broadcastPaymentSelection(newSelected);
+                        }} 
+                        type="radio" 
+                        name="payment_type" 
+                        id={uniqueId} 
+                        value={paymentType?.id} 
+                        className='peer hidden' 
+                      />
+                      <div className={clsx(
+                        "border rounded-xl flex items-center justify-center gap-1.5 flex-col px-3 py-2.5 transition relative shadow-xs",
+                        isSelected
+                          ? "border-restro-green bg-emerald-500/10 text-restro-green font-bold ring-2 ring-restro-green"
+                          : "border-restro-border-green hover:bg-restro-button-hover text-restro-text bg-background"
+                      )}>
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full bg-restro-green text-white flex items-center justify-center shadow">
+                            <IconCheck size={10} stroke={3} />
+                          </div>
+                        )}
+                        {paymentType?.icon ? <div className="text-xl">{PAYMENT_ICONS[paymentType?.icon]}</div> : null}
+                        <p className='text-xs font-semibold text-center truncate w-full'>{paymentType.title}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Fast Cash Presets & Tendered Amount */}
+            <div className="p-3 rounded-2xl border border-restro-border-green bg-restro-gray/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-restro-text uppercase tracking-wider">
+                  {t('pos.cash_tendered', 'Cash Tendered')}
+                </label>
+                {tenderedAmount && (
+                  <button 
+                    type="button" 
+                    onClick={() => setTenderedAmount('')}
+                    className="text-[11px] text-gray-400 hover:text-restro-text font-medium"
+                  >
+                    {t('pos.clear', 'Clear')}
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Cash Presets */}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTenderedAmount(state.payableTotal.toFixed(2))}
+                  className={clsx(
+                    "px-2.5 py-1 text-xs font-semibold rounded-lg border transition active:scale-95 shadow-xs",
+                    parseFloat(tenderedAmount) === state.payableTotal
+                      ? "bg-restro-green text-white border-restro-green"
+                      : "bg-background border-restro-border-green text-restro-text hover:bg-restro-button-hover"
+                  )}
+                >
+                  Exact ({currency}{state.payableTotal.toFixed(2)})
+                </button>
+                {[10, 20, 50, 100].map((step) => {
+                  const targetVal = Math.ceil((state.payableTotal + 0.01) / step) * step;
+                  if (targetVal <= state.payableTotal) return null;
+                  return (
+                    <button
+                      key={step}
+                      type="button"
+                      onClick={() => setTenderedAmount(targetVal.toFixed(2))}
+                      className={clsx(
+                        "px-2.5 py-1 text-xs font-semibold rounded-lg border transition active:scale-95 shadow-xs",
+                        parseFloat(tenderedAmount) === targetVal
+                          ? "bg-restro-green text-white border-restro-green"
+                          : "bg-background border-restro-border-green text-restro-text hover:bg-restro-button-hover"
+                      )}
+                    >
+                      {currency}{targetVal}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Input field + Change calculation */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
+                    {currency}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="Enter tendered amount"
+                    value={tenderedAmount}
+                    onChange={(e) => setTenderedAmount(e.target.value)}
+                    className="w-full pl-7 pr-3 py-1.5 text-sm font-semibold rounded-xl border border-restro-border-green bg-background text-restro-text focus:outline-restro-green"
+                  />
+                </div>
+
+                {/* Change or remaining indicator */}
+                {parseFloat(tenderedAmount) > 0 && (
+                  <div className={clsx(
+                    "px-3 py-1 rounded-xl border flex flex-col items-end shrink-0 shadow-xs",
+                    parseFloat(tenderedAmount) >= state.payableTotal
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                      : "bg-amber-500/10 border-amber-500/30 text-amber-600"
+                  )}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                      {parseFloat(tenderedAmount) >= state.payableTotal ? t('pos.change_due', 'Change Due') : t('pos.due', 'Remaining')}
+                    </span>
+                    <span className="text-sm font-extrabold mt-0.5">
+                      {currency}{Math.abs(parseFloat(tenderedAmount) - state.payableTotal).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Apply Discount Control */}
+            <div className="p-2.5 rounded-xl border border-restro-border-green bg-restro-gray/40">
+              <label className="text-xs font-semibold text-gray-500 block mb-1.5">
                 {t('pos.apply_discount', 'Apply Discount')}
               </label>
               <div className="flex items-center gap-2">
-                <div className="flex rounded-xl overflow-hidden border border-restro-border-green p-0.5 bg-background">
+                <div className="flex rounded-lg overflow-hidden border border-restro-border-green p-0.5 bg-background shrink-0">
                   <button
                     type="button"
-                    onClick={() => {
-                      handleDiscountChange('fixed', state.discountValue);
-                    }}
+                    onClick={() => handleDiscountChange('fixed', state.discountValue)}
                     className={clsx(
-                      "px-3 py-1.5 text-xs font-medium rounded-lg transition",
+                      "px-2.5 py-1 text-xs font-medium rounded-md transition",
                       state.discountType === 'fixed'
-                        ? "bg-restro-green text-white"
+                        ? "bg-restro-green text-white font-semibold shadow-xs"
                         : "text-restro-text hover:bg-restro-button-hover"
                     )}
                   >
-                    {t('pos.discount_fixed', 'Fixed')}
+                    Fixed
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      handleDiscountChange('percentage', state.discountValue);
-                    }}
+                    onClick={() => handleDiscountChange('percentage', state.discountValue)}
                     className={clsx(
-                      "px-3 py-1.5 text-xs font-medium rounded-lg transition",
+                      "px-2.5 py-1 text-xs font-medium rounded-md transition",
                       state.discountType === 'percentage'
-                        ? "bg-restro-green text-white"
+                        ? "bg-restro-green text-white font-semibold shadow-xs"
                         : "text-restro-text hover:bg-restro-button-hover"
                     )}
                   >
-                    {t('pos.discount_percentage', 'Percentage')}
+                    %
                   </button>
                 </div>
 
@@ -2311,57 +2883,28 @@ export default function POSPage() {
                     step="any"
                     placeholder={state.discountType === 'percentage' ? 'e.g. 10' : 'e.g. 50'}
                     value={state.discountValue || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      handleDiscountChange(state.discountType, val);
-                    }}
-                    className="w-full text-sm rounded-xl px-3 py-1.5 border border-restro-border-green bg-background focus:outline-restro-border-green"
+                    onChange={(e) => handleDiscountChange(state.discountType, e.target.value)}
+                    className="w-full text-xs rounded-lg px-3 py-1.5 border border-restro-border-green bg-background focus:outline-restro-green"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <div
-            className={`grid gap-2 grid-cols-2 sm:grid-cols-3`
-          }
-          >
-            {paymentTypes.map((paymentType, i)=>{
-              const uniqueId = `icon-${paymentType?.id}`;
-              return <label key={i} className=''>
-                <input
-                checked={state?.selectedPaymentType == paymentType?.id}
-                onChange={e=>{
-                  const newSelected = e.target.value;
-                  setState({
-                    ...state,
-                    selectedPaymentType: newSelected,
-                  });
-                  broadcastPaymentSelection(newSelected);
-                }} type="radio" name="payment_type" id={uniqueId} value={paymentType?.id} className='peer hidden' />
-                <label htmlFor={uniqueId} className='border dark:border-restro-gray rounded-2xl flex items-center justify-center gap-1 flex-col px-4 py-3 peer-checked:border-restro-green peer-checked:text-restro-green peer-checked:font-bold cursor-pointer transition'>
-                  {paymentType?.icon ? <div>{PAYMENT_ICONS[paymentType?.icon]}</div>:<></>}
-                  <p className='text-xs'>{paymentType.title}</p>
-                </label>
-              </label>
-            })}
-          </div>
-
-          <div className="modal-action flex items-center justify-center w-full">
-            <div className="w-full flex items-stretch rounded-2xl overflow-hidden shadow-lg">
-              {/* if there is a button in form, it will close the modal */}
-              <button onClick={()=>{btnPayAndSendToKitchen();}} className='flex-1 min-w-0 flex items-center justify-center text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-[0.98] px-4 py-3.5'>
-                <span className="truncate font-semibold">{t('pos.collect_payment_send_to_kitchen')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPaySummaryExpanded(v => !v)}
-                aria-label={t('pos.view')}
-                className="flex-shrink-0 w-12 flex items-center justify-center text-white bg-restro-green hover:bg-restro-green-button-hover border-l border-white/25 transition active:scale-95"
-              >
-                <IconChevronUp size={18} stroke={iconStroke} className={clsx("transition-transform", !isPaySummaryExpanded && "rotate-180")} />
-              </button>
-            </div>
+          {/* Dialog Action Buttons */}
+          <div className="modal-action sticky bottom-0 bg-background pt-2 border-t border-restro-border-green/40 w-full">
+            <button 
+              onClick={() => btnPayAndSendToKitchen()} 
+              className='w-full py-3 px-4 rounded-xl text-white font-bold text-sm bg-restro-green hover:bg-restro-green-button-hover transition active:scale-[0.98] shadow-md shadow-emerald-600/20 flex items-center justify-between'
+            >
+              <span className="flex items-center gap-2">
+                <IconCash size={18} stroke={iconStroke} />
+                <span>{t('pos.collect_payment_send_to_kitchen')}</span>
+              </span>
+              <span className="bg-white/20 px-2 py-0.5 rounded-lg text-sm font-extrabold">
+                {currency}{state.payableTotal.toFixed(2)}
+              </span>
+            </button>
           </div>
         </div>
       </dialog>

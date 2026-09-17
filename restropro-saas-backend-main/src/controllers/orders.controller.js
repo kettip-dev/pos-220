@@ -1,4 +1,4 @@
-const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB } = require("../services/orders.service");
+const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, updateOrderCustomerDB } = require("../services/orders.service");
 const {
   getPaymentTypesDB,
   getPrintSettingDB,
@@ -365,3 +365,37 @@ exports.getInvoiceIdFromOrderId = async (req, res) => {
     });
   }
 };
+
+exports.updateOrderCustomer = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { orderId, customerPhone, customerType } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_request"),
+      });
+    }
+
+    await updateOrderCustomerDB(orderId, customerPhone, customerType, tenantId);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(tenantId).emit("table_status_update", { action: "customer_updated", orderId });
+      io.to(tenantId).emit("order_update", { orderId });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: req.__("customer_updated") || "Customer updated successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
