@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   IconX, 
@@ -11,7 +11,8 @@ import {
   IconCoin,
   IconPencil,
   IconArrowsExchange,
-  IconArrowRight
+  IconQrcode,
+  IconCreditCard
 } from '@tabler/icons-react';
 import { PAYMENT_ICONS } from '../../config/payment_icons';
 import { clsx } from 'clsx';
@@ -41,7 +42,6 @@ export default function POSPaymentDrawer({
 }) {
   const { t } = useTranslation();
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
-  const [isDiscountExpanded, setIsDiscountExpanded] = useState(false);
 
   // Exchange rate state (1 USD = X KHR)
   const [currentRate, setCurrentRate] = useState(Number(exchangeRateUsdToKhr) || 4100);
@@ -58,9 +58,12 @@ export default function POSPaymentDrawer({
   // Base Currency Detection (is primary store currency KHR or USD?)
   const isBaseKHR = currency === '៛' || String(currency).toUpperCase() === 'KHR';
 
+  const rate = (Number(currentRate) > 0) ? Number(currentRate) : 4100;
+  const safePayable = Number(payableTotal) || 0;
+
   // Symmetrical Total calculations
-  const totalKHR = isBaseKHR ? payableTotal : payableTotal * currentRate;
-  const totalUSD = isBaseKHR ? payableTotal / currentRate : payableTotal;
+  const totalKHR = isBaseKHR ? safePayable : safePayable * rate;
+  const totalUSD = isBaseKHR ? (rate > 0 ? safePayable / rate : safePayable) : safePayable;
 
   // Dual Tender input state: Cashier can enter USD, KHR, or both
   const [activeTenderCurrency, setActiveTenderCurrency] = useState(isBaseKHR ? 'KHR' : 'USD');
@@ -70,7 +73,7 @@ export default function POSPaymentDrawer({
   // Change Return Advice Mode: 'riel' (100% in Riel) or 'mixed' (USD whole bills + Riel cents)
   const [changeAdviceMode, setChangeAdviceMode] = useState('riel');
 
-  // Reset tender inputs when drawer opens with fresh payableTotal
+  // Reset tender inputs when modal opens with fresh payableTotal
   useEffect(() => {
     if (isOpen) {
       setTenderedUSD('');
@@ -79,27 +82,34 @@ export default function POSPaymentDrawer({
     }
   }, [isOpen, payableTotal]);
 
+  // Payment method classification
+  const paymentList = Array.isArray(paymentTypes) ? paymentTypes : [];
+  const selectedPaymentObj = paymentList.find(pt => pt.id === selectedPaymentType);
+  const selectedPaymentTitle = (selectedPaymentObj?.title || '').toLowerCase();
+  const isCash = selectedPaymentTitle.includes('cash') || selectedPaymentTitle.includes('សាច់ប្រាក់') || !selectedPaymentType;
+  const isQr = selectedPaymentTitle.includes('qr') || selectedPaymentTitle.includes('qrcode');
+
   // Numerical tender conversions
   const numUSD = parseFloat(tenderedUSD) || 0;
   const numKHR = parseFloat(tenderedKHR) || 0;
 
   // Total cash received converted to both currencies
-  const totalReceivedKHR = numKHR + (numUSD * currentRate);
-  const totalReceivedUSD = (numKHR / currentRate) + numUSD;
+  const totalReceivedKHR = numKHR + (numUSD * rate);
+  const totalReceivedUSD = (rate > 0 ? (numKHR / rate) : 0) + numUSD;
 
   // Difference in KHR (positive = change due, negative = short)
   const diffKHR = totalReceivedKHR - totalKHR;
-  const isSufficient = diffKHR >= -0.5 || (numUSD === 0 && numKHR === 0 && payableTotal === 0);
+  const isSufficient = diffKHR >= -0.5 || (numUSD === 0 && numKHR === 0 && safePayable === 0);
 
   // Rounded change calculations (Nearest ៛100 note)
   const rawChangeKHR = Math.max(0, diffKHR);
   const changeTotalKHR = Math.round(rawChangeKHR / 100) * 100;
-  const changeTotalUSD = changeTotalKHR / currentRate;
+  const changeTotalUSD = rate > 0 ? changeTotalKHR / rate : 0;
 
   // Smart Mixed Change Breakdown:
   // Whole dollar bills in USD + remaining cents in KHR rounded to nearest ៛100
-  const changeBreakdownUSD = Math.floor(changeTotalKHR / currentRate);
-  const changeBreakdownKHR = Math.round((changeTotalKHR - (changeBreakdownUSD * currentRate)) / 100) * 100;
+  const changeBreakdownUSD = rate > 0 ? Math.floor(changeTotalKHR / rate) : 0;
+  const changeBreakdownKHR = Math.round((changeTotalKHR - (changeBreakdownUSD * rate)) / 100) * 100;
 
   // Sync back to parent tenderedAmount for backward compatibility
   useEffect(() => {
@@ -164,21 +174,13 @@ export default function POSPaymentDrawer({
 
   const khrChips = [
     { label: 'Exact (៛)', value: String(Math.round(totalKHR)) },
-    { label: '៛1,000', value: '1000' },
-    { label: '៛5,000', value: '5000' },
-    { label: '៛10,000', value: '10000' },
-    { label: '៛20,000', value: '20000' },
-    { label: '៛50,000', value: '50000' },
-    { label: '៛100,000', value: '100000' },
+    { label: '៛1k', value: '1000' },
+    { label: '៛5k', value: '5000' },
+    { label: '៛10k', value: '10000' },
+    { label: '៛20k', value: '20000' },
+    { label: '៛50k', value: '50000' },
+    { label: '៛100k', value: '100000' },
   ];
-
-  const handleChipClick = (val) => {
-    if (activeTenderCurrency === 'USD') {
-      setTenderedUSD(val);
-    } else {
-      setTenderedKHR(val);
-    }
-  };
 
   const handleSaveRate = () => {
     const rateNum = Number(tempRateInput);
@@ -191,7 +193,7 @@ export default function POSPaymentDrawer({
     setIsEditingRate(false);
   };
 
-  const handleFinalizePayment = () => {
+  const handleFinalizePayment = useCallback(() => {
     const tenderData = {
       tenderedUSD: numUSD,
       tenderedKHR: numKHR,
@@ -208,533 +210,621 @@ export default function POSPaymentDrawer({
     if (onPayAndComplete) {
       onPayAndComplete(tenderData);
     }
-  };
+  }, [
+    numUSD,
+    numKHR,
+    totalReceivedKHR,
+    totalReceivedUSD,
+    changeTotalKHR,
+    changeTotalUSD,
+    changeBreakdownUSD,
+    changeBreakdownKHR,
+    changeAdviceMode,
+    currentRate,
+    isBaseKHR,
+    onPayAndComplete
+  ]);
+
+  // Keyboard Shortcuts (Esc to close, F4 / Enter to finalize)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        handleFinalizePayment();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleFinalizePayment, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
-      {/* Backdrop */}
-      <div 
-        onClick={onClose}
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
-      />
-
-      {/* Slide-Over Panel Container */}
-      <div 
-        className={clsx(
-          "relative w-full max-w-md md:max-w-xl bg-background border-l border-restro-border-green shadow-2xl z-10 flex flex-col h-full animate-in slide-in-from-right duration-250 ease-out"
-        )}
-      >
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-restro-border-green shrink-0 bg-restro-gray/40">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-restro-green/15 text-restro-green flex items-center justify-center">
-              <IconCash size={20} stroke={iconStroke} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-restro-text leading-tight">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden select-none animate-in fade-in duration-200">
+      
+      {/* ==================== TOP NAVIGATION HEADER BAR ==================== */}
+      <div className="flex items-center justify-between px-5 sm:px-6 py-3 border-b border-restro-border-green shrink-0 bg-restro-gray/40">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-restro-green/15 text-restro-green flex items-center justify-center font-bold shadow-xs">
+            <IconCash size={22} stroke={iconStroke} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-black text-restro-text leading-tight">
                 {t('pos.collect_payment', 'Settle Payment')}
               </h3>
-              <p className="text-[11px] text-gray-400">
-                Cambodian Dual-Currency Checkout (USD & KHR)
-              </p>
+              <span className="hidden sm:inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                Cambodian Dual-Currency
+              </span>
             </div>
+            <p className="text-[11px] text-gray-400">
+              Mixed USD & Riel cash tender with smart change advice
+            </p>
           </div>
+        </div>
 
-          {/* Rate Badge with Quick Edit */}
-          <div className="flex items-center gap-2">
+        {/* Live Exchange Rate Badge & Close Button */}
+        <div className="flex items-center gap-2.5">
+          {/* Shift Rate Badge with Inline Editor Popover */}
+          <div className="relative">
             <button
               type="button"
               onClick={() => setIsEditingRate(!isEditingRate)}
-              className="px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
-              title="Click to adjust USD to KHR exchange rate"
+              className="px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              title="Click to adjust exchange rate for this shift"
             >
+              <IconArrowsExchange size={15} />
               <span>1$ = ៛{currentRate.toLocaleString()}</span>
-              <IconPencil size={12} />
+              <IconPencil size={12} className="text-amber-600 dark:text-amber-400" />
+            </button>
+
+            {isEditingRate && (
+              <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-background border border-amber-500/40 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                <p className="text-xs font-bold mb-1.5">Shift Exchange Rate (1 USD to KHR)</p>
+                <div className="flex gap-1.5 mb-2">
+                  {[4000, 4100, 4150].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setTempRateInput(String(r));
+                        setCurrentRate(r);
+                        if (onUpdateExchangeRate) onUpdateExchangeRate(r);
+                        setIsEditingRate(false);
+                      }}
+                      className={clsx(
+                        "flex-1 text-[11px] font-bold py-1 px-1.5 rounded-lg border transition active:scale-95 cursor-pointer",
+                        currentRate === r
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-restro-gray hover:bg-restro-button-hover text-restro-text border-restro-border-green"
+                      )}
+                    >
+                      ៛{r.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={tempRateInput}
+                    onChange={(e) => setTempRateInput(e.target.value)}
+                    placeholder="e.g. 4100"
+                    className="w-full text-xs font-mono font-bold px-3 py-1.5 rounded-lg border border-restro-border-green bg-background focus:outline-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveRate}
+                    className="px-3 py-1.5 rounded-lg bg-restro-green text-white text-xs font-bold hover:bg-restro-green-button-hover cursor-pointer"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Close Button */}
+          <button 
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl text-gray-400 hover:text-restro-text hover:bg-restro-gray transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+            title="Close (Esc)"
+          >
+            <IconX size={20} stroke={iconStroke} />
+            <span className="hidden sm:inline font-mono text-[10px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">Esc</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ==================== 2-COLUMN FULL-SCREEN WORKSPACE ==================== */}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-5 p-4 sm:p-5 overflow-hidden min-h-0 bg-restro-gray/10">
+        
+        {/* ----------------- LEFT COLUMN (5 of 12 cols) ----------------- */}
+        <div className="md:col-span-5 flex flex-col justify-between h-full space-y-3.5 min-h-0 overflow-y-auto md:overflow-hidden">
+          
+          <div className="space-y-3">
+            {/* Card 1: Payable Total Due */}
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 shadow-xs">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                  {t('pos.payable_total', 'Payable Total Due')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                  className="text-[11px] font-bold text-gray-500 hover:text-restro-text flex items-center gap-1 transition cursor-pointer"
+                >
+                  <span>{isSummaryExpanded ? t('pos.hide', 'Hide') : t('pos.details', 'Details')}</span>
+                  <IconChevronUp size={13} className={clsx("transition-transform duration-200", !isSummaryExpanded && "rotate-180")} />
+                </button>
+              </div>
+
+              <div className="flex items-baseline justify-between flex-wrap gap-2">
+                <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-700 dark:text-emerald-400">
+                  {isBaseKHR ? `៛${Math.round(totalKHR).toLocaleString()}` : `$${totalUSD.toFixed(2)}`}
+                </div>
+                <div className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-mono font-bold text-xs sm:text-sm border border-emerald-500/30">
+                  ≈ {isBaseKHR ? `$${totalUSD.toFixed(2)} USD` : `៛${Math.round(totalKHR).toLocaleString()} KHR`}
+                </div>
+              </div>
+
+              {/* Collapsible details breakdown */}
+              {isSummaryExpanded && (
+                <div className="mt-2.5 pt-2.5 border-t border-emerald-500/20 text-xs font-mono space-y-1 text-gray-600 dark:text-gray-400 animate-in fade-in">
+                  <div className="flex justify-between">
+                    <span>{t('pos.items_net_total', 'Items Net Total')}</span>
+                    <span>{currency}{Number(itemsTotal).toFixed(2)}</span>
+                  </div>
+                  {Number(discountAmount) > 0 && (
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <span>{t('pos.discount', 'Discount')}</span>
+                      <span>-{currency}{Number(discountAmount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(taxTotal) > 0 && (
+                    <div className="flex justify-between">
+                      <span>{t('pos.tax_total', 'Tax Total')}</span>
+                      <span>+{currency}{Number(taxTotal).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(serviceChargeTotal) > 0 && (
+                    <div className="flex justify-between">
+                      <span>{t('pos.service_charge', 'Service Charge')}</span>
+                      <span>+{currency}{Number(serviceChargeTotal).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Payment Method Selector */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                {t('orders.select_payment_method', 'Select Payment Method')}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {paymentList.map((pt) => {
+                  const isSelected = selectedPaymentType === pt.id;
+                  const iconElement = (pt.icon && PAYMENT_ICONS[pt.icon]) ? PAYMENT_ICONS[pt.icon] : <IconCash size={16} stroke={iconStroke} />;
+                  return (
+                    <button
+                      key={pt.id}
+                      type="button"
+                      onClick={() => onSelectPaymentType(pt.id)}
+                      className={clsx(
+                        "relative min-h-[46px] p-2.5 rounded-xl border flex items-center gap-2.5 transition active:scale-95 text-left cursor-pointer select-none",
+                        isSelected
+                          ? "border-restro-green bg-restro-green/10 text-restro-green shadow-xs ring-2 ring-restro-green/20"
+                          : "border-restro-border-green bg-background hover:bg-restro-button-hover text-restro-text"
+                      )}
+                    >
+                      <div className={clsx(
+                        "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4",
+                        isSelected ? "bg-restro-green text-white" : "bg-restro-gray text-gray-500"
+                      )}>
+                        {iconElement}
+                      </div>
+                      <div className="truncate font-bold text-xs flex-1">
+                        {pt.title}
+                      </div>
+                      {isSelected && (
+                        <div className="w-4 h-4 rounded-full bg-restro-green text-white flex items-center justify-center shrink-0">
+                          <IconCheck size={11} stroke={3} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Card 3: Smart Change Advice & Rounding (When Cash is selected) */}
+            {isCash && (
+              <div className="rounded-2xl border border-restro-border-green bg-background p-3.5 shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                    Change Return Advice
+                  </span>
+                  <div className="flex items-center gap-1 bg-restro-gray p-0.5 rounded-lg border border-restro-border-green/50">
+                    <button
+                      type="button"
+                      onClick={() => setChangeAdviceMode('riel')}
+                      className={clsx(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer",
+                        changeAdviceMode === 'riel'
+                          ? "bg-white dark:bg-black text-restro-text shadow-xs"
+                          : "text-gray-400 hover:text-restro-text"
+                      )}
+                    >
+                      ៛ All Riel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChangeAdviceMode('mixed')}
+                      className={clsx(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer",
+                        changeAdviceMode === 'mixed'
+                          ? "bg-white dark:bg-black text-restro-text shadow-xs"
+                          : "text-gray-400 hover:text-restro-text"
+                      )}
+                    >
+                      $ + ៛ Mixed
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cash Received summary */}
+                <div className="flex items-center justify-between text-xs py-1 border-b border-restro-border-green/40">
+                  <span className="text-gray-500">Total Cash Received:</span>
+                  <span className="font-mono font-bold text-xs sm:text-sm">
+                    ៛{Math.round(totalReceivedKHR).toLocaleString()}{" "}
+                    <span className="text-gray-400 font-normal text-[11px]">(${totalReceivedUSD.toFixed(2)})</span>
+                  </span>
+                </div>
+
+                {/* Change Result or Shortfall Notice */}
+                {isSufficient ? (
+                  <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider">
+                        Change Due {changeAdviceMode === 'mixed' ? '(Mixed $ + ៛)' : '(All Riel ៛)'}:
+                      </span>
+                      <span className="text-xl font-black font-mono">
+                        {changeAdviceMode === 'mixed' && changeBreakdownUSD > 0
+                          ? `$${changeBreakdownUSD} + ៛${changeBreakdownKHR.toLocaleString()}`
+                          : `៛${changeTotalKHR.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 flex items-center justify-between">
+                      <span>Nearest ៛100 note rounding</span>
+                      <span>≈ ${changeTotalUSD.toFixed(2)} USD</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl p-3 bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xs font-bold">Needs More Cash:</span>
+                      <span className="text-sm sm:text-base font-black font-mono">
+                        ៛{Math.round(Math.abs(diffKHR)).toLocaleString()}{" "}
+                        <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400">(${Math.abs(diffKHR / currentRate).toFixed(2)})</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Primary Action Bar */}
+          <div className="space-y-2 pt-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleFinalizePayment}
+              disabled={isProcessing || (isCash && !isSufficient && (numUSD > 0 || numKHR > 0))}
+              className={clsx(
+                "w-full min-h-[54px] px-5 py-3 rounded-2xl font-black text-sm text-white flex items-center justify-between transition active:scale-[0.98] shadow-lg touch-manipulation cursor-pointer select-none",
+                isProcessing || (isCash && !isSufficient && (numUSD > 0 || numKHR > 0))
+                  ? "opacity-50 cursor-not-allowed bg-gray-400 shadow-none"
+                  : "bg-restro-green hover:bg-restro-green-button-hover shadow-emerald-600/25"
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <IconReceipt size={20} stroke={iconStroke} />
+                <span>{isProcessing ? t('pos.please_wait', 'Processing...') : t('pos.settle_and_print', 'Settle & Print Receipt')}</span>
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/20 text-white">F4</span>
+              </span>
+              <span className="font-extrabold text-sm sm:text-base bg-white/20 px-3 py-1 rounded-xl font-mono">
+                {currency}{Number(payableTotal).toFixed(2)}
+              </span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-restro-gray hover:bg-restro-button-hover text-restro-text flex items-center justify-center transition active:scale-95 cursor-pointer"
-              title="Close payment drawer (Esc)"
+              className="w-full min-h-[40px] py-1.5 rounded-xl text-xs font-bold text-gray-500 hover:text-restro-text hover:bg-restro-gray transition active:scale-95 cursor-pointer"
             >
-              <IconX size={17} stroke={iconStroke} />
+              {t('pos.cancel_and_return', 'Cancel & Return to Order Ticket')}
             </button>
           </div>
+
         </div>
 
-        {/* Quick Rate Edit Box (if opened) */}
-        {isEditingRate && (
-          <div className="px-5 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 flex flex-wrap items-center justify-between gap-2 shrink-0 animate-in slide-in-from-top duration-150">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
-              <span>Exchange Rate: 1 USD =</span>
-              <input
-                type="number"
-                value={tempRateInput}
-                onChange={(e) => setTempRateInput(e.target.value)}
-                className="w-20 px-2 py-1 rounded-lg border border-amber-400 bg-background text-restro-text font-mono font-bold text-xs"
-              />
-              <span>៛</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {[4000, 4100, 4150].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setTempRateInput(String(preset))}
-                  className="px-2 py-0.5 rounded-md border border-amber-300 bg-amber-100/60 hover:bg-amber-200 text-amber-800 text-[10px] font-bold"
-                >
-                  ៛{preset}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={handleSaveRate}
-                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 active:scale-95 ml-1"
-              >
-                Set
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* Scrollable Main Area */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3.5 scrollbar-thin">
+        {/* ----------------- RIGHT COLUMN (7 of 12 cols) ----------------- */}
+        <div className="md:col-span-7 flex flex-col justify-between h-full bg-background rounded-3xl p-4 sm:p-5 border border-restro-border-green/60 shadow-xs min-h-0 overflow-y-auto md:overflow-hidden">
           
-          {/* Dual Total Due Card */}
-          <div className="rounded-2xl border border-restro-border-green bg-restro-card-bg shadow-sm overflow-hidden">
-            <div 
-              onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-              className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-restro-button-hover transition select-none"
-            >
+          {/* CASH PAYMENT WORKSPACE */}
+          {isCash ? (
+            <div className="flex flex-col justify-between h-full space-y-3 min-h-0">
+              
+              {/* 1. Dual Tender Display Cards */}
               <div>
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-                  {t('pos.payable_total', 'Total Due')}
-                </span>
-                <div className="flex items-baseline gap-2.5 flex-wrap">
-                  <span className="text-2xl sm:text-3xl font-black text-restro-green tracking-tight font-mono">
-                    {isBaseKHR ? `៛${Math.round(totalKHR).toLocaleString()}` : `$${totalUSD.toFixed(2)}`}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                    Cash Tendered (Tap Card to Select)
                   </span>
-                  <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 font-mono">
-                    ≈ {isBaseKHR ? `$${totalUSD.toFixed(2)} USD` : `៛${Math.round(totalKHR).toLocaleString()} KHR`}
-                  </span>
+                  {(tenderedUSD || tenderedKHR) && (
+                    <button
+                      type="button"
+                      onClick={() => { setTenderedUSD(''); setTenderedKHR(''); }}
+                      className="text-[11px] font-bold text-red-500 hover:text-red-600 transition active:scale-95 cursor-pointer"
+                    >
+                      Clear Both
+                    </button>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold">
-                <span>{isSummaryExpanded ? 'Hide' : 'Breakdown'}</span>
-                <IconChevronUp 
-                  size={16} 
-                  stroke={iconStroke} 
-                  className={clsx("transition-transform duration-200", !isSummaryExpanded && "rotate-180")} 
-                />
-              </div>
-            </div>
 
-            {/* Collapsible Order Breakdown */}
-            {isSummaryExpanded && (
-              <div className="px-4 pb-3 pt-1 space-y-1.5 border-t border-restro-border-green/50 text-xs bg-restro-gray/30 animate-in fade-in duration-150">
-                <div className="flex justify-between text-gray-500">
-                  <span>{t('pos.items_net_total', 'Items Subtotal')}</span>
-                  <span className="font-semibold text-restro-text font-mono">
-                    {currency}{Number(itemsTotal).toFixed(2)}
-                  </span>
-                </div>
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-medium">
-                    <span>{t('pos.discount_total', 'Discount')}</span>
-                    <span className="font-mono">-{currency}{Number(discountAmount).toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-gray-500">
-                  <span>{t('pos.tax_total', 'Tax')}</span>
-                  <span className="font-semibold text-restro-text font-mono">+{currency}{Number(taxTotal).toFixed(2)}</span>
-                </div>
-                {serviceChargeTotal > 0 && (
-                  <div className="flex justify-between text-gray-500">
-                    <span>{t('pos.service_charge_total', 'Service Charge')}</span>
-                    <span className="font-semibold text-restro-text font-mono">+{currency}{Number(serviceChargeTotal).toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Payment Method Selector Grid */}
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
-              {t('orders.select_payment_method', 'Payment Method')}
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {paymentTypes.map((pt) => {
-                const isSelected = String(selectedPaymentType) === String(pt.id);
-                return (
-                  <button
-                    key={pt.id}
-                    type="button"
-                    onClick={() => onSelectPaymentType(pt.id)}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* USD Tender Card */}
+                  <div
+                    onClick={() => setActiveTenderCurrency('USD')}
                     className={clsx(
-                      "min-h-[52px] p-2 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all active:scale-[0.97] cursor-pointer touch-manipulation relative shadow-2xs select-none",
-                      isSelected
-                        ? "border-restro-green bg-emerald-500/10 text-restro-green ring-2 ring-restro-green font-bold shadow-sm"
-                        : "border-restro-border-green bg-restro-card-bg text-restro-text hover:bg-restro-button-hover"
+                      "p-3 rounded-2xl border-2 transition cursor-pointer relative select-none",
+                      activeTenderCurrency === 'USD'
+                        ? "border-restro-green bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs"
+                        : "border-restro-border-green bg-restro-gray/40 hover:bg-restro-gray/80"
                     )}
                   >
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-restro-green text-white flex items-center justify-center shadow">
-                        <IconCheck size={9} stroke={3} />
-                      </div>
-                    )}
-                    {pt.icon && <span className="text-xl leading-none">{PAYMENT_ICONS[pt.icon] || '💳'}</span>}
-                    <span className="text-xs font-semibold truncate w-full text-center leading-tight">
-                      {pt.title}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 mb-0.5">
+                      <span>USD ($)</span>
+                      {tenderedUSD && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setTenderedUSD(''); }}
+                          className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-red-500 cursor-pointer"
+                        >
+                          <IconX size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-2xl font-black font-mono text-restro-text truncate">
+                      ${tenderedUSD || '0'}
+                    </div>
+                    <div className="text-[11px] font-mono text-gray-400 mt-0.5">
+                      ≈ ៛{Math.round(numUSD * currentRate).toLocaleString()}
+                    </div>
+                  </div>
 
-          {/* Dual Mixed Cash Tender Section */}
-          <div className="p-3.5 rounded-2xl border border-restro-border-green bg-restro-gray/40 space-y-3 select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-                <IconCoin size={14} className="text-restro-green" />
-                <span>Cash Tendered (USD / Riel)</span>
-              </span>
-              {(tenderedUSD || tenderedKHR) && (
-                <button
-                  type="button"
-                  onClick={() => handleNumpadPress('CLEAR_ALL')}
-                  className="text-xs text-red-500 hover:underline font-bold cursor-pointer active:scale-95"
-                >
-                  Clear Both
-                </button>
-              )}
-            </div>
-
-            {/* Dual Input Cards: USD & KHR */}
-            <div className="grid grid-cols-2 gap-2">
-              {/* USD Tender Box */}
-              <div 
-                onClick={() => setActiveTenderCurrency('USD')}
-                className={clsx(
-                  "p-2.5 rounded-xl border transition-all cursor-pointer shadow-2xs flex flex-col justify-between",
-                  activeTenderCurrency === 'USD'
-                    ? "bg-background border-emerald-500 ring-2 ring-emerald-500/40 shadow-sm"
-                    : "bg-background/60 border-restro-border-green hover:border-emerald-400/50"
-                )}
-              >
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className={clsx(activeTenderCurrency === 'USD' ? "text-emerald-700 dark:text-emerald-400" : "text-gray-400")}>
-                    USD ($)
-                  </span>
-                  {tenderedUSD && (
-                    <span 
-                      onClick={(e) => { e.stopPropagation(); setTenderedUSD(''); }}
-                      className="text-[10px] text-gray-400 hover:text-red-500 px-1"
-                    >
-                      ✕
-                    </span>
-                  )}
-                </div>
-                <div className="text-xl font-black font-mono tracking-wide text-restro-text truncate mt-1">
-                  ${tenderedUSD || '0.00'}
-                </div>
-                <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                  ≈ ៛{Math.round(numUSD * currentRate).toLocaleString()}
-                </div>
-              </div>
-
-              {/* KHR Tender Box */}
-              <div 
-                onClick={() => setActiveTenderCurrency('KHR')}
-                className={clsx(
-                  "p-2.5 rounded-xl border transition-all cursor-pointer shadow-2xs flex flex-col justify-between",
-                  activeTenderCurrency === 'KHR'
-                    ? "bg-background border-emerald-500 ring-2 ring-emerald-500/40 shadow-sm"
-                    : "bg-background/60 border-restro-border-green hover:border-emerald-400/50"
-                )}
-              >
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className={clsx(activeTenderCurrency === 'KHR' ? "text-emerald-700 dark:text-emerald-400" : "text-gray-400")}>
-                    RIEL (៛)
-                  </span>
-                  {tenderedKHR && (
-                    <span 
-                      onClick={(e) => { e.stopPropagation(); setTenderedKHR(''); }}
-                      className="text-[10px] text-gray-400 hover:text-red-500 px-1"
-                    >
-                      ✕
-                    </span>
-                  )}
-                </div>
-                <div className="text-xl font-black font-mono tracking-wide text-restro-text truncate mt-1">
-                  ៛{numKHR > 0 ? numKHR.toLocaleString() : '0'}
-                </div>
-                <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                  ≈ ${(numKHR / currentRate).toFixed(2)}
-                </div>
-              </div>
-            </div>
-
-            {/* Total Received Summary Banner */}
-            {(numUSD > 0 || numKHR > 0) && (
-              <div className="px-3 py-1.5 rounded-xl bg-restro-card-bg border border-restro-border-green flex items-center justify-between text-xs">
-                <span className="font-bold text-gray-500 text-[11px]">Total Cash Received:</span>
-                <div className="text-right font-mono font-black text-restro-text text-xs sm:text-sm">
-                  <span>៛{Math.round(totalReceivedKHR).toLocaleString()}</span>
-                  <span className="text-gray-400 text-xs ml-1 font-normal">(${totalReceivedUSD.toFixed(2)})</span>
-                </div>
-              </div>
-            )}
-
-            {/* Circulating Banknote Chips (Dynamic based on active currency) */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                <span>Quick {activeTenderCurrency} Notes:</span>
-                <span className="text-emerald-600 font-semibold cursor-pointer" onClick={() => setActiveTenderCurrency(activeTenderCurrency === 'USD' ? 'KHR' : 'USD')}>
-                  Switch to {activeTenderCurrency === 'USD' ? 'KHR ៛' : 'USD $'}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(activeTenderCurrency === 'USD' ? usdChips : khrChips).map((chip, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleChipClick(chip.value)}
+                  {/* RIEL Tender Card */}
+                  <div
+                    onClick={() => setActiveTenderCurrency('KHR')}
                     className={clsx(
-                      "min-h-[36px] px-2.5 py-1 rounded-xl text-xs font-bold border transition active:scale-95 cursor-pointer touch-manipulation shadow-2xs",
-                      idx === 0
-                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-black hover:bg-emerald-500/25"
-                        : "bg-background border-restro-border-green text-restro-text hover:bg-restro-button-hover"
+                      "p-3 rounded-2xl border-2 transition cursor-pointer relative select-none",
+                      activeTenderCurrency === 'KHR'
+                        ? "border-restro-green bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs"
+                        : "border-restro-border-green bg-restro-gray/40 hover:bg-restro-gray/80"
                     )}
                   >
-                    {chip.label}
+                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 mb-0.5">
+                      <span>RIEL (៛)</span>
+                      {tenderedKHR && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setTenderedKHR(''); }}
+                          className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-red-500 cursor-pointer"
+                        >
+                          <IconX size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-2xl font-black font-mono text-restro-text truncate">
+                      ៛{tenderedKHR ? Number(tenderedKHR).toLocaleString() : '0'}
+                    </div>
+                    <div className="text-[11px] font-mono text-gray-400 mt-0.5">
+                      ≈ ${(numKHR / currentRate).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Banknote Quick Preset Chips (Both currencies stacked) */}
+              <div className="space-y-1.5">
+                {/* USD Banknotes */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Quick USD Banknotes ($):
+                  </span>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {usdChips.map((chip, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setTenderedUSD(chip.value);
+                          setActiveTenderCurrency('USD');
+                        }}
+                        className={clsx(
+                          "min-h-[36px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center truncate",
+                          tenderedUSD === chip.value
+                            ? "bg-restro-green text-white border-restro-green"
+                            : "bg-restro-gray hover:bg-restro-button-hover text-restro-text border-restro-border-green"
+                        )}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* KHR Banknotes */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Quick Riel Banknotes (៛):
+                  </span>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {khrChips.map((chip, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setTenderedKHR(chip.value);
+                          setActiveTenderCurrency('KHR');
+                        }}
+                        className={clsx(
+                          "min-h-[36px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center truncate",
+                          tenderedKHR === chip.value
+                            ? "bg-restro-green text-white border-restro-green"
+                            : "bg-restro-gray hover:bg-restro-button-hover text-restro-text border-restro-border-green"
+                        )}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. High-Density Touch Numpad */}
+              <div className="flex-1 flex flex-col justify-between min-h-0 pt-1">
+                <div className="grid grid-cols-3 gap-2 flex-1 min-h-0">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => handleNumpadPress(n)}
+                      className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-xl font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                    >
+                      {n}
+                    </button>
+                  ))}
+
+                  {/* Dynamic Key: '000' for Riel, '.' for USD */}
+                  <button
+                    type="button"
+                    onClick={() => handleNumpadPress(activeTenderCurrency === 'KHR' ? '000' : '.')}
+                    className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-base font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                  >
+                    {activeTenderCurrency === 'KHR' ? '000' : '.'}
                   </button>
-                ))}
-              </div>
-            </div>
 
-            {/* Touch Virtual Numpad */}
-            <div className="grid grid-cols-3 gap-1.5 pt-1">
-              {[
-                '1', '2', '3',
-                '4', '5', '6',
-                '7', '8', '9',
-                activeTenderCurrency === 'KHR' ? '000' : '.', '0', '00'
-              ].map((keyVal) => (
-                <button
-                  key={keyVal}
-                  type="button"
-                  onClick={() => handleNumpadPress(keyVal)}
-                  className="min-h-[46px] rounded-xl border border-restro-border-green bg-background text-restro-text text-base font-black hover:bg-restro-button-hover active:scale-95 transition shadow-2xs flex items-center justify-center cursor-pointer touch-manipulation select-none"
-                >
-                  {keyVal}
-                </button>
-              ))}
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => handleNumpadPress('0')}
+                    className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-xl font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                  >
+                    0
+                  </button>
 
-            {/* Numpad Action Row: Backspace & Clear */}
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleNumpadPress('CLEAR')}
-                className="min-h-[40px] rounded-xl border border-restro-border-green bg-restro-gray text-gray-500 text-xs font-bold hover:bg-restro-button-hover active:scale-95 transition flex items-center justify-center cursor-pointer touch-manipulation"
-              >
-                Clear {activeTenderCurrency}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleNumpadPress('BACKSPACE')}
-                className="min-h-[40px] rounded-xl border border-restro-border-green bg-restro-gray text-restro-text text-xs font-bold hover:bg-restro-button-hover active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation"
-              >
-                <IconBackspace size={17} stroke={iconStroke} />
-                <span>Delete</span>
-              </button>
-            </div>
-
-            {/* Intelligent Change Due Advice Banner */}
-            {(numUSD > 0 || numKHR > 0) && (
-              <div 
-                className={clsx(
-                  "p-3.5 rounded-2xl border space-y-2 shadow-xs transition-all animate-in zoom-in-95 duration-150",
-                  isSufficient
-                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-800 dark:text-emerald-300"
-                    : "bg-amber-500/10 border-amber-500/40 text-amber-800 dark:text-amber-300"
-                )}
-              >
-                {/* Header row */}
-                <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider">
-                  <span>{isSufficient ? 'Change Return Advice' : 'Payment Remaining'}</span>
-                  
-                  {/* Change Mode Toggle (All Riel vs Mixed) */}
-                  {isSufficient && changeTotalKHR > 0 && (
-                    <div className="flex items-center p-0.5 rounded-lg bg-background/80 border border-emerald-500/30 text-[10px] font-bold">
-                      <button
-                        type="button"
-                        onClick={() => setChangeAdviceMode('riel')}
-                        className={clsx(
-                          "px-2 py-0.5 rounded transition cursor-pointer",
-                          changeAdviceMode === 'riel'
-                            ? "bg-emerald-600 text-white shadow-2xs"
-                            : "text-gray-500 hover:text-restro-text"
-                        )}
-                      >
-                        ៛ All Riel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setChangeAdviceMode('mixed')}
-                        className={clsx(
-                          "px-2 py-0.5 rounded transition cursor-pointer",
-                          changeAdviceMode === 'mixed'
-                            ? "bg-emerald-600 text-white shadow-2xs"
-                            : "text-gray-500 hover:text-restro-text"
-                        )}
-                      >
-                        $ + ៛ Mixed
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleNumpadPress('00')}
+                    className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-base font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                  >
+                    00
+                  </button>
                 </div>
 
-                {/* Amount presentation */}
-                {isSufficient ? (
-                  changeTotalKHR === 0 ? (
-                    <div className="text-base font-black text-emerald-700 dark:text-emerald-300 font-mono">
-                      Exact Cash Received - No Change Due (៛0)
-                    </div>
-                  ) : changeAdviceMode === 'mixed' && changeBreakdownUSD > 0 ? (
-                    <div>
-                      <div className="text-xl sm:text-2xl font-black font-mono tracking-tight text-emerald-700 dark:text-emerald-300">
-                        ${changeBreakdownUSD.toFixed(2)} USD + ៛{changeBreakdownKHR.toLocaleString()} KHR
-                      </div>
-                      <div className="text-[11px] opacity-80 mt-0.5 flex items-center gap-1 font-medium">
-                        <span>Hand customer: {changeBreakdownUSD}x $1 bill + ៛{changeBreakdownKHR.toLocaleString()} in Riel note(s)</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-700 dark:text-emerald-300">
-                        ៛{changeTotalKHR.toLocaleString()} KHR
-                      </div>
-                      <div className="text-[11px] opacity-80 mt-0.5 flex items-center gap-1 font-medium">
-                        <span>(≈ ${changeTotalUSD.toFixed(2)} USD - rounded to nearest ៛100 note)</span>
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <div>
-                    <div className="text-lg font-black font-mono text-amber-700 dark:text-amber-300">
-                      Short by ៛{Math.abs(Math.round(diffKHR)).toLocaleString()} KHR
-                    </div>
-                    <div className="text-[11px] opacity-80 mt-0.5">
-                      Customer still owes ≈ ${Math.abs(diffKHR / currentRate).toFixed(2)} USD
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                {/* Numpad Action Row */}
+                <div className="grid grid-cols-2 gap-2 mt-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleNumpadPress('CLEAR')}
+                    className="min-h-[42px] rounded-xl bg-restro-gray hover:bg-restro-button-hover text-gray-500 hover:text-restro-text text-xs font-bold border border-restro-border-green transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer select-none"
+                  >
+                    Clear {activeTenderCurrency}
+                  </button>
 
-          </div>
-
-          {/* Quick Discount Tool */}
-          <div className="p-3 rounded-2xl border border-restro-border-green bg-restro-gray/30 space-y-2">
-            <div 
-              onClick={() => setIsDiscountExpanded(!isDiscountExpanded)}
-              className="flex items-center justify-between cursor-pointer select-none"
-            >
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                <IconPercentage size={15} stroke={iconStroke} />
-                <span>{t('pos.apply_discount', 'Apply Discount')}</span>
-              </span>
-              <span className="text-xs text-restro-green font-bold">
-                {discountAmount > 0 ? `-${currency}${Number(discountAmount).toFixed(2)}` : '+ add'}
-              </span>
-            </div>
-
-            {isDiscountExpanded && (
-              <div className="pt-2 space-y-2 animate-in fade-in duration-150">
-                <div className="flex items-center gap-2">
-                  <div className="flex p-0.5 rounded-xl border border-restro-border-green bg-background">
-                    <button
-                      type="button"
-                      onClick={() => onDiscountChange && onDiscountChange('fixed', discountValue)}
-                      className={clsx(
-                        "px-3 py-1 rounded-lg text-xs font-bold transition",
-                        discountType === 'fixed' ? "bg-restro-green text-white shadow-xs" : "text-gray-500"
-                      )}
-                    >
-                      Fixed ({currency})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDiscountChange && onDiscountChange('percentage', discountValue)}
-                      className={clsx(
-                        "px-3 py-1 rounded-lg text-xs font-bold transition",
-                        discountType === 'percentage' ? "bg-restro-green text-white shadow-xs" : "text-gray-500"
-                      )}
-                    >
-                      Percent (%)
-                    </button>
-                  </div>
-
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Value"
-                    value={discountValue || ''}
-                    onChange={(e) => onDiscountChange && onDiscountChange(discountType, e.target.value)}
-                    className="flex-1 min-h-[38px] px-3 py-1.5 text-xs font-bold rounded-xl border border-restro-border-green bg-background text-restro-text focus:outline-restro-green"
-                  />
-                  {discountValue > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onDiscountChange && onDiscountChange(discountType, 0)}
-                      className="text-xs text-gray-400 hover:text-red-500 px-1"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleNumpadPress('BACKSPACE')}
+                    className="min-h-[42px] rounded-xl bg-restro-gray hover:bg-restro-button-hover text-gray-500 hover:text-restro-text text-xs font-bold border border-restro-border-green transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer select-none"
+                  >
+                    <IconBackspace size={17} stroke={iconStroke} />
+                    <span>Delete</span>
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
 
-        </div>
+            </div>
+          ) : isQr ? (
+            /* NON-CASH: POS QRCODE WORKSPACE */
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-4">
+              <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-xs">
+                <IconQrcode size={44} stroke={iconStroke} />
+              </div>
 
-        {/* Action Footer: Settle & Print Receipt */}
-        <div className="p-4 border-t border-restro-border-green bg-restro-gray/40 shrink-0">
-          <button
-            type="button"
-            disabled={isProcessing || !isSufficient}
-            onClick={handleFinalizePayment}
-            className={clsx(
-              "w-full min-h-[52px] px-5 py-3.5 rounded-2xl font-black text-sm text-white flex items-center justify-between transition-all active:scale-[0.98] shadow-lg cursor-pointer touch-manipulation",
-              isProcessing || !isSufficient
-                ? "bg-gray-400 cursor-not-allowed opacity-60"
-                : "bg-restro-green hover:bg-restro-green-button-hover shadow-emerald-600/25"
-            )}
-          >
-            <span className="flex items-center gap-2">
-              <IconReceipt size={22} stroke={iconStroke} />
-              <span>
-                {isProcessing
-                  ? t('pos.processing', 'Processing...')
-                  : !isSufficient
-                  ? 'Cash Tendered Insufficient'
-                  : t('pos.complete_and_print', 'Settle & Print Receipt')}
-              </span>
-            </span>
-            <span className="px-3 py-1 rounded-xl bg-white/20 text-xs font-mono font-black">
-              {isBaseKHR ? `៛${Math.round(totalKHR).toLocaleString()}` : `$${totalUSD.toFixed(2)}`}
-            </span>
-          </button>
+              <div>
+                <h4 className="text-xl font-black text-restro-text">
+                  Scan to Pay with KHQR / Banking App
+                </h4>
+                <p className="text-xs text-gray-400 max-w-sm mt-1">
+                  Customer scans via ABA Mobile, Wing, Bakong, or any local banking application
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-restro-gray/40 border border-restro-border-green space-y-1 w-full max-w-xs">
+                <div className="text-xs text-gray-500">Total QR Amount:</div>
+                <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  {isBaseKHR ? `៛${Math.round(totalKHR).toLocaleString()}` : `$${totalUSD.toFixed(2)}`}
+                </div>
+                <div className="text-xs font-mono text-gray-400">
+                  ≈ {isBaseKHR ? `$${totalUSD.toFixed(2)} USD` : `៛${Math.round(totalKHR).toLocaleString()} KHR`}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleFinalizePayment}
+                disabled={isProcessing}
+                className="w-full max-w-xs min-h-[52px] py-3 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+              >
+                {isProcessing ? t('pos.please_wait', 'Processing...') : 'Confirm QR Payment & Print Receipt'}
+              </button>
+            </div>
+          ) : (
+            /* OTHER NON-CASH (Card, etc.) */
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-4">
+              <div className="w-20 h-20 rounded-3xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/30 shadow-xs">
+                <IconCreditCard size={44} stroke={iconStroke} />
+              </div>
+              <div>
+                <h4 className="text-xl font-black text-restro-text">
+                  Electronic Payment Terminal
+                </h4>
+                <p className="text-xs text-gray-400 max-w-sm mt-1">
+                  Swipe or tap customer card on the payment terminal
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleFinalizePayment}
+                disabled={isProcessing}
+                className="w-full max-w-xs min-h-[52px] py-3 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+              >
+                {isProcessing ? t('pos.please_wait', 'Processing...') : 'Confirm Card Payment & Print Receipt'}
+              </button>
+            </div>
+          )}
+
         </div>
 
       </div>
+
     </div>
   );
 }
