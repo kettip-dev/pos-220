@@ -49,11 +49,12 @@ export async function bulkUpdateKitchenOrderItemStatus(orderItemIds, status) {
   }
 }
 
-export async function markOrderAllItemsStatus(orderId, status, fromStatuses) {
+export async function markOrderAllItemsStatus(orderId, status, fromStatuses, stationId = null) {
   try {
     const response = await ApiClient.post(`/kitchen/order/${orderId}/mark-all`, {
       status,
       fromStatuses,
+      stationId,
     });
     return response;
   } catch (error) {

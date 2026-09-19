@@ -1,17 +1,26 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db")
 
-exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categoryId, tenantId) => {
+exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = null) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
         const sql = `
         INSERT INTO menu_items
-        (title, description, price, net_price, tax_id, category, tenant_id)
+        (title, description, price, net_price, tax_id, category, tenant_id, kitchen_station_id)
         VALUES
-        (?, ?, ?, ?, ?, ?, ?);
+        (?, ?, ?, ?, ?, ?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [title, description, price, netPrice, taxId, categoryId, tenantId]);
+        const [result] = await conn.query(sql, [
+          title, 
+          description, 
+          price, 
+          netPrice, 
+          taxId, 
+          categoryId, 
+          tenantId,
+          kitchenStationId ? Number(kitchenStationId) : null
+        ]);
 
         return result.insertId;
     } catch (error) {
@@ -22,17 +31,25 @@ exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categ
     }
 }
 
-exports.updateMenuItemDB = async (id, title, description, price, netPrice, taxId, categoryId, tenantId) => {
+exports.updateMenuItemDB = async (id, title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = undefined) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
-        const sql = `
+        let sql = `
         UPDATE menu_items SET
         title = ?, description = ?, price = ?, net_price = ?, tax_id = ?, category = ?
-        WHERE id = ? AND tenant_id = ?;
         `;
+        const params = [title, description, price, netPrice, taxId, categoryId];
 
-        await conn.query(sql, [title, description, price, netPrice, taxId, categoryId, id, tenantId]);
+        if (kitchenStationId !== undefined) {
+            sql += `, kitchen_station_id = ?`;
+            params.push(kitchenStationId ? Number(kitchenStationId) : null);
+        }
+
+        sql += ` WHERE id = ? AND tenant_id = ?;`;
+        params.push(id, tenantId);
+
+        await conn.query(sql, params);
 
         return;
     } catch (error) {
@@ -111,12 +128,22 @@ exports.getAllMenuItemsDB = async (tenantId) => {
 
         const sql = `
         SELECT
-        i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, category as category_id, c.title AS category_title, image, i.is_enabled
+        i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
+        category as category_id, c.title AS category_title, image, i.is_enabled,
+        i.kitchen_station_id,
+        ks.name AS kitchen_station_name,
+        ks.color AS kitchen_station_color,
+        c.kitchen_station_id AS category_kitchen_station_id,
+        cks.name AS category_kitchen_station_name,
+        cks.color AS category_kitchen_station_color,
+        COALESCE(i.kitchen_station_id, c.kitchen_station_id) AS effective_kitchen_station_id,
+        COALESCE(ks.name, cks.name) AS effective_kitchen_station_name,
+        COALESCE(ks.color, cks.color) AS effective_kitchen_station_color
         FROM menu_items i
-        LEFT JOIN taxes t
-        ON i.tax_id = t.id
-        LEFT JOIN categories c
-        ON i.category = c.id
+        LEFT JOIN taxes t ON i.tax_id = t.id
+        LEFT JOIN categories c ON i.category = c.id
+        LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
+        LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
         WHERE i.tenant_id = ?;
         `;
 
@@ -136,12 +163,22 @@ exports.getMenuItemDB = async (id, tenantId) => {
 
         const sql = `
         SELECT
-        i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, category as category_id, c.title AS category_title, image, i.is_enabled
+        i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
+        category as category_id, c.title AS category_title, image, i.is_enabled,
+        i.kitchen_station_id,
+        ks.name AS kitchen_station_name,
+        ks.color AS kitchen_station_color,
+        c.kitchen_station_id AS category_kitchen_station_id,
+        cks.name AS category_kitchen_station_name,
+        cks.color AS category_kitchen_station_color,
+        COALESCE(i.kitchen_station_id, c.kitchen_station_id) AS effective_kitchen_station_id,
+        COALESCE(ks.name, cks.name) AS effective_kitchen_station_name,
+        COALESCE(ks.color, cks.color) AS effective_kitchen_station_color
         FROM menu_items i
-        LEFT JOIN taxes t
-        ON i.tax_id = t.id
-        LEFT JOIN categories c
-        ON i.category = c.id
+        LEFT JOIN taxes t ON i.tax_id = t.id
+        LEFT JOIN categories c ON i.category = c.id
+        LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
+        LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
         WHERE i.id = ? AND i.tenant_id = ?
         `;
 

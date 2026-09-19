@@ -7,7 +7,7 @@ exports.getPrinterConfigsDB = async (tenantId) => {
   const conn = await getMySqlPromiseConnection();
   try {
     const sql = `
-      SELECT id, name, transport, address, paper_size, is_default, is_kot_printer, auto_cut
+      SELECT id, name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id
       FROM printer_configs
       WHERE tenant_id = ?
       ORDER BY is_default DESC, is_kot_printer DESC, name ASC;
@@ -26,7 +26,7 @@ exports.getPrinterConfigsDB = async (tenantId) => {
  * Add a printer config.
  * Enforces single-default and single-KOT within the tenant.
  */
-exports.addPrinterConfigDB = async (tenantId, { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut }) => {
+exports.addPrinterConfigDB = async (tenantId, { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id }) => {
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
@@ -46,8 +46,8 @@ exports.addPrinterConfigDB = async (tenantId, { name, transport, address, paper_
     const isFirst = existing[0].cnt === 0;
 
     const sql = `
-      INSERT INTO printer_configs (tenant_id, name, transport, address, paper_size, is_default, is_kot_printer, auto_cut)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO printer_configs (tenant_id, name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
     `;
 
     const [result] = await conn.query(sql, [
@@ -59,6 +59,7 @@ exports.addPrinterConfigDB = async (tenantId, { name, transport, address, paper_
       isFirst ? 1 : (is_default ? 1 : 0),
       is_kot_printer ? 1 : 0,
       auto_cut !== undefined ? (auto_cut ? 1 : 0) : 1,
+      station_id ? Number(station_id) : null,
     ]);
 
     await conn.commit();
@@ -93,11 +94,11 @@ exports.updatePrinterConfigDB = async (tenantId, printerId, updates) => {
     const fields = [];
     const values = [];
 
-    const allowedFields = ['name', 'transport', 'address', 'paper_size', 'is_default', 'is_kot_printer', 'auto_cut'];
+    const allowedFields = ['name', 'transport', 'address', 'paper_size', 'is_default', 'is_kot_printer', 'auto_cut', 'station_id'];
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
         fields.push(`${field} = ?`);
-        values.push(updates[field]);
+        values.push(field === 'station_id' ? (updates[field] ? Number(updates[field]) : null) : updates[field]);
       }
     }
 

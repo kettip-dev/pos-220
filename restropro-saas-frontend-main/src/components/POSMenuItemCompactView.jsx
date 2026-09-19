@@ -165,7 +165,7 @@ const POSMenuItemCompactView = ({
                       /* On-card interactive stepper */
                       <div 
                         onClick={(e) => e.stopPropagation()} 
-                        className="flex items-center gap-1 bg-restro-green text-white rounded-full p-0.5 shadow-sm"
+                        className="flex items-center gap-1 bg-restro-green text-white rounded-full p-0.5 shadow-sm select-none"
                       >
                         <button
                           type="button"
@@ -174,11 +174,11 @@ const POSMenuItemCompactView = ({
                             onMinusItem(id);
                           }}
                           aria-label="Decrease quantity"
-                          className="w-5 h-5 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 active:scale-90 transition"
+                          className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 active:scale-90 transition touch-manipulation cursor-pointer"
                         >
-                          <IconMinus size={12} stroke={2.5} />
+                          <IconMinus size={13} stroke={2.5} />
                         </button>
-                        <span className="text-xs font-bold px-1 min-w-[14px] text-center">{inCartCount}</span>
+                        <span className="text-xs font-black px-1 min-w-[16px] text-center font-mono">{inCartCount}</span>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -186,9 +186,9 @@ const POSMenuItemCompactView = ({
                             addItemToCart(menuItem);
                           }}
                           aria-label="Increase quantity"
-                          className="w-5 h-5 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 active:scale-90 transition"
+                          className="w-6 h-6 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 active:scale-90 transition touch-manipulation cursor-pointer"
                         >
-                          <IconPlus size={12} stroke={2.5} />
+                          <IconPlus size={13} stroke={2.5} />
                         </button>
                       </div>
                     ) : (
@@ -203,11 +203,11 @@ const POSMenuItemCompactView = ({
                             addItemToCart(menuItem);
                           }
                         }}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm transition-all duration-200 active:scale-90 ${
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm transition-all duration-200 active:scale-90 touch-manipulation cursor-pointer ${
                           inCartCount > 0 ? 'bg-restro-green ring-2 ring-restro-green/40' : 'bg-restro-green hover:bg-restro-green-button-hover'
                         }`}
                       >
-                        <IconPlus size={16} stroke={iconStroke} />
+                        <IconPlus size={17} stroke={2.5} />
                       </button>
                     )
                   )}

@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 import {
   IconArmchair2,
   IconBook,
+  IconChefHat,
   IconCreditCard,
   IconInfoSquareRounded,
   IconPrinter,
@@ -43,6 +44,12 @@ export default function HorizontalSettingsNav() {
       text: t("settings.print_settings") ,
       path: "/dashboard/settings/print-settings",
       aliasPaths: ["/dashboard/settings/print-settings"],
+    },
+    {
+      icon: <IconChefHat stroke={iconStroke} />,
+      text: "Kitchen Stations",
+      path: "/dashboard/settings/kitchen-stations",
+      aliasPaths: ["/dashboard/settings/kitchen-stations"],
     },
     {
       icon: <IconArmchair2 stroke={iconStroke} />,

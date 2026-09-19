@@ -15,6 +15,7 @@ const {
   getPOSQROrders,
   cancelAllQROrders,
   updatePOSQROrderStatus,
+  getPrinterConfigs,
   addPrinterConfig,
   updatePrinterConfig,
   deletePrinterConfig,
@@ -87,12 +88,21 @@ router.post(
 
 // ─── Printer Config ───────────────────────────────────────
 
+router.get(
+  "/printers",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  getPrinterConfigs
+);
+
 router.post(
   "/printers",
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
   addPrinterConfig
 );
 

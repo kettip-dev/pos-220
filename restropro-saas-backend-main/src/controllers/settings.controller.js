@@ -812,7 +812,7 @@ exports.deleteStoreTable = async (req, res) => {
 exports.addCategory = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
-        const title = req.body.title;
+        const { title, kitchen_station_id } = req.body;
 
         if(!(title)) {
             return res.status(400).json({
@@ -821,7 +821,7 @@ exports.addCategory = async (req, res) => {
             });
         }
 
-        const id = await addCategoryDB(title, tenantId);
+        const id = await addCategoryDB(title, tenantId, kitchen_station_id);
         return res.status(200).json({
             success: true,
             message: req.__("category_added"),
@@ -854,7 +854,7 @@ exports.updateCategory = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
         const id = req.params.id;
-        const title = req.body.title;
+        const { title, kitchen_station_id } = req.body;
 
         if(!(title)) {
             return res.status(400).json({
@@ -863,7 +863,7 @@ exports.updateCategory = async (req, res) => {
             });
         }
 
-        await updateCategoryDB(id, title, tenantId);
+        await updateCategoryDB(id, title, tenantId, kitchen_station_id);
         return res.status(200).json({
             success: true,
             message: req.__("category_updated"),

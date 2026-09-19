@@ -36,6 +36,7 @@ const planRoutes = require("./routes/plans.routes");
 const orderStatusDisplayRoutes = require("./routes/order_status_display.routes");
 const deviceRoutes = require("./routes/device.routes");
 const businessGroupRoutes = require("./routes/business_group.routes");
+const kitchenStationRoutes = require("./routes/kitchen_stations.routes");
 // routes import
 
 
@@ -129,6 +130,7 @@ app.use("/api/v1/inventory", inventoryRoutes);
 app.use("/api/v1/plans", planRoutes);
 app.use("/api/v1/order-status-display", orderStatusDisplayRoutes);
 app.use("/api/v1/devices", deviceRoutes);
+app.use("/api/v1/kitchen-stations", kitchenStationRoutes);
 // routes
 
 app.get("/", (req, res)=>{

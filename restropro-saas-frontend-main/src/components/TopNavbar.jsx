@@ -299,28 +299,70 @@ export default function TopNavbar() {
       </nav>
 
       {/* Right: Quick Action Buttons & User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         {/* QuickBooks "+ New Action" Flyout */}
         <div className="hidden sm:block">
-          <QuickNewMenu isCollapsed={false} />
+          <QuickNewMenu isCollapsed={false} compact={true} />
         </div>
 
-        {/* 1-Click Fast Switch to Operational Register/Tables Mode */}
-        <Link
-          to="/dashboard/pos"
-          title={t("top_bar.open_pos", "Open Register / POS")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-semibold shadow-sm hover:shadow transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-        >
-          <IconDeviceIpadHorizontal size={16} stroke={2.2} />
-          <span>{t("top_bar.open_register", "Open Register")}</span>
-        </Link>
+        {/* Native Tablet POS & Floor Plan Segmented Switcher */}
+        {hasAccess([SCOPES.POS], [PLAN_FEATURES.POS]) && (() => {
+          const isTablesActive = location.pathname.startsWith("/dashboard/tables");
+          const isPosActive = location.pathname.startsWith("/dashboard/pos");
+          return (
+            <div className="flex items-center h-9 p-0.5 rounded-full bg-slate-900/80 dark:bg-black/40 border border-slate-700/80 shadow-inner">
+              {/* Tables / Floor Plan Segment */}
+              <Link
+                to="/dashboard/tables"
+                title={t("top_bar.tables", "Floor Plan & Tables")}
+                className={clsx(
+                  "h-8 px-2.5 sm:px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold transition-all duration-150 active:scale-95 touch-manipulation whitespace-nowrap select-none",
+                  isTablesActive
+                    ? "bg-[#2CA01C] text-white shadow-sm font-bold"
+                    : "text-slate-300 hover:text-white hover:bg-white/10"
+                )}
+              >
+                <IconArmchair
+                  size={15}
+                  stroke={2}
+                  className={isTablesActive ? "text-white" : "text-emerald-400"}
+                />
+                <span>{t("top_bar.tables", "Tables")}</span>
+              </Link>
+
+              {/* Inactive Divider between unselected segments */}
+              {!isTablesActive && !isPosActive && (
+                <div className="w-[1px] h-3.5 bg-slate-700/60 shrink-0" />
+              )}
+
+              {/* POS Register Segment */}
+              <Link
+                to="/dashboard/pos"
+                title={t("top_bar.open_pos", "Open Register / POS")}
+                className={clsx(
+                  "h-8 px-2.5 sm:px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold transition-all duration-150 active:scale-95 touch-manipulation whitespace-nowrap select-none",
+                  isPosActive
+                    ? "bg-[#2CA01C] text-white shadow-sm font-bold"
+                    : "text-slate-300 hover:text-white hover:bg-white/10"
+                )}
+              >
+                <IconDeviceIpadHorizontal
+                  size={15}
+                  stroke={2.2}
+                  className={isPosActive ? "text-white" : "text-emerald-400"}
+                />
+                <span>{t("top_bar.pos", "POS")}</span>
+              </Link>
+            </div>
+          );
+        })()}
 
         {/* Global Search (Cmd+K) */}
         <button
           type="button"
           onClick={showSearchModal}
           title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer border border-white/10"
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer border border-white/10 active:scale-95"
         >
           <IconSearch size={16} stroke={iconStroke} />
         </button>
@@ -334,7 +376,7 @@ export default function TopNavbar() {
         <button
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="lg:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+          className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition active:scale-95"
         >
           {mobileMenuOpen ? <IconX size={20} /> : <IconMenu2 size={20} />}
         </button>

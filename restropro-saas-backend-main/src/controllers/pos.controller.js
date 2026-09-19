@@ -316,16 +316,27 @@ exports.cancelAllQROrders = async (req, res) => {
 
 // ─── Printer Config CRUD ──────────────────────────────────
 
+exports.getPrinterConfigs = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const printerConfigs = await getPrinterConfigsDB(tenantId);
+    return res.status(200).json({ success: true, printerConfigs });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
 exports.addPrinterConfig = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
-    const { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut } = req.body;
+    const { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id } = req.body;
 
     if (!name || !transport || !address) {
       return res.status(400).json({ success: false, message: 'Name, transport, and address are required.' });
     }
 
-    const id = await addPrinterConfigDB(tenantId, { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut });
+    const id = await addPrinterConfigDB(tenantId, { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id });
 
     // Return the full updated list so the client can sync
     const printerConfigs = await getPrinterConfigsDB(tenantId);

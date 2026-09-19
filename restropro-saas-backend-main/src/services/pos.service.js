@@ -35,14 +35,43 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     const orderId = orderResult.insertId;
 
-    // step 4: save data to order_items
+    // step 4: save data to order_items with station resolution
+    const itemIds = [...new Set(cartItems.map(i => i.id).filter(Boolean))];
+    const itemStationMap = new Map();
+    if (itemIds.length > 0) {
+      const [stationRows] = await conn.query(`
+        SELECT mi.id, mi.kitchen_station_id, c.kitchen_station_id AS cat_station_id
+        FROM menu_items mi
+        LEFT JOIN categories c ON mi.category = c.id
+        WHERE mi.id IN (?) AND mi.tenant_id = ?
+      `, [itemIds, tenantId]);
+      stationRows.forEach(r => {
+        itemStationMap.set(r.id, r.kitchen_station_id || r.cat_station_id || null);
+      });
+    }
+
     const sqlOrderItems = `
     INSERT INTO order_items
-    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id)
+    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id)
     VALUES ?
     `;
 
-    await conn.query(sqlOrderItems, [cartItems.map((item)=>[orderId, item.id, item.variant_id, item.price, item.quantity, item.notes, item?.addons_ids?.length > 0 ? JSON.stringify(item.addons_ids):null, tenantId ])]);
+    await conn.query(sqlOrderItems, [
+      cartItems.map((item) => {
+        const stationId = item.kitchen_station_id || item.effective_kitchen_station_id || itemStationMap.get(item.id) || null;
+        return [
+          orderId,
+          item.id,
+          item.variant_id,
+          item.price,
+          item.quantity,
+          item.notes,
+          item?.addons_ids?.length > 0 ? JSON.stringify(item.addons_ids) : null,
+          tenantId,
+          stationId ? Number(stationId) : null
+        ];
+      })
+    ]);
 
     // step 6: Save updated token no. to table token_sequences
     await conn.query("INSERT INTO token_sequences ( sequence_no, last_updated, tenant_id) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no), last_updated = VALUES(last_updated) ;", [tokenNo, tenantId]);

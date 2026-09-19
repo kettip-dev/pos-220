@@ -50,12 +50,17 @@ exports.getOrdersDB = async (tenantId) => {
         oi.status,
         oi.date,
         oi.addons,
-        oi.notes
+        oi.notes,
+        oi.kitchen_station_id,
+        ks.name AS station_name,
+        ks.color AS station_color,
+        ks.icon AS station_icon
       FROM
         order_items oi
         LEFT JOIN menu_items mi ON oi.item_id = mi.id
-        LEFT join menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
-
+        LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
+        LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
+        
       WHERE oi.order_id IN (${orderIds})
       `
       const [kitchenOrdersItemsResult] = await conn.query(sql2);
@@ -284,12 +289,17 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
         oi.status,
         oi.date,
         oi.addons,
-        oi.notes
+        oi.notes,
+        oi.kitchen_station_id,
+        ks.name AS station_name,
+        ks.color AS station_color,
+        ks.icon AS station_icon
       FROM
         order_items oi
         LEFT JOIN menu_items mi ON oi.item_id = mi.id
         LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
         LEFT JOIN taxes t ON mi.tax_id = t.id
+        LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
 
       WHERE oi.order_id IN (${orderIds}) AND oi.status NOT IN ('cancelled')
       `

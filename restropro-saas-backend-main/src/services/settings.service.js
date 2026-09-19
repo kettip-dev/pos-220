@@ -790,17 +790,17 @@ exports.deleteStoreTableDB = async (id, tenantId) => {
     }
 };
 
-exports.addCategoryDB = async (title, tenantId) => {
+exports.addCategoryDB = async (title, tenantId, kitchenStationId = null) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
         const sql = `
         INSERT INTO categories
-        (title, tenant_id)
-        VALUES (?, ?);
+        (title, tenant_id, kitchen_station_id)
+        VALUES (?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [title, tenantId]);
+        const [result] = await conn.query(sql, [title, tenantId, kitchenStationId ? Number(kitchenStationId) : null]);
         return result.insertId;
     } catch (error) {
         console.error(error);
@@ -815,8 +815,16 @@ exports.getCategoriesDB = async (tenantId) => {
 
     try {
         const sql = `
-        SELECT id, title, is_enabled FROM categories
-        WHERE tenant_id = ?;
+        SELECT 
+          c.id, 
+          c.title, 
+          c.is_enabled, 
+          c.kitchen_station_id,
+          ks.name AS kitchen_station_name,
+          ks.color AS kitchen_station_color
+        FROM categories c
+        LEFT JOIN kitchen_stations ks ON c.kitchen_station_id = ks.id AND ks.tenant_id = c.tenant_id
+        WHERE c.tenant_id = ?;
         `;
 
         const [result] = await conn.query(sql, [tenantId]);
@@ -829,17 +837,25 @@ exports.getCategoriesDB = async (tenantId) => {
     }
 };
 
-exports.updateCategoryDB = async (id, title, tenantId) => {
+exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefined) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
-        const sql = `
+        let sql = `
         UPDATE categories
         SET title = ?
-        WHERE id = ? AND tenant_id = ?;
         `;
+        const params = [title];
 
-        await conn.query(sql, [title, id, tenantId]);
+        if (kitchenStationId !== undefined) {
+            sql += `, kitchen_station_id = ?`;
+            params.push(kitchenStationId ? Number(kitchenStationId) : null);
+        }
+
+        sql += ` WHERE id = ? AND tenant_id = ?;`;
+        params.push(id, tenantId);
+
+        await conn.query(sql, params);
         return;
     } catch (error) {
         console.error(error);

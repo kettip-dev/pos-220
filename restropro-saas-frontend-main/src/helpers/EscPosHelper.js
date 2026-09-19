@@ -257,6 +257,7 @@ export function buildKotEscPos(kotDetails) {
     orderId,
     printSettings = {},
     waiterName,
+    stationName,
   } = kotDetails;
 
   const width = (printSettings.page_format == 58 || printSettings.pageFormat == 58) ? 32 : DEFAULT_LINE_WIDTH;
@@ -267,7 +268,7 @@ export function buildKotEscPos(kotDetails) {
   // 1. KOT Title
   out += ESCPOS.ALIGN_CENTER;
   out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
-  out += "*** KITCHEN TICKET ***\n";
+  out += stationName ? `*** KOT - ${stationName.toUpperCase()} ***\n` : "*** KITCHEN TICKET ***\n";
   out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
 
   // 2. High-Visibility Token & Table Header
@@ -305,7 +306,9 @@ export function buildKotEscPos(kotDetails) {
     const qty = Number(item.quantity || 1);
     const title = item.title || item.item_title || "Item";
     const variantTitle = item.variant?.title ? ` - ${item.variant.title}` : "";
-    const itemHeader = `${qty}x  ${title}${variantTitle}`;
+    const station = item.kitchen_station_name || item.effective_kitchen_station_name;
+    const stationTag = station ? ` [${station}]` : "";
+    const itemHeader = `${qty}x  ${title}${variantTitle}${stationTag}`;
 
     out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_HEIGHT;
     out += `${itemHeader}\n`;

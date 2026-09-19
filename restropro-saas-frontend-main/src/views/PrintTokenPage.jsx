@@ -31,7 +31,9 @@ export default function PrintTokenPage() {
 
   return (
     <div className={`w-[${page_format || 80}mm] font-sans px-2 bg-white text-black`}>
-      <h2 className="text-center font-bold text-xl mt-4 pb-2 border-b border-dashed">*** KOT ***</h2>
+      <h2 className="text-center font-bold text-xl mt-4 pb-2 border-b border-dashed">
+        *** {receiptDetails?.stationName ? `KOT - ${receiptDetails.stationName.toUpperCase()}` : "KOT"} ***
+      </h2>
 
       {header && <div className=''>
         <p className='my-2 text-center'>{header}</p>
@@ -51,10 +53,14 @@ export default function PrintTokenPage() {
       <div className="border-b border-dashed mt-2"></div>
 
       {cartItems?.map((cartItem, index)=>{
-        const {title, quantity, notes, price, addons_ids, addons, variant } = cartItem;
+        const {title, quantity, notes, price, addons_ids, addons, variant, effective_kitchen_station_name, kitchen_station_name } = cartItem;
+        const station = kitchen_station_name || effective_kitchen_station_name;
 
         return <div key={index} className='w-full my-1'>
-          <p className="font-bold">{title} {variant && <span>- {variant.title}</span>}</p>
+          <p className="font-bold">
+            {title} {variant && <span>- {variant.title}</span>}
+            {station && <span className="font-normal text-xs uppercase ml-1">[{station}]</span>}
+          </p>
           {addons_ids?.length > 0 && <p className='text-xs'>Addons:
           {addons_ids.map((addonId, index)=>{
             const addon = addons?.find((a)=>a.id==addonId);

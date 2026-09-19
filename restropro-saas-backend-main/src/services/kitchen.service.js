@@ -1,10 +1,10 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db")
 
-exports.getKitchenOrdersDB = async (tenantId) => {
+exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
 
-    const sql = `
+    let sql = `
     SELECT
       o.id,
       o.date,
@@ -29,7 +29,18 @@ exports.getKitchenOrdersDB = async (tenantId) => {
       AND o.tenant_id = ?
     `;
 
-    const [kitchenOrders] = await conn.query(sql, [tenantId]);
+    const params = [tenantId];
+
+    if (stationId && stationId !== 'all') {
+      if (stationId === 'unassigned') {
+        sql += ` AND EXISTS (SELECT 1 FROM order_items oi_sub WHERE oi_sub.order_id = o.id AND oi_sub.kitchen_station_id IS NULL)`;
+      } else {
+        sql += ` AND EXISTS (SELECT 1 FROM order_items oi_sub WHERE oi_sub.order_id = o.id AND oi_sub.kitchen_station_id = ?)`;
+        params.push(Number(stationId));
+      }
+    }
+
+    const [kitchenOrders] = await conn.query(sql, params);
 
     let kitchenOrdersItems = [];
     let addons = [];
@@ -48,11 +59,16 @@ exports.getKitchenOrdersDB = async (tenantId) => {
         oi.status,
         oi.date,
         oi.addons,
-        oi.notes
+        oi.notes,
+        oi.kitchen_station_id,
+        ks.name AS station_name,
+        ks.color AS station_color,
+        ks.icon AS station_icon
       FROM
         order_items oi
         LEFT JOIN menu_items mi ON oi.item_id = mi.id
-        LEFT join menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
+        LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
+        LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
         
       WHERE oi.order_id IN (${orderIds})
       `
@@ -90,13 +106,27 @@ exports.updateOrderItemStatusDB = async (tenantId, orderItemId, status) => {
     `;
 
     const [result] = await conn.query(sql, [status, orderItemId, tenantId]);
-    return result.affectedRows;
-} catch (error) {
+
+    // Check if order is now fully finished
+    let allFinished = false;
+    let orderId = null;
+    const [itemRows] = await conn.query(`SELECT order_id FROM order_items WHERE id = ?`, [orderItemId]);
+    if (itemRows.length > 0) {
+      orderId = itemRows[0].order_id;
+      const [pendingRows] = await conn.query(`
+        SELECT COUNT(*) as count FROM order_items 
+        WHERE order_id = ? AND status NOT IN ('completed', 'cancelled', 'delivered')
+      `, [orderId]);
+      allFinished = pendingRows[0].count === 0;
+    }
+
+    return { affectedRows: result.affectedRows, allFinished, orderId };
+  } catch (error) {
     console.error(error);
     throw error;
-} finally {
-  conn.release();
-}
+  } finally {
+    conn.release();
+  }
 };
 
 exports.bulkUpdateOrderItemStatusDB = async (tenantId, orderItemIds, status) => {
@@ -122,7 +152,7 @@ exports.bulkUpdateOrderItemStatusDB = async (tenantId, orderItemIds, status) => 
   }
 };
 
-exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatuses = null) => {
+exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatuses = null, stationId = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
     const params = [status, orderId, tenantId];
@@ -138,8 +168,25 @@ exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatus
       params.push(fromStatuses);
     }
 
+    if (stationId && stationId !== 'all') {
+      if (stationId === 'unassigned') {
+        sql += ` AND oi.kitchen_station_id IS NULL`;
+      } else {
+        sql += ` AND oi.kitchen_station_id = ?`;
+        params.push(Number(stationId));
+      }
+    }
+
     const [result] = await conn.query(sql, params);
-    return result.affectedRows;
+
+    // Check if order is now fully finished
+    const [pendingRows] = await conn.query(`
+      SELECT COUNT(*) as count FROM order_items 
+      WHERE order_id = ? AND status NOT IN ('completed', 'cancelled', 'delivered')
+    `, [orderId]);
+    const allFinished = pendingRows[0].count === 0;
+
+    return { affectedRows: result.affectedRows, allFinished };
   } catch (error) {
     console.error(error);
     throw error;

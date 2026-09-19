@@ -4,6 +4,7 @@ import {
   IconArmchair2,
   IconArrowUpRight,
   IconBook,
+  IconChefHat,
   IconCreditCard,
   IconInfoSquareRounded,
   IconPrinter,
@@ -36,6 +37,15 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/print-settings",
       category: "General & Operations",
       icon: <IconPrinter stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "kitchen-stations",
+      title: "Kitchen Stations",
+      description:
+        "Configure multiple prep stations (Hot Kitchen, Bar, Grill) and route thermal KOT printers.",
+      path: "/dashboard/settings/kitchen-stations",
+      category: "General & Operations",
+      icon: <IconChefHat stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "tables-seating",

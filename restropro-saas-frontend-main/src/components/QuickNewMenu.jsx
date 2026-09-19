@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+import clsx from "clsx";
 import {
   IconPlus,
   IconDeviceIpadHorizontal,
@@ -15,7 +16,7 @@ import {
 import { iconStroke } from "../config/config";
 import { useTranslation } from "react-i18next";
 
-export default function QuickNewMenu({ isCollapsed = false }) {
+export default function QuickNewMenu({ isCollapsed = false, compact = false }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
@@ -109,25 +110,56 @@ export default function QuickNewMenu({ isCollapsed = false }) {
   ];
 
   return (
-    <div className="relative w-full" ref={menuRef}>
+    <div className={clsx("relative", compact ? "inline-block" : "w-full")} ref={menuRef}>
       {isCollapsed ? (
-        // Collapsed mode: Circular button
+        // Collapsed mode: Circular button (sidebar collapsed)
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           title={t("quick_new.new", "+ New")}
           className="w-11 h-11 mx-auto flex items-center justify-center rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer font-bold"
         >
-          <IconPlus size={20} stroke={2.5} />
+          <span className={clsx("inline-flex items-center justify-center transition-transform duration-200", isOpen && "rotate-45")}>
+            <IconPlus size={20} stroke={2.5} />
+          </span>
         </button>
-      ) : (
-        // Expanded mode: QuickBooks pill button
+      ) : compact ? (
+        // Compact / Topbar mode: Sleek modern SaaS pill matching exact h-9 height
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white font-semibold text-sm shadow-sm hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
+          className={clsx(
+            "h-9 px-3.5 flex items-center justify-center gap-2 rounded-full font-semibold text-xs transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 select-none",
+            "bg-[#2CA01C] hover:bg-[#248417] text-white shadow-sm hover:shadow-[0_0_14px_rgba(44,160,28,0.4)]",
+            isOpen && "ring-2 ring-emerald-400/40 bg-[#248417]"
+          )}
         >
-          <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+          <span
+            className={clsx(
+              "w-4 h-4 rounded-full bg-white/20 flex items-center justify-center transition-transform duration-200",
+              isOpen && "rotate-45"
+            )}
+          >
+            <IconPlus size={12} stroke={3} />
+          </span>
+          <span>{t("quick_new.new_action", "New Action")}</span>
+        </button>
+      ) : (
+        // Expanded sidebar mode: full-width pill button
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={clsx(
+            "w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white font-semibold text-sm shadow-sm hover:shadow-md transition-all active:scale-[0.98] cursor-pointer",
+            isOpen && "ring-2 ring-emerald-400/40 bg-[#248417]"
+          )}
+        >
+          <span
+            className={clsx(
+              "w-5 h-5 rounded-full bg-white/20 flex items-center justify-center transition-transform duration-200",
+              isOpen && "rotate-45"
+            )}
+          >
             <IconPlus size={14} stroke={3} />
           </span>
           <span>{t("quick_new.new_action", "New Action")}</span>
@@ -137,9 +169,10 @@ export default function QuickNewMenu({ isCollapsed = false }) {
       {/* Flyout Quick Actions Menu */}
       {isOpen && (
         <div
-          className={`absolute z-[100] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
+          className={clsx(
+            "absolute z-[100] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150",
             isCollapsed ? "left-full ml-3 top-0 w-80" : "right-0 top-full mt-2 w-72"
-          }`}
+          )}
         >
           <div className="px-4 py-3 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">

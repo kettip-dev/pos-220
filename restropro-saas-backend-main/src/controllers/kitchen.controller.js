@@ -38,7 +38,8 @@ const broadcastItemStatusChange = (req, status, payload) => {
 exports.getKitchenOrders = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
-    const {addons,kitchenOrders,kitchenOrdersItems} = await getKitchenOrdersDB(tenantId);
+    const { stationId } = req.query;
+    const {addons,kitchenOrders,kitchenOrdersItems} = await getKitchenOrdersDB(tenantId, stationId);
 
     const formattedOrders = kitchenOrders.map((order)=>{
       const orderItems = kitchenOrdersItems.filter((oi)=>oi.order_id == order.id);
@@ -116,7 +117,7 @@ exports.markOrderAllItemsStatus = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const orderId = Number(req.params.orderId);
-    const { status, fromStatuses } = req.body;
+    const { status, fromStatuses, stationId } = req.body;
 
     if (!Number.isInteger(orderId) || orderId <= 0 || !status || !ALLOWED_ITEM_STATUSES.includes(status)) {
       return res.status(400).json({
@@ -129,14 +130,15 @@ exports.markOrderAllItemsStatus = async (req, res) => {
       ? fromStatuses.filter((s) => ALLOWED_ITEM_STATUSES.includes(s))
       : null;
 
-    const updated = await markOrderAllItemsStatusDB(tenantId, orderId, status, filterStatuses);
+    const { affectedRows, allFinished } = await markOrderAllItemsStatusDB(tenantId, orderId, status, filterStatuses, stationId);
 
-    broadcastItemStatusChange(req, status, { orderId, status });
+    broadcastItemStatusChange(req, status, { orderId, status, allFinished, stationId });
 
     return res.status(200).json({
       success: true,
       message: req.__("order_item_status_updated"),
-      updated,
+      updated: affectedRows,
+      allFinished,
     });
   } catch (error) {
     console.error(error);
@@ -160,13 +162,19 @@ exports.updateKitchenOrderItemStatus = async (req, res) => {
       });
     }
 
-    await updateOrderItemStatusDB(tenantId, orderItemId, status)
+    const result = await updateOrderItemStatusDB(tenantId, orderItemId, status);
 
-    broadcastItemStatusChange(req, status, { orderItemId, status });
+    broadcastItemStatusChange(req, status, { 
+      orderItemId, 
+      status, 
+      allFinished: result.allFinished, 
+      orderId: result.orderId 
+    });
 
     return res.status(200).json({
       success: true,
-      message: req.__("order_item_status_updated") // Translate message
+      message: req.__("order_item_status_updated"), // Translate message
+      allFinished: result.allFinished
     });
   } catch (error) {
     console.error(error);
