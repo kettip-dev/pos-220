@@ -119,6 +119,7 @@ export default function POSPage() {
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
   const [inlineNoteText, setInlineNoteText] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [customExchangeRate, setCustomExchangeRate] = useState(null);
   const searchInputRef = useRef(null);
 
   // 'Add to Same Line' preference (persisted in localStorage, default true)
@@ -1515,7 +1516,7 @@ export default function POSPage() {
     broadcastPaymentModalOpen(paymentTypes, defaultPayType);
   };
 
-  const btnPayAndSendToKitchen = async () => {
+  const btnPayAndSendToKitchen = async (tenderData = null) => {
     if(!state.selectedPaymentType) {
       return toast.error(t('orders.select_payment_method'));
     }
@@ -1561,19 +1562,22 @@ export default function POSPage() {
           paymentMethodText = paymentType.title;
         }
 
-        setDetailsForReceiptPrint({
+        const receiptPayload = {
           cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
           itemsTotal: state.itemsTotal,
           discountType: state.discountType,
           discountValue: state.discountValue,
           discountAmount: state.discountAmount,
           taxTotal: state.taxTotal,
-          serviceChargeTotal:state.serviceChargeTotal,
+          serviceChargeTotal: state.serviceChargeTotal,
           payableTotal: state.payableTotal,
           tokenNo: data.tokenNo,
           orderId: data.orderId,
-          paymentMethod: paymentMethodText
-        });
+          paymentMethod: paymentMethodText,
+          dualTenderInfo: tenderData || null,
+        };
+
+        setDetailsForReceiptPrint(receiptPayload);
 
         sendNewOrderEvent(data.tokenNo, data.orderId);
 
@@ -1606,19 +1610,7 @@ export default function POSPage() {
         _initPOS()
 
         if(is_enable_print) {
-          triggerPrintReceipt({
-            cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
-            itemsTotal: state.itemsTotal,
-            discountType: state.discountType,
-            discountValue: state.discountValue,
-            discountAmount: state.discountAmount,
-            taxTotal: state.taxTotal,
-            serviceChargeTotal:state.serviceChargeTotal,
-            payableTotal: state.payableTotal,
-            tokenNo: data.tokenNo,
-            orderId: data.orderId,
-            paymentMethod: paymentMethodText
-          });
+          triggerPrintReceipt(receiptPayload);
           return;
         }
 
@@ -1685,7 +1677,24 @@ export default function POSPage() {
         const is_enable_print = printSettings?.is_enable_print || 0;
         const paymentMethodText = cashType.title || 'Cash';
 
-        setDetailsForReceiptPrint({
+        const defaultRate = customExchangeRate || storeSettings?.exchange_rate_usd_to_khr || storeSettings?.exchangeRateUsdToKhr || 4100;
+        const isKHR = currency === '៛' || String(currency).toLowerCase() === 'khr';
+        const totalKHR = isKHR ? payable : payable * defaultRate;
+        const totalUSD = isKHR ? (payable / defaultRate) : payable;
+        const quickTenderInfo = {
+          tenderedUSD: isKHR ? 0 : payable,
+          tenderedKHR: isKHR ? payable : 0,
+          totalReceivedKHR: totalKHR,
+          totalReceivedUSD: totalUSD,
+          changeTotalKHR: 0,
+          changeTotalUSD: 0,
+          changeBreakdownUSD: 0,
+          changeBreakdownKHR: 0,
+          exchangeRate: defaultRate,
+          isBaseKHR: isKHR,
+        };
+
+        const receiptPayload = {
           cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
           itemsTotal: summary.itemsTotal,
           discountType: state.discountType,
@@ -1696,8 +1705,11 @@ export default function POSPage() {
           payableTotal: payable,
           tokenNo: data.tokenNo,
           orderId: data.orderId,
-          paymentMethod: paymentMethodText
-        });
+          paymentMethod: paymentMethodText,
+          dualTenderInfo: quickTenderInfo,
+        };
+
+        setDetailsForReceiptPrint(receiptPayload);
 
         sendNewOrderEvent(data.tokenNo, data.orderId);
 
@@ -1731,19 +1743,7 @@ export default function POSPage() {
         _initPOS();
 
         if (is_enable_print) {
-          triggerPrintReceipt({
-            cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
-            itemsTotal: summary.itemsTotal,
-            discountType: state.discountType,
-            discountValue: state.discountValue,
-            discountAmount: summary.discountAmount,
-            taxTotal: summary.taxTotal,
-            serviceChargeTotal: summary.serviceChargeTotal,
-            payableTotal: payable,
-            tokenNo: data.tokenNo,
-            orderId: data.orderId,
-            paymentMethod: paymentMethodText
-          });
+          triggerPrintReceipt(receiptPayload);
           return;
         }
 
@@ -2756,6 +2756,8 @@ export default function POSPage() {
         discountValue={state.discountValue}
         onDiscountChange={handleDiscountChange}
         currency={currency}
+        exchangeRateUsdToKhr={customExchangeRate || state.storeSettings?.exchange_rate_usd_to_khr || state.storeSettings?.exchangeRateUsdToKhr || 4100}
+        onUpdateExchangeRate={(newRate) => setCustomExchangeRate(newRate)}
         tenderedAmount={tenderedAmount}
         onTenderedAmountChange={setTenderedAmount}
         onPayAndComplete={btnPayAndSendToKitchen}

@@ -41,6 +41,7 @@ export default function SettingDetailsPage() {
   const emailRef = useRef();
   const phoneRef = useRef();
   const currencyRef = useRef();
+  const exchangeRateRef = useRef();
   const isQRMenuEnabledRef = useRef();
   const isQROrderEnabledRef = useRef();
   const isFeedbackEnabledRef = useRef();
@@ -114,6 +115,7 @@ export default function SettingDetailsPage() {
     const emailVal = emailRef.current.value;
     const phoneVal = phoneRef.current.value;
     const currencyVal = currencyRef.current.value;
+    const exchangeRateVal = exchangeRateRef.current?.value || 4100;
     const isQRMenuEnabledVal =
       isQRMenuEnabledRef.current.checked;
     const isQROrderEnabledVal =
@@ -133,6 +135,7 @@ export default function SettingDetailsPage() {
         isQRMenuEnabledVal,
         isQROrderEnabledVal,
         isFeedbackEnabledVal,
+        Number(exchangeRateVal) || 4100,
       );
 
       if (res.status == 200) {
@@ -460,6 +463,39 @@ export default function SettingDetailsPage() {
                   <IconChevronDown size={18} stroke={1.8} />
                 </div>
               </div>
+            </div>
+
+            {/* Exchange Rate USD to KHR (Cambodia Dual-Currency Support) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="exchangeRate"
+                  className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 block"
+                >
+                  {t("settings.exchange_rate_khr", "Cash Exchange Rate (1 USD to KHR)")}
+                </label>
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                  Dual Currency POS
+                </span>
+              </div>
+              <div className="relative flex items-center">
+                <input
+                  ref={exchangeRateRef}
+                  type="number"
+                  name="exchangeRate"
+                  id="exchangeRate"
+                  step="10"
+                  defaultValue={data?.exchangeRateUsdToKhr || 4100}
+                  placeholder="4100"
+                  className="w-full h-10 pl-3.5 pr-14 rounded-xl border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-gray-800 dark:text-white focus:ring-2 focus:ring-[#22C55E]/15 focus:outline-none transition-all placeholder:text-gray-400"
+                />
+                <span className="absolute right-3.5 text-xs font-bold text-gray-400 font-mono">
+                  ៛ / $
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {t("settings.exchange_rate_hint", "Used on the POS payment screen to accept mixed USD & Riel cash and compute change advice.")}
+              </p>
             </div>
           </div>
         </div>

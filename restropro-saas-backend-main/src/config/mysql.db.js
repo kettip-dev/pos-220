@@ -4,6 +4,7 @@ const mySqlPromise = require("mysql2/promise");
 const { ensureTableFloorSchema } = require("../utils/tableFloorMigration");
 const { ensurePrintSettingsSchema } = require("../utils/printSettingsMigration");
 const { ensureKitchenStationsSchema } = require("../utils/kitchenStationsMigration");
+const { ensureCambodiaDualCurrencySchema } = require("../utils/cambodiaDualCurrencyMigration");
 
 const pool = 
 mySqlPromise.createPool(`${CONFIG.DATABASE_URL}?ssl={"rejectUnauthorized":false}&multipleStatements=true&dateStrings=false&waitForConnections=true&connectionLimit=99&enableKeepAlive=true&keepAliveInitialDelay=10000`);
@@ -20,6 +21,10 @@ ensurePrintSettingsSchema(pool).catch((err) => {
 
 ensureKitchenStationsSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring kitchen stations schema:", err);
+});
+
+ensureCambodiaDualCurrencySchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring cambodia dual currency schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

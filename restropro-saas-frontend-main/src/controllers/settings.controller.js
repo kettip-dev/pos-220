@@ -23,11 +23,12 @@ export function useStoreSettings() {
   };
 }
 
-export async function saveStoreSettings(storeName, address, phone, email, currency, image, isQRMenuEnabled , isQROrderEnabled, isFeedbackEnabled) {
+export async function saveStoreSettings(storeName, address, phone, email, currency, image, isQRMenuEnabled , isQROrderEnabled, isFeedbackEnabled, exchangeRateUsdToKhr) {
   try {
     const response = await ApiClient.post("/settings/store-setting", {
       storeName, address, phone, email, currency, image,
-      isQRMenuEnabled, isQROrderEnabled, isFeedbackEnabled
+      isQRMenuEnabled, isQROrderEnabled, isFeedbackEnabled,
+      exchangeRateUsdToKhr
     });
     return response;
   } catch (error) {

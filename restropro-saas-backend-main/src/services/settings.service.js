@@ -53,7 +53,7 @@ exports.getStoreSettingDB = async (tenantId) => {
 
     try {
         const sql = `
-        SELECT tenant_id, store_image, store_name, address, phone, email, currency, is_qr_menu_enabled, unique_qr_code, is_qr_order_enabled, is_feedback_enabled, unique_id FROM store_details
+        SELECT tenant_id, store_image, store_name, address, phone, email, currency, exchange_rate_usd_to_khr, is_qr_menu_enabled, unique_qr_code, is_qr_order_enabled, is_feedback_enabled, unique_id FROM store_details
         WHERE tenant_id = ?
         LIMIT 1;
         `;
@@ -69,14 +69,14 @@ exports.getStoreSettingDB = async (tenantId) => {
     }
 };
 
-exports.setStoreSettingDB = async (storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled , uniqueQRCode, isFeedbackEnabled, tenantId) => {
+exports.setStoreSettingDB = async (storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled , uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr = 4100) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
         const sql = `
-        INSERT INTO store_details ( store_name, address, phone, email, currency, is_qr_menu_enabled, is_qr_order_enabled, unique_qr_code, is_feedback_enabled, tenant_id)
+        INSERT INTO store_details ( store_name, address, phone, email, currency, is_qr_menu_enabled, is_qr_order_enabled, unique_qr_code, is_feedback_enabled, tenant_id, exchange_rate_usd_to_khr)
         VALUES
-        ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
         store_name = VALUES(store_name),
         is_qr_menu_enabled = VALUES(is_qr_menu_enabled),
@@ -86,10 +86,11 @@ exports.setStoreSettingDB = async (storeName, address, phone, email, currency, i
         currency = VALUES(currency),
         tenant_id = VALUES(tenant_id),
         is_qr_order_enabled = VALUES(is_qr_order_enabled),
-        is_feedback_enabled = VALUES(is_feedback_enabled);
+        is_feedback_enabled = VALUES(is_feedback_enabled),
+        exchange_rate_usd_to_khr = VALUES(exchange_rate_usd_to_khr);
         `;
 
-        await conn.query(sql, [storeName, address, phone, email, currency, isQRMenuEnabled,isQROrderEnabled ,uniqueQRCode, isFeedbackEnabled, tenantId]);
+        await conn.query(sql, [storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, Number(exchangeRateUsdToKhr) || 4100]);
         return;
     } catch (error) {
         console.error(error);

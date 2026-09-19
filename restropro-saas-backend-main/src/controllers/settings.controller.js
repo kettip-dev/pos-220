@@ -45,6 +45,7 @@ exports.getStoreDetails = async (req, res) => {
             phone: result?.phone || null,
             email: result?.email || null,
             currency: result?.currency || null,
+            exchangeRateUsdToKhr: Number(result?.exchange_rate_usd_to_khr || 4100),
             image: result?.image || null,
             isQRMenuEnabled: result?.is_qr_menu_enabled || false,
             isQROrderEnabled: result?.is_qr_order_enabled || false,
@@ -75,15 +76,16 @@ exports.setStoreDetails = async (req, res) => {
         const isQRMenuEnabled = req.body.isQRMenuEnabled;
         const isQROrderEnabled = req.body.isQROrderEnabled;
         const isFeedbackEnabled = req.body.isFeedbackEnabled;
+        const exchangeRateUsdToKhr = req.body.exchangeRateUsdToKhr ? Number(req.body.exchangeRateUsdToKhr) : 4100;
 
         const uniqueQRCode = nanoid();
 
         const qrCodeExists = await getQRMenuCodeDB(tenantId);
         if(qrCodeExists) {
-            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled,isQROrderEnabled , uniqueQRCode, isFeedbackEnabled, tenantId);
+            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr);
         } else {
             await updateQRMenuCodeDB(uniqueQRCode, tenantId);
-            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId);
+            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr);
         }
 
         return res.status(200).json({

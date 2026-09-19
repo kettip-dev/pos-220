@@ -97,6 +97,7 @@ export function buildReceiptEscPos(receiptDetails) {
     orderId,
     paymentMethod,
     currency = "$",
+    dualTenderInfo = null,
   } = receiptDetails;
 
   const width = (printSettings.page_format == 58 || printSettings.pageFormat == 58) ? 32 : DEFAULT_LINE_WIDTH;
@@ -215,10 +216,40 @@ export function buildReceiptEscPos(receiptDetails) {
   out += formatTwoColumns("TOTAL:", `${currency}${Number(payableTotal).toFixed(2)}`, width) + "\n";
   out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
 
-  // 6. Payment Method
+  // Dual Currency Summary (Cambodia USD / KHR)
+  const exchangeRate = dualTenderInfo?.exchangeRate || storeSettings?.exchange_rate_usd_to_khr || storeSettings?.exchangeRateUsdToKhr || 4100;
+  const isBaseKHR = currency === '៛' || String(currency || '').toLowerCase() === 'khr';
+  const totalInKHR = isBaseKHR ? Number(payableTotal) : Math.round(Number(payableTotal) * exchangeRate);
+  const totalInUSD = isBaseKHR ? (Number(payableTotal) / exchangeRate) : Number(payableTotal);
+
+  out += formatTwoColumns(
+    isBaseKHR ? "Total (USD):" : "Total (KHR):",
+    isBaseKHR ? `$${totalInUSD.toFixed(2)}` : `KHR ${totalInKHR.toLocaleString()}`,
+    width
+  ) + "\n";
+  out += formatTwoColumns("Rate:", `1 USD = ${Number(exchangeRate).toLocaleString()} KHR`, width) + "\n";
+
+  // 6. Payment Method & Dual Tender Breakdown
   if (paymentMethod) {
     out += formatDivider("-", width) + "\n";
     out += formatTwoColumns("Payment Method:", paymentMethod.toUpperCase(), width) + "\n";
+  }
+
+  if (dualTenderInfo) {
+    if (Number(dualTenderInfo.tenderedUSD) > 0) {
+      out += formatTwoColumns("Cash (USD):", `$${Number(dualTenderInfo.tenderedUSD).toFixed(2)}`, width) + "\n";
+    }
+    if (Number(dualTenderInfo.tenderedKHR) > 0) {
+      out += formatTwoColumns("Cash (KHR):", `KHR ${Math.round(Number(dualTenderInfo.tenderedKHR)).toLocaleString()}`, width) + "\n";
+    }
+    if (Number(dualTenderInfo.changeTotalKHR) > 0 || Number(dualTenderInfo.changeTotalUSD) > 0) {
+      if (dualTenderInfo.changeMode === 'MIXED' && Number(dualTenderInfo.changeBreakdownUSD) > 0) {
+        const mixedChange = `$${Number(dualTenderInfo.changeBreakdownUSD).toFixed(2)} + ${Math.round(Number(dualTenderInfo.changeBreakdownKHR)).toLocaleString()}`;
+        out += formatTwoColumns("Change:", mixedChange, width) + "\n";
+      } else {
+        out += formatTwoColumns("Change:", `KHR ${Math.round(Number(dualTenderInfo.changeTotalKHR)).toLocaleString()}`, width) + "\n";
+      }
+    }
   }
 
   // 7. Footer
