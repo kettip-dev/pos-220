@@ -245,25 +245,25 @@ export default function POSPaymentDrawer({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col overflow-hidden select-none animate-in fade-in duration-200">
       
       {/* ==================== TOP NAVIGATION HEADER BAR ==================== */}
-      <div className="flex items-center justify-between px-5 sm:px-6 py-3 border-b border-restro-border-green shrink-0 bg-restro-gray/40">
+      <div className="flex items-center justify-between px-5 sm:px-6 py-3 border-b border-zinc-800 shrink-0 bg-zinc-900">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-restro-green/15 text-restro-green flex items-center justify-center font-bold shadow-xs">
+          <div className="w-10 h-10 rounded-2xl bg-[#0ea5e9]/15 text-[#0ea5e9] flex items-center justify-center font-bold shadow-xs">
             <IconCash size={22} stroke={iconStroke} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base sm:text-lg font-black text-restro-text leading-tight">
+              <h3 className="text-base sm:text-lg font-black text-white leading-tight">
                 {t('pos.collect_payment', 'Settle Payment')}
               </h3>
-              <span className="hidden sm:inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+              <span className="hidden sm:inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 Cambodian Dual-Currency
               </span>
             </div>
-            <p className="text-[11px] text-gray-400">
-              Mixed USD & Riel cash tender with smart change advice
+            <p className="text-[11px] text-zinc-500">
+              Mixed USD &amp; Riel cash tender with smart change advice
             </p>
           </div>
         </div>
@@ -275,17 +275,17 @@ export default function POSPaymentDrawer({
             <button
               type="button"
               onClick={() => setIsEditingRate(!isEditingRate)}
-              className="px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+              className="px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
               title="Click to adjust exchange rate for this shift"
             >
               <IconArrowsExchange size={15} />
               <span>1$ = ៛{currentRate.toLocaleString()}</span>
-              <IconPencil size={12} className="text-amber-600 dark:text-amber-400" />
+              <IconPencil size={12} className="text-amber-400" />
             </button>
 
             {isEditingRate && (
-              <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-background border border-amber-500/40 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95">
-                <p className="text-xs font-bold mb-1.5">Shift Exchange Rate (1 USD to KHR)</p>
+              <div className="absolute right-0 top-full mt-2 w-72 p-3 bg-zinc-900 border border-amber-500/40 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                <p className="text-xs font-bold mb-1.5 text-white">Shift Exchange Rate (1 USD to KHR)</p>
                 <div className="flex gap-1.5 mb-2">
                   {[4000, 4100, 4150].map((r) => (
                     <button
@@ -301,7 +301,7 @@ export default function POSPaymentDrawer({
                         "flex-1 text-[11px] font-bold py-1 px-1.5 rounded-lg border transition active:scale-95 cursor-pointer",
                         currentRate === r
                           ? "bg-amber-500 text-white border-amber-500"
-                          : "bg-restro-gray hover:bg-restro-button-hover text-restro-text border-restro-border-green"
+                          : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
                       )}
                     >
                       ៛{r.toLocaleString()}
@@ -314,12 +314,12 @@ export default function POSPaymentDrawer({
                     value={tempRateInput}
                     onChange={(e) => setTempRateInput(e.target.value)}
                     placeholder="e.g. 4100"
-                    className="w-full text-xs font-mono font-bold px-3 py-1.5 rounded-lg border border-restro-border-green bg-background focus:outline-emerald-500"
+                    className="w-full text-xs font-mono font-bold px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 text-white focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]"
                   />
                   <button
                     type="button"
                     onClick={handleSaveRate}
-                    className="px-3 py-1.5 rounded-lg bg-restro-green text-white text-xs font-bold hover:bg-restro-green-button-hover cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-[#0ea5e9] hover:bg-[#0284c7] text-white text-xs font-bold cursor-pointer"
                   >
                     Save
                   </button>
@@ -332,32 +332,32 @@ export default function POSPaymentDrawer({
           <button 
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-gray-400 hover:text-restro-text hover:bg-restro-gray transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
             title="Close (Esc)"
           >
             <IconX size={20} stroke={iconStroke} />
-            <span className="hidden sm:inline font-mono text-[10px] px-1 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">Esc</span>
+            <span className="hidden sm:inline font-mono text-[10px] px-1 py-0.5 rounded bg-white/10 text-zinc-400">Esc</span>
           </button>
         </div>
       </div>
 
       {/* ==================== 2-COLUMN FULL-SCREEN WORKSPACE ==================== */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-5 p-4 sm:p-5 overflow-hidden min-h-0 bg-restro-gray/10">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 p-4 sm:p-5 overflow-hidden min-h-0 bg-zinc-950">
         
         {/* ----------------- LEFT COLUMN (5 of 12 cols) ----------------- */}
         <div className="md:col-span-5 flex flex-col justify-between h-full space-y-3.5 min-h-0 overflow-y-auto md:overflow-hidden">
           
           <div className="space-y-3">
             {/* Card 1: Payable Total Due */}
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 shadow-xs">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 shadow-xs">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
                   {t('pos.payable_total', 'Payable Total Due')}
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
-                  className="text-[11px] font-bold text-gray-500 hover:text-restro-text flex items-center gap-1 transition cursor-pointer"
+                  className="text-[11px] font-bold text-zinc-500 hover:text-white flex items-center gap-1 transition cursor-pointer"
                 >
                   <span>{isSummaryExpanded ? t('pos.hide', 'Hide') : t('pos.details', 'Details')}</span>
                   <IconChevronUp size={13} className={clsx("transition-transform duration-200", !isSummaryExpanded && "rotate-180")} />
@@ -365,23 +365,23 @@ export default function POSPaymentDrawer({
               </div>
 
               <div className="flex items-baseline justify-between flex-wrap gap-2">
-                <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-700 dark:text-emerald-400">
+                <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-400">
                   {isBaseKHR ? `៛${Math.round(totalKHR).toLocaleString()}` : `$${totalUSD.toFixed(2)}`}
                 </div>
-                <div className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-mono font-bold text-xs sm:text-sm border border-emerald-500/30">
+                <div className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-300 font-mono font-bold text-xs sm:text-sm border border-emerald-500/30">
                   ≈ {isBaseKHR ? `$${totalUSD.toFixed(2)} USD` : `៛${Math.round(totalKHR).toLocaleString()} KHR`}
                 </div>
               </div>
 
               {/* Collapsible details breakdown */}
               {isSummaryExpanded && (
-                <div className="mt-2.5 pt-2.5 border-t border-emerald-500/20 text-xs font-mono space-y-1 text-gray-600 dark:text-gray-400 animate-in fade-in">
+                <div className="mt-2.5 pt-2.5 border-t border-emerald-500/20 text-xs font-mono space-y-1 text-zinc-400 animate-in fade-in">
                   <div className="flex justify-between">
                     <span>{t('pos.items_net_total', 'Items Net Total')}</span>
                     <span>{currency}{Number(itemsTotal).toFixed(2)}</span>
                   </div>
                   {Number(discountAmount) > 0 && (
-                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <div className="flex justify-between text-emerald-400 font-semibold">
                       <span>{t('pos.discount', 'Discount')}</span>
                       <span>-{currency}{Number(discountAmount).toFixed(2)}</span>
                     </div>
@@ -404,7 +404,7 @@ export default function POSPaymentDrawer({
 
             {/* Card 2: Payment Method Selector */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+              <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500">
                 {t('orders.select_payment_method', 'Select Payment Method')}
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -417,15 +417,15 @@ export default function POSPaymentDrawer({
                       type="button"
                       onClick={() => onSelectPaymentType(pt.id)}
                       className={clsx(
-                        "relative min-h-[46px] p-2.5 rounded-xl border flex items-center gap-2.5 transition active:scale-95 text-left cursor-pointer select-none",
+                        "relative min-h-[50px] p-3 rounded-2xl border flex items-center gap-2.5 transition active:scale-95 text-left cursor-pointer select-none",
                         isSelected
-                          ? "border-restro-green bg-restro-green/10 text-restro-green shadow-xs ring-2 ring-restro-green/20"
-                          : "border-restro-border-green bg-background hover:bg-restro-button-hover text-restro-text"
+                          ? "border-[#0ea5e9] bg-[#0ea5e9]/10 text-[#0ea5e9] shadow-xs ring-2 ring-[#0ea5e9]/20"
+                          : "border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
                       )}
                     >
                       <div className={clsx(
                         "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4",
-                        isSelected ? "bg-restro-green text-white" : "bg-restro-gray text-gray-500"
+                        isSelected ? "bg-[#0ea5e9] text-white" : "bg-zinc-700 text-zinc-400"
                       )}>
                         {iconElement}
                       </div>
@@ -433,7 +433,7 @@ export default function POSPaymentDrawer({
                         {pt.title}
                       </div>
                       {isSelected && (
-                        <div className="w-4 h-4 rounded-full bg-restro-green text-white flex items-center justify-center shrink-0">
+                        <div className="w-4 h-4 rounded-full bg-[#0ea5e9] text-white flex items-center justify-center shrink-0">
                           <IconCheck size={11} stroke={3} />
                         </div>
                       )}
@@ -445,20 +445,20 @@ export default function POSPaymentDrawer({
 
             {/* Card 3: Smart Change Advice & Rounding (When Cash is selected) */}
             {isCash && (
-              <div className="rounded-2xl border border-restro-border-green bg-background p-3.5 shadow-xs space-y-2.5">
+              <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-3.5 shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500">
                     Change Return Advice
                   </span>
-                  <div className="flex items-center gap-1 bg-restro-gray p-0.5 rounded-lg border border-restro-border-green/50">
+                  <div className="flex items-center gap-1 bg-zinc-800 p-0.5 rounded-lg border border-zinc-700">
                     <button
                       type="button"
                       onClick={() => setChangeAdviceMode('riel')}
                       className={clsx(
                         "text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer",
                         changeAdviceMode === 'riel'
-                          ? "bg-white dark:bg-black text-restro-text shadow-xs"
-                          : "text-gray-400 hover:text-restro-text"
+                          ? "bg-zinc-700 text-white shadow-xs"
+                          : "text-zinc-500 hover:text-white"
                       )}
                     >
                       ៛ All Riel
@@ -469,8 +469,8 @@ export default function POSPaymentDrawer({
                       className={clsx(
                         "text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer",
                         changeAdviceMode === 'mixed'
-                          ? "bg-white dark:bg-black text-restro-text shadow-xs"
-                          : "text-gray-400 hover:text-restro-text"
+                          ? "bg-zinc-700 text-white shadow-xs"
+                          : "text-zinc-500 hover:text-white"
                       )}
                     >
                       $ + ៛ Mixed
@@ -479,17 +479,17 @@ export default function POSPaymentDrawer({
                 </div>
 
                 {/* Cash Received summary */}
-                <div className="flex items-center justify-between text-xs py-1 border-b border-restro-border-green/40">
-                  <span className="text-gray-500">Total Cash Received:</span>
-                  <span className="font-mono font-bold text-xs sm:text-sm">
+                <div className="flex items-center justify-between text-xs py-1 border-b border-zinc-700">
+                  <span className="text-zinc-500">Total Cash Received:</span>
+                  <span className="font-mono font-bold text-xs sm:text-sm text-zinc-200">
                     ៛{Math.round(totalReceivedKHR).toLocaleString()}{" "}
-                    <span className="text-gray-400 font-normal text-[11px]">(${totalReceivedUSD.toFixed(2)})</span>
+                    <span className="text-zinc-500 font-normal text-[11px]">(${totalReceivedUSD.toFixed(2)})</span>
                   </span>
                 </div>
 
                 {/* Change Result or Shortfall Notice */}
                 {isSufficient ? (
-                  <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
+                  <div className="rounded-xl p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
                     <div className="flex items-baseline justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider">
                         Change Due {changeAdviceMode === 'mixed' ? '(Mixed $ + ៛)' : '(All Riel ៛)'}:
@@ -500,18 +500,18 @@ export default function POSPaymentDrawer({
                           : `៛${changeTotalKHR.toLocaleString()}`}
                       </span>
                     </div>
-                    <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 flex items-center justify-between">
+                    <div className="text-[10px] text-emerald-400/80 mt-1 flex items-center justify-between">
                       <span>Nearest ៛100 note rounding</span>
                       <span>≈ ${changeTotalUSD.toFixed(2)} USD</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl p-3 bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300">
+                  <div className="rounded-xl p-3 bg-amber-500/10 border border-amber-500/30 text-amber-300">
                     <div className="flex items-baseline justify-between">
                       <span className="text-xs font-bold">Needs More Cash:</span>
                       <span className="text-sm sm:text-base font-black font-mono">
                         ៛{Math.round(Math.abs(diffKHR)).toLocaleString()}{" "}
-                        <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400">(${Math.abs(diffKHR / currentRate).toFixed(2)})</span>
+                        <span className="text-[11px] font-normal text-amber-400">(${Math.abs(diffKHR / currentRate).toFixed(2)})</span>
                       </span>
                     </div>
                   </div>
@@ -527,9 +527,9 @@ export default function POSPaymentDrawer({
               onClick={handleFinalizePayment}
               disabled={isProcessing || (isCash && !isSufficient && (numUSD > 0 || numKHR > 0))}
               className={clsx(
-                "w-full min-h-[54px] px-5 py-3 rounded-2xl font-black text-sm text-white flex items-center justify-between transition active:scale-[0.98] shadow-lg touch-manipulation cursor-pointer select-none",
+                "w-full min-h-[56px] px-5 py-3 rounded-2xl font-black text-sm text-white flex items-center justify-between transition active:scale-[0.98] shadow-lg touch-manipulation cursor-pointer select-none",
                 isProcessing || (isCash && !isSufficient && (numUSD > 0 || numKHR > 0))
-                  ? "opacity-50 cursor-not-allowed bg-gray-400 shadow-none"
+                  ? "opacity-50 cursor-not-allowed bg-zinc-700 shadow-none"
                   : "bg-restro-green hover:bg-restro-green-button-hover shadow-emerald-600/25"
               )}
             >
@@ -546,7 +546,7 @@ export default function POSPaymentDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="w-full min-h-[40px] py-1.5 rounded-xl text-xs font-bold text-gray-500 hover:text-restro-text hover:bg-restro-gray transition active:scale-95 cursor-pointer"
+              className="w-full min-h-[40px] py-1.5 rounded-xl text-xs font-bold text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition active:scale-95 cursor-pointer"
             >
               {t('pos.cancel_and_return', 'Cancel & Return to Order Ticket')}
             </button>
@@ -556,7 +556,7 @@ export default function POSPaymentDrawer({
 
 
         {/* ----------------- RIGHT COLUMN (7 of 12 cols) ----------------- */}
-        <div className="md:col-span-7 flex flex-col justify-between h-full bg-background rounded-3xl p-4 sm:p-5 border border-restro-border-green/60 shadow-xs min-h-0 overflow-y-auto md:overflow-hidden">
+        <div className="md:col-span-7 flex flex-col justify-between h-full bg-zinc-900 rounded-3xl p-4 sm:p-5 border border-zinc-800 shadow-xs min-h-0 overflow-y-auto md:overflow-hidden">
           
           {/* CASH PAYMENT WORKSPACE */}
           {isCash ? (
@@ -565,14 +565,14 @@ export default function POSPaymentDrawer({
               {/* 1. Dual Tender Display Cards */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-500">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500">
                     Cash Tendered (Tap Card to Select)
                   </span>
                   {(tenderedUSD || tenderedKHR) && (
                     <button
                       type="button"
                       onClick={() => { setTenderedUSD(''); setTenderedKHR(''); }}
-                      className="text-[11px] font-bold text-red-500 hover:text-red-600 transition active:scale-95 cursor-pointer"
+                      className="text-[11px] font-bold text-red-400 hover:text-red-300 transition active:scale-95 cursor-pointer"
                     >
                       Clear Both
                     </button>
@@ -584,28 +584,28 @@ export default function POSPaymentDrawer({
                   <div
                     onClick={() => setActiveTenderCurrency('USD')}
                     className={clsx(
-                      "p-3 rounded-2xl border-2 transition cursor-pointer relative select-none",
+                      "p-3.5 rounded-2xl border-2 transition cursor-pointer relative select-none",
                       activeTenderCurrency === 'USD'
-                        ? "border-restro-green bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs"
-                        : "border-restro-border-green bg-restro-gray/40 hover:bg-restro-gray/80"
+                        ? "border-[#0ea5e9] bg-[#0ea5e9]/10 ring-2 ring-[#0ea5e9]/20 shadow-md"
+                        : "border-zinc-700 bg-zinc-800 hover:bg-zinc-750"
                     )}
                   >
-                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 mb-0.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-zinc-500 mb-0.5">
                       <span>USD ($)</span>
                       {tenderedUSD && (
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setTenderedUSD(''); }}
-                          className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-red-500 cursor-pointer"
+                          className="p-1 rounded-md hover:bg-white/10 text-zinc-500 hover:text-red-400 cursor-pointer"
                         >
                           <IconX size={13} />
                         </button>
                       )}
                     </div>
-                    <div className="text-2xl font-black font-mono text-restro-text truncate">
+                    <div className="text-2xl font-black font-mono text-white truncate">
                       ${tenderedUSD || '0'}
                     </div>
-                    <div className="text-[11px] font-mono text-gray-400 mt-0.5">
+                    <div className="text-[11px] font-mono text-zinc-500 mt-0.5">
                       ≈ ៛{Math.round(numUSD * currentRate).toLocaleString()}
                     </div>
                   </div>
@@ -614,28 +614,28 @@ export default function POSPaymentDrawer({
                   <div
                     onClick={() => setActiveTenderCurrency('KHR')}
                     className={clsx(
-                      "p-3 rounded-2xl border-2 transition cursor-pointer relative select-none",
+                      "p-3.5 rounded-2xl border-2 transition cursor-pointer relative select-none",
                       activeTenderCurrency === 'KHR'
-                        ? "border-restro-green bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs"
-                        : "border-restro-border-green bg-restro-gray/40 hover:bg-restro-gray/80"
+                        ? "border-[#0ea5e9] bg-[#0ea5e9]/10 ring-2 ring-[#0ea5e9]/20 shadow-md"
+                        : "border-zinc-700 bg-zinc-800 hover:bg-zinc-750"
                     )}
                   >
-                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 mb-0.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-zinc-500 mb-0.5">
                       <span>RIEL (៛)</span>
                       {tenderedKHR && (
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setTenderedKHR(''); }}
-                          className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-red-500 cursor-pointer"
+                          className="p-1 rounded-md hover:bg-white/10 text-zinc-500 hover:text-red-400 cursor-pointer"
                         >
                           <IconX size={13} />
                         </button>
                       )}
                     </div>
-                    <div className="text-2xl font-black font-mono text-restro-text truncate">
+                    <div className="text-2xl font-black font-mono text-white truncate">
                       ៛{tenderedKHR ? Number(tenderedKHR).toLocaleString() : '0'}
                     </div>
-                    <div className="text-[11px] font-mono text-gray-400 mt-0.5">
+                    <div className="text-[11px] font-mono text-zinc-500 mt-0.5">
                       ≈ ${(numKHR / currentRate).toFixed(2)}
                     </div>
                   </div>
@@ -646,7 +646,7 @@ export default function POSPaymentDrawer({
               <div className="space-y-1.5">
                 {/* USD Banknotes */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                     Quick USD Banknotes ($):
                   </span>
                   <div className="grid grid-cols-7 gap-1.5">
@@ -659,10 +659,10 @@ export default function POSPaymentDrawer({
                           setActiveTenderCurrency('USD');
                         }}
                         className={clsx(
-                          "min-h-[36px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center truncate",
+                          "min-h-[42px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer flex items-center justify-center truncate",
                           tenderedUSD === chip.value
-                            ? "bg-restro-green text-white border-restro-green"
-                            : "bg-restro-gray hover:bg-restro-button-hover text-restro-text border-restro-border-green"
+                            ? "bg-[#0ea5e9] text-white border-[#0ea5e9]"
+                            : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
                         )}
                       >
                         {chip.label}
@@ -673,7 +673,7 @@ export default function POSPaymentDrawer({
 
                 {/* KHR Banknotes */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                     Quick Riel Banknotes (៛):
                   </span>
                   <div className="grid grid-cols-7 gap-1.5">
@@ -686,10 +686,10 @@ export default function POSPaymentDrawer({
                           setActiveTenderCurrency('KHR');
                         }}
                         className={clsx(
-                          "min-h-[36px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center truncate",
+                          "min-h-[42px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer flex items-center justify-center truncate",
                           tenderedKHR === chip.value
-                            ? "bg-restro-green text-white border-restro-green"
-                            : "bg-restro-gray hover:bg-restro-button-hover text-restro-text border-restro-border-green"
+                            ? "bg-[#0ea5e9] text-white border-[#0ea5e9]"
+                            : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
                         )}
                       >
                         {chip.label}
@@ -707,7 +707,7 @@ export default function POSPaymentDrawer({
                       key={n}
                       type="button"
                       onClick={() => handleNumpadPress(n)}
-                      className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-xl font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                      className="min-h-[80px] rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-2xl font-mono font-black border border-zinc-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-md select-none"
                     >
                       {n}
                     </button>
@@ -717,7 +717,7 @@ export default function POSPaymentDrawer({
                   <button
                     type="button"
                     onClick={() => handleNumpadPress(activeTenderCurrency === 'KHR' ? '000' : '.')}
-                    className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-base font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                    className="min-h-[80px] rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-lg font-mono font-black border border-zinc-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-md select-none"
                   >
                     {activeTenderCurrency === 'KHR' ? '000' : '.'}
                   </button>
@@ -725,7 +725,7 @@ export default function POSPaymentDrawer({
                   <button
                     type="button"
                     onClick={() => handleNumpadPress('0')}
-                    className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-xl font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                    className="min-h-[80px] rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-2xl font-mono font-black border border-zinc-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-md select-none"
                   >
                     0
                   </button>
@@ -733,7 +733,7 @@ export default function POSPaymentDrawer({
                   <button
                     type="button"
                     onClick={() => handleNumpadPress('00')}
-                    className="min-h-[46px] rounded-2xl bg-restro-gray/60 hover:bg-restro-button-hover text-restro-text text-base font-mono font-black border border-restro-border-green transition active:scale-95 flex items-center justify-center cursor-pointer shadow-xs select-none"
+                    className="min-h-[80px] rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white text-lg font-mono font-black border border-zinc-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-md select-none"
                   >
                     00
                   </button>
@@ -744,7 +744,7 @@ export default function POSPaymentDrawer({
                   <button
                     type="button"
                     onClick={() => handleNumpadPress('CLEAR')}
-                    className="min-h-[42px] rounded-xl bg-restro-gray hover:bg-restro-button-hover text-gray-500 hover:text-restro-text text-xs font-bold border border-restro-border-green transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer select-none"
+                    className="min-h-[48px] rounded-2xl bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white text-xs font-bold border border-zinc-600 transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer select-none"
                   >
                     Clear {activeTenderCurrency}
                   </button>
@@ -752,7 +752,7 @@ export default function POSPaymentDrawer({
                   <button
                     type="button"
                     onClick={() => handleNumpadPress('BACKSPACE')}
-                    className="min-h-[42px] rounded-xl bg-restro-gray hover:bg-restro-button-hover text-gray-500 hover:text-restro-text text-xs font-bold border border-restro-border-green transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer select-none"
+                    className="min-h-[48px] rounded-2xl bg-zinc-700 hover:bg-zinc-600 text-zinc-300 hover:text-white text-xs font-bold border border-zinc-600 transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer select-none"
                   >
                     <IconBackspace size={17} stroke={iconStroke} />
                     <span>Delete</span>
@@ -764,25 +764,25 @@ export default function POSPaymentDrawer({
           ) : isQr ? (
             /* NON-CASH: POS QRCODE WORKSPACE */
             <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-4">
-              <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-xs">
+              <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-xs">
                 <IconQrcode size={44} stroke={iconStroke} />
               </div>
 
               <div>
-                <h4 className="text-xl font-black text-restro-text">
+                <h4 className="text-xl font-black text-white">
                   Scan to Pay with KHQR / Banking App
                 </h4>
-                <p className="text-xs text-gray-400 max-w-sm mt-1">
+                <p className="text-xs text-zinc-500 max-w-sm mt-1">
                   Customer scans via ABA Mobile, Wing, Bakong, or any local banking application
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-restro-gray/40 border border-restro-border-green space-y-1 w-full max-w-xs">
-                <div className="text-xs text-gray-500">Total QR Amount:</div>
-                <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+              <div className="p-4 rounded-2xl bg-zinc-800 border border-zinc-700 space-y-1 w-full max-w-xs">
+                <div className="text-xs text-zinc-500">Total QR Amount:</div>
+                <div className="text-3xl font-black font-mono text-emerald-400">
                   {isBaseKHR ? `៛${Math.round(totalKHR).toLocaleString()}` : `$${totalUSD.toFixed(2)}`}
                 </div>
-                <div className="text-xs font-mono text-gray-400">
+                <div className="text-xs font-mono text-zinc-500">
                   ≈ {isBaseKHR ? `$${totalUSD.toFixed(2)} USD` : `៛${Math.round(totalKHR).toLocaleString()} KHR`}
                 </div>
               </div>
@@ -791,7 +791,7 @@ export default function POSPaymentDrawer({
                 type="button"
                 onClick={handleFinalizePayment}
                 disabled={isProcessing}
-                className="w-full max-w-xs min-h-[52px] py-3 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+                className="w-full max-w-xs min-h-[56px] py-3 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
               >
                 {isProcessing ? t('pos.please_wait', 'Processing...') : 'Confirm QR Payment & Print Receipt'}
               </button>
@@ -799,14 +799,14 @@ export default function POSPaymentDrawer({
           ) : (
             /* OTHER NON-CASH (Card, etc.) */
             <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-4">
-              <div className="w-20 h-20 rounded-3xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/30 shadow-xs">
+              <div className="w-20 h-20 rounded-3xl bg-[#0ea5e9]/10 text-[#0ea5e9] flex items-center justify-center border border-[#0ea5e9]/30 shadow-xs">
                 <IconCreditCard size={44} stroke={iconStroke} />
               </div>
               <div>
-                <h4 className="text-xl font-black text-restro-text">
+                <h4 className="text-xl font-black text-white">
                   Electronic Payment Terminal
                 </h4>
-                <p className="text-xs text-gray-400 max-w-sm mt-1">
+                <p className="text-xs text-zinc-500 max-w-sm mt-1">
                   Swipe or tap customer card on the payment terminal
                 </p>
               </div>
@@ -814,7 +814,7 @@ export default function POSPaymentDrawer({
                 type="button"
                 onClick={handleFinalizePayment}
                 disabled={isProcessing}
-                className="w-full max-w-xs min-h-[52px] py-3 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
+                className="w-full max-w-xs min-h-[56px] py-3 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
               >
                 {isProcessing ? t('pos.please_wait', 'Processing...') : 'Confirm Card Payment & Print Receipt'}
               </button>

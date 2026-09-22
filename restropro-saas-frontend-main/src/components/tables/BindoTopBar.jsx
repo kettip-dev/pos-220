@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import {
   IconLayoutGrid,
+  IconGridDots,
   IconColumns,
   IconPlus,
   IconPencil,
@@ -35,6 +36,8 @@ export default function BindoTopBar({
   onToggleDrawer = () => {},
   isDrawerOpen = true,
   drawerMode = "actions", // "actions" | "list"
+  viewMode = "canvas", // "canvas" | "grid"
+  onToggleViewMode = () => {},
 }) {
   const { t } = useTranslation();
 
@@ -55,45 +58,59 @@ export default function BindoTopBar({
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-white/95 dark:bg-zinc-900/95 border-b border-slate-200 dark:border-zinc-800 backdrop-blur-md select-none shrink-0 z-20">
-      {/* Left: View Mode Icon & Zone Tabs */}
+      {/* Left: View Mode Toggle + Zone Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-        {/* Floor Plan Icon indicator */}
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300">
-          <IconColumns size={18} />
-        </div>
+        {/* View Mode Toggle: Canvas ↔ Grid */}
+        <button
+          type="button"
+          onClick={onToggleViewMode}
+          title={viewMode === "grid" ? t("tables.floor_plan_view", "Floor Plan View") : t("tables.grid_view", "Grid View")}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer ${
+            viewMode === "grid"
+              ? "border-[#0ea5e9] bg-[#0ea5e9]/10 text-[#0ea5e9]"
+              : "border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 hover:border-[#0ea5e9] hover:text-[#0ea5e9]"
+          }`}
+        >
+          {viewMode === "grid" ? <IconColumns size={16} /> : <IconGridDots size={16} />}
+          <span className="hidden sm:inline">
+            {viewMode === "grid" ? t("tables.floor_plan", "Floor Plan") : t("tables.grid", "Grid")}
+          </span>
+        </button>
 
-        {/* Zone Pills (e.g. Zone 0) */}
-        <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-zinc-800/90 p-1 rounded-xl">
-          {displayZones.map((zone) => {
-            const isActive = normalizeFloor(currentZone) === normalizeFloor(zone);
-            return (
+        {/* Zone Pills (e.g. Zone 0) — only shown in canvas mode */}
+        {viewMode === "canvas" && (
+          <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-zinc-800/90 p-1 rounded-xl">
+            {displayZones.map((zone) => {
+              const isActive = normalizeFloor(currentZone) === normalizeFloor(zone);
+              return (
+                <button
+                  key={zone}
+                  type="button"
+                  onClick={() => onSelectZone(zone)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? "bg-[#0ea5e9] text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-700/60"
+                  }`}
+                >
+                  {formatZoneLabel(zone)}
+                </button>
+              );
+            })}
+
+            {/* Add Zone Button */}
+            {onAddZone && (
               <button
-                key={zone}
                 type="button"
-                onClick={() => onSelectZone(zone)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? "bg-[#0ea5e9] text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-700/60"
-                }`}
+                onClick={onAddZone}
+                title={t("tables.add_zone", "Add Zone")}
+                className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700 transition cursor-pointer"
               >
-                {formatZoneLabel(zone)}
+                <IconPlus size={15} />
               </button>
-            );
-          })}
-
-          {/* Add Zone Button (when in edit mode or manager) */}
-          {onAddZone && (
-            <button
-              type="button"
-              onClick={onAddZone}
-              title={t("tables.add_zone", "Add Zone")}
-              className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700 transition cursor-pointer"
-            >
-              <IconPlus size={15} />
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right: Live Order Counters, Socket Status & Edit Mode Controls */}

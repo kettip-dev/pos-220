@@ -34,6 +34,7 @@ import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
 import { getTableBindoStatus } from "../components/tables/BindoTableNode";
 import { generateDuplicateTableTitle } from "../helpers/TableHelper";
+import TableGridView from "../components/tables/TableGridView";
 
 export default function TablesPage() {
   const { t } = useTranslation();
@@ -84,6 +85,9 @@ export default function TablesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDrawingWall, setIsDrawingWall] = useState(false);
   const [editableTables, setEditableTables] = useState([]);
+
+  // View mode: "canvas" (floor plan) | "grid" (dense pill grid)
+  const [viewMode, setViewMode] = useState("canvas");
   const [floorSettings, setFloorSettings] = useState({
     show_cashier: true,
     cashier_x: 60,
@@ -621,42 +625,109 @@ export default function TablesPage() {
         isSaving={isSaving}
         isDrawerOpen={isDrawerOpen}
         onToggleDrawer={() => setIsDrawerOpen((prev) => !prev)}
+        viewMode={viewMode}
+        onToggleViewMode={() => {
+          setViewMode((prev) => (prev === "canvas" ? "grid" : "canvas"));
+          // Close drawer when switching modes
+          setIsDrawerOpen(false);
+          setSelectedTableId(null);
+        }}
       />
 
-      {/* 2. Main Floor Plan Canvas & Right Drawer */}
+      {/* 2. Main Content: Floor Plan Canvas OR Dense Grid View */}
       <div className="relative flex-1 w-full min-h-0 overflow-hidden flex">
-        {/* Floor Plan Canvas */}
-        <div className="flex-1 h-full relative overflow-hidden">
-          <FloorPlanCanvas
-            tables={tablesOnFloor}
-            floorSettings={floorSettings}
-            mergedPairs={mergedPairs}
-            isMergeMode={isMergeMode}
-            mergeSourceId={mergeSourceId}
-            isEditMode={isEditMode}
-            isDrawingWall={isDrawingWall}
-            selectedTableId={selectedTableId}
-            activeFilter={activeFilter}
-            onSelectTable={(id) => {
-              setSelectedTableId(id);
-              if (!id) setIsDrawerOpen(false);
+        {viewMode === "grid" ? (
+          /* ── Dense Grid View ─────────────────────────────── */
+          <TableGridView
+            tables={rawTables}
+            zones={zones}
+            currentFloor={currentFloor}
+            onSelectZone={(zone) => {
+              setCurrentFloor(zone);
+              setSelectedTableId(null);
             }}
-            onTableClick={handleTableClick}
-            onTableUpdate={handleTableUpdate}
-            onTableDelete={handleTableDelete}
-            onOpenEditModal={(table) => {
-              setEditingTableData(table);
-              setIsAddEditModalOpen(true);
+            onTableClick={(table) => {
+              setSelectedTableId(table.id);
+              setIsDrawerOpen(true);
             }}
-            onFloorSettingsChange={setFloorSettings}
-            onFloorPlanUpload={handleFloorPlanUpload}
-            onFloorPlanDelete={handleFloorPlanDelete}
-            canvasHeight="100%"
+            onAddZone={() => {
+              const nextZone = prompt(t("tables.enter_zone_name", "Enter new Zone / Floor:"));
+              if (nextZone && nextZone.trim()) setCurrentFloor(nextZone.trim());
+            }}
+            onRefresh={() => mutate()}
+            isRefreshing={isLoading}
+            isSocketConnected={isSocketConnected}
+            dineInCount={dineInCount}
+            pickUpCount={pickUpCount}
           />
-        </div>
+        ) : (
+          /* ── Floor Plan Canvas ──────────────────────────── */
+          <>
+            <div className="flex-1 h-full relative overflow-hidden">
+              <FloorPlanCanvas
+                tables={tablesOnFloor}
+                floorSettings={floorSettings}
+                mergedPairs={mergedPairs}
+                isMergeMode={isMergeMode}
+                mergeSourceId={mergeSourceId}
+                isEditMode={isEditMode}
+                isDrawingWall={isDrawingWall}
+                selectedTableId={selectedTableId}
+                activeFilter={activeFilter}
+                onSelectTable={(id) => {
+                  setSelectedTableId(id);
+                  if (!id) setIsDrawerOpen(false);
+                }}
+                onTableClick={handleTableClick}
+                onTableUpdate={handleTableUpdate}
+                onTableDelete={handleTableDelete}
+                onOpenEditModal={(table) => {
+                  setEditingTableData(table);
+                  setIsAddEditModalOpen(true);
+                }}
+                onFloorSettingsChange={setFloorSettings}
+                onFloorPlanUpload={handleFloorPlanUpload}
+                onFloorPlanDelete={handleFloorPlanDelete}
+                canvasHeight="100%"
+              />
+            </div>
 
-        {/* Right Sliding Drawer */}
-        {isDrawerOpen && (
+            {/* Right Sliding Drawer */}
+            {isDrawerOpen && (
+              <BindoActionDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => {
+                  setIsDrawerOpen(false);
+                  setSelectedTableId(null);
+                }}
+                selectedTable={selectedTable}
+                isMergeMode={isMergeMode}
+                onToggleMergeMode={() => {
+                  setIsMergeMode((prev) => !prev);
+                  setMergeSourceId(null);
+                }}
+                onMoveTable={handleMoveTable}
+                onSplitChecks={handleSplitChecks}
+                onMoveLineItem={() => toast(t("tables.move_line_item_hint", "Select item in order modal to transfer"))}
+                onNewOrder={handleNewOrder}
+                onAddMenuItems={handleAddMenuItems}
+                onPayTable={handlePayTable}
+                onOpenCustomerModal={handleOpenCustomerModal}
+                onVoidItem={handleVoidOrderItem}
+                activeOrderSummary={activeOrderSummary}
+                isLoadingOrderSummary={isLoadingOrderSummary}
+                onEditTable={(table) => {
+                  setEditingTableData(table);
+                  setIsAddEditModalOpen(true);
+                }}
+                currency={currency}
+              />
+            )}
+          </>
+        )}
+
+        {/* Floating drawer for Grid mode */}
+        {viewMode === "grid" && isDrawerOpen && (
           <BindoActionDrawer
             isOpen={isDrawerOpen}
             onClose={() => {
