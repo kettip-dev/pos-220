@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import Page from "../../components/Page";
 import {
   savePrintSettings,
@@ -17,7 +18,10 @@ import {
   IconCheck,
   IconInfoCircle,
   IconCut,
-  IconCash
+  IconCash,
+  IconWifi,
+  IconArrowRight,
+  IconSparkles,
 } from "@tabler/icons-react";
 
 export default function PrintSettingsPage() {
@@ -176,8 +180,46 @@ export default function PrintSettingsPage() {
             {t('print_settings.print_mode_title', 'Printing Mode')}
           </label>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Mode 1: Browser Print */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Mode 1: Direct Network LAN/TCP (Port 9100) */}
+            <div
+              onClick={() => setPrintMode("direct_tcp")}
+              className={`cursor-pointer rounded-xl p-4 border transition-all ${
+                printMode === "direct_tcp"
+                  ? "border-restro-green bg-emerald-50/30 dark:bg-emerald-950/20 ring-2 ring-restro-green/20"
+                  : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-300"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2 rounded-lg ${
+                      printMode === "direct_tcp"
+                        ? "bg-restro-green text-white"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                    }`}
+                  >
+                    <IconWifi size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Direct Network (TCP)</h4>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                      ⭐ Recommended
+                    </p>
+                  </div>
+                </div>
+                {printMode === "direct_tcp" && (
+                  <span className="w-5 h-5 rounded-full bg-restro-green text-white flex items-center justify-center">
+                    <IconCheck size={14} />
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
+                Silent 100% Unicode canvas raster printing directly over Wi-Fi/LAN (Port 9100). No popups, instant &lt; 150ms print!
+              </p>
+            </div>
+
+            {/* Mode 2: Browser Print */}
             <div
               onClick={() => setPrintMode("browser")}
               className={`cursor-pointer rounded-xl p-4 border transition-all ${
@@ -188,7 +230,13 @@ export default function PrintSettingsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${printMode === "browser" ? "bg-restro-green text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500"}`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      printMode === "browser"
+                        ? "bg-restro-green text-white"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                    }`}
+                  >
                     <IconReceipt size={20} />
                   </div>
                   <div>
@@ -207,7 +255,7 @@ export default function PrintSettingsPage() {
               </p>
             </div>
 
-            {/* Mode 2: Direct 80mm ESC/POS (RawBT) */}
+            {/* Mode 3: Direct Android (RawBT) */}
             <div
               onClick={() => setPrintMode("direct_escpos")}
               className={`cursor-pointer rounded-xl p-4 border transition-all ${
@@ -218,12 +266,18 @@ export default function PrintSettingsPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${printMode === "direct_escpos" ? "bg-restro-green text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500"}`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      printMode === "direct_escpos"
+                        ? "bg-restro-green text-white"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                    }`}
+                  >
                     <IconCpu size={20} />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Direct 80mm (RawBT)</h4>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">Recommended for Tablets</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Android (RawBT)</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">Tablet App Bridge</p>
                   </div>
                 </div>
                 {printMode === "direct_escpos" && (
@@ -233,11 +287,33 @@ export default function PrintSettingsPage() {
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
-                Silent ESC/POS direct printing via RawBT service on Android tablets to Wi-Fi/LAN 80mm printers. No dialog popups!
+                Direct printing via local RawBT background app on Android tablets to Wi-Fi/LAN 80mm printers.
               </p>
             </div>
           </div>
         </div>
+
+        {/* Direct TCP Mode Hardware Management Callout */}
+        {printMode === "direct_tcp" && (
+          <div className="mt-4 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
+                <IconWifi size={16} />
+                <span>Direct TCP Network Architecture Active</span>
+              </div>
+              <Link
+                to="/dashboard/settings/thermal-printers"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition shadow-sm active:scale-95"
+              >
+                <span>Manage Thermal Printers</span>
+                <IconArrowRight size={14} />
+              </Link>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+              Customer receipts and kitchen tickets bypass the browser print dialog completely and stream directly to your printer IPs (Port 9100) with 100% Unicode font fidelity.
+            </p>
+          </div>
+        )}
 
         {/* Direct Mode Advanced Hardware Controls */}
         {printMode === "direct_escpos" && (

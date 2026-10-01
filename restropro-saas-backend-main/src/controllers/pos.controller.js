@@ -14,7 +14,7 @@ const {
 } = require("../services/menu_item.service");
 const { createOrderDB, getPOSQROrdersCountDB, getPOSQROrdersDB, updateQROrderStatusDB, cancelAllQROrdersDB } = require("../services/pos.service");
 const { createInvoiceDB } = require("../services/orders.service");
-const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB } = require("../services/printer.service");
+const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB, printJobToPrinterDB, testPrinterTcpDB } = require("../services/printer.service");
 const { getPosPrintFormatDB, upsertPosPrintFormatDB } = require("../services/pos-print-format.service");
 const { getSuperAdminImageStorageConfigDB } = require("../services/image_storage.service");
 
@@ -376,6 +376,43 @@ exports.deletePrinterConfig = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+exports.printToPrinter = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const printerId = req.params.id;
+    const { base64Data } = req.body;
+
+    if (!base64Data) {
+      return res.status(400).json({ success: false, message: "Print payload (base64Data) is required." });
+    }
+
+    const result = await printJobToPrinterDB(tenantId, printerId, base64Data);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Print job execution error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.testPrintToPrinter = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const printerId = req.params.id;
+
+    const result = await testPrinterTcpDB(tenantId, printerId);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Test print execution error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
   }
 };
 

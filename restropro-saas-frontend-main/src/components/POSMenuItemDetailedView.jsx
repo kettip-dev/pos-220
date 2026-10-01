@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { getImageURL } from '../helpers/ImageHelper';
-import { IconAlertTriangleFilled, IconCarrot, IconPlus, IconMinus } from "@tabler/icons-react";
+import { IconAlertTriangleFilled, IconToolsKitchen2, IconPlus, IconMinus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -99,27 +99,31 @@ const POSMenuItemDetailedView = ({
                 onMouseEnter={() => onItemHover && onItemHover(id)}
                 onMouseLeave={() => onItemHover && onItemHover(null)}
               >
-                {/* In-Cart Badge for items with variants */}
-                {inCartCount > 0 && !isReadOnly && hasVariantOrAddon && (
-                  <div className="absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full text-xs font-bold bg-restro-green text-white shadow-lg flex items-center gap-1 border border-white/40 backdrop-blur-sm">
+                {/* In-Cart Badge */}
+                {inCartCount > 0 && !isReadOnly && (
+                  <div className="absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full text-[11px] font-extrabold font-mono bg-restro-green text-white shadow-md flex items-center gap-1 border border-white/40 backdrop-blur-sm">
                     <span>x{inCartCount}</span>
                   </div>
                 )}
 
-                <div className='relative w-28 md:w-32 flex-shrink-0 h-full flex items-center justify-center text-gray-300 rounded-l-2xl text-restro-text bg-restro-gray overflow-hidden'>
+                <div className='relative w-28 md:w-32 flex-shrink-0 h-full flex items-center justify-center rounded-l-2xl text-restro-text bg-restro-gray/80 dark:bg-restro-bg-seconday-dark-mode overflow-hidden'>
                   {image ? (
                     <img
                       src={imageURL}
                       alt={title}
-                      className="w-full h-full absolute top-0 left-0 rounded-l-2xl object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full absolute top-0 left-0 rounded-l-2xl object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                     />
                   ) : (
-                    <IconCarrot size={32} />
+                    <div className="w-full h-full absolute top-0 left-0 rounded-l-2xl flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500/15 via-restro-gray/90 to-emerald-500/5 dark:from-emerald-950/40 dark:via-restro-bg-seconday-dark-mode dark:to-emerald-950/20 text-restro-text">
+                      <div className="w-10 h-10 rounded-2xl bg-white/80 dark:bg-white/10 shadow-xs flex items-center justify-center text-restro-green border border-emerald-500/20">
+                        <IconToolsKitchen2 size={20} stroke={1.8} />
+                      </div>
+                    </div>
                   )}
 
                   {!isReadOnly && category_title && (
-                    <div className="absolute top-0 left-0 bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold px-2 py-0.5 rounded-tl-xl rounded-br-lg shadow-sm">
+                    <div className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-lg border border-white/15 shadow-xs max-w-[80%] truncate">
                       {category_title}
                     </div>
                   )}
@@ -140,13 +144,13 @@ const POSMenuItemDetailedView = ({
                     <p className='line-clamp-2 text-ellipsis text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed'>{description}</p>
                   </div>
 
-                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-restro-border-green/50">
+                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-restro-border-green/40">
                     <div className="flex flex-col">
-                      <p className='text-restro-green font-bold text-sm leading-none'>{currency}{Number(price).toFixed(2)}</p>
+                      <p className='text-restro-green dark:text-emerald-400 font-extrabold text-sm sm:text-base leading-none font-mono'>{currency}{Number(price).toFixed(2)}</p>
                       {(variants?.length > 0 || addons?.length > 0) && (
-                        <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
-                          {variants?.length > 0 && <span className="bg-restro-gray px-1.5 py-0.5 rounded">{variants?.length} {t("pos_menu.variants")}</span>}
-                          {addons?.length > 0 && <span className="bg-restro-gray px-1.5 py-0.5 rounded">{addons?.length} {t("pos_menu.addons")}</span>}
+                        <p className="text-[10px] font-semibold text-gray-500 mt-1 flex items-center gap-1">
+                          {variants?.length > 0 && <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">{variants?.length} {t("pos_menu.variants")}</span>}
+                          {addons?.length > 0 && <span className="bg-restro-gray dark:bg-white/10 px-1.5 py-0.5 rounded border border-restro-border-green/40">{addons?.length} {t("pos_menu.addons")}</span>}
                         </p>
                       )}
                     </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import TopNavbar from "../components/TopNavbar";
 import OperationalBar from "../components/OperationalBar";
@@ -9,6 +9,26 @@ import useAuth from "../helpers/useAuth";
 export default function DashboardLayout() {
   const { ready } = useAuth();
   const location = useLocation();
+
+  const [isOperationalBarCollapsed, setIsOperationalBarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("restro_operational_bar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleOperationalBar = () => {
+    setIsOperationalBarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("restro_operational_bar_collapsed", String(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
 
   const isOperationalRoute = [
     "/dashboard/pos",
@@ -32,22 +52,31 @@ export default function DashboardLayout() {
     <div
       className={
         isOperationalRoute
-          ? "flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans"
+          ? "flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans relative"
           : "flex flex-col min-h-screen bg-background text-foreground font-sans"
       }
     >
       {/* Navigation: Operational Bar for POS/Tables/Kitchen OR TopNavbar for Backoffice */}
-      {isOperationalRoute ? <OperationalBar /> : <TopNavbar />}
+      {isOperationalRoute ? (
+        <OperationalBar
+          isCollapsed={isOperationalBarCollapsed}
+          onToggleCollapse={toggleOperationalBar}
+        />
+      ) : (
+        <TopNavbar />
+      )}
 
       {/* Main View Canvas */}
       <main
         className={
           isOperationalRoute
-            ? "w-full flex-1 flex flex-col min-h-0 h-[calc(100vh-52px)] max-h-[calc(100vh-52px)] overflow-hidden"
+            ? isOperationalBarCollapsed
+              ? "w-full flex-1 flex flex-col min-h-0 h-screen max-h-screen overflow-hidden transition-all duration-300"
+              : "w-full flex-1 flex flex-col min-h-0 h-[calc(100vh-52px)] max-h-[calc(100vh-52px)] overflow-hidden transition-all duration-300"
             : "w-full flex-1 min-h-[calc(100vh-60px)] pb-16 md:pb-8"
         }
       >
-        <Outlet />
+        <Outlet context={{ isOperationalBarCollapsed, toggleOperationalBar }} />
       </main>
 
       {/* Mobile nav only in Backoffice, never covering operational screens */}

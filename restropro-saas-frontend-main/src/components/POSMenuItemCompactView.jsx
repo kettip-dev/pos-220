@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { getImageURL } from '../helpers/ImageHelper';
-import { IconAlertTriangleFilled, IconCarrot, IconPlus, IconMinus } from "@tabler/icons-react";
+import { IconAlertTriangleFilled, IconToolsKitchen2, IconPlus, IconMinus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from '../contexts/ThemeContext';
 import { iconStroke } from '../config/config';
@@ -89,12 +89,12 @@ const POSMenuItemCompactView = ({
 
           return (
             <div
-             className={`group relative flex flex-col h-56 md:h-52 overflow-hidden rounded-2xl bg-restro-card-bg shadow-sm border transition-all duration-200 select-none ${
+             className={`group relative flex flex-col justify-between h-[15.5rem] sm:h-60 overflow-hidden rounded-2xl bg-restro-card-bg shadow-xs border transition-all duration-200 select-none ${
                inCartCount > 0
-                 ? 'ring-2 ring-restro-green border-restro-green shadow-emerald-500/10 shadow-md'
+                 ? 'ring-2 ring-restro-green border-restro-green shadow-emerald-500/15 shadow-md bg-emerald-50/10 dark:bg-emerald-950/20'
                  : isHovered
-                 ? 'ring-2 ring-restro-green/60 border-restro-green scale-[1.01] shadow-md z-10'
-                 : 'border-restro-border-green hover:border-restro-green/50 hover:shadow-md'
+                 ? 'ring-2 ring-restro-green/60 border-restro-green scale-[1.02] shadow-md z-10'
+                 : 'border-restro-border-green hover:border-restro-green/60 hover:shadow-md'
              } ${!isReadOnly ? 'hover:cursor-pointer' : ''}`} key={i}
              onMouseEnter={() => onItemHover && onItemHover(id)}
              onMouseLeave={() => onItemHover && onItemHover(null)}
@@ -107,34 +107,40 @@ const POSMenuItemCompactView = ({
               }
             }}
             >
-              {/* In-Cart Badge for items with variants */}
-              {inCartCount > 0 && !isReadOnly && hasVariantOrAddon && (
-                <div className="absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full text-xs font-bold bg-restro-green text-white shadow-lg flex items-center gap-1 border border-white/40 backdrop-blur-sm">
+              {/* In-Cart Badge for items */}
+              {inCartCount > 0 && !isReadOnly && (
+                <div className="absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full text-[11px] font-extrabold font-mono bg-restro-green text-white shadow-md flex items-center gap-1 border border-white/40 backdrop-blur-sm">
                   <span>x{inCartCount}</span>
                 </div>
               )}
 
+              {/* Image & Category Overlay */}
               <div className="flex-shrink-0 relative overflow-hidden">
-                <div className='flex items-center justify-center relative w-full flex-shrink-0 h-28 md:h-26 rounded-t-2xl text-restro-text bg-restro-gray'>
+                <div className='flex items-center justify-center relative w-full flex-shrink-0 h-32 sm:h-28 rounded-t-2xl text-restro-text bg-restro-gray/80 dark:bg-restro-bg-seconday-dark-mode overflow-hidden'>
                   {image ? (
                     <img
                       src={imageURL}
                       alt={title}
-                      className="w-full h-full absolute top-0 left-0 rounded-t-2xl object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full absolute top-0 left-0 rounded-t-2xl object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center text-gray-400">
-                      <IconCarrot size={28} stroke={iconStroke} />
+                    /* Styled Graphic Fallback for No-Photo Items */
+                    <div className="w-full h-full absolute top-0 left-0 rounded-t-2xl flex flex-col items-center justify-center bg-gradient-to-br from-emerald-500/15 via-restro-gray/90 to-emerald-500/5 dark:from-emerald-950/40 dark:via-restro-bg-seconday-dark-mode dark:to-emerald-950/20 text-restro-text transition-transform duration-500 group-hover:scale-105">
+                      <div className="w-11 h-11 rounded-2xl bg-white/80 dark:bg-white/10 shadow-xs flex items-center justify-center text-restro-green border border-emerald-500/20">
+                        <IconToolsKitchen2 size={22} stroke={1.8} />
+                      </div>
                     </div>
                   )}
 
+                  {/* Floating Glassmorphic Category Tag */}
                   {!isReadOnly && category_title && (
-                    <div className="absolute top-0 left-0 text-white bg-black/60 backdrop-blur-md text-[10px] font-semibold px-2 py-0.5 rounded-tl-2xl rounded-br-lg shadow-sm">
+                    <div className="absolute top-2 left-2 z-10 text-white bg-black/60 backdrop-blur-md text-[10px] font-bold px-2 py-0.5 rounded-lg border border-white/15 shadow-xs max-w-[75%] truncate tracking-wide">
                       {category_title}
                     </div>
                   )}
 
+                  {/* Low Stock Warning */}
                   {!isReadOnly && isLowStock && (
                     <div className="absolute left-0 bottom-0 bg-amber-500/95 text-white text-[10px] font-semibold px-1.5 py-0.5 z-10 w-full flex items-center justify-center gap-1 backdrop-blur-sm">
                       <IconAlertTriangleFilled size={12} />
@@ -144,19 +150,31 @@ const POSMenuItemCompactView = ({
                 </div>
               </div>
 
-              <div className="px-3 pb-2.5 pt-2 flex flex-col justify-between w-full flex-grow min-h-0 bg-restro-card-bg">
-                <div className='text-left'>
-                  <p className='line-clamp-1 text-ellipsis text-sm font-semibold text-restro-text leading-snug group-hover:text-restro-green transition-colors'>{title}</p>
+              {/* Card Body */}
+              <div className="p-3 flex flex-col justify-between w-full flex-grow min-h-0 bg-restro-card-bg">
+                <div className='text-left flex flex-col gap-0.5'>
+                  <p className='line-clamp-2 text-ellipsis text-xs sm:text-sm font-bold text-restro-text leading-snug group-hover:text-restro-green transition-colors min-h-[2.4rem]'>
+                    {title}
+                  </p>
                   {(variants?.length > 0 || addons?.length > 0) && (
-                    <p className="text-[10px] text-gray-500 font-medium leading-tight mt-0.5 flex items-center gap-1">
-                      {variants?.length > 0 && <span className="bg-restro-gray px-1.5 py-0.5 rounded-md">{variants?.length} {t("pos_menu.variants", "Variants")}</span>}
-                      {addons?.length > 0 && <span className="bg-restro-gray px-1.5 py-0.5 rounded-md">{addons?.length} {t("pos_menu.addons", "Addons")}</span>}
-                    </p>
+                    <div className="text-[10px] font-semibold leading-tight mt-0.5 flex items-center gap-1 flex-wrap">
+                      {variants?.length > 0 && (
+                        <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
+                          {variants?.length} {t("pos_menu.variants", "Variants")}
+                        </span>
+                      )}
+                      {addons?.length > 0 && (
+                        <span className="bg-restro-gray dark:bg-white/10 text-gray-500 dark:text-gray-300 border border-restro-border-green/40 px-1.5 py-0.5 rounded-md">
+                          {addons?.length} {t("pos_menu.addons", "Addons")}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-1">
-                  <span className='text-left text-restro-green font-bold text-sm leading-tight tracking-tight'>
+                {/* Bottom Row: Price & Tactile Action CTA */}
+                <div className="mt-2 pt-1 border-t border-restro-border-green/40 flex items-center justify-between gap-1">
+                  <span className='text-left text-restro-green dark:text-emerald-400 font-extrabold text-sm sm:text-base leading-tight tracking-tight font-mono'>
                     {currency}{Number(price).toFixed(2)}
                   </span>
 
@@ -203,8 +221,8 @@ const POSMenuItemCompactView = ({
                             addItemToCart(menuItem);
                           }
                         }}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm transition-all duration-200 active:scale-90 touch-manipulation cursor-pointer ${
-                          inCartCount > 0 ? 'bg-restro-green ring-2 ring-restro-green/40' : 'bg-restro-green hover:bg-restro-green-button-hover'
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-xs transition-all duration-200 active:scale-90 touch-manipulation cursor-pointer ${
+                          inCartCount > 0 ? 'bg-restro-green ring-2 ring-restro-green/40 shadow-emerald-500/20' : 'bg-restro-green hover:bg-restro-green-button-hover'
                         }`}
                       >
                         <IconPlus size={17} stroke={2.5} />

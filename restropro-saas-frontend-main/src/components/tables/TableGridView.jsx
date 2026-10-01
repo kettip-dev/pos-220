@@ -167,7 +167,7 @@ function LegendBar() {
       {items.map((i) => (
         <span key={i.label} className="flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full ${i.dot} shrink-0`} />
-          <span className="text-[11px] font-semibold text-slate-400">{i.label}</span>
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{i.label}</span>
         </span>
       ))}
     </div>
@@ -228,11 +228,11 @@ export default function TableGridView({
   const currentStats = zoneStats[String(currentFloor)] || { free: 0, occupied: 0 };
 
   return (
-    <div className="flex flex-col h-full w-full bg-zinc-950 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-slate-50 dark:bg-zinc-950 overflow-hidden">
       {/* ── Zone Tab Bar ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-zinc-900/95 border-b border-zinc-800 backdrop-blur-md shrink-0 z-20">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-white/95 dark:bg-zinc-900/95 border-b border-slate-200 dark:border-zinc-800 backdrop-blur-md shrink-0 z-20">
         {/* Zone tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar bg-zinc-800/80 p-1 rounded-xl">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar bg-slate-100/90 dark:bg-zinc-800/80 p-1 rounded-xl">
           {(zones.length > 0 ? zones : ["0"]).map((zone) => {
             const isActive =
               normalizeFloor(currentFloor) === normalizeFloor(zone);
@@ -247,8 +247,8 @@ export default function TableGridView({
                   transition-all whitespace-nowrap cursor-pointer
                   ${
                     isActive
-                      ? "bg-[#0ea5e9] text-white shadow-md shadow-sky-900/30"
-                      : "text-slate-400 hover:text-white hover:bg-zinc-700"
+                      ? "bg-[#0ea5e9] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-700"
                   }
                 `}
               >
@@ -257,7 +257,7 @@ export default function TableGridView({
                   className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
                     isActive
                       ? "bg-white/20 text-white"
-                      : "bg-zinc-700 text-slate-300"
+                      : "bg-slate-200 dark:bg-zinc-700 text-slate-500 dark:text-slate-300"
                   }`}
                 >
                   {st.free}F / {st.occupied}O
@@ -271,7 +271,7 @@ export default function TableGridView({
               type="button"
               onClick={onAddZone}
               title={t("tables.add_zone", "Add Zone")}
-              className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-zinc-700 transition cursor-pointer"
+              className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700 transition cursor-pointer"
             >
               <IconPlus size={14} />
             </button>
@@ -281,32 +281,38 @@ export default function TableGridView({
         {/* Right: Stats + socket indicator + refresh */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Summary stats for current zone */}
-          <div className="hidden sm:flex items-center gap-3 text-xs font-bold text-slate-400 border-r border-zinc-700 pr-3">
+          <div className="hidden sm:flex items-center gap-3 text-xs font-bold border-r border-slate-200 dark:border-zinc-700 pr-3">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
-              <span className="text-[#4ade80]">{currentStats.free} Free</span>
+              <span className="text-emerald-600 dark:text-[#4ade80]">{currentStats.free} Free</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#0ea5e9]" />
-              <span className="text-[#38bdf8]">{currentStats.occupied} Occupied</span>
+              <span className="text-sky-600 dark:text-[#38bdf8]">{currentStats.occupied} Occ.</span>
             </span>
           </div>
 
           {/* Dine-in / Pick-up */}
-          <div className="hidden lg:flex items-center gap-3 text-xs font-bold text-slate-500 border-r border-zinc-700 pr-3">
-            <span>🍽 {dineInCount}</span>
-            <span>🥡 {pickUpCount}</span>
+          <div className="hidden lg:flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-zinc-700 pr-3">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+              {dineInCount}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              {pickUpCount}
+            </span>
           </div>
 
           {/* Socket dot */}
-          <div title={isSocketConnected ? "Live" : "Connecting..."}>
+          <div title={isSocketConnected ? "Live Status Connected" : "Connecting..."} className="flex items-center gap-1.5">
             {isSocketConnected ? (
-              <span className="flex h-2.5 w-2.5 relative">
+              <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
             ) : (
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
             )}
           </div>
 
@@ -316,7 +322,7 @@ export default function TableGridView({
               type="button"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-zinc-800 transition cursor-pointer disabled:opacity-50"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 transition cursor-pointer disabled:opacity-50"
               title="Refresh tables"
             >
               <IconRefresh size={16} className={isRefreshing ? "animate-spin" : ""} />
@@ -329,11 +335,11 @@ export default function TableGridView({
       <div className="flex-1 overflow-y-auto p-4">
         {tablesOnFloor.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-            <IconArmchair size={56} className="text-zinc-700" />
-            <p className="text-slate-500 font-bold text-sm">
+            <IconArmchair size={56} className="text-slate-300 dark:text-zinc-700" />
+            <p className="text-slate-500 dark:text-slate-500 font-bold text-sm">
               {t("tables.no_tables_on_zone", "No tables on this zone")}
             </p>
-            <p className="text-slate-600 text-xs">
+            <p className="text-slate-400 dark:text-slate-600 text-xs">
               {t(
                 "tables.add_tables_from_canvas",
                 "Switch to Floor Plan view to add tables"
@@ -359,7 +365,7 @@ export default function TableGridView({
       </div>
 
       {/* ── Legend Bar ───────────────────────────────────────── */}
-      <div className="shrink-0 px-4 py-2.5 border-t border-zinc-800 bg-zinc-900/80">
+      <div className="shrink-0 px-4 py-2.5 border-t border-slate-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80">
         <LegendBar />
       </div>
     </div>

@@ -19,6 +19,7 @@ import SettingsPage from "./views/SettingsPage";
 import SettingsHomePage from "./views/SettingsViews/SettingsHomePage";
 import SettingDetailsPage from "./views/SettingsViews/SettingDetailsPage";
 import PrintSettingsPage from "./views/SettingsViews/PrintSettingsPage";
+import ThermalPrintersPage from "./views/SettingsViews/ThermalPrintersPage";
 import KitchenStationsSettingsPage from "./views/SettingsViews/KitchenStationsSettingsPage";
 import TablesSettingsPage from "./views/SettingsViews/TableSettingsPage";
 import TablesPage from "./views/TablesPage";
@@ -342,6 +343,7 @@ export default function App() {
               <Route path="" element={<SettingsHomePage />} />
               <Route path="details" element={<RequiresSingleBusiness><SettingDetailsPage /></RequiresSingleBusiness>} />
               <Route path="print-settings" element={<RequiresSingleBusiness><PrintSettingsPage /></RequiresSingleBusiness>} />
+              <Route path="thermal-printers" element={<RequiresSingleBusiness><ThermalPrintersPage /></RequiresSingleBusiness>} />
               <Route path="kitchen-stations" element={<RequiresSingleBusiness><KitchenStationsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="tables" element={<RequiresSingleBusiness><TablesSettingsPage /></RequiresSingleBusiness>} />
               <Route path="table-assignments" element={<RequiresSingleBusiness><TableAssignmentsPage /></RequiresSingleBusiness>} />

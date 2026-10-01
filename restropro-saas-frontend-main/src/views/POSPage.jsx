@@ -2,14 +2,14 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconBolt, IconReceipt, IconLayersIntersect } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconBolt, IconReceipt, IconLayersIntersect, IconLoader2 } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
 import { PAYMENT_ICONS } from "../config/payment_icons";
 import { toast } from "react-hot-toast";
 import { searchCustomer } from '../controllers/customers.controller';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { setDetailsForReceiptPrint, triggerPrintReceipt, triggerPrintToken, getDetailsForReceiptPrint } from '../helpers/ReceiptHelper';
 import { SocketContext } from "../contexts/SocketContext";
 import { initSocket } from '../utils/socket';
@@ -23,11 +23,16 @@ import TablePickerModal from '../components/tables/TablePickerModal';
 import POSOrderHeader from '../components/pos/POSOrderHeader';
 import POSModifierDrawer from '../components/pos/POSModifierDrawer';
 import POSPaymentDrawer from '../components/pos/POSPaymentDrawer';
+import POSDraftsDrawer from '../components/pos/POSDraftsDrawer';
 import { clsx } from "clsx";
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function POSPage() {
   const { t } = useTranslation();
+  const outletCtx = useOutletContext() || {};
+  const isNavCollapsed = outletCtx.isOperationalBarCollapsed || false;
+  const onToggleNav = outletCtx.toggleOperationalBar || null;
+
   const [posDeleteModalConfig, setPosDeleteModalConfig] = useState(null);
   const user = getUserDetailsInLocalStorage();
   const { socket, isSocketConnected } = useContext(SocketContext);
@@ -38,6 +43,7 @@ export default function POSPage() {
   const tableRef = useRef();
   const [isTablePickerOpen, setIsTablePickerOpen] = useState(false);
   const [selectedTableTitle, setSelectedTableTitle] = useState("");
+  const [isDraftsDrawerOpen, setIsDraftsDrawerOpen] = useState(false);
 
   // dialog: notes ref
   const dialogNotesIndexRef = useRef();
@@ -119,6 +125,7 @@ export default function POSPage() {
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
   const [inlineNoteText, setInlineNoteText] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [isSendingToKitchen, setIsSendingToKitchen] = useState(false);
   const [customExchangeRate, setCustomExchangeRate] = useState(null);
   const searchInputRef = useRef(null);
 
@@ -136,9 +143,7 @@ export default function POSPage() {
     if (nextVal) {
       toast.success(t('pos.same_line_enabled', 'Add to same line: ON (combines identical items)'));
     } else {
-      toast(t('pos.same_line_disabled', 'Add to same line: OFF (separate lines)'), {
-        icon: '📋'
-      });
+      toast(t('pos.same_line_disabled', 'Add to same line: OFF (separate lines)'));
     }
   };
 
@@ -316,7 +321,7 @@ export default function POSPage() {
       } else if (e.key === 'F8') {
         e.preventDefault();
         if (cartItems && cartItems.length > 0) {
-          btnShowSendToKitchenModal();
+          handleDirectSendToKitchen();
         } else {
           toast.error(t('pos.empty_cart'));
         }
@@ -1118,35 +1123,97 @@ export default function POSPage() {
   };
   // variant, addon modal
 
-  // drafts
-  const btnOpenSaveDraftModal = () => {
-    if(cartItems.length == 0) {
+  // 1-Tap Quick Hold Draft (No popup or reference input required)
+  const handleQuickHoldDraft = () => {
+    if (!cartItems || cartItems.length === 0) {
       toast.error(t('pos.empty_cart'));
       return;
     }
-    document.getElementById('modal-save-draft').showModal()
-  }
-  const btnAddtoDrafts = () => {
+
     const drafts = getDrafts();
 
-    const nameRef = draftTitleRef.current.value || "";
-    const date = new Date().toLocaleString();
+    // Intelligent auto-naming
+    let autoTitle = "";
+    if (currentSelectedTable) {
+      autoTitle = `${currentSelectedTable.table_title}`;
+    } else if (activeTableContext) {
+      autoTitle = `${activeTableContext.tableTitle} #${activeTableContext.tokenNo}`;
+    } else if (customer?.label) {
+      autoTitle = customer.label.split(" - ")[0] || customer.label;
+    } else if (customerType && customerType !== "WALKIN") {
+      autoTitle = customerType;
+    } else {
+      autoTitle = `${t('pos.order', 'Order')} #${drafts.length + 1}`;
+    }
+
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const fullRefName = `${autoTitle} (${nowTime})`;
 
     const draftItem = {
-      nameRef: nameRef,
-      date,
-      cart: cartItems,
-      
+      nameRef: fullRefName,
+      date: nowTime,
+      cart: [...cartItems],
+      tableId: tableRef.current?.value || null,
+      tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
+      diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
+      customer: customer || null,
+      customerType: customerType || "WALKIN",
+      payableTotal: liveCartSummary.payableTotal,
     };
 
-    drafts.push(draftItem);
+    const nextDrafts = [draftItem, ...drafts];
+    setDrafts(nextDrafts);
 
-    setDrafts(drafts);
-    setState({
-      ...state,
-      cartItems: []
-    })
+    if (dualScreenRoomId && isSocketConnected) {
+      socket.emit('cart_clear_backend', { roomId: dualScreenRoomId });
+      broadcastOrderMeta(null, "", "");
+    }
+
+    if (diningOptionRef.current) diningOptionRef.current.value = "";
+    if (tableRef.current) tableRef.current.value = "";
+    setSelectedTableTitle("");
+    setActiveTableContext(null);
+
+    setState((prev) => ({
+      ...prev,
+      cartItems: [],
+      drafts: nextDrafts,
+      customer: null,
+      customerType: "WALKIN",
+      discountType: "fixed",
+      discountValue: 0,
+      discountAmount: 0,
+    }));
+
+    playTapSound();
+    toast.success(
+      (tObj) => (
+        <div className="flex items-center justify-between gap-3 min-w-[220px]">
+          <div className="flex items-center gap-2">
+            <span className="text-base">💾</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-xs">{t('pos.draft_saved', 'Order Saved to Drafts')}</span>
+              <span className="text-[11px] text-gray-500">{fullRefName}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              toast.dismiss(tObj.id);
+              btnOpenDraftsModal();
+            }}
+            className="px-2 py-1 bg-white dark:bg-zinc-800 text-restro-green text-[11px] font-extrabold rounded-md border border-restro-green/40 hover:bg-restro-green hover:text-white transition active:scale-95 shadow-2xs cursor-pointer"
+          >
+            {t('pos.view_drafts', 'View')}
+          </button>
+        </div>
+      ),
+      { duration: 4000 }
+    );
   };
+
+  const btnOpenSaveDraftModal = handleQuickHoldDraft;
+  const btnAddtoDrafts = handleQuickHoldDraft;
 
   const btnInitNewOrder = () => {
     if (diningOptionRef.current) {
@@ -1178,8 +1245,8 @@ export default function POSPage() {
       ...state,
       drafts: [...drafts]
     });
-    document.getElementById("modal-drafts").showModal();
-  }
+    setIsDraftsDrawerOpen(true);
+  };
 
   const btnDeleteDraftItem = index => {
     const drafts = getDrafts();
@@ -1200,15 +1267,97 @@ export default function POSPage() {
       drafts: []
     });
   };
-  const btnSelectDraftItemToCart = draftItem => {
-    const {nameRef, date, cart} = draftItem;
 
-    setState({
-      ...state,
-      cartItems: [...cart]
-    });
+  const btnSelectDraftItemToCart = (draftItem, index) => {
+    const { nameRef, cart, tableId, tableTitle, diningOption, customer: draftCust, customerType: draftCustType } = draftItem;
 
-    document.getElementById("modal-drafts").close();
+    if (diningOption && diningOptionRef.current) {
+      diningOptionRef.current.value = diningOption;
+      setSelectedDiningOption(diningOption);
+    }
+    if (tableId && tableRef.current) {
+      tableRef.current.value = tableId;
+      setSelectedTableTitle(tableTitle || `Table ${tableId}`);
+    }
+
+    // Remove the restored draft from drafts list
+    const currentDrafts = getDrafts();
+    const updatedDrafts = currentDrafts.filter((_, i) => i !== index);
+    setDrafts(updatedDrafts);
+
+    setState((prev) => ({
+      ...prev,
+      cartItems: [...(cart || [])],
+      customer: draftCust || null,
+      customerType: draftCustType || "WALKIN",
+      drafts: updatedDrafts,
+    }));
+
+    playTapSound();
+    toast.success(`${t('pos.draft_restored', 'Restored')}: ${nameRef}`);
+    setIsDraftsDrawerOpen(false);
+  };
+
+  // Seamless auto-hold active cart and restore selected draft (Zero data loss)
+  const handleHoldCurrentAndRestore = (draftItem, index) => {
+    if (cartItems && cartItems.length > 0) {
+      const drafts = getDrafts();
+      let autoTitle = "";
+      if (currentSelectedTable) {
+        autoTitle = `${currentSelectedTable.table_title}`;
+      } else if (activeTableContext) {
+        autoTitle = `${activeTableContext.tableTitle} #${activeTableContext.tokenNo}`;
+      } else if (customer?.label) {
+        autoTitle = customer.label.split(" - ")[0] || customer.label;
+      } else if (customerType && customerType !== "WALKIN") {
+        autoTitle = customerType;
+      } else {
+        autoTitle = `${t('pos.order', 'Order')} #${drafts.length + 1}`;
+      }
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const fullRefName = `${autoTitle} (${nowTime})`;
+
+      const currentCartDraft = {
+        nameRef: fullRefName,
+        date: nowTime,
+        cart: [...cartItems],
+        tableId: tableRef.current?.value || null,
+        tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
+        diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
+        customer: customer || null,
+        customerType: customerType || "WALKIN",
+        payableTotal: liveCartSummary.payableTotal,
+      };
+
+      const remainingDrafts = drafts.filter((_, i) => i !== index);
+      const nextDrafts = [currentCartDraft, ...remainingDrafts];
+      setDrafts(nextDrafts);
+
+      const { nameRef, cart, tableId, tableTitle, diningOption, customer: draftCust, customerType: draftCustType } = draftItem;
+      if (diningOption && diningOptionRef.current) {
+        diningOptionRef.current.value = diningOption;
+        setSelectedDiningOption(diningOption);
+      }
+      if (tableId && tableRef.current) {
+        tableRef.current.value = tableId;
+        setSelectedTableTitle(tableTitle || `Table ${tableId}`);
+      }
+
+      setState((prev) => ({
+        ...prev,
+        cartItems: [...(cart || [])],
+        customer: draftCust || null,
+        customerType: draftCustType || "WALKIN",
+        drafts: nextDrafts,
+      }));
+
+      playTapSound();
+      toast.success(`${t('pos.draft_restored', 'Restored')}: ${nameRef}`);
+      setIsDraftsDrawerOpen(false);
+    } else {
+      btnSelectDraftItemToCart(draftItem, index);
+      setIsDraftsDrawerOpen(false);
+    }
   };
   // drafts
 
@@ -1786,78 +1935,89 @@ export default function POSPage() {
   };
 
 
-  const btnShowSendToKitchenModal = () => {
-    // calculate the item - total, tax, incl. tax, excl. tax, tax total, payable total
-
-    if(cartItems?.length == 0) {
+  // 1-Tap Direct Send to Kitchen (No blocking popup, instant dispatch & auto table prompt)
+  const handleDirectSendToKitchen = async () => {
+    if (!cartItems || cartItems.length === 0) {
       toast.error(t('pos.empty_cart'));
       return;
     }
 
-    const summary = calculateOrderSummary();
+    const deliveryType = diningOptionRef.current?.value || selectedDiningOption || "dinein";
+    const tableId = tableRef.current?.value;
 
-    setState({
-      ...state,
-      ...summary
-    });
-    document.getElementById('modal-send-kitchen-summary').showModal();
-  }
+    // Smart Table Prompt: if dine-in and no table selected, open Table Picker
+    if (deliveryType === "dinein" && !tableId) {
+      toast(t('pos.select_table_to_send', 'Please select a table to send order to kitchen'), {
+        icon: '🪑',
+        duration: 3500,
+      });
+      setIsTablePickerOpen(true);
+      return;
+    }
 
-  const btnSendToKitchen = async () => {
     try {
-      const deliveryType = diningOptionRef.current.value;
-      const tableId = tableRef.current.value;
+      setIsSendingToKitchen(true);
+      playTapSound();
+
       const customerType = state.customerType;
       const customer = state.customer;
 
-      toast.loading(t('pos.please_wait'));
+      const summary = calculateOrderSummary();
       const res = await createOrder(cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem);
-      toast.dismiss();
-      if(res.status == 200) {
+
+      if (res.status === 200) {
         const data = res.data;
-        toast.success(res.data.message);
-        document.getElementById("modal-send-kitchen-summary").close();
 
         if (dualScreenRoomId && isSocketConnected) {
           socket.emit("order_success_backend", {
             roomId: dualScreenRoomId,
             tokenNo: data.tokenNo,
             orderId: data.orderId,
-            payableTotal: state.payableTotal,
+            payableTotal: summary.payableTotal,
           });
         }
 
-        const page_format = printSettings?.page_format || null;
         const is_enable_print = printSettings?.is_enable_print || 0;
-
         const paymentType = paymentTypes.find((v) => v.id == state.selectedPaymentType);
         let paymentMethodText = paymentType ? paymentType.title : (t('orders.unpaid', 'Unpaid') || 'Pay Later');
 
-        setDetailsForReceiptPrint({
-          cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
-          itemsTotal: state.itemsTotal,
+        const receiptPayload = {
+          cartItems,
+          deliveryType,
+          customerType,
+          customer,
+          tableId,
+          currency,
+          storeSettings,
+          printSettings,
+          itemsTotal: summary.itemsTotal,
           discountType: state.discountType,
           discountValue: state.discountValue,
-          discountAmount: state.discountAmount,
-          taxTotal: state.taxTotal,
-          serviceChargeTotal:state.serviceChargeTotal,
-          payableTotal: state.payableTotal,
+          discountAmount: summary.discountAmount,
+          taxTotal: summary.taxTotal,
+          serviceChargeTotal: summary.serviceChargeTotal,
+          payableTotal: summary.payableTotal,
           tokenNo: data.tokenNo,
           orderId: data.orderId,
-          paymentMethod: paymentMethodText
-        });
+          paymentMethod: paymentMethodText,
+        };
 
+        setDetailsForReceiptPrint(receiptPayload);
         sendNewOrderEvent(data.tokenNo, data.orderId);
 
         let newQROrderItemCount = state.qrOrdersCount;
         let newQROrders = [];
-        if(state.selectedQrOrderItem) {
+        if (state.selectedQrOrderItem) {
           newQROrderItemCount -= 1;
-          newQROrders = state?.qrOrders?.filter((item)=>item.id != state.selectedQrOrderItem);
+          newQROrders = state?.qrOrders?.filter((item) => item.id != state.selectedQrOrderItem);
         }
+
+        const tableLabel = currentSelectedTable?.table_title || activeTableContext?.tableTitle || "";
 
         if (diningOptionRef.current) diningOptionRef.current.value = "";
         if (tableRef.current) tableRef.current.value = "";
+        setSelectedTableTitle("");
+        setActiveTableContext(null);
 
         setState((prev) => ({
           ...prev,
@@ -1868,44 +2028,62 @@ export default function POSPage() {
           orderId: data.orderId,
           selectedQrOrderItem: null,
           qrOrders: newQROrders,
-          qrOrdersCount: newQROrderItemCount
-        }))
+          qrOrdersCount: newQROrderItemCount,
+          discountType: "fixed",
+          discountValue: 0,
+          discountAmount: 0,
+        }));
 
-        _initPOS()
+        playTapSound();
+        _initPOS();
 
-        if(is_enable_print) {
-          triggerPrintReceipt({
-            cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
-            itemsTotal: state.itemsTotal,
-            discountType: state.discountType,
-            discountValue: state.discountValue,
-            discountAmount: state.discountAmount,
-            taxTotal: state.taxTotal,
-            serviceChargeTotal:state.serviceChargeTotal,
-            payableTotal: state.payableTotal,
-            tokenNo: data.tokenNo,
-            orderId: data.orderId,
-            paymentMethod: paymentMethodText
-          });
-          return;
+        // Background auto print if enabled
+        if (is_enable_print) {
+          triggerPrintReceipt(receiptPayload);
         }
 
-        // show print token dialog
-        const tokenModal = document.getElementById("modal-print-token");
-        tokenModal?.showModal();
-        setTimeout(() => {
-          if (tokenModal?.open) {
-            tokenModal.close();
-          }
-        }, 4000);
+        // Sleek non-blocking success notification with fast Print KOT shortcut
+        toast.success(
+          (tObj) => (
+            <div className="flex items-center justify-between gap-3 min-w-[240px]">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔥</span>
+                <span className="font-bold text-xs">
+                  {t('pos.order_sent_to_kitchen', 'Sent to Kitchen')} #{data.tokenNo}
+                  {tableLabel ? ` (Table ${tableLabel})` : ""}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.dismiss(tObj.id);
+                  triggerPrintToken(receiptPayload);
+                }}
+                className="px-2 py-1 bg-white dark:bg-zinc-800 text-restro-green text-[11px] font-extrabold rounded-md border border-restro-green/40 hover:bg-restro-green hover:text-white transition active:scale-95 shadow-2xs cursor-pointer"
+              >
+                {t('pos.print_token', 'Print KOT')}
+              </button>
+            </div>
+          ),
+          { duration: 4500 }
+        );
       }
     } catch (error) {
       const message = error?.response?.data?.message || t('pos.something_went_wrong');
       console.error(error);
-
       toast.dismiss();
       toast.error(message);
+    } finally {
+      setIsSendingToKitchen(false);
     }
+  };
+
+  const btnShowSendToKitchenModal = () => {
+    handleDirectSendToKitchen();
+  };
+
+  const btnSendToKitchen = async () => {
+    handleDirectSendToKitchen();
   };
   const btnPrintTokenOnly = () => {
     const details = getDetailsForReceiptPrint();
@@ -1971,6 +2149,8 @@ export default function POSPage() {
 
       {/* Persistent Unified Order Context Header Bar */}
       <POSOrderHeader
+        isNavCollapsed={isNavCollapsed}
+        onToggleNav={onToggleNav}
         selectedDiningOption={selectedDiningOption}
         onSelectDiningOption={handleSelectDiningOption}
         currentSelectedTable={currentSelectedTable}
@@ -1998,20 +2178,18 @@ export default function POSPage() {
 
         {/* Catalog Panel (70%) */}
         <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-2xl border-restro-border-green bg-background shadow-sm">
-          {/* Sub-bar: Category Tabs + Search + View Toggle */}
-          <div className="bg-background flex flex-col md:flex-row gap-2 md:gap-3 md:items-center justify-between sticky top-0 w-full z-10 px-3.5 sm:px-4 py-2 border-b border-restro-border-green">
+          {/* Sub-bar: Full-Width Category Rail + View Switcher */}
+          <div className="bg-background flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-3 sm:px-4 py-2 border-b border-restro-border-green">
             {/* Category horizontal pill bar with counts */}
-            <div className={clsx(
-              "flex overflow-x-auto space-x-1.5 text-sm custom-scroll-wrapper scrollbar scrollbar-none custom-scroll-div-horizon-smooth -mx-2 px-2 md:mx-0 md:px-0 py-0.5 touch-pan-x",
-              isMobileSearchOpen && "max-md:hidden"
-            )}>
+            <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5 touch-pan-x custom-scroll-div-horizon-smooth">
               <button
-                className={`flex-shrink-0 min-w-fit min-h-[38px] px-4 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-sm touch-manipulation select-none cursor-pointer ${
+                type="button"
+                className={`flex-shrink-0 min-w-fit min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 flex items-center gap-2 shadow-xs touch-manipulation select-none cursor-pointer ${
                   selectedCategory === "all" 
-                    ? 'bg-restro-green text-white shadow-emerald-500/20' 
+                    ? 'bg-restro-green text-white shadow-emerald-500/20 ring-2 ring-restro-green/20' 
                     : theme === 'black' 
-                    ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode border border-restro-border-green/50' 
+                    : 'bg-restro-gray/90 text-restro-text hover:bg-restro-button-hover border border-restro-border-green/60'
                 }`}
                 onClick={() => {
                   setState({
@@ -2021,8 +2199,8 @@ export default function POSPage() {
                 }}
               >
                 <span>{t('pos.all')}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                  selectedCategory === "all" ? 'bg-white/20 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${
+                  selectedCategory === "all" ? 'bg-white/25 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
                 }`}>
                   {categoryCounts.all || 0}
                 </span>
@@ -2034,12 +2212,13 @@ export default function POSPage() {
                 return (
                   <button
                     key={index}
-                    className={`flex-shrink-0 min-w-fit min-h-[38px] px-4 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-sm touch-manipulation select-none cursor-pointer ${
+                    type="button"
+                    className={`flex-shrink-0 min-w-fit min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 flex items-center gap-2 shadow-xs touch-manipulation select-none cursor-pointer ${
                       isSelected 
-                        ? 'bg-restro-green text-white shadow-emerald-500/20' 
+                        ? 'bg-restro-green text-white shadow-emerald-500/20 ring-2 ring-restro-green/20' 
                         : theme === 'black' 
-                        ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode border border-restro-border-green/50' 
+                        : 'bg-restro-gray/90 text-restro-text hover:bg-restro-button-hover border border-restro-border-green/60'
                     }`}
                     onClick={() => {
                       setState({
@@ -2049,8 +2228,8 @@ export default function POSPage() {
                     }}
                   >
                     <span>{category.title}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${
+                      isSelected ? 'bg-white/25 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
                     }`}>
                       {count}
                     </span>
@@ -2059,74 +2238,17 @@ export default function POSPage() {
               })}
             </div>
 
-            {/* Search + View Toggle */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Mobile Search */}
-              <div className="md:hidden flex items-center gap-2 flex-1 min-w-0">
-                {!isMobileSearchOpen ? (
-                  <button
-                    onClick={() => setIsMobileSearchOpen(true)}
-                    aria-label={t('appbar.search_placeholder')}
-                    className="w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center bg-restro-gray border border-restro-border-green text-restro-text active:scale-90 transition"
-                  >
-                    <IconSearch size={16} stroke={iconStroke} />
-                  </button>
-                ) : (
-                  <label className="flex flex-1 min-w-0 items-center rounded-xl px-3 py-1.5 gap-2 bg-restro-gray border border-restro-green">
-                    <IconSearch size={16} stroke={iconStroke} className="flex-shrink-0 text-restro-green" />
-                    <input
-                      autoFocus
-                      value={searchQuery}
-                      onChange={e => setState({...state, searchQuery: e.target.value})}
-                      type="search"
-                      placeholder={t('appbar.search_placeholder')}
-                      className='w-full min-w-0 bg-transparent text-xs outline-none'
-                    />
-                    <button
-                      onClick={() => {
-                        setState({...state, searchQuery: ''});
-                        setIsMobileSearchOpen(false);
-                      }}
-                      aria-label={t('pos.close')}
-                      className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center bg-restro-button-hover text-restro-text"
-                    >
-                      <IconX size={12} stroke={iconStroke} />
-                    </button>
-                  </label>
-                )}
-              </div>
-
-              {/* Desktop Search */}
-              <label className="hidden md:flex items-center w-52 rounded-xl px-3 py-1.5 gap-2 bg-restro-gray border border-restro-border-green focus-within:border-restro-green transition">
-                <IconSearch size={16} stroke={iconStroke} className="flex-shrink-0 text-gray-400" />
-                <input 
-                  value={searchQuery} 
-                  onChange={e => setState({...state, searchQuery: e.target.value})} 
-                  type="search" 
-                  placeholder={t('appbar.search_placeholder')} 
-                  className='w-full min-w-0 bg-transparent text-xs outline-none text-restro-text' 
-                />
-                {searchQuery && (
-                  <button 
-                    type="button"
-                    onClick={() => setState({...state, searchQuery: ''})}
-                    className="text-gray-400 hover:text-restro-text"
-                  >
-                    <IconX size={14} stroke={iconStroke} />
-                  </button>
-                )}
-              </label>
-
-              {/* View Switcher Button */}
+            {/* View Switcher Button (Compact vs Detailed Grid) */}
+            <div className="flex items-center shrink-0 pl-1 border-l border-restro-border-green/60">
               <button
+                type="button"
                 className={clsx(
-                  "flex-shrink-0 px-2.5 py-1.5 rounded-xl border border-restro-border-green text-xs font-medium flex items-center gap-1 transition active:scale-95",
-                  isMobileSearchOpen && "max-md:hidden",
+                  "min-h-[42px] min-w-[42px] p-2 rounded-xl border border-restro-border-green flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer shadow-xs",
                   state.view === "compact" 
-                    ? "text-restro-green bg-emerald-500/10" 
+                    ? "text-restro-green bg-emerald-500/10 border-emerald-500/40" 
                     : "text-restro-text bg-restro-gray hover:bg-restro-button-hover"
                 )}
-                title="Toggle Grid / List View"
+                title={state.view === "compact" ? t('pos.compact_view', 'Compact View') : t('pos.detailed_view', 'Detailed View')}
                 onClick={() => {
                   const newView = state.view === 'detailed' ? 'compact' : 'detailed';
                   setState((prev) => ({
@@ -2582,9 +2704,9 @@ export default function POSPage() {
                       <button
                         type="button"
                         onClick={() => handleDiscountChange(state.discountType, 0)}
-                        className="text-[10px] text-gray-400 hover:text-red-500 px-1"
+                        className="text-[10px] text-gray-400 hover:text-red-500 px-1 flex items-center"
                       >
-                        ✕
+                        <IconX size={12} stroke={iconStroke} />
                       </button>
                     )}
                   </div>
@@ -2653,65 +2775,71 @@ export default function POSPage() {
               </div>
             )}
 
-            {/* Action Buttons with Keyboard Hotkey Badges */}
-            <div className="space-y-2 pt-1">
-              <div className="grid grid-cols-2 gap-2">
-                <button 
-                  type="button"
-                  onClick={btnOpenSaveDraftModal} 
-                  disabled={cartItemsCount === 0}
-                  className={clsx(
-                    "min-h-[46px] text-xs font-bold py-2 px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs touch-manipulation cursor-pointer select-none",
-                    cartItemsCount === 0 
-                      ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
-                      : "bg-restro-gray hover:bg-restro-button-hover text-restro-text"
-                  )}
-                >
-                  <IconDeviceFloppy size={16} stroke={iconStroke} /> 
-                  <span>{t('pos.draft', 'Hold Draft')}</span>
-                </button>
-
-                <button 
-                  type="button"
-                  onClick={btnShowSendToKitchenModal} 
-                  disabled={cartItemsCount === 0}
-                  className={clsx(
-                    "min-h-[46px] text-xs font-bold py-2 px-3.5 rounded-xl border border-restro-border-green flex items-center justify-between transition active:scale-95 shadow-xs touch-manipulation cursor-pointer select-none",
-                    cartItemsCount === 0 
-                      ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
-                      : "bg-restro-gray hover:bg-restro-button-hover text-restro-text"
-                  )}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <IconChefHat size={17} stroke={iconStroke} /> 
-                    <span>{t('pos.send_to_kitchen')}</span>
+            {/* Action Buttons: Unified Single Row for High Tablet Efficiency */}
+            <div className="flex items-center gap-2 pt-1 w-full">
+              {/* 1. Hold Draft Button (Instant 1-Tap) / Open Drafts when empty */}
+              <button 
+                type="button"
+                onClick={cartItemsCount > 0 ? handleQuickHoldDraft : btnOpenDraftsModal} 
+                title={cartItemsCount > 0 ? t('pos.draft', 'Hold Draft') : t('pos.drafts', 'Held Orders & Drafts')}
+                className="relative min-h-[48px] px-2.5 sm:px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs touch-manipulation cursor-pointer select-none shrink-0 bg-restro-gray hover:bg-restro-button-hover text-restro-text"
+              >
+                <IconDeviceFloppy size={16} stroke={iconStroke} /> 
+                <span className="text-xs font-bold hidden xs:inline">{t('pos.draft', 'Draft')}</span>
+                {drafts.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-restro-green text-white shadow-xs">
+                    {drafts.length}
                   </span>
-                  <span className="text-[10px] font-mono font-semibold px-1 rounded bg-black/5 dark:bg-white/10 text-gray-400">
-                    F8
-                  </span>
-                </button>
-              </div>
+                )}
+              </button>
 
-              {/* Pay & Settle Full Width Primary Action */}
+              {/* 2. Send to Kitchen Button */}
+              <button 
+                type="button"
+                onClick={handleDirectSendToKitchen} 
+                disabled={cartItemsCount === 0 || isSendingToKitchen || isSubmittingPayment}
+                className={clsx(
+                  "flex-1 min-h-[48px] px-2.5 sm:px-3 rounded-xl border border-restro-border-green flex items-center justify-between gap-1 transition active:scale-95 shadow-xs touch-manipulation cursor-pointer select-none min-w-0",
+                  cartItemsCount === 0 || isSendingToKitchen || isSubmittingPayment
+                    ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
+                    : "bg-restro-gray hover:bg-restro-button-hover text-restro-text"
+                )}
+              >
+                <span className="flex items-center gap-1.5 truncate">
+                  {isSendingToKitchen ? (
+                    <IconLoader2 size={16} className="animate-spin text-restro-green shrink-0" />
+                  ) : (
+                    <IconChefHat size={16} stroke={iconStroke} className="shrink-0" />
+                  )}
+                  <span className="text-xs font-bold truncate">
+                    {isSendingToKitchen ? t('pos.sending', 'Sending...') : t('pos.kitchen', 'Kitchen')}
+                  </span>
+                </span>
+                <span className="text-[10px] font-mono font-semibold px-1 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400 shrink-0 hidden sm:inline">
+                  F8
+                </span>
+              </button>
+
+              {/* 3. Pay & Settle Button (Primary Action) */}
               <button 
                 type="button"
                 onClick={btnShowPayAndSendToKitchenModal} 
                 disabled={cartItemsCount === 0 || isSubmittingPayment}
                 className={clsx(
-                  "w-full min-h-[52px] py-3 px-4 rounded-xl font-black text-sm text-white flex items-center justify-between transition active:scale-[0.98] shadow-md touch-manipulation cursor-pointer select-none",
+                  "flex-[1.5] sm:flex-[1.6] min-h-[48px] px-3 sm:px-3.5 rounded-xl font-black text-xs sm:text-sm text-white flex items-center justify-between gap-1 transition active:scale-[0.98] shadow-md shadow-emerald-600/20 touch-manipulation cursor-pointer select-none min-w-0",
                   cartItemsCount === 0 || isSubmittingPayment
                     ? "opacity-50 cursor-not-allowed bg-gray-400" 
-                    : "bg-restro-green hover:bg-restro-green-button-hover shadow-emerald-600/25"
+                    : "bg-restro-green hover:bg-restro-green-button-hover"
                 )}
               >
-                <span className="flex items-center gap-2">
-                  <IconCash size={20} stroke={iconStroke} />
-                  <span>{t('pos.create_receipt_pay', 'Pay & Settle')}</span>
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/20 text-white">
+                <div className="flex items-center gap-1.5 truncate">
+                  <IconCash size={17} stroke={iconStroke} className="shrink-0" />
+                  <span className="truncate">{t('pos.pay', 'Pay')}</span>
+                  <span className="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-white/20 text-white shrink-0 hidden sm:inline">
                     F4
                   </span>
-                </span>
-                <span className="font-extrabold text-base bg-white/20 px-2.5 py-1 rounded-lg font-mono shadow-xs">
+                </div>
+                <span className="font-mono text-xs sm:text-sm font-extrabold shrink-0 bg-white/20 px-2 py-0.5 rounded-md ml-1 tracking-tight">
                   {currency}{liveCartSummary.payableTotal.toFixed(2)}
                 </span>
               </button>
@@ -2762,6 +2890,20 @@ export default function POSPage() {
         onTenderedAmountChange={setTenderedAmount}
         onPayAndComplete={btnPayAndSendToKitchen}
         isProcessing={isSubmittingPayment}
+      />
+
+      {/* Slide-Over Drafts Drawer */}
+      <POSDraftsDrawer
+        isOpen={isDraftsDrawerOpen}
+        onClose={() => setIsDraftsDrawerOpen(false)}
+        drafts={drafts}
+        onRestoreDraft={btnSelectDraftItemToCart}
+        onDeleteDraft={btnDeleteDraftItem}
+        onClearAllDrafts={btnClearDrafts}
+        currency={currency}
+        exchangeRateUsdToKhr={customExchangeRate || state.storeSettings?.exchange_rate_usd_to_khr || state.storeSettings?.exchangeRateUsdToKhr || 4100}
+        activeCartItemsCount={cartItems?.length || 0}
+        onHoldCurrentAndRestore={handleHoldCurrentAndRestore}
       />
 
 
@@ -2928,64 +3070,9 @@ export default function POSPage() {
       {/* dialog: variants & addons */}
 
 
-      {/* dialog: save draft */}
-      <dialog id="modal-save-draft" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <h3 className="font-bold text-lg">{t('pos.save_cart_items_to_drafts')}</h3>
+      {/* dialog: save draft (deprecated in favor of 1-tap direct hold) */}
 
-          <div className="my-4">
-            <label htmlFor="draftTitleRef" className="mb-1 block text-gray-500 text-sm">{t('pos.reference')}</label>
-            <input ref={draftTitleRef} type="text" name="draftTitleRef" id='draftTitleRef' className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green' placeholder={t('pos.enter_reference_name')} />
-          </div>
-
-          <div className="modal-action">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className='btn transition active:scale-95 hover:shadow-lg px-4 py-3 flex-1 items-center justify-center align-center rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text'>{t('pos.close')}</button>
-              <button onClick={()=>{btnAddtoDrafts();}} className='rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 text-white ml-3 border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover'>{t('pos.save')}</button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-      {/* dialog: save draft */}
-
-      {/* dialog: drafts list */}
-      <dialog id="modal-drafts" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box p-0 border border-restro-border-green dark:rounded-2xl'>
-          <div className='flex justify-between items-center sticky top-0 backdrop-blur px-6 py-4 bg-restro-gray'>
-            <h3 className="font-bold text-lg">{t('pos.drafts')}</h3>
-            <form method="dialog" className='flex gap-1'>
-              {/* if there is a button in form, it will close the modal */}
-              <button onClick={btnClearDrafts} className='transition active:scale-95 text-red-500 p-2 rounded-ful rounded-full w-9 h-9 flex items-center justify-center hover:bg-restro-button-hover'><IconClearAll stroke={iconStroke} /></button>
-              <button className='transition active:scale-95 text-restro-text p-2 rounded-ful rounded-full w-9 h-9 flex items-center justify-center hover:bg-restro-button-hover'><IconX stroke={iconStroke} /></button>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-6 pb-6 pt-4">
-            {drafts.map((draftItem, index)=>{
-              const {nameRef, date, cart} = draftItem;
-
-              return <div key={index} className='flex items-center gap-1 rounded-2xl p-2 border border-restro-border-green'>
-                <div className='w-12 h-12 rounded-full flex items-center justify-center text-restro-text bg-restro-bg-gray'>
-                  <IconClipboardList stroke={iconStroke} />
-                </div>
-                <div className='flex-1'>
-                  <p>{t('pos.ref')}: {nameRef}</p>
-                  <p className='text-xs'>{cart?.length} {t('pos.cart_items')}</p>
-                  <p className='text-xs text-gray-500'>{date}</p>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <button onClick={()=>{btnSelectDraftItemToCart(draftItem)}}  className='rounded-full transition active:scale-95 w-6 h-6 flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover'><IconPencil size={14} stroke={iconStroke} /></button>
-
-                  <button onClick={()=>{btnDeleteDraftItem(index)}} className='rounded-full transition active:scale-95 text-red-500 w-6 h-6 flex items-center justify-center bg-restro-gray hover:bg-restro-button-hover'><IconTrash size={14} stroke={iconStroke} /></button>
-                </div>
-              </div>
-            })}
-          </div>
-
-
-        </div>
-      </dialog>
+      {/* dialog: drafts list (replaced by Slide-Over POSDraftsDrawer) */}
       {/* dialog: drafts list */}
 
       <DialogAddCustomer defaultValue={state.addCustomerDefaultValue} onSuccess={(phone, name)=>{
@@ -3074,49 +3161,7 @@ export default function POSPage() {
       </dialog>
       {/* dialog: search customer */}
 
-      {/* dialog: send to kitchen summary */}
-      <dialog id="modal-send-kitchen-summary" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="font-bold text-lg">{t('pos.send_order_to_kitchen')}</h3>
-            <form method='dialog'>
-              <button className='text-red-500 p-2 rounded-full bg-restro-gray hover:bg-restro-button-hover'><IconX size={18} stroke={iconStroke} /></button>
-            </form>
-          </div>
-
-          <div className="my-8 space-y-4 px-1">
-            {[
-              { label: t('pos.items_net_total'), value: state.itemsTotal },
-              { label: t('pos.discount_total', 'Discount Total'), value: state.discountAmount || 0, prefix: "-" },
-              { label: t('pos.tax_total'), value: state.taxTotal, prefix: "+" },
-              { label: t('pos.service_charge_total'), value: state.serviceChargeTotal, prefix: "+" },
-            ].map(({ label, value, prefix = "" }, index) => (
-              <div key={index} className='flex items-center justify-between text-restro-text'>
-                <p>{label}</p>
-                <p className="text-lg">
-                  {value > 0 ? prefix : ""}{currency}{value.toFixed(2)}
-                </p>
-              </div>
-            ))}
-
-            <div className="flex items-center justify-between border-t border-gray-300 dark:border-restro-bg-gray pt-2 mt-2">
-              <p className="text-xl font-medium">{t('pos.payable_total')}</p>
-              <p className="text-xl font-bold text-restro-green">
-                {currency}{state.payableTotal.toFixed(2)}
-              </p>
-            </div>
-          </div>
-
-
-          <div className="modal-action">
-            <form method="dialog" className="w-full">
-              {/* if there is a button in form, it will close the modal */}
-              <button onClick={btnSendToKitchen} className='w-full rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover'>{t('pos.send_to_kitchen')}</button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-      {/* dialog: send to kitchen summary */}
+      {/* dialog: send to kitchen summary (deprecated in favor of 1-tap direct send) */}
 
       {/* dialog: collect payment & send to kitchen summary */}
       <dialog id="modal-pay-and-send-kitchen-summary" className="modal modal-bottom sm:modal-middle">

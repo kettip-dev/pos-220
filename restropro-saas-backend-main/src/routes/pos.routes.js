@@ -19,6 +19,8 @@ const {
   addPrinterConfig,
   updatePrinterConfig,
   deletePrinterConfig,
+  printToPrinter,
+  testPrintToPrinter,
   getPosPrintFormat,
   updatePosPrintFormat,
 } = require("../controllers/pos.controller");
@@ -111,7 +113,7 @@ router.patch(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
   updatePrinterConfig
 );
 
@@ -120,8 +122,26 @@ router.delete(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
   deletePrinterConfig
+);
+
+router.post(
+  "/printers/:id/print",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  printToPrinter
+);
+
+router.post(
+  "/printers/:id/test",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  testPrintToPrinter
 );
 
 // ─── Receipt / KOT print format ───────────────────────────

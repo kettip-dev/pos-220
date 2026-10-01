@@ -642,7 +642,7 @@
   "pos_menu": {
     "not_found_title": "Bummer!",
     "not_found_message": "The chef couldn't find anything.",
-    "not_found_carrot": "In the meantime, here's a carrot 🥕 to keep you company!",
+    "not_found_carrot": "In the meantime, feel free to explore other categories or clear your search.",
     "variants": "Variants",
     "addons": "Addons",
     "add": "ADD"

@@ -62,6 +62,11 @@ export default function FloorPlanCanvas({
   onFloorPlanUpload = () => {},
   onFloorPlanDelete = () => {},
   canvasHeight = "100%",
+  hideControls = false,
+  zoomLevel: externalZoomLevel = null,
+  setZoomLevel: externalSetZoomLevel = null,
+  panOffset: externalPanOffset = null,
+  setPanOffset: externalSetPanOffset = null,
 }) {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -75,8 +80,15 @@ export default function FloorPlanCanvas({
 
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [internalZoomLevel, setInternalZoomLevel] = useState(1);
+  const [internalPanOffset, setInternalPanOffset] = useState({ x: 0, y: 0 });
+
+  const zoomLevel = externalZoomLevel !== null && externalZoomLevel !== undefined ? externalZoomLevel : internalZoomLevel;
+  const setZoomLevel = externalSetZoomLevel || setInternalZoomLevel;
+
+  const panOffset = externalPanOffset !== null && externalPanOffset !== undefined ? externalPanOffset : internalPanOffset;
+  const setPanOffset = externalSetPanOffset || setInternalPanOffset;
+
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
@@ -481,6 +493,7 @@ export default function FloorPlanCanvas({
         {floorSettings.show_cashier && (
           <div
             onPointerDown={(e) =>
+              isEditMode &&
               handlePointerDownItem(
                 e,
                 "cashier",
@@ -489,8 +502,10 @@ export default function FloorPlanCanvas({
                 floorSettings.cashier_y ?? 260
               )
             }
-            className={`absolute rounded-2xl border-2 border-slate-300 dark:border-zinc-700 bg-slate-100/90 dark:bg-zinc-800/90 flex items-center justify-center font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase shadow-xs pointer-events-auto z-20 group transition-shadow ${
-              isEditMode ? "cursor-grab active:cursor-grabbing hover:border-[#0ea5e9] hover:shadow-md" : ""
+            className={`absolute rounded-2xl border-2 border-slate-300/80 dark:border-zinc-700 bg-slate-100/70 dark:bg-zinc-800/70 flex items-center justify-center font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase shadow-xs z-[2] group transition-shadow ${
+              isEditMode
+                ? "cursor-grab active:cursor-grabbing hover:border-[#0ea5e9] hover:shadow-md pointer-events-auto"
+                : "pointer-events-none"
             }`}
             style={{
               left: `${floorSettings.cashier_x ?? 60}px`,
@@ -550,10 +565,17 @@ export default function FloorPlanCanvas({
           {processedTables.map((table) => {
             const isSelected = selectedTableId === table.id;
             const isMergeSource = mergeSourceId === table.id;
-            const isDimmed =
-              activeFilter &&
-              activeFilter !== "pax" &&
-              getTableBindoStatus(table) !== activeFilter;
+            const isOccupied = Boolean(table.active_order_id);
+            let isDimmed = false;
+            if (activeFilter === "available") {
+              isDimmed = isOccupied;
+            } else if (activeFilter === "occupied") {
+              isDimmed = !isOccupied;
+            } else if (activeFilter === "reserved") {
+              isDimmed = !table.has_reservation || isOccupied;
+            } else if (activeFilter && activeFilter !== "all" && activeFilter !== "pax") {
+              isDimmed = getTableBindoStatus(table) !== activeFilter;
+            }
 
             return (
               <BindoTableNode
@@ -581,52 +603,54 @@ export default function FloorPlanCanvas({
       </div>
 
       {/* Floating Bottom Left Zoom & Grid Controls */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-1 p-1 bg-white/95 dark:bg-zinc-900/95 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg backdrop-blur-md z-30 select-none">
-        <button
-          type="button"
-          onClick={() => setShowGrid((prev) => !prev)}
-          title={showGrid ? t("tables.hide_grid", "Hide Grid Lines") : t("tables.show_grid", "Show Grid Lines")}
-          className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
-            showGrid
-              ? "text-[#0ea5e9] bg-sky-50 dark:bg-zinc-800"
-              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-          }`}
-        >
-          <IconGridDots size={16} />
-        </button>
+      {!hideControls && (
+        <div className="absolute bottom-4 left-4 flex items-center gap-1 p-1 bg-white/95 dark:bg-zinc-900/95 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg backdrop-blur-md z-30 select-none">
+          <button
+            type="button"
+            onClick={() => setShowGrid((prev) => !prev)}
+            title={showGrid ? t("tables.hide_grid", "Hide Grid Lines") : t("tables.show_grid", "Show Grid Lines")}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition cursor-pointer ${
+              showGrid
+                ? "text-[#0ea5e9] bg-sky-50 dark:bg-zinc-800"
+                : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            }`}
+          >
+            <IconGridDots size={16} />
+          </button>
 
-        <div className="w-[1px] h-4 bg-slate-200 dark:bg-zinc-700 my-auto mx-0.5" />
+          <div className="w-[1px] h-4 bg-slate-200 dark:bg-zinc-700 my-auto mx-0.5" />
 
-        <button
-          type="button"
-          onClick={() => setZoomLevel((z) => Math.max(0.5, Number((z - 0.15).toFixed(2))))}
-          title="Zoom Out"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-        >
-          <IconMinus size={16} />
-        </button>
+          <button
+            type="button"
+            onClick={() => setZoomLevel((z) => Math.max(0.5, Number((z - 0.15).toFixed(2))))}
+            title="Zoom Out"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+          >
+            <IconMinus size={16} />
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setZoomLevel((z) => Math.min(2.0, Number((z + 0.15).toFixed(2))))}
-          title="Zoom In"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-        >
-          <IconPlus size={16} />
-        </button>
+          <button
+            type="button"
+            onClick={() => setZoomLevel((z) => Math.min(2.0, Number((z + 0.15).toFixed(2))))}
+            title="Zoom In"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+          >
+            <IconPlus size={16} />
+          </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            setZoomLevel(1);
-            setPanOffset({ x: 0, y: 0 });
-          }}
-          title="Reset Zoom"
-          className="px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-        >
-          <span>{Math.round(zoomLevel * 100)}%</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => {
+              setZoomLevel(1);
+              setPanOffset({ x: 0, y: 0 });
+            }}
+            title="Reset Zoom"
+            className="px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+          >
+            <span>{Math.round(zoomLevel * 100)}%</span>
+          </button>
+        </div>
+      )}
 
       {/* Drag & Drop Floor Plan File Overlay (in Edit Mode) */}
       {isDragOver && (

@@ -39,6 +39,15 @@ export default function SettingsHomePage() {
       icon: <IconPrinter stroke={iconStroke} className="w-6 h-6" />,
     },
     {
+      id: "thermal-printers",
+      title: "Thermal Printers (LAN / TCP)",
+      description:
+        "Manage network ESC/POS thermal printers, configure IP & Port 9100, paper size, auto-cut, and test connectivity.",
+      path: "/dashboard/settings/thermal-printers",
+      category: "General & Operations",
+      icon: <IconPrinter stroke={iconStroke} className="w-6 h-6 text-emerald-600" />,
+    },
+    {
       id: "kitchen-stations",
       title: "Kitchen Stations",
       description:
