@@ -1,8 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import { 
-  IconArmchair, 
   IconArmchair2, 
   IconUser, 
   IconSearch, 
@@ -227,66 +225,59 @@ export default function POSOrderHeader({
             )}
           </div>
 
-          {/* Action Quick Badges: Drafts */}
-          <button
-            type="button"
-            onClick={onOpenDrafts}
-            className="relative min-h-[42px] min-w-[42px] px-2.5 sm:px-3 py-1.5 rounded-2xl border border-restro-border-green bg-restro-gray hover:bg-restro-button-hover text-restro-text text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5 shadow-xs touch-manipulation cursor-pointer select-none shrink-0"
-            title={t('pos.drafts_list', 'Drafts')}
-          >
-            <IconNotes size={16} stroke={iconStroke} />
-            <span className="hidden 2xl:inline">{t('pos.drafts', 'Drafts')}</span>
-            {draftsCount > 0 && (
-              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-extrabold flex items-center justify-center">
-                {draftsCount}
-              </span>
-            )}
-          </button>
-
-          {/* QR Orders Notification Badge */}
-          <button
-            type="button"
-            onClick={onOpenQrOrders}
-            className="relative min-h-[42px] min-w-[42px] px-2.5 sm:px-3 py-1.5 rounded-2xl border border-restro-border-green bg-restro-gray hover:bg-restro-button-hover text-restro-text text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5 shadow-xs touch-manipulation cursor-pointer select-none shrink-0"
-            title={t('pos.qr_menu_orders', 'QR Orders')}
-          >
-            <IconQrcode size={16} stroke={iconStroke} />
-            <span className="hidden 2xl:inline">QR</span>
-            {qrOrdersCount > 0 && (
-              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-extrabold flex items-center justify-center animate-bounce">
-                {qrOrdersCount}
-              </span>
-            )}
-          </button>
-
-          {/* Live Orders Route Link */}
-          <Link
-            to="/dashboard/orders"
-            className="min-h-[42px] min-w-[42px] px-2.5 sm:px-3 py-1.5 rounded-2xl border border-restro-border-green bg-restro-gray hover:bg-restro-button-hover text-restro-text text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5 shadow-xs touch-manipulation select-none shrink-0"
-            title={t('pos.table_orders', 'Live Orders')}
-          >
-            <IconArmchair size={16} stroke={iconStroke} />
-            <span className="hidden 2xl:inline">{t('pos.table_orders', 'Orders')}</span>
-          </Link>
-
-          {/* Dual Screen Launcher */}
-          {onDualScreenClick && (
+          {/* Quick Register Actions (Segmented Toolbar) */}
+          <div className="flex items-center p-0.5 sm:p-1 rounded-2xl bg-restro-gray border border-restro-border-green shadow-xs shrink-0 gap-0.5">
+            {/* Drafts Drawer Trigger */}
             <button
               type="button"
-              onClick={onDualScreenClick}
-              className="min-h-[42px] min-w-[42px] px-2 sm:px-3 py-1.5 rounded-2xl border border-restro-border-green bg-restro-gray hover:bg-restro-button-hover text-restro-text text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5 shadow-xs touch-manipulation cursor-pointer select-none shrink-0"
-              title={t('pos.dual_screen', 'Dual Screen Display')}
+              onClick={onOpenDrafts}
+              className="relative min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl hover:bg-background/80 text-restro-text text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none shrink-0"
+              title={t('pos.drafts_list', 'Held Orders & Drafts')}
             >
-              <IconScreenShare size={16} stroke={iconStroke} />
-              <span className="hidden 2xl:inline">{t('pos.dual_screen', 'Display')}</span>
+              <IconNotes size={16} stroke={iconStroke} />
+              <span className="hidden xl:inline">{t('pos.drafts', 'Drafts')}</span>
+              {draftsCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs">
+                  {draftsCount}
+                </span>
+              )}
             </button>
-          )}
+
+            {/* QR Orders Trigger */}
+            <button
+              type="button"
+              onClick={onOpenQrOrders}
+              className="relative min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl hover:bg-background/80 text-restro-text text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none shrink-0"
+              title={t('pos.qr_menu_orders', 'QR Menu Orders')}
+            >
+              <IconQrcode size={16} stroke={iconStroke} />
+              <span className="hidden xl:inline">QR</span>
+              {qrOrdersCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse shadow-xs">
+                  {qrOrdersCount}
+                </span>
+              )}
+            </button>
+
+            {/* Customer Dual Screen Display */}
+            {onDualScreenClick && (
+              <button
+                type="button"
+                onClick={onDualScreenClick}
+                className="min-h-[42px] px-2 sm:px-2.5 py-1.5 rounded-xl hover:bg-background/80 text-restro-text text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none shrink-0"
+                title={t('pos.dual_screen', 'Customer Dual Screen Display')}
+              >
+                <IconScreenShare size={16} stroke={iconStroke} />
+                <span className="hidden 2xl:inline">{t('pos.dual_screen', 'Display')}</span>
+              </button>
+            )}
+          </div>
 
           {/* New Order Trigger */}
           <button
             type="button"
             onClick={onInitNewOrder}
-            className="min-h-[42px] px-3 sm:px-4 py-1.5 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm touch-manipulation cursor-pointer select-none shrink-0"
+            className="min-h-[42px] px-3 sm:px-4 py-1.5 rounded-2xl bg-restro-green hover:bg-restro-green-button-hover text-white text-xs font-black transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm touch-manipulation cursor-pointer select-none shrink-0"
             title={t('pos.new_order', 'New Ticket')}
           >
             <IconPlus size={16} stroke={2.5} />

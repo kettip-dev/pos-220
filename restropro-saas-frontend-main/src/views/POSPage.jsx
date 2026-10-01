@@ -2392,22 +2392,6 @@ export default function POSPage() {
                 )} />
               </button>
 
-              <button 
-                type="button"
-                onClick={btnOpenSaveDraftModal} 
-                disabled={cartItemsCount === 0}
-                className={clsx(
-                  "text-[11px] font-bold px-2 py-1 rounded-lg border border-restro-border-green transition active:scale-95 flex items-center gap-1",
-                  cartItemsCount === 0 
-                    ? "opacity-40 cursor-not-allowed text-gray-400 bg-transparent" 
-                    : "bg-background hover:bg-restro-button-hover text-restro-text shadow-xs cursor-pointer"
-                )}
-                title={t('pos.draft', 'Hold / Save Draft')}
-              >
-                <IconDeviceFloppy size={13} stroke={iconStroke} />
-                <span className="hidden sm:inline">{t('pos.draft', 'Hold')}</span>
-              </button>
-
               {cartItemsCount > 0 && (
                 <button 
                   type="button"
