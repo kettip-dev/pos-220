@@ -2777,20 +2777,21 @@ export default function POSPage() {
 
             {/* Action Buttons: Unified Single Row for High Tablet Efficiency */}
             <div className="flex items-center gap-2 pt-1 w-full">
-              {/* 1. Hold Draft Button (Instant 1-Tap) / Open Drafts when empty */}
+              {/* 1. Hold Draft Button (Instant 1-Tap) */}
               <button 
                 type="button"
-                onClick={cartItemsCount > 0 ? handleQuickHoldDraft : btnOpenDraftsModal} 
-                title={cartItemsCount > 0 ? t('pos.draft', 'Hold Draft') : t('pos.drafts', 'Held Orders & Drafts')}
-                className="relative min-h-[48px] px-2.5 sm:px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs touch-manipulation cursor-pointer select-none shrink-0 bg-restro-gray hover:bg-restro-button-hover text-restro-text"
+                onClick={handleQuickHoldDraft} 
+                disabled={cartItemsCount === 0}
+                title={t('pos.draft', 'Hold Draft')}
+                className={clsx(
+                  "min-h-[48px] px-2.5 sm:px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs touch-manipulation select-none shrink-0",
+                  cartItemsCount === 0 
+                    ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
+                    : "bg-restro-gray hover:bg-restro-button-hover text-restro-text cursor-pointer"
+                )}
               >
                 <IconDeviceFloppy size={16} stroke={iconStroke} /> 
                 <span className="text-xs font-bold hidden xs:inline">{t('pos.draft', 'Draft')}</span>
-                {drafts.length > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-restro-green text-white shadow-xs">
-                    {drafts.length}
-                  </span>
-                )}
               </button>
 
               {/* 2. Send to Kitchen Button */}
