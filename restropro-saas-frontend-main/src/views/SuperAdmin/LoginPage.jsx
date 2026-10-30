@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Logo from "../../assets/logo.svg";
 import LogoDark from "../../assets/LogoDark.svg";
 import { toast } from "react-hot-toast";
@@ -11,11 +11,26 @@ import {
 } from "../../helpers/UserDetails";
 import { signIn } from "../../controllers/superadmin.controller";
 import { useTheme } from "../../contexts/ThemeContext";
+import LanguageChanger from "../../components/LanguageChanger";
+import {
+  IconShieldLock,
+  IconEye,
+  IconEyeOff,
+  IconMail,
+  IconLock,
+  IconSun,
+  IconMoon,
+  IconArrowLeft,
+  IconShieldCheck,
+} from "@tabler/icons-react";
 
 export default function SuperAdminLoginPage() {
   const { t } = useTranslation();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const restroAuthenticated = isRestroUserAuthenticated();
@@ -23,14 +38,14 @@ export default function SuperAdminLoginPage() {
       const user = getUserDetailsInLocalStorage();
       if (!user) return;
       const { role } = user;
-      if (role == "superadmin") {
+      if (role === "superadmin") {
         navigate("/superadmin/dashboard/home", {
           replace: true,
         });
         return;
       }
     }
-  }, []);
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,18 +66,18 @@ export default function SuperAdminLoginPage() {
     }
 
     try {
+      setIsLoading(true);
       toast.loading(t("superadmin_login.loading_message"));
 
       const res = await signIn(username, password);
 
-      if (res.status == 200) {
+      if (res.status === 200) {
         toast.dismiss();
         toast.success(t("superadmin_login.success_message"));
 
         const user = res.data.user;
         saveUserDetailsInLocalStorage(user);
 
-        const { role } = getUserDetailsInLocalStorage();
         navigate("/superadmin/dashboard/home", {
           replace: true,
         });
@@ -81,89 +96,169 @@ export default function SuperAdminLoginPage() {
       toast.dismiss();
       toast.error(message);
       return;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative overflow-x-hidden md:overflow-hidden bg-restro-green-light dark:bg-restro-card-bg">
-      <img
-        src="/assets/circle_illustration.svg"
-        alt="illustration"
-        className={`absolute w-96 lg:w-[1024px] h-96 lg:h-[1024px] lg:-bottom-96 lg:-right-52 -right-36 ${
-          theme === "black" ? "opacity-80" : ""
-        }`}
-      />
-
-      <div className="flex flex-col md:flex-row items-center justify-end md:justify-between gap-10 h-screen container mx-auto px-4 md:px-0 py-4 md:py-0 relative lg:px-12">
-        <div>
-          <h3 className="text-2xl lg:text-6xl font-black text-restro-green-dark dark:text-restro-green-dark-mode">
-            {t("superadmin_login.title")}
-          </h3>
-          <h3
-            className={`text-2xl lg:text-6xl font-black outline-text ${
-              theme === "black" ? "text-restro-green" : "text-restro-green-dark"
-            }`}
-          >
-            {t("superadmin_login.login")}.
-          </h3>
-        </div>
-
-        <div
-          className={`bg-white dark:bg-black border ${
-            theme === "black"
-              ? "border-restro-border-green"
-              : "border-restro-green-light"
-          } rounded-2xl px-8 py-8 w-full sm:w-96 mx-8 sm:mx-0 shadow-2xl`}
-        >
-          <div className="flex items-center justify-between">
-            <div
-              className={`text-xl font-medium ${
-                theme === "black" ? "text-foreground" : "text-restro-green-dark"
-              }`}
-            >
-              {t("superadmin_login.login")}
-            </div>
-            <div>
-              <img src={theme === "black" ? LogoDark : Logo} className="h-16" />
-            </div>
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white dark:bg-[#0D1117] transition-colors duration-300">
+      {/* RIGHT PANEL: Modern Authentication Console */}
+      <div className="w-full min-h-screen flex flex-col justify-between p-6 sm:p-10 lg:p-12 relative overflow-y-auto">
+        {/* Top Control Bar: Brand Pill + Language + Theme Switcher */}
+        <div className="flex items-center justify-between w-full">
+          {/* Mobile Badge / Brand */}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+              <IconShieldLock size={14} />
+              <span>SuperAdmin</span>
+            </span>
           </div>
 
-          <form className="mt-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="username" className="text-restro-text">
-                {t("superadmin_login.email_label")}
-              </label>
-              <input
-                type="email"
-                id="username"
-                name="username"
-                required
-                placeholder={t("superadmin_login.email_placeholder")}
-                className="mt-1 block w-full px-4 py-3 rounded-xl outline-none focus-visible:ring-1 bg-restro-gray text-restro-text focus-visible:ring-restro-ring"
-              />
+          {/* Quick Controls: Language & Theme Switch */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageChanger className="min-h-[38px] px-3.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-[#30363D] bg-white dark:bg-[#161B22] text-slate-700 dark:text-zinc-200 outline-none cursor-pointer hover:border-slate-300 dark:hover:border-zinc-600 transition shadow-sm" />
+
+            {toggleTheme && (
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="min-h-[38px] min-w-[38px] p-2 rounded-xl border border-slate-200 dark:border-[#30363D] bg-white dark:bg-[#161B22] text-slate-600 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400 active:scale-95 transition-all shadow-sm flex items-center justify-center cursor-pointer"
+                title={theme === "black" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                aria-label="Toggle theme"
+              >
+                {theme === "black" ? <IconSun size={18} /> : <IconMoon size={18} />}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Central Auth Card */}
+        <div className="w-full max-w-[420px] mx-auto my-auto py-6">
+          <div className="bg-white dark:bg-[#161B22] rounded-3xl p-7 sm:p-9 shadow-xl shadow-slate-200/50 dark:shadow-2xl dark:shadow-black/70 border border-slate-200/80 dark:border-[#30363D] transition-all">
+            {/* Card Header & Brand Logo */}
+            <div className="text-center mb-6">
+              <div className="flex justify-center mb-4">
+                <img
+                  src={theme === "black" ? LogoDark : Logo}
+                  alt="Restro PRO Logo"
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
+
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {t("superadmin_login.title")} {t("superadmin_login.login")}
+              </h2>
+              <p className="mt-1.5 text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                {t("superadmin_login.subtitle", "Enter master credentials to access the SaaS management console and global fleet operations.")}
+              </p>
             </div>
 
-            <div className="mt-4">
-              <label htmlFor="password" className="text-restro-text">
-                {t("superadmin_login.password_label")}
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                placeholder={t("superadmin_login.password_placeholder")}
-                className="mt-1 block w-full px-4 py-3 rounded-xl outline-none focus-visible:ring-1 bg-restro-gray text-restro-text focus-visible:ring-restro-ring"
-              />
-            </div>
+            {/* Login Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email / Username Field */}
+              <div>
+                <label
+                  htmlFor="username"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-zinc-300 mb-1.5"
+                >
+                  {t("superadmin_login.email_label")}
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none">
+                    <IconMail size={18} />
+                  </div>
+                  <input
+                    type="email"
+                    id="username"
+                    name="username"
+                    required
+                    tabIndex={1}
+                    autoComplete="username"
+                    placeholder={t("superadmin_login.email_placeholder")}
+                    className="w-full pl-10 pr-4 py-3 min-h-[44px] text-sm rounded-xl outline-none border border-slate-200 dark:border-[#30363D] bg-slate-50/80 dark:bg-[#0D1117] text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:bg-white dark:focus:bg-[#0D1117] focus:ring-2 focus:ring-[#2CA01C]/30 focus:border-[#2CA01C] transition-all"
+                  />
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              className="block w-full mt-6 text-white rounded-xl px-4 py-3 transition hover:scale-105 active:scale-95 hover:shadow-md outline-none focus-visible:ring-1 bg-restro-green focus-visible:ring-restro-ring hover:bg-restro-green-button-hover"
-            >
-              {t("superadmin_login.login_button")}
-            </button>
-          </form>
+              {/* Password Field with Eye Toggle */}
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-zinc-300 mb-1.5"
+                >
+                  {t("superadmin_login.password_label")}
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none">
+                    <IconLock size={18} />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    name="password"
+                    required
+                    tabIndex={2}
+                    autoComplete="current-password"
+                    placeholder={t("superadmin_login.password_placeholder")}
+                    className="w-full pl-10 pr-11 py-3 min-h-[44px] text-sm rounded-xl outline-none border border-slate-200 dark:border-[#30363D] bg-slate-50/80 dark:bg-[#0D1117] text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:bg-white dark:focus:bg-[#0D1117] focus:ring-2 focus:ring-[#2CA01C]/30 focus:border-[#2CA01C] transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 min-h-[38px] min-w-[38px] p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition flex items-center justify-center cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                tabIndex={3}
+                className="w-full mt-2 min-h-[46px] rounded-xl font-semibold text-white bg-[#2CA01C] hover:bg-[#248417] active:scale-95 shadow-md shadow-[#2CA01C]/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {isLoading ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : (
+                  <>
+                    <IconShieldLock size={18} />
+                    <span>{t("superadmin_login.login_button")}</span>
+                  </>
+                )}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-4 py-1">
+                <div className="flex-1 border-b border-slate-200 dark:border-[#30363D]" />
+                <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-zinc-500 font-medium">
+                  {t("superadmin_login.portal_badge", "SuperAdmin Console")}
+                </span>
+                <div className="flex-1 border-b border-slate-200 dark:border-[#30363D]" />
+              </div>
+
+              {/* Return to Tenant POS Link */}
+              <Link
+                to="/login"
+                tabIndex={4}
+                className="w-full min-h-[44px] rounded-xl text-sm font-semibold text-slate-700 dark:text-zinc-200 bg-slate-100 hover:bg-slate-200 dark:bg-[#21262D] dark:hover:bg-[#30363D] active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <IconArrowLeft size={16} />
+                <span>{t("superadmin_login.back_to_pos", "Back to Restaurant POS Login")}</span>
+              </Link>
+            </form>
+          </div>
+        </div>
+
+        {/* Security & System Footer */}
+        <div className="text-center py-2">
+          <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-zinc-500">
+            <IconShieldCheck size={15} className="text-[#2CA01C]" />
+            <span>{t("superadmin_login.security_note", "Restricted Master Access • 256-Bit TLS End-to-End Encrypted")}</span>
+          </div>
         </div>
       </div>
     </div>

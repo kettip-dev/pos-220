@@ -24,6 +24,9 @@ import {
   IconDeviceMobile,
   IconMessageCheck,
   IconDeviceFloppy,
+  IconReceipt2,
+  IconCash,
+  IconClock,
 } from "@tabler/icons-react";
 import QRCode from "qrcode";
 import { getQRMenuLink } from "../../helpers/QRMenuHelper";
@@ -44,6 +47,7 @@ export default function SettingDetailsPage() {
   const exchangeRateRef = useRef();
   const isQRMenuEnabledRef = useRef();
   const isQROrderEnabledRef = useRef();
+  const isQROrderAutoKitchenRef = useRef();
   const isFeedbackEnabledRef = useRef();
   const { theme } = useTheme();
   const user = getUserDetailsInLocalStorage();
@@ -60,12 +64,16 @@ export default function SettingDetailsPage() {
     useStoreSettings();
 
   const [qrMenuChecked, setQrMenuChecked] = useState(false);
+  const [posPaymentMode, setPosPaymentMode] = useState(data?.posPaymentMode || "flexible");
 
   useEffect(() => {
     if (data?.isQRMenuEnabled !== undefined) {
       setQrMenuChecked(data.isQRMenuEnabled);
     }
-  }, [data?.isQRMenuEnabled]);
+    if (data?.posPaymentMode) {
+      setPosPaymentMode(data.posPaymentMode);
+    }
+  }, [data?.isQRMenuEnabled, data?.posPaymentMode]);
 
   if (isLoading) {
     return (
@@ -103,6 +111,7 @@ export default function SettingDetailsPage() {
     isQRMenuEnabled,
     uniqueQRCode,
     isQROrderEnabled,
+    isQROrderAutoKitchen,
     isFeedbackEnabled,
     uniqueId,
   } = data;
@@ -120,6 +129,8 @@ export default function SettingDetailsPage() {
       isQRMenuEnabledRef.current.checked;
     const isQROrderEnabledVal =
       isQROrderEnabledRef.current.checked;
+    const isQROrderAutoKitchenVal =
+      Boolean(isQROrderAutoKitchenRef.current?.checked);
     const isFeedbackEnabledVal =
       isFeedbackEnabledRef.current.checked;
 
@@ -136,6 +147,8 @@ export default function SettingDetailsPage() {
         isQROrderEnabledVal,
         isFeedbackEnabledVal,
         Number(exchangeRateVal) || 4100,
+        isQROrderAutoKitchenVal,
+        posPaymentMode,
       );
 
       if (res.status == 200) {
@@ -601,7 +614,7 @@ export default function SettingDetailsPage() {
                   <Popover text={t("settings.qr_order_tooltip")} />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Allow customers to place orders directly through QR.
+                  Allow customers to place orders directly through QR (protected by 4-digit Table PIN).
                 </p>
               </div>
             </div>
@@ -616,6 +629,38 @@ export default function SettingDetailsPage() {
                 id="qrorder"
                 className="sr-only peer"
                 onChange={(e) => handleToggleChange(e, "qrorder")}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-restro-green"></div>
+            </label>
+          </div>
+
+          {/* FEATURE 2B: Auto-Send PIN-Verified QR Orders to Kitchen KDS */}
+          <div className="py-4 px-2 sm:px-3 rounded-xl hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors flex items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#F2FBF5] dark:bg-emerald-950/40 text-restro-green flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                <IconQrcode size={20} stroke={1.8} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h5 className="text-sm font-semibold text-gray-800 dark:text-white">
+                    {t("settings.qr_auto_kitchen", "Auto-Send Verified QR Orders to Kitchen (KDS)")}
+                  </h5>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  When OFF (default), PIN-verified QR orders land in the Staff Approval Queue (1-tap approve in POS & Tables). When ON, PIN-verified orders route straight to Kitchen KDS stations.
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5 sm:mt-0">
+              <input
+                ref={isQROrderAutoKitchenRef}
+                defaultChecked={Boolean(isQROrderAutoKitchen)}
+                type="checkbox"
+                name="qrorder_auto_kitchen"
+                id="qrorder_auto_kitchen"
+                className="sr-only peer"
+                onChange={(e) => handleToggleChange(e, "qrorder_auto_kitchen")}
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-restro-green"></div>
             </label>
@@ -653,6 +698,103 @@ export default function SettingDetailsPage() {
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-restro-green"></div>
             </label>
+          </div>
+
+          {/* FEATURE 4: POS Billing & Payment Mode (Prepaid vs Postpaid vs Flexible) */}
+          <div className="py-5 px-2 sm:px-3 rounded-xl hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#F2FBF5] dark:bg-emerald-950/40 text-restro-green flex items-center justify-center shrink-0 mt-0.5">
+                <IconReceipt2 size={20} stroke={1.8} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h5 className="text-sm font-semibold text-gray-800 dark:text-white">
+                    {t("settings.pos_billing_mode", "POS Billing & Payment Mode")}
+                  </h5>
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                    POS Workflow
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {t(
+                    "settings.pos_billing_mode_desc",
+                    "Choose how orders are settled on the POS terminal. You can restrict the checkout flow or allow cashiers flexible choice per order."
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* 3-Card Interactive Option Selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              {/* Option 1: Flexible / Dual Mode */}
+              <div
+                onClick={() => setPosPaymentMode("flexible")}
+                className={`min-h-[76px] p-3.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.98] select-none ${
+                  posPaymentMode === "flexible"
+                    ? "border-restro-green bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs"
+                    : "border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:border-gray-300 dark:hover:border-neutral-700"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${posPaymentMode === "flexible" ? "bg-restro-green" : "bg-gray-300"}`} />
+                    {t("settings.mode_flexible", "Flexible / Both")}
+                  </span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300">
+                    Default
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">
+                  Cashier can choose between Pay & Settle or Send to Kitchen (Pay Later) per order.
+                </p>
+              </div>
+
+              {/* Option 2: Prepaid Only */}
+              <div
+                onClick={() => setPosPaymentMode("prepaid")}
+                className={`min-h-[76px] p-3.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.98] select-none ${
+                  posPaymentMode === "prepaid"
+                    ? "border-restro-green bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs"
+                    : "border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:border-gray-300 dark:hover:border-neutral-700"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${posPaymentMode === "prepaid" ? "bg-restro-green" : "bg-gray-300"}`} />
+                    {t("settings.mode_prepaid", "Prepaid Only")}
+                  </span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    Pay First
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">
+                  Fast casual & counter POS. All orders must be paid upfront before dispatching to kitchen.
+                </p>
+              </div>
+
+              {/* Option 3: Postpaid Only */}
+              <div
+                onClick={() => setPosPaymentMode("postpaid")}
+                className={`min-h-[76px] p-3.5 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between active:scale-[0.98] select-none ${
+                  posPaymentMode === "postpaid"
+                    ? "border-restro-green bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs"
+                    : "border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-850 hover:border-gray-300 dark:hover:border-neutral-700"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${posPaymentMode === "postpaid" ? "bg-restro-green" : "bg-gray-300"}`} />
+                    {t("settings.mode_postpaid", "Postpaid Only")}
+                  </span>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                    Pay Later
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight">
+                  Full service & dine-in. Orders route to kitchen first and are settled later from Orders/Tables.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -18,12 +18,21 @@ export async function signIn(username, password) {
     }
 }
 
-export async function signUp(biz_name, username, password) {
+export async function signUp(biz_name_or_payload, username, password, extraData = {}) {
     axios.defaults.withCredentials = true;
+    let payload = {};
+    if (typeof biz_name_or_payload === "object" && biz_name_or_payload !== null) {
+        payload = biz_name_or_payload;
+    } else {
+        payload = {
+            biz_name: biz_name_or_payload,
+            username,
+            password,
+            ...extraData,
+        };
+    }
     try {
-        const response = await axios.post(`${API}/auth/signup`, {
-            biz_name, username, password
-        });
+        const response = await axios.post(`${API}/auth/signup`, payload);
 
         return response;
     } catch (error) {
@@ -118,12 +127,13 @@ export async function cancelSubscription(subscriptionId) {
     }
 }
 
-export async function googleSignIn(idToken, bizName = null) {
+export async function googleSignIn(idToken, bizName = null, extraData = {}) {
     axios.defaults.withCredentials = true;
     try {
         const response = await axios.post(`${API}/auth/google`, {
             idToken,
-            bizName
+            bizName,
+            ...extraData,
         });
         return response;
     } catch (error) {

@@ -15,11 +15,14 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
-  IconAlertTriangleFilled,
+  IconPlus,
+  IconDownload,
+  IconPrinter,
+  IconSettings,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { iconStroke, subscriptionPrice } from "../../config/config";
 import {
-  useSuperAdminTenantsData,
   getTenantsData,
   addTenant,
   updateTenant,
@@ -30,11 +33,11 @@ import {
 import { clsx } from "clsx";
 import { toast } from "react-hot-toast";
 import { validateEmail } from "../../utils/emailValidator";
-import { mutate } from "swr";
 import useDebounce from "../../utils/useDebounce";
 import { Link } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getPlans } from "../../controllers/plans.controller";
+
 export default function SuperAdminTenantsPage() {
   const { t } = useTranslation();
   const filters = [
@@ -50,7 +53,7 @@ export default function SuperAdminTenantsPage() {
   const filterTypeRef = useRef();
   const fromDateRef = useRef();
   const toDateRef = useRef();
-  const {theme} = useTheme();
+  const { theme } = useTheme();
 
   // For Add tenant
   const nameRef = useRef();
@@ -72,6 +75,9 @@ export default function SuperAdminTenantsPage() {
   // For Delete
   const [tenantIdForDelete, setTenantIdForDelete] = useState(null);
 
+  // Selected row ids for QuickBooks batch selection
+  const [selectedTenantIds, setSelectedTenantIds] = useState([]);
+
   const now = new Date();
   const defaultDateFrom = `${now.getFullYear()}-${(now.getMonth() + 1)
     .toString()
@@ -85,7 +91,7 @@ export default function SuperAdminTenantsPage() {
     tenants: [],
     search: "",
     page: 1,
-    perPage: 5,
+    perPage: 10,
     totalPages: 1,
     totalTenants: 0,
     activeTenants: 0,
@@ -94,17 +100,12 @@ export default function SuperAdminTenantsPage() {
     filter: null,
     fromDate: null,
     toDate: null,
+    isLoading: true,
   });
-
-  // const {
-  //   data: superAdminTenantsData,
-  //   error: superAdminTenantsError,
-  //   isLoading: superAdminTenantsLoading,
-  //   APIURL,
-  // } = useSuperAdminTenantsData(); //FIXME: convert to regular api call instead of swr
 
   const fetchData = async () => {
     try {
+      setState((prev) => ({ ...prev, isLoading: true }));
       const superAdminTenantsData = await getSuperAdminTenantsData();
       const { activeTenants, inactiveTenants, allTenants } =
         superAdminTenantsData.data;
@@ -121,32 +122,28 @@ export default function SuperAdminTenantsPage() {
 
       if (data) {
         const { tenants, currentPage, perPage } = data;
-
-        // Destructure current state values
         const { status } = state;
 
-        // Determine the total number of tenants and total pages based on status
         let totalTenants;
         let totalPages;
 
         switch (status) {
           case "active":
             totalTenants = activeTenants;
-            totalPages = Math.ceil(activeTenants / perPage);
+            totalPages = Math.max(1, Math.ceil(activeTenants / perPage));
             break;
           case "inactive":
             totalTenants = inactiveTenants;
-            totalPages = Math.ceil(inactiveTenants / perPage);
+            totalPages = Math.max(1, Math.ceil(inactiveTenants / perPage));
             break;
           default:
             totalTenants = allTenants;
-            totalPages = Math.ceil(allTenants / perPage);
+            totalPages = Math.max(1, Math.ceil(allTenants / perPage));
         }
 
-        // Update state
         setState((prevState) => ({
           ...prevState,
-          tenants,
+          tenants: tenants || [],
           page: currentPage,
           perPage,
           totalPages,
@@ -154,12 +151,14 @@ export default function SuperAdminTenantsPage() {
           activeTenants,
           inactiveTenants,
           allTenants,
+          isLoading: false,
         }));
       }
     } catch (error) {
-      console.error(t('superadmin_tenants.error_loading_tenants_data'), error);
+      console.error(t("superadmin_tenants.error_loading_tenants_data"), error);
+      setState((prev) => ({ ...prev, isLoading: false }));
       toast.dismiss();
-      toast.error(t('superadmin_tenants.error_loading_tenants_data'));
+      toast.error(t("superadmin_tenants.error_loading_tenants_data"));
     }
   };
 
@@ -169,7 +168,7 @@ export default function SuperAdminTenantsPage() {
       if (res.status === 200) {
         const list = Array.isArray(res.data?.data)
           ? res.data.data
-          : (res.data?.data?.plans || res.data?.plans || []);
+          : res.data?.data?.plans || res.data?.plans || [];
         setPlansList(list);
       }
     } catch (err) {
@@ -190,9 +189,6 @@ export default function SuperAdminTenantsPage() {
     state.filter,
     state.fromDate,
     state.toDate,
-    state.activeTenants, // Added dependency
-    state.inactiveTenants, // Added dependency
-    state.allTenants, // Added dependency
   ]);
 
   const handleTabChange = (newStatus) => {
@@ -201,6 +197,7 @@ export default function SuperAdminTenantsPage() {
       status: newStatus,
       page: 1,
     }));
+    setSelectedTenantIds([]);
   };
 
   useDebounce(
@@ -208,7 +205,7 @@ export default function SuperAdminTenantsPage() {
       fetchData();
     },
     [state.search],
-    800
+    500
   );
 
   const handleSearchChange = (event) => {
@@ -220,35 +217,28 @@ export default function SuperAdminTenantsPage() {
     }));
   };
 
-  const btnPaginationFirstPage = () => {
-    setState({
-      ...state,
+  const handlePerPageChange = (e) => {
+    const newPerPage = parseInt(e.target.value, 10);
+    setState((prev) => ({
+      ...prev,
+      perPage: newPerPage,
       page: 1,
-    });
+    }));
   };
-  const btnPaginationLastPage = () => {
-    const totalPages =
-      state.status === "active"
-        ? Math.ceil(state.activeTenants / state.perPage)
-        : state.status === "inactive"
-        ? Math.ceil(state.inactiveTenants / state.perPage)
-        : Math.ceil(state.allTenants / state.perPage);
 
+  const btnPaginationFirstPage = () => {
+    setState((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const btnPaginationLastPage = () => {
     setState((prevState) => ({
       ...prevState,
-      page: totalPages,
+      page: prevState.totalPages,
     }));
   };
 
   const btnPaginationNextPage = () => {
-    const totalPages =
-      state.status === "active"
-        ? Math.ceil(state.activeTenants / state.perPage)
-        : state.status === "inactive"
-        ? Math.ceil(state.inactiveTenants / state.perPage)
-        : Math.ceil(state.allTenants / state.perPage);
-
-    if (state.page < totalPages) {
+    if (state.page < state.totalPages) {
       setState((prevState) => ({
         ...prevState,
         page: prevState.page + 1,
@@ -265,6 +255,21 @@ export default function SuperAdminTenantsPage() {
     }
   };
 
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allIds = state.tenants.map((t) => t.id);
+      setSelectedTenantIds(allIds);
+    } else {
+      setSelectedTenantIds([]);
+    }
+  };
+
+  const handleSelectRow = (id) => {
+    setSelectedTenantIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   const handleExportCSV = async () => {
     try {
       const { Parser } = await import("@json2csv/plainjs");
@@ -273,25 +278,24 @@ export default function SuperAdminTenantsPage() {
       const opts = {};
       const parser = new Parser(opts);
 
-      const currStatus = state.status != "" ? state.status : "all";
+      const currStatus = state.status !== "" ? state.status : "all";
       const res = await getTenantsDataByStatus(currStatus);
 
-      if (res.status == 200) {
+      if (res.status === 200) {
         const data = res.data.map((tenant) => ({
           Name: tenant.name || "",
           Email: tenant.email || "",
           Status: tenant.is_active ? "Active" : "Inactive",
           Subscription_Start_Date: tenant.subscription_start || "",
           Subscription_End_Date: tenant.subscription_end || "",
-          Plan: subscriptionPrice,
+          Plan: tenant.plan_title || subscriptionPrice || "Full Access",
         }));
 
         const csv = parser.parse(data);
-
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
 
         const formattedStatus =
-          state.status != ""
+          state.status !== ""
             ? `${state.status.charAt(0).toUpperCase() + state.status.slice(1)}`
             : "All";
         const formattedDate = `${new Date().toISOString().substring(0, 10)}`;
@@ -300,13 +304,17 @@ export default function SuperAdminTenantsPage() {
         saveAs(blob, fileName);
 
         toast.dismiss();
-        toast.success(t('superadmin_tenants.data_exported_successfully'));
+        toast.success(t("superadmin_tenants.data_exported_successfully"));
       }
     } catch (error) {
-      console.error(t('superadmin_tenants.failed_to_export_data'), error);
+      console.error(t("superadmin_tenants.failed_to_export_data"), error);
       toast.dismiss();
-      toast.error(t('superadmin_tenants.failed_to_export_data'));
+      toast.error(t("superadmin_tenants.failed_to_export_data"));
     }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   const btnAdd = async () => {
@@ -316,44 +324,54 @@ export default function SuperAdminTenantsPage() {
     const isActive = isActiveRef.current.checked;
 
     if (!name) {
-      toast.error(t('superadmin_tenants.please_provide_name'));
+      toast.error(t("superadmin_tenants.please_provide_name"));
       return;
     }
     if (!username) {
-      toast.error(t('superadmin_tenants.please_provide_email'));
+      toast.error(t("superadmin_tenants.please_provide_email"));
       return;
     }
     if (!password) {
-      toast.error(t('superadmin_tenants.please_provide_password'));
+      toast.error(t("superadmin_tenants.please_provide_password"));
       return;
     }
 
     if (!validateEmail(username)) {
-      toast.error(t('superadmin_tenants.please_provide_valid_email'));
+      toast.error(t("superadmin_tenants.please_provide_valid_email"));
       return;
     }
 
     try {
-      toast.loading(t('superadmin_tenants.please_wait'));
+      toast.loading(t("superadmin_tenants.please_wait"));
       const selectedPlan = planRef.current?.value || null;
-      const res = await addTenant(name, username, password, isActive, selectedPlan);
+      const res = await addTenant(
+        name,
+        username,
+        password,
+        isActive,
+        selectedPlan
+      );
 
-      if (res.status == 200) {
-        nameRef.current.value = null;
-        usernameRef.current.value = null;
-        passwordRef.current.value = null;
-        isActiveRef.current.checked = false;
+      if (res.status === 200) {
+        nameRef.current.value = "";
+        usernameRef.current.value = "";
+        passwordRef.current.value = "";
+        isActiveRef.current.checked = true;
         if (planRef.current) planRef.current.value = "";
 
-        // await mutate(APIURL);
+        const modal = document.getElementById("modal-add");
+        if (modal) modal.close();
+
         await fetchData();
 
         toast.dismiss();
         toast.success(res.data.message);
       }
     } catch (error) {
-      console.log(t('superadmin_tenants.something_went_wrong'), error);
-      const message = error?.response?.data?.message || t('superadmin_tenants.something_went_wrong');
+      console.log(t("superadmin_tenants.something_went_wrong"), error);
+      const message =
+        error?.response?.data?.message ||
+        t("superadmin_tenants.something_went_wrong");
       console.error(error);
 
       toast.dismiss();
@@ -361,53 +379,66 @@ export default function SuperAdminTenantsPage() {
     }
   };
 
-  const btnShowUpdate = (name, email, isActive, tenantId, paymentGatewayProductId) => {
+  const btnShowUpdate = (
+    name,
+    email,
+    isActive,
+    tenantId,
+    paymentGatewayProductId
+  ) => {
     updatenameRef.current.value = name || "";
     updateusernameRef.current.value = email || "";
     if (updatepasswordRef.current) updatepasswordRef.current.value = "";
-    updateisActiveRef.current.checked = isActive || 0;
+    updateisActiveRef.current.checked = Boolean(isActive);
     setSelectedPlanForUpdate(paymentGatewayProductId || "");
 
     setTenantIdForUpdate(tenantId);
 
-    document.getElementById("modal-update-tenant").showModal();
+    const modal = document.getElementById("modal-update-tenant");
+    if (modal) modal.showModal();
   };
 
   async function btnUpdate() {
     const name = updatenameRef.current.value;
     const email = updateusernameRef.current.value;
-    const isActive = updateisActiveRef.current.checked || 0;
+    const isActive = updateisActiveRef.current.checked ? 1 : 0;
 
     if (!name) {
-      toast.error(t('superadmin_tenants.please_provide_name'));
+      toast.error(t("superadmin_tenants.please_provide_name"));
       return;
     }
 
     if (!email) {
-      toast.error(t('superadmin_tenants.please_provide_email'));
+      toast.error(t("superadmin_tenants.please_provide_email"));
       return;
     }
 
-    if (email) {
-      if (!validateEmail(email)) {
-        toast.error(t('superadmin_tenants.please_provide_valid_email'));
-        return;
-      }
+    if (!validateEmail(email)) {
+      toast.error(t("superadmin_tenants.please_provide_valid_email"));
+      return;
     }
 
     try {
-      toast.loading(t('superadmin_tenants.please_wait'));
+      toast.loading(t("superadmin_tenants.please_wait"));
       const password = updatepasswordRef.current?.value || null;
-      const res = await updateTenant(name, email, isActive, tenantIdForUpdate, selectedPlanForUpdate || null, password);
+      const res = await updateTenant(
+        name,
+        email,
+        isActive,
+        tenantIdForUpdate,
+        selectedPlanForUpdate || null,
+        password
+      );
 
-      if (res.status == 200) {
-        updatenameRef.current.value = null;
-        updateusernameRef.current.value = null;
+      if (res.status === 200) {
+        updatenameRef.current.value = "";
+        updateusernameRef.current.value = "";
         if (updatepasswordRef.current) updatepasswordRef.current.value = "";
-        updateisActiveRef.current.checked = 0;
+        updateisActiveRef.current.checked = false;
         setSelectedPlanForUpdate("");
 
-        // await mutate(APIURL);
+        const modal = document.getElementById("modal-update-tenant");
+        if (modal) modal.close();
 
         await fetchData();
 
@@ -415,7 +446,9 @@ export default function SuperAdminTenantsPage() {
         toast.success(res.data.message);
       }
     } catch (error) {
-      const message = error?.response?.data?.message || t('superadmin_tenants.something_went_wrong');
+      const message =
+        error?.response?.data?.message ||
+        t("superadmin_tenants.something_went_wrong");
       console.error(error);
 
       toast.dismiss();
@@ -423,24 +456,22 @@ export default function SuperAdminTenantsPage() {
     }
   }
 
-  const btnShowDelete = (tenantId) => {
-    setTenantIdForDelete(tenantId);
-  };
-
   const btnDelete = async (tenantId) => {
     try {
-      toast.loading(t('superadmin_tenants.please_wait'));
+      toast.loading(t("superadmin_tenants.please_wait"));
       const res = await deleteTenant(tenantId);
 
-      if (res.status == 200) {
-        // await mutate(APIURL);
+      if (res.status === 200) {
         await fetchData();
+        setSelectedTenantIds((prev) => prev.filter((id) => id !== tenantId));
         toast.dismiss();
         toast.success(res.data.message);
       }
     } catch (error) {
       console.log(error);
-      const message = error?.response?.data?.message || t('superadmin_tenants.something_went_wrong');
+      const message =
+        error?.response?.data?.message ||
+        t("superadmin_tenants.something_went_wrong");
       console.error(error);
 
       toast.dismiss();
@@ -448,373 +479,634 @@ export default function SuperAdminTenantsPage() {
     }
   };
 
+  const isAllSelected =
+    state.tenants.length > 0 &&
+    state.tenants.every((t) => selectedTenantIds.includes(t.id));
+
   return (
-    <Page className="px-4 py-3 overflow-x-hidden h-full">
-      <div className="flex gap-6 items-center mb-6 mt-6">
-        <h1 className="text-2xl font-semibold">{t('superadmin_tenants.title')}</h1>
-        <button
-          onClick={() => document.getElementById("modal-add").showModal()}
-          className="bg-restro-green text-white text-sm px-6 py-2 rounded-[42px] hover:bg-restro-green/80"
-        >
-          {t('superadmin_tenants.add_tenant')}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
-        <button
-          className={clsx(
-            'flex flex-col p-6 gap-1 rounded-3xl border border-restro-border-green bg-[url(/assets/wave-bg.svg)] bg-cover bg-right cursor-pointer',
-            {
-              'border-2 border-restro-green': state.status === 'active',
-            }
-          )}
-          onClick={() => handleTabChange("active")}
-        >
-          <span className="text-base lg:text-lg font-bold text-restro-text">
-            {t('superadmin_tenants.active')}
-          </span>
-          <span className="text-4xl lg:text-5xl font-black text-restro-green">
-            {state.activeTenants}
-          </span>
-        </button>
-
-        <button
-          className={`flex flex-col p-6 gap-1 rounded-3xl border border-restro-border-green cursor-pointer ${
-            state.status === "inactive" ? "border-2 border-restro-green" : ""
-          }`}
-          onClick={() => handleTabChange("inactive")}
-        >
-          <span className="text-base lg:text-lg font-medium text-restro-text">
-            {t('superadmin_tenants.inactive')}
-          </span>
-          <span className="text-4xl lg:text-5xl font-black text-gray-800 dark:text-gray-200">
-            {state.inactiveTenants}
-          </span>
-        </button>
-
-        <button
-          className={`flex flex-col p-6 gap-1 rounded-3xl border border-restro-border-green cursor-pointer ${
-            state.status === "" ? "border-2 border-restro-green" : ""
-          }`}
-          onClick={() => handleTabChange("")}
-        >
-          <span className="text-base lg:text-lg font-medium text-restro-text">
-            {t('superadmin_tenants.all')}
-          </span>
-          <span className="text-4xl lg:text-5xl font-black text-gray-800 dark:text-gray-200">
-            {state.allTenants}
-          </span>
-        </button>
-      </div>
-
-      <div className="flex flex-col px-6 py-6 border border-restro-border-green rounded-3xl">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-          <div className="flex items-center backdrop-blur sticky top-0 z-10 rounded-t-2xl w-full sm:w-auto gap-2">
-            <label className="flex-grow bg-restro-gray rounded-[42px] px-3 py-2 text-gray-500 flex items-center gap-2 w-full">
-              <IconSearch size={16} stroke={iconStroke} />
-              <input
-                type="search"
-                placeholder={t('superadmin_tenants.search_placeholder')}
-                value={state.search}
-                onChange={handleSearchChange}
-                className="w-full bg-transparent outline-none text-sm"
-              />
-            </label>
-            <button
-              onClick={() =>
-                document.getElementById("filter-dialog").showModal()
-              }
-              className="btn btn-circle btn-sm bg-restro-gray hover:bg-restro-button-hover m-1"
-            >
-              <IconFilter size={16} stroke={iconStroke} />
-            </button>
+    <div className="space-y-5 animate-in fade-in duration-200">
+      
+      {/* Page Title & QuickBooks Action Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+            <span>Dashboard</span>
+            <span>/</span>
+            <span>Business Management</span>
+            <span>/</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">
+              {t("superadmin_tenants.title", "Businesses")}
+            </span>
           </div>
-          <button
-            onClick={handleExportCSV}
-            className="mt-2 sm:mt-0 bg-restro-green text-white text-sm px-4 sm:px-6 py-2 rounded-[42px] hover:bg-restro-green-button-hover whitespace-nowrap w-full sm:w-auto"
-          >
-            {state.status !== ""
-              ? t('superadmin_tenants.export_active_tenants')
-              : t('superadmin_tenants.export_all_tenants')}
-          </button>
+
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+              {t("superadmin_tenants.title", "All Businesses")}
+            </h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+              {state.totalTenants} {t("superadmin_tenants.all", "Total")}
+            </span>
+          </div>
         </div>
 
-        {state.tenants.length === 0 ? (
-          <div className="text-center w-full h-[50vh] flex flex-col items-center justify-center text-gray-500">
-            <p>{t('superadmin_tenants.no_tenants_found')}</p>
+        {/* Action Group */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchData()}
+            title="Refresh Data"
+            className="p-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#161B22] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition shadow-2xs"
+          >
+            <IconRefresh
+              size={18}
+              stroke={iconStroke}
+              className={state.isLoading ? "animate-spin" : ""}
+            />
+          </button>
+
+          <button
+            onClick={() => document.getElementById("modal-add").showModal()}
+            className="inline-flex items-center gap-2 bg-[#2CA01C] hover:bg-[#248417] text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-full shadow-sm hover:shadow transition active:scale-95"
+          >
+            <IconPlus size={18} stroke={2.5} />
+            <span>{t("superadmin_tenants.add_tenant", "Add Business")}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* QuickBooks Iconic Horizontal Status Ribbon / "Money Bar" */}
+      <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xs overflow-hidden grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200 dark:divide-gray-800">
+        
+        {/* Active Tab */}
+        <button
+          type="button"
+          onClick={() => handleTabChange("active")}
+          className={clsx(
+            "relative text-left p-4 sm:p-5 transition-all flex flex-col justify-between group",
+            state.status === "active"
+              ? "bg-emerald-50/60 dark:bg-emerald-950/20"
+              : "hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
+          )}
+        >
+          {/* Top Indicator Strip */}
+          <div
+            className={clsx(
+              "absolute top-0 left-0 right-0 h-1 transition-all",
+              state.status === "active" ? "bg-[#2CA01C]" : "bg-transparent group-hover:bg-emerald-400/50"
+            )}
+          />
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#2CA01C]" />
+              {t("superadmin_tenants.active", "Active")}
+            </span>
+            <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full">
+              Live
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              {state.activeTenants}
+            </span>
+            <span className="text-xs text-gray-500 font-normal">
+              tenants operational
+            </span>
+          </div>
+        </button>
+
+        {/* Inactive Tab */}
+        <button
+          type="button"
+          onClick={() => handleTabChange("inactive")}
+          className={clsx(
+            "relative text-left p-4 sm:p-5 transition-all flex flex-col justify-between group",
+            state.status === "inactive"
+              ? "bg-amber-50/60 dark:bg-amber-950/20"
+              : "hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
+          )}
+        >
+          <div
+            className={clsx(
+              "absolute top-0 left-0 right-0 h-1 transition-all",
+              state.status === "inactive" ? "bg-amber-500" : "bg-transparent group-hover:bg-amber-400/50"
+            )}
+          />
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              {t("superadmin_tenants.inactive", "Inactive")}
+            </span>
+            <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+              Paused
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              {state.inactiveTenants}
+            </span>
+            <span className="text-xs text-gray-500 font-normal">
+              needs attention
+            </span>
+          </div>
+        </button>
+
+        {/* All Tab */}
+        <button
+          type="button"
+          onClick={() => handleTabChange("")}
+          className={clsx(
+            "relative text-left p-4 sm:p-5 transition-all flex flex-col justify-between group",
+            state.status === ""
+              ? "bg-blue-50/60 dark:bg-blue-950/20"
+              : "hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
+          )}
+        >
+          <div
+            className={clsx(
+              "absolute top-0 left-0 right-0 h-1 transition-all",
+              state.status === "" ? "bg-[#0077C5]" : "bg-transparent group-hover:bg-blue-400/50"
+            )}
+          />
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#0077C5]" />
+              {t("superadmin_tenants.all", "All Businesses")}
+            </span>
+            <span className="text-[11px] font-medium text-blue-700 dark:text-blue-400 bg-blue-100/70 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">
+              Total
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+              {state.allTenants}
+            </span>
+            <span className="text-xs text-gray-500 font-normal">
+              registered restaurants
+            </span>
+          </div>
+        </button>
+
+      </div>
+
+      {/* QuickBooks Pro Data Table Card */}
+      <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xs overflow-hidden">
+        
+        {/* Table Toolbar Header */}
+        <div className="p-3.5 sm:p-4 border-b border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#FAFBFD] dark:bg-[#161B22]">
+          
+          {/* Left: Search & Filter */}
+          <div className="flex items-center gap-2 flex-1 max-w-lg">
+            <div className="relative flex-1">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                <IconSearch size={16} stroke={iconStroke} />
+              </div>
+              <input
+                type="search"
+                placeholder={t("superadmin_tenants.search_placeholder", "Filter by business name or email...")}
+                value={state.search}
+                onChange={handleSearchChange}
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#2CA01C] focus:border-[#2CA01C] transition"
+              />
+            </div>
+
+            <button
+              onClick={() => document.getElementById("filter-dialog").showModal()}
+              type="button"
+              className={clsx(
+                "h-8 px-2.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs",
+                state.filter
+                  ? "border-[#2CA01C] bg-emerald-50 text-[#108000] dark:bg-emerald-950/40"
+                  : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50"
+              )}
+            >
+              <IconFilter size={15} stroke={iconStroke} />
+              <span className="hidden sm:inline">{t("superadmin_tenants.filter", "Filter")}</span>
+              {state.filter && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2CA01C]" />
+              )}
+            </button>
+
+            {state.filter && (
+              <button
+                onClick={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    filter: null,
+                    fromDate: null,
+                    toDate: null,
+                  }))
+                }
+                title="Clear filter"
+                className="text-xs text-red-600 hover:underline px-1"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Right: QuickBooks Actions (Export, Print, Gear) */}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={handleExportCSV}
+              type="button"
+              title="Export Table to CSV"
+              className="h-8 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60 text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs"
+            >
+              <IconDownload size={15} stroke={iconStroke} />
+              <span>
+                {state.status !== ""
+                  ? t("superadmin_tenants.export_active_tenants", "Export Active")
+                  : t("superadmin_tenants.export_all_tenants", "Export All")}
+              </span>
+            </button>
+
+            <button
+              onClick={handlePrint}
+              type="button"
+              title="Print Table"
+              className="h-8 w-8 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60 flex items-center justify-center transition shadow-2xs"
+            >
+              <IconPrinter size={15} stroke={iconStroke} />
+            </button>
+
+            <button
+              type="button"
+              title="Table Preferences"
+              className="h-8 w-8 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60 flex items-center justify-center transition shadow-2xs"
+            >
+              <IconSettings size={15} stroke={iconStroke} />
+            </button>
+          </div>
+
+        </div>
+
+        {/* Selected Rows Batch Bar (QuickBooks standard) */}
+        {selectedTenantIds.length > 0 && (
+          <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between text-xs font-medium text-emerald-900 dark:text-emerald-200">
+            <span>
+              {selectedTenantIds.length} business{selectedTenantIds.length > 1 ? "es" : ""} selected
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedTenantIds([])}
+                className="hover:underline text-gray-600 dark:text-gray-400"
+              >
+                Deselect all
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Table Body Area */}
+        {state.isLoading ? (
+          <div className="h-64 flex flex-col items-center justify-center gap-2">
+            <span className="w-8 h-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#2CA01C]" />
+            <p className="text-xs text-gray-500">Loading business tenants...</p>
+          </div>
+        ) : state.tenants.length === 0 ? (
+          <div className="h-64 flex flex-col items-center justify-center text-center px-4">
+            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3 text-gray-400">
+              <IconBuildingStore size={24} stroke={iconStroke} />
+            </div>
+            <p className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
+              {t("superadmin_tenants.no_tenants_found", "No businesses found")}
+            </p>
+            <p className="text-xs text-gray-500 max-w-sm mb-4">
+              Try adjusting your search criteria or add a new restaurant tenant.
+            </p>
+            <button
+              onClick={() => document.getElementById("modal-add").showModal()}
+              className="inline-flex items-center gap-1.5 bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-semibold px-3 py-1.5 rounded-full transition shadow-xs"
+            >
+              <IconPlus size={16} stroke={2.5} />
+              <span>{t("superadmin_tenants.add_tenant", "Add Business")}</span>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="table-auto w-full border-separate border-spacing-y-1">
-              <thead className="bg-transparent">
-                <tr>
-                  <th className="rounded-[42px] px-3 flex items-center justify-between">
-                    <div className="text-start px-0 py-1 w-1/4 min-w-[250] max-w-[300px] text-sm sm:text-xs md:text-sm lg:text-base">
-                      {t('superadmin_tenants.tenant_details')}
-                    </div>
-                    <div className="px-2 py-1 w-1/6 min-w-[80] max-w-[120px] text-sm sm:text-xs md:text-sm lg:text-base">
-                      {t('superadmin_tenants.status')}
-                    </div>
-                    <div className="px-2 py-1 w-1/6 min-w-[150] max-w-[200px] text-sm sm:text-xs md:text-sm lg:text-base">
-                      {t('superadmin_tenants.subscription_start')}
-                    </div>
-                    <div className="px-2 py-1 w-1/6 min-w-[150] max-w-[200px] text-sm sm:text-xs md:text-sm lg:text-base">
-                      {t('superadmin_tenants.subscription_end')}
-                    </div>
-                    <div className="px-2 py-1 w-1/6 min-w-[80] max-w-[120px] text-sm sm:text-xs md:text-sm lg:text-base text-center">
-                      {t('superadmin_tenants.plan', 'Plan')}
-                    </div>
-                    <div className="px-2 py-1 w-1/5 min-w-[60] max-w-[200px] text-sm sm:text-xs md:text-sm lg:text-base mr-8">
-                      {t('superadmin_tenants.actions')}
-                    </div>
+            <table className="w-full text-left text-xs border-collapse">
+              {/* Proper QuickBooks Table Header */}
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-800 bg-[#F8F9FA] dark:bg-[#161B22] text-gray-600 dark:text-gray-400 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-3.5 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300 text-[#2CA01C] focus:ring-[#2CA01C] cursor-pointer"
+                    />
+                  </th>
+                  <th className="py-3 px-4 min-w-[220px]">
+                    {t("superadmin_tenants.tenant_details", "Business Details")}
+                  </th>
+                  <th className="py-3 px-4 min-w-[110px]">
+                    {t("superadmin_tenants.status", "Status")}
+                  </th>
+                  <th className="py-3 px-4 min-w-[140px]">
+                    {t("superadmin_tenants.subscription_start", "Subscription Start")}
+                  </th>
+                  <th className="py-3 px-4 min-w-[140px]">
+                    {t("superadmin_tenants.subscription_end", "Subscription End")}
+                  </th>
+                  <th className="py-3 px-4 min-w-[120px]">
+                    {t("superadmin_tenants.plan", "Plan")}
+                  </th>
+                  <th className="py-3 px-4 text-right min-w-[130px]">
+                    {t("superadmin_tenants.actions", "Actions")}
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {state.tenants.map((tenant, index) => (
-                  <tr key={index}>
-                    <td className="py-1">
-                      <div className=" bg-gray-100 dark:bg-restro-card-bg rounded-[42px] px-3 flex items-center justify-between">
-                        <div className="flex items-center py-2 w-1/4 min-w-[250px] max-w-[300px] ">
-                          <div className="bg-gray-50 dark:bg-restro-bg-gray rounded-[42px] p-6 mr-4">
+
+              {/* Rows */}
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {state.tenants.map((tenant) => {
+                  const isSelected = selectedTenantIds.includes(tenant.id);
+                  const isLive = tenant.is_active === 1;
+
+                  return (
+                    <tr
+                      key={tenant.id}
+                      className={clsx(
+                        "transition-colors group",
+                        isSelected
+                          ? "bg-emerald-50/50 dark:bg-emerald-950/20"
+                          : "hover:bg-[#F9FAFB] dark:hover:bg-[#1C2128]"
+                      )}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3 px-3.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectRow(tenant.id)}
+                          className="rounded border-gray-300 text-[#2CA01C] focus:ring-[#2CA01C] cursor-pointer"
+                        />
+                      </td>
+
+                      {/* Business Details */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-800/60 text-[#2CA01C] flex items-center justify-center shrink-0">
                             <IconBuildingStore size={18} stroke={iconStroke} />
                           </div>
-                          <div>
-                            <div className="font-bold text-sm ">
+                          <div className="truncate">
+                            <div className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm hover:text-[#2CA01C] cursor-pointer transition-colors truncate">
                               {tenant.name}
                             </div>
-                            <div className="text-xs font-semibold text-gray-500">
+                            <div className="text-[11px] text-gray-500 font-normal truncate">
                               {tenant.email}
                             </div>
                           </div>
                         </div>
-                        <div className="w-1/4 min-w-[80px] max-w-[120px] flex items-center justify-center">
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3 px-4">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border",
+                            isLive
+                              ? "bg-emerald-50 dark:bg-emerald-950/40 text-[#108000] dark:text-[#2CA01C] border-emerald-200 dark:border-emerald-800/60"
+                              : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/60"
+                          )}
+                        >
                           <span
-                            className={`px-4 py-2 text-sm rounded-[42px] bg-white dark:bg-restro-gray flex items-center gap-2 ${
-                              tenant.is_active == 1
-                                ? "text-green-600"
-                                : "text-red-700"
-                            }`}
-                          >
-                            {tenant.is_active == 1 ? (
-                              <>
-                                <IconCheck size={16} stroke={iconStroke} />
-                                {t('superadmin_tenants.active')}
-                              </>
-                            ) : (
-                              <>
-                                <IconX size={16} stroke={iconStroke} />
-                                {t('superadmin_tenants.inactive')}
-                              </>
+                            className={clsx(
+                              "w-1.5 h-1.5 rounded-full",
+                              isLive ? "bg-[#2CA01C]" : "bg-red-500"
                             )}
-                          </span>
-                        </div>
-                        <div className="w-1/4 min-w-[150px] max-w-[200px] text-center text-sm font-bold">
-                          {tenant.subscription_start}
-                        </div>
-                        <div className="w-1/4 min-w-[150px] max-w-[200px] text-center text-sm font-bold">
-                          {tenant.subscription_end}
-                        </div>
-                        <div className="w-1/4 min-w-[80px] max-w-[120px] text-center text-sm font-bold">
-                          {tenant.plan_title || "Full Access"}
-                        </div>
-                        <div className="w-1/5 min-w-[150px] max-w-[200px]  text-right ">
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => {
-                                btnShowUpdate(
-                                  tenant.name,
-                                  tenant.email,
-                                  tenant.is_active,
-                                  tenant.id,
-                                  tenant.payment_gateway_product_id
-                                );
-                              }}
-                              className="rounded-[42px] bg-white dark:bg-restro-bg-gray p-3 text-restro-text"
-                            >
-                              <IconPencil size={24} stroke={iconStroke} />
-                            </button>
-                            <Link
-                              to={`/superadmin/dashboard/tenants/${tenant.id}/subscription-history`}
-                              className="rounded-[42px] flex items-center justify-center bg-white dark:bg-restro-bg-gray p-3 text-restro-text"
-                            >
-                              <IconCalendarEvent
-                                size={24}
-                                stroke={iconStroke}
-                              />
-                            </Link>
-                            <button
-                              onClick={() => btnShowDelete(tenant.id)}
-                              className="rounded-[42px] bg-white p-3 text-red-500 dark:bg-restro-gray"
-                            >
-                              <IconTrash size={24} stroke={iconStroke} />
-                            </button>
+                          />
+                          {isLive
+                            ? t("superadmin_tenants.active", "Active")
+                            : t("superadmin_tenants.inactive", "Inactive")}
+                        </span>
+                      </td>
+
+                      {/* Subscription Start */}
+                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300 font-medium">
+                        {tenant.subscription_start ? (
+                          <div className="flex items-center gap-1.5">
+                            <IconCalendarEvent size={14} className="text-gray-400 shrink-0" />
+                            <span>{tenant.subscription_start}</span>
                           </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+
+                      {/* Subscription End */}
+                      <td className="py-3 px-4 text-gray-600 dark:text-gray-300 font-medium">
+                        {tenant.subscription_end ? (
+                          <div className="flex items-center gap-1.5">
+                            <IconCalendarEvent size={14} className="text-gray-400 shrink-0" />
+                            <span>{tenant.subscription_end}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+
+                      {/* Plan */}
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-900/60">
+                          {tenant.plan_title || "Full Access"}
+                        </span>
+                      </td>
+
+                      {/* QuickBooks Action Column */}
+                      <td className="py-3 px-4 text-right">
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          <button
+                            onClick={() =>
+                              btnShowUpdate(
+                                tenant.name,
+                                tenant.email,
+                                tenant.is_active,
+                                tenant.id,
+                                tenant.payment_gateway_product_id
+                              )
+                            }
+                            title={t("superadmin_tenants.edit", "Edit")}
+                            className="h-7 px-2.5 rounded-md border border-emerald-200 dark:border-emerald-800 text-[#108000] dark:text-[#2CA01C] hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-semibold text-xs flex items-center gap-1 transition"
+                          >
+                            <IconPencil size={13} stroke={iconStroke} />
+                            <span>Edit</span>
+                          </button>
+
+                          <Link
+                            to={`/superadmin/dashboard/tenants/${tenant.id}/subscription-history`}
+                            title="Subscription History"
+                            className="h-7 w-7 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
+                          >
+                            <IconCalendarEvent size={14} stroke={iconStroke} />
+                          </Link>
+
+                          <button
+                            onClick={() => setTenantIdForDelete(tenant.id)}
+                            title={t("superadmin_tenants.delete", "Delete")}
+                            className="h-7 w-7 rounded-md border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center transition"
+                          >
+                            <IconTrash size={14} stroke={iconStroke} />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* pagination */}
-        <div className="flex justify-end mt-8">
-          <div className="join">
-            <button
-              onClick={btnPaginationFirstPage}
-              className={clsx(
-                                          "join-item btn btn-sm",
-                                        {
-                                          // Normal state (not disabled)
-                                          "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== state.totalPages,
-                                          "bg-white text-gray-800": theme !== "black" && state.page !== state.totalPages,
-                          
-                                          // Disabled state
-                                          "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === state.totalPages,
-                                          "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === state.totalPages,
-                                        }
-                                        )}
-            >
-              <IconChevronsLeft stroke={iconStroke} />
-            </button>
-            <button
-              onClick={btnPaginationPreviousPage}
-              className={clsx(
-                                          "join-item btn btn-sm",
-                                        {
-                                          // Normal state (not disabled)
-                                          "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== state.totalPages,
-                                          "bg-white text-gray-800": theme !== "black" && state.page !== state.totalPages,
-                          
-                                          // Disabled state
-                                          "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === state.totalPages,
-                                          "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === state.totalPages,
-                                        }
-                                        )}
-            >
-              <IconChevronLeft stroke={iconStroke} />
-            </button>
-            <button className={clsx(
-                            "join-item btn btn-sm",
-                              {
-                                // Normal state (not disabled)
-                                "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== state.totalPages,
-                                "bg-white text-gray-800": theme !== "black" && state.page !== state.totalPages,
-            
-                                // Disabled state
-                                "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === state.totalPages,
-                                "bg-white text-gray-400 cursor-not-allowed": theme !== "black" && state.page === state.totalPages,
-                              }
-                            )}
-              >
-              {t('superadmin_tenants.showing')} {state.tenants.length} {t('superadmin_tenants.of')} {state.totalTenants}
-            </button>
-            <button
-              onClick={btnPaginationNextPage}
-              className={clsx(
-                                          "join-item btn btn-sm",
-                                        {
-                                          // Normal state (not disabled)
-                                          "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== state.totalPages,
-                                          "bg-white text-gray-800": theme !== "black" && state.page !== state.totalPages,
-                          
-                                          // Disabled state
-                                          "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === state.totalPages,
-                                          "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === state.totalPages,
-                                        }
-                                        )}
-            >
-              <IconChevronRight stroke={iconStroke} />
-            </button>
-            <button
-              onClick={btnPaginationLastPage}
-              className={clsx(
-                                          "join-item btn btn-sm",
-                                        {
-                                          // Normal state (not disabled)
-                                          "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== state.totalPages,
-                                          "bg-white text-gray-800": theme !== "black" && state.page !== state.totalPages,
-                          
-                                          // Disabled state
-                                          "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === state.totalPages,
-                                          "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === state.totalPages,
-                                        }
-                                        )}
-            >
-              <IconChevronsRight stroke={iconStroke} />
-            </button>
+        {/* QuickBooks Table Footer / Pagination */}
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-[#FAFBFD] dark:bg-[#161B22] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-400">
+          
+          {/* Left: Summary text */}
+          <div>
+            <span>
+              {t("superadmin_tenants.showing", "Showing")}
+            </span>{" "}
+            <span className="font-semibold text-gray-900 dark:text-white">
+              {state.tenants.length > 0 ? (state.page - 1) * state.perPage + 1 : 0}
+            </span>{" "}
+            -{" "}
+            <span className="font-semibold text-gray-900 dark:text-white">
+              {Math.min(state.page * state.perPage, state.totalTenants)}
+            </span>{" "}
+            {t("superadmin_tenants.of", "of")}{" "}
+            <span className="font-semibold text-gray-900 dark:text-white">
+              {state.totalTenants}
+            </span>{" "}
+            businesses
           </div>
+
+          {/* Right: Per page & Page controls */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-500">Rows:</span>
+              <select
+                value={state.perPage}
+                onChange={handlePerPageChange}
+                className="py-1 px-2 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={btnPaginationFirstPage}
+                disabled={state.page <= 1}
+                title="First Page"
+                className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                <IconChevronsLeft size={14} stroke={iconStroke} />
+              </button>
+              <button
+                onClick={btnPaginationPreviousPage}
+                disabled={state.page <= 1}
+                title="Previous Page"
+                className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                <IconChevronLeft size={14} stroke={iconStroke} />
+              </button>
+
+              <span className="px-2.5 py-1 text-xs font-semibold rounded bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                {state.page} / {state.totalPages}
+              </span>
+
+              <button
+                onClick={btnPaginationNextPage}
+                disabled={state.page >= state.totalPages}
+                title="Next Page"
+                className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                <IconChevronRight size={14} stroke={iconStroke} />
+              </button>
+              <button
+                onClick={btnPaginationLastPage}
+                disabled={state.page >= state.totalPages}
+                title="Last Page"
+                className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                <IconChevronsRight size={14} stroke={iconStroke} />
+              </button>
+            </div>
+          </div>
+
         </div>
-        <div className="text-end mt-4">
-          <p>
-            {t('superadmin_tenants.showing')} {state.tenants.length} {t('superadmin_tenants.of')} {state.totalTenants}
-          </p>
-        </div>
-        {/* pagination */}
+
       </div>
 
-      {/* filter dialog */}
-      <dialog id="filter-dialog" className="modal">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <h3 className="font-bold text-lg flex items-center">
-            <IconFilter stroke={iconStroke} /> {t('superadmin_tenants.filter')}
-          </h3>
-          {/* filters */}
-          <div className="my-4">
+      {/* QuickBooks Filter Dialog */}
+      <dialog id="filter-dialog" className="modal modal-bottom sm:modal-middle">
+        <div className="modal-box rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161B22] p-6 max-w-md">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+            <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+              <IconFilter size={18} stroke={iconStroke} className="text-[#2CA01C]" />
+              {t("superadmin_tenants.filter", "Filter Businesses")}
+            </h3>
+            <form method="dialog">
+              <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">
+                
+              </button>
+            </form>
+          </div>
+
+          <div className="py-4 space-y-4">
             <div>
-              <label className="block text-gray-500 text-sm">{t('superadmin_tenants.filter')}</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                {t("superadmin_tenants.filter", "Date Range Filter")}
+              </label>
               <select
-                className="select select-sm w-full border border-restro-border-green rounded-lg focus:outline-none focus:ring-2 focus:ring-restro-gray dark:bg-black dark:text-white"
                 ref={filterTypeRef}
+                defaultValue="today"
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-[#2CA01C]"
               >
-                {filters.map((filter, index) => (
-                  <option key={index} value={filter.key}>
+                {filters.map((filter) => (
+                  <option key={filter.key} value={filter.key}>
                     {filter.value}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="flex gap-2 mt-4">
-              <div className="flex-1">
-                <label
-                  htmlFor="fromDate"
-                  className="block text-gray-500 text-sm"
-                >
-                  {t('superadmin_tenants.from')}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t("superadmin_tenants.from", "From Date")}
                 </label>
                 <input
                   defaultValue={defaultDateFrom}
                   type="date"
                   ref={fromDateRef}
-                  className="text-sm w-full border rounded-lg px-4 py-1 dark:bg-black border-restro-border-green outline-restro-border-green-light"
+                  className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-[#2CA01C]"
                 />
               </div>
-              <div className="flex-1">
-                <label
-                  htmlFor="toDate"
-                  className=" block text-gray-500 text-sm"
-                >
-                  {t('superadmin_tenants.to')}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t("superadmin_tenants.to", "To Date")}
                 </label>
                 <input
                   defaultValue={defaultDateTo}
                   type="date"
                   ref={toDateRef}
-                  className="text-sm w-full border rounded-lg px-4 py-1 border-restro-border-green dark:bg-black outline-restro-border-green-light"
+                  className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-[#2CA01C]"
                 />
               </div>
             </div>
           </div>
-          {/* filters */}
-          <div className="modal-action">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text">{t('superadmin_tenants.close')}</button>
+
+          <div className="modal-action pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-2">
+            <form method="dialog" className="flex gap-2">
+              <button className="px-3.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50">
+                {t("superadmin_tenants.close", "Cancel")}
+              </button>
               <button
+                type="button"
                 onClick={() => {
                   setState({
                     ...state,
@@ -822,225 +1114,239 @@ export default function SuperAdminTenantsPage() {
                     fromDate: fromDateRef.current.value || null,
                     toDate: toDateRef.current.value || null,
                   });
+                  const modal = document.getElementById("filter-dialog");
+                  if (modal) modal.close();
                 }}
-                className='btn ml-2 rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover'
+                className="px-4 py-1.5 rounded-md bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-semibold shadow-xs"
               >
-                {t('superadmin_tenants.apply')}
+                {t("superadmin_tenants.apply", "Apply Filter")}
               </button>
             </form>
           </div>
         </div>
       </dialog>
-      {/* filter dialog */}
 
-      {/* modal add */}
+      {/* QuickBooks Add Tenant Modal */}
       <dialog id="modal-add" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <h3 className="font-bold text-lg">{t('superadmin_tenants.add_new_tenant')}</h3>
-
-          <div className="mt-4">
-            <label htmlFor="name" className="mb-1 block text-gray-500 text-sm">
-              {t('superadmin_tenants.tenant_name')}{" "}
-              <span className="text-xs text-gray-400">{t('superadmin_tenants.required')}</span>
-            </label>
-            <input
-              ref={nameRef}
-              type="text"
-              name="name"
-               className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green'
-              placeholder={t('superadmin_tenants.enter_tenant_name')}
-            />
+        <div className="modal-box rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161B22] p-6 max-w-lg">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                {t("superadmin_tenants.add_new_tenant", "Add New Business")}
+              </h3>
+              <p className="text-xs text-gray-500">
+                Create a new restaurant tenant and setup its administrator credentials.
+              </p>
+            </div>
+            <form method="dialog">
+              <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">
+                
+              </button>
+            </form>
           </div>
 
-          <div className="flex gap-4 w-full my-4">
-            <div className="flex-1">
-              <label
-                htmlFor="username"
-                className="mb-1 block text-gray-500 text-sm"
-              >
-                {t('superadmin_tenants.email')}{" "}
-                <span className="text-xs text-gray-400">{t('superadmin_tenants.required')}</span>
+          <div className="py-4 space-y-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {t("superadmin_tenants.tenant_name", "Business / Restaurant Name")}{" "}
+                <span className="text-red-500">*</span>
               </label>
               <input
-                ref={usernameRef}
-                type="email"
-                name="username"
-                className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green'
-                placeholder={t('superadmin_tenants.enter_email')}
+                ref={nameRef}
+                type="text"
+                placeholder={t("superadmin_tenants.enter_tenant_name", "e.g. Bistro Gourmet")}
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#2CA01C] focus:border-[#2CA01C]"
               />
             </div>
-            <div className="flex-1">
-              <label
-                htmlFor="password"
-                className="mb-1 block text-gray-500 text-sm"
-              >
-                {t('superadmin_tenants.password')}{" "}
-                <span className="text-xs text-gray-400">{t('superadmin_tenants.required')}</span>
-              </label>
-              <input
-                ref={passwordRef}
-                type="password"
-                name="password"
-                 className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green'
-                placeholder={t('superadmin_tenants.enter_password')}
-              />
-            </div>
-          </div>
 
-          <div className="flex items-center mt-6 ml-1 gap-2">
-            <label className="text-gray-500 text-sm mr-2">{t('superadmin_tenants.active')}</label>
-            <label className="relative inline-flex items-center cursor-pointer no-drag">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  {t("superadmin_tenants.email", "Admin Email")}{" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={usernameRef}
+                  type="email"
+                  placeholder={t("superadmin_tenants.enter_email", "admin@restaurant.com")}
+                  className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#2CA01C] focus:border-[#2CA01C]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  {t("superadmin_tenants.password", "Initial Password")}{" "}
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={passwordRef}
+                  type="password"
+                  placeholder={t("superadmin_tenants.enter_password", "••••••••")}
+                  className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#2CA01C] focus:border-[#2CA01C]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {t("superadmin_tenants.assign_plan", "Subscription Plan")}
+              </label>
+              <select
+                ref={planRef}
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+              >
+                <option value="">Full Access (All Enterprise Features)</option>
+                {plansList.map((p) => (
+                  <option key={p.id} value={p.payment_gateway_product_id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
               <input
                 ref={isActiveRef}
                 type="checkbox"
-                name="isActive"
-                id="isActive"
-                value=""
-                className="sr-only peer"
+                id="modal-add-active"
+                defaultChecked={true}
+                className="rounded border-gray-300 text-[#2CA01C] focus:ring-[#2CA01C]"
               />
-              <div className={`w-11 h-6 rounded-full peer peer-checked:after:translate-x-full  after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-100 after:border-restro-bg-gray after:border after:rounded-full after:h-5 after:w-5 after:transition-all bg-restro-checkbox peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-restro-ring-light peer-checked:bg-restro-green peer-checked:after:border-restro-border-green`}></div>
-            </label>
+              <label
+                htmlFor="modal-add-active"
+                className="text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+              >
+                {t("superadmin_tenants.active", "Activate business immediately upon creation")}
+              </label>
+            </div>
           </div>
 
-          <div className="mt-4">
-            <label className="mb-1 block text-gray-500 text-sm">
-              {t('superadmin_tenants.assign_plan', 'Assign Plan')}
-            </label>
-            <select
-              ref={planRef}
-              className="text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green"
-            >
-              <option value="">Full Access (All Features)</option>
-              {plansList.map((p) => (
-                <option key={p.id} value={p.payment_gateway_product_id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="modal-action mt-4">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text">
-                {t('superadmin_tenants.close')}
+          <div className="modal-action pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-2">
+            <form method="dialog" className="flex gap-2">
+              <button className="px-3.5 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50">
+                {t("superadmin_tenants.close", "Cancel")}
               </button>
               <button
-                onClick={() => {
-                  btnAdd();
-                }}
-                className='btn ml-2 rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover'
+                type="button"
+                onClick={btnAdd}
+                className="px-4 py-2 rounded-md bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-semibold shadow-xs"
               >
-                {t('superadmin_tenants.save')}
+                {t("superadmin_tenants.save", "Save Business")}
               </button>
             </form>
           </div>
         </div>
       </dialog>
-      {/* modal add */}
 
-      {/* update dialog */}
-      <dialog
-        id="modal-update-tenant"
-        className="modal modal-bottom sm:modal-middle"
-      >
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <h3 className="font-bold text-lg">{t('superadmin_tenants.update_tenant')}</h3>
-
-          <div className="mt-4">
-            <label htmlFor="name" className="mb-1 block text-gray-500 text-sm">
-              {t('superadmin_tenants.tenant_name')}{" "}
-              <span className="text-xs text-gray-400">{t('superadmin_tenants.required')}</span>
-            </label>
-            <input
-              ref={updatenameRef}
-              type="text"
-              name="name"
-              className="text-sm w-full border rounded-lg px-4 py-1 border-restro-border-green dark:bg-black outline-restro-border-green"
-              placeholder={t('superadmin_tenants.enter_tenant_name')}
-            />
+      {/* QuickBooks Update Tenant Modal */}
+      <dialog id="modal-update-tenant" className="modal modal-bottom sm:modal-middle">
+        <div className="modal-box rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161B22] p-6 max-w-lg">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                {t("superadmin_tenants.update_tenant", "Edit Business")}
+              </h3>
+              <p className="text-xs text-gray-500">
+                Update restaurant profile, plan assignment, or credentials.
+              </p>
+            </div>
+            <form method="dialog">
+              <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">
+                
+              </button>
+            </form>
           </div>
 
-          <div className="mt-4">
-            <label htmlFor="email" className="mb-1 block text-gray-500 text-sm">
-              {t('superadmin_tenants.email')}
-            </label>
-            <input
-              ref={updateusernameRef}
-              type="email"
-              name="email"
-              className="text-sm w-full border rounded-lg px-4 py-1 border-restro-border-green dark:bg-black outline-restro-border-green"
-              placeholder={t('superadmin_tenants.enter_email')}
-            />
-          </div>
+          <div className="py-4 space-y-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {t("superadmin_tenants.tenant_name", "Business Name")}{" "}
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                ref={updatenameRef}
+                type="text"
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+              />
+            </div>
 
-          <div className="mt-4">
-            <label htmlFor="update-password" className="mb-1 block text-gray-500 text-sm">
-              {t('superadmin_tenants.password', 'Password')}{" "}
-              <span className="text-xs text-gray-400">({t('superadmin_tenants.leave_blank_to_keep', 'leave blank to keep current')})</span>
-            </label>
-            <input
-              ref={updatepasswordRef}
-              type="password"
-              name="password"
-              id="update-password"
-              className="text-sm w-full border rounded-lg px-4 py-1 border-restro-border-green dark:bg-black outline-restro-border-green"
-              placeholder={t('superadmin_tenants.enter_new_password', 'Enter new password (optional)')}
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {t("superadmin_tenants.email", "Admin Email")}{" "}
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                ref={updateusernameRef}
+                type="email"
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+              />
+            </div>
 
-          <div className="flex items-center mt-6 ml-1 gap-2">
-            <label className="text-gray-500 text-sm mr-2">{t('superadmin_tenants.active')}</label>
-            <label className="relative inline-flex items-center cursor-pointer no-drag">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {t("superadmin_tenants.password", "New Password")}{" "}
+                <span className="text-xs font-normal text-gray-400">
+                  (Leave blank to keep current password)
+                </span>
+              </label>
+              <input
+                ref={updatepasswordRef}
+                type="password"
+                placeholder="Enter new password (optional)"
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {t("superadmin_tenants.assign_plan", "Subscription Plan")}
+              </label>
+              <select
+                value={selectedPlanForUpdate}
+                onChange={(e) => setSelectedPlanForUpdate(e.target.value)}
+                className="w-full text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+              >
+                <option value="">Full Access (All Features)</option>
+                {plansList.map((p) => (
+                  <option key={p.id} value={p.payment_gateway_product_id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
               <input
                 ref={updateisActiveRef}
                 type="checkbox"
-                name="isActive"
-                id="isActive"
-                value=""
-                className="sr-only peer"
+                id="modal-update-active"
+                className="rounded border-gray-300 text-[#2CA01C] focus:ring-[#2CA01C]"
               />
-              <div className={`w-11 h-6 rounded-full peer peer-checked:after:translate-x-full  after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-100 after:border-restro-bg-gray after:border after:rounded-full after:h-5 after:w-5 after:transition-all bg-restro-checkbox peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-restro-ring-light peer-checked:bg-restro-green peer-checked:after:border-restro-border-green`}></div>
-            </label>
+              <label
+                htmlFor="modal-update-active"
+                className="text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+              >
+                {t("superadmin_tenants.active", "Tenant Account Active")}
+              </label>
+            </div>
           </div>
 
-          <div className="mt-4">
-            <label className="mb-1 block text-gray-500 text-sm">
-              {t('superadmin_tenants.assign_plan', 'Assign Plan')}
-            </label>
-            <select
-              value={selectedPlanForUpdate}
-              onChange={(e) => setSelectedPlanForUpdate(e.target.value)}
-              className="text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green"
-            >
-              <option value="">Full Access (All Features)</option>
-              {plansList.map((p) => (
-                <option key={p.id} value={p.payment_gateway_product_id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="modal-action">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text">
-                {t('superadmin_tenants.close')}
+          <div className="modal-action pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-2">
+            <form method="dialog" className="flex gap-2">
+              <button className="px-3.5 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50">
+                {t("superadmin_tenants.close", "Cancel")}
               </button>
               <button
-                onClick={() => {
-                  btnUpdate();
-                }}
-                className='btn ml-2 rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover'
+                type="button"
+                onClick={btnUpdate}
+                className="px-4 py-2 rounded-md bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-semibold shadow-xs"
               >
-                {t('superadmin_tenants.save')}
+                {t("superadmin_tenants.save", "Save Changes")}
               </button>
             </form>
           </div>
         </div>
       </dialog>
-      {/* update dialog */}
 
       {/* Delete Confirmation Modal */}
       <DeleteModal
@@ -1051,12 +1357,19 @@ export default function SuperAdminTenantsPage() {
           setTenantIdForDelete(null);
           await btnDelete(id);
         }}
-        title={t('superadmin_tenants.are_you_sure')}
-        description={t('superadmin_tenants.irreversible_action')}
-        warningMessage={t('superadmin_tenants.permanently_deleted')}
-        confirmText={t('superadmin_tenants.yes_delete')}
-        cancelText={t('superadmin_tenants.cancel')}
+        title={t("superadmin_tenants.are_you_sure", "Are you sure?")}
+        description={t(
+          "superadmin_tenants.irreversible_action",
+          "This will delete the restaurant tenant and its operational database."
+        )}
+        warningMessage={t(
+          "superadmin_tenants.permanently_deleted",
+          "This action cannot be undone."
+        )}
+        confirmText={t("superadmin_tenants.yes_delete", "Delete Business")}
+        cancelText={t("superadmin_tenants.cancel", "Cancel")}
       />
-    </Page>
+
+    </div>
   );
 }

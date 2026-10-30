@@ -21,11 +21,13 @@
  *    day; a deliberate skip (no sales) keeps it.
  */
 const { CONFIG } = require("../config");
+const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const {
   NOTIFICATION_TYPES,
   OWNER_ALERT_SCOPES,
   notifyDayEndReconciliation,
 } = require("../services/notification.service");
+const { sendEodTelegramNotification } = require("../services/telegram.service");
 const { getTenantsWithManagerDevicesDB } = require("../services/device.service");
 const { getRevenueDB, getTotalPaymentsByPaymentTypesDB } = require("../services/reports.service");
 const { getCurrencyDB } = require("../services/settings.service");
@@ -126,6 +128,43 @@ const runDayEndReconciliationSweep = async (date) => {
 };
 exports.runDayEndReconciliationSweep = runDayEndReconciliationSweep;
 
+/**
+ * Sweep tenants with Telegram EOD notifications enabled.
+ * Evaluates each tenant's custom closing time (eod_time).
+ */
+const runTelegramEodSweep = async (date, currentMinutes) => {
+  try {
+    const conn = await getMySqlPromiseConnection();
+    let rows = [];
+    try {
+      const [result] = await conn.query(`
+        SELECT tenant_id, eod_time
+        FROM telegram_settings
+        WHERE is_eod_enabled = 1
+          AND bot_token IS NOT NULL
+          AND (orders_chat_id IS NOT NULL OR eod_chat_id IS NOT NULL)
+      `);
+      rows = result;
+    } finally {
+      conn.release();
+    }
+
+    const eligibleTenants = rows.filter((r) => {
+      const scheduled = parseTimeToMinutes(r.eod_time || "23:59");
+      return scheduled !== null && currentMinutes >= scheduled;
+    });
+
+    for (const item of eligibleTenants) {
+      await sendEodTelegramNotification(item.tenant_id, date).catch((err) => {
+        console.error(`[scheduler] TELEGRAM_EOD tenant=${item.tenant_id} error:`, err.message);
+      });
+    }
+  } catch (error) {
+    console.error("[scheduler] runTelegramEodSweep error:", error);
+  }
+};
+exports.runTelegramEodSweep = runTelegramEodSweep;
+
 let running = false;
 
 const tick = async (scheduledMinutes) => {
@@ -133,13 +172,14 @@ const tick = async (scheduledMinutes) => {
   running = true;
   try {
     const { date, minutes } = await getDatabaseClockDB();
-    // Only fire at/after the configured time *on the same business date*. The
-    // comparison is against today's clock, so a restart at 00:10 does not fire
-    // yesterday's 23:59 run against a day with no sales yet.
-    if (minutes < scheduledMinutes) return;
-    await runDayEndReconciliationSweep(date);
+    // 1. FCM owner alerts sweep
+    if (minutes >= scheduledMinutes) {
+      await runDayEndReconciliationSweep(date);
+    }
+    // 2. Telegram EOD reports sweep (evaluates per-tenant eod_time)
+    await runTelegramEodSweep(date, minutes);
   } catch (error) {
-    console.error("[scheduler] DAY_END_RECONCILIATION tick failed:", error);
+    console.error("[scheduler] tick failed:", error);
   } finally {
     running = false;
   }

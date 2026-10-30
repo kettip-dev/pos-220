@@ -55,7 +55,8 @@ export default function BindoTopBar({
   const formatZoneLabel = (zone) => {
     const s = String(zone).trim();
     if (/^(zone|floor)\b/i.test(s)) return s;
-    return `${t("tables.zone", "Zone")} ${s}`;
+    if (/^[\d០-៩]+$/.test(s)) return `${t("tables.zone", "Zone")} ${s}`;
+    return s;
   };
 
   return (
@@ -73,52 +74,50 @@ export default function BindoTopBar({
           type="button"
           onClick={onToggleViewMode}
           title={viewMode === "grid" ? t("tables.floor_plan_view", "Floor Plan View") : t("tables.grid_view", "Grid View")}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shrink-0 ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shrink-0 ${
             viewMode === "grid"
               ? "border-[#0ea5e9] bg-[#0ea5e9]/10 text-[#0ea5e9]"
               : "border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 hover:border-[#0ea5e9] hover:text-[#0ea5e9]"
           }`}
         >
           {viewMode === "grid" ? <IconColumns size={16} /> : <IconGridDots size={16} />}
-          <span className="hidden sm:inline">
-            {viewMode === "grid" ? t("tables.floor_plan", "Floor Plan") : t("tables.grid", "Grid")}
+          <span className="inline">
+            {viewMode === "grid" ? t("tables.floor_plan", "Floor Plan") : t("tables.grid", "Grid View")}
           </span>
         </button>
 
-        {/* Zone Pills (e.g. Zone 0) — only shown in canvas mode */}
-        {viewMode === "canvas" && (
-          <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-zinc-800/90 p-1 rounded-xl">
-            {displayZones.map((zone) => {
-              const isActive = normalizeFloor(currentZone) === normalizeFloor(zone);
-              return (
-                <button
-                  key={zone}
-                  type="button"
-                  onClick={() => onSelectZone(zone)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    isActive
-                      ? "bg-[#0ea5e9] text-white shadow-sm"
-                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-700/60"
-                  }`}
-                >
-                  {formatZoneLabel(zone)}
-                </button>
-              );
-            })}
-
-            {/* Add Zone Button */}
-            {onAddZone && (
+        {/* Zone Pills (e.g. Zone 0) — shown in both canvas and grid modes */}
+        <div className="flex items-center gap-1 bg-slate-100/90 dark:bg-zinc-800/90 p-1 rounded-xl">
+          {displayZones.map((zone) => {
+            const isActive = normalizeFloor(currentZone) === normalizeFloor(zone);
+            return (
               <button
+                key={zone}
                 type="button"
-                onClick={onAddZone}
-                title={t("tables.add_zone", "Add Zone")}
-                className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700 transition cursor-pointer"
+                onClick={() => onSelectZone(zone)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? "bg-[#0ea5e9] text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-zinc-700/60"
+                }`}
               >
-                <IconPlus size={15} />
+                {formatZoneLabel(zone)}
               </button>
-            )}
-          </div>
-        )}
+            );
+          })}
+
+          {/* Add Zone Button */}
+          {onAddZone && (
+            <button
+              type="button"
+              onClick={onAddZone}
+              title={t("tables.add_zone", "Add Zone")}
+              className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700 transition cursor-pointer"
+            >
+              <IconPlus size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Right: Live Order Counters, Socket Status & Edit Mode Controls */}
@@ -144,7 +143,7 @@ export default function BindoTopBar({
 
         {/* Live Socket Connection indicator */}
         <div
-          title={isSocketConnected ? "Live Status Connected" : "Connecting..."}
+          title={isSocketConnected ? t("tables.live_status_connected", "Live Status Connected") : t("tables.connecting", "Connecting...")}
           className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400"
         >
           {isSocketConnected ? (
@@ -153,12 +152,12 @@ export default function BindoTopBar({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              <span className="hidden lg:inline text-emerald-600 dark:text-emerald-400">Live</span>
+              <span className="hidden lg:inline text-emerald-600 dark:text-emerald-400">{t("tables.live", "Live")}</span>
             </>
           ) : (
             <>
               <IconWifiOff size={14} className="text-amber-500" />
-              <span className="hidden lg:inline text-amber-600 dark:text-amber-400">Offline</span>
+              <span className="hidden lg:inline text-amber-600 dark:text-amber-400">{t("tables.offline", "Offline")}</span>
             </>
           )}
         </div>

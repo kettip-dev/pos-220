@@ -28,10 +28,10 @@ export async function getBusinessGroupDetails(id) {
   }
 }
 
-export async function createBusinessGroup(name, description) {
+export async function createBusinessGroup(name, description, maxBranches = 5) {
   try {
     const response = await ApiClient.post(`/superadmin/business-groups`, {
-      name, description
+      name, description, maxBranches
     });
     return response;
   } catch (error) {
@@ -39,10 +39,10 @@ export async function createBusinessGroup(name, description) {
   }
 }
 
-export async function updateBusinessGroup(id, name, description) {
+export async function updateBusinessGroup(id, name, description, maxBranches = null) {
   try {
     const response = await ApiClient.put(`/superadmin/business-groups/${id}`, {
-      name, description
+      name, description, maxBranches
     });
     return response;
   } catch (error) {
@@ -223,6 +223,45 @@ export async function removeBusinessGroupOwner(id, username) {
   try {
     const response = await ApiClient.delete(
       `/superadmin/business-groups/${id}/owners/${encodeURIComponent(username)}`,
+    );
+    return response;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/* ==========================================================================
+ * Multi-Branch Management & Cloning
+ * ========================================================================== */
+
+export async function createBranchInGroup(id, payload) {
+  try {
+    const response = await ApiClient.post(
+      `/superadmin/business-groups/${id}/branches`,
+      payload
+    );
+    return response;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function updateBusinessGroupBranchLimit(id, maxBranches) {
+  try {
+    const response = await ApiClient.patch(
+      `/superadmin/business-groups/${id}/branch-limit`,
+      { maxBranches }
+    );
+    return response;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function setMainBranch(id, tenantId) {
+  try {
+    const response = await ApiClient.patch(
+      `/superadmin/business-groups/${id}/branches/${tenantId}/main`
     );
     return response;
   } catch (error) {

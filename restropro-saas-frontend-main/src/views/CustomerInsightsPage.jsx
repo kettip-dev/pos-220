@@ -167,7 +167,7 @@ export default function CustomerInsightsPage() {
           '<div class="shadow-lg  border border-restro-border-green overflow-hidden flex flex-col min-w-[130px]">' +
             '<div class="px-3 py-2 bg-restro-green-light dark:bg-[#1a2e20] text-restro-green-dark dark:text-restro-green font-semibold text-xs border-b border-restro-border-green">' + dayName + '</div>' +
             '<div class="px-3 py-2 bg-white dark:bg-restro-bg-card-dark-mode flex items-center gap-2">' +
-              '<span class="w-2.5 h-2.5 bg-restro-green"></span>' +
+              '' +
               '<span class="text-sm text-gray-700 dark:text-gray-200 font-medium">Visits: <span class="font-bold text-gray-900 dark:text-white">' + visits + ' visit(s)</span></span>' +
             '</div>' +
           '</div>'
@@ -276,7 +276,7 @@ export default function CustomerInsightsPage() {
             </div>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{Number(totalSpend || 0).toFixed(2)}</h2>
           </div>
-          
+
           <div className="p-6 rounded-2xl bg-restro-green-light dark:bg-[#1a2e20] transition">
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-3">
               <IconCalendarEvent size={18} className="text-restro-green" />
@@ -306,7 +306,7 @@ export default function CustomerInsightsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="p-6 border rounded-2xl bg-white dark:bg-restro-bg-card-dark-mode border-restro-border-green shadow-sm flex flex-col max-h-[350px]">
             <div className="flex items-center gap-2 mb-6">
-              <span className="text-restro-green">🔥</span>
+
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Buys</h3>
             </div>
             <div className="space-y-2 overflow-y-auto pr-2">
@@ -316,9 +316,7 @@ export default function CustomerInsightsPage() {
                     <div className="w-10 h-10 rounded-lg bg-gray-50 dark:bg-[#222222] flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-100 dark:border-gray-800">
                       {buy.image ? (
                         <img src={getImageURL(buy.image)} alt={buy.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-gray-400 text-lg">🍽️</span>
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex flex-col">
                       <span className="font-medium text-sm text-gray-800 dark:text-gray-200">{buy.title}</span>
@@ -344,7 +342,7 @@ export default function CustomerInsightsPage() {
                 const peakDay = sortedVisitedDays.find(d => d.visits === maxVisits)?.day_name;
                 return (
                   <span className="bg-restro-green-light dark:bg-[#1a2e20] text-restro-green text-[11px] px-3 py-1 rounded-full flex items-center gap-1 font-bold border border-restro-border-green uppercase tracking-wide">
-                    ★ {peakDay} PEAK
+                     {peakDay} PEAK
                   </span>
                 )
               })()}
@@ -363,7 +361,7 @@ export default function CustomerInsightsPage() {
         <div className="p-6 border rounded-2xl bg-white dark:bg-restro-bg-card-dark-mode border-restro-border-green shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Customer Bills</h3>
-            
+
             {/* Filter */}
             <div className='px-4 py-2 rounded-full flex items-center bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 max-w-xs w-full transition focus-within:ring-2 focus-within:ring-restro-green focus-within:border-transparent'>
               <input
@@ -381,7 +379,7 @@ export default function CustomerInsightsPage() {
               {!state.search && <IconSearch stroke={iconStroke} size={16} className="text-gray-400" />}
             </div>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="table w-full">
               <thead>
@@ -483,7 +481,7 @@ export default function CustomerInsightsPage() {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           <div className="flex justify-end mt-4">
             <div className="join">

@@ -31,7 +31,7 @@ exports.signIn = async (req, res) => {
                 httpOnly: true,
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             };
 
@@ -41,7 +41,7 @@ exports.signIn = async (req, res) => {
                 httpOnly: true,
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             };
 
@@ -61,7 +61,7 @@ exports.signIn = async (req, res) => {
                 expires: new Date(Date.now() + parseInt(CONFIG.COOKIE_EXPIRY_REFRESH)),
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             })
 
@@ -106,7 +106,7 @@ exports.signOut = async (req, res) => {
             httpOnly: true,
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
-            secure: process.env.NODE_ENV == "production",
+            secure: CONFIG.COOKIE_SECURE,
             path: "/"
         };
 
@@ -116,7 +116,7 @@ exports.signOut = async (req, res) => {
             expires: new Date(Date.now()),
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
-            secure: process.env.NODE_ENV == "production",
+            secure: CONFIG.COOKIE_SECURE,
             path: "/"
         });
 
@@ -153,7 +153,7 @@ exports.getNewAccessToken = async (req, res) => {
                 httpOnly: true,
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             };
             const u = await getAdminUserDB(user.username);
@@ -177,7 +177,7 @@ exports.getNewAccessToken = async (req, res) => {
                 httpOnly: true,
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             });
             res.clearCookie('refreshToken', {
@@ -185,14 +185,14 @@ exports.getNewAccessToken = async (req, res) => {
                 httpOnly: true,
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             });
             res.clearCookie('restroprosaas__authenticated', {
                 expires: new Date(Date.now()),
                 domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
                 sameSite: false,
-                secure: process.env.NODE_ENV == "production",
+                secure: CONFIG.COOKIE_SECURE,
                 path: "/"
             });
             return res.status(401).json({

@@ -15,6 +15,7 @@ const {
   getPOSQROrders,
   cancelAllQROrders,
   updatePOSQROrderStatus,
+  approvePOSQROrder,
   getPrinterConfigs,
   addPrinterConfig,
   updatePrinterConfig,
@@ -57,7 +58,7 @@ router.get(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS, SCOPES.DASHBOARD]),
   getPOSQROrdersCount
 )
 
@@ -66,7 +67,7 @@ router.get(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS, SCOPES.DASHBOARD]),
   getPOSQROrders
 )
 
@@ -75,8 +76,17 @@ router.post(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS, SCOPES.DASHBOARD]),
   updatePOSQROrderStatus
+)
+
+router.post(
+  "/qrorders/approve/:id",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS, SCOPES.DASHBOARD]),
+  approvePOSQROrder
 )
 
 router.post(
@@ -84,7 +94,7 @@ router.post(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.POS]),
+  authorize([SCOPES.POS, SCOPES.SETTINGS, SCOPES.DASHBOARD]),
   cancelAllQROrders
 )
 

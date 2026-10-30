@@ -2,9 +2,9 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconBolt, IconReceipt, IconLayersIntersect, IconLoader2 } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2 } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
-import { cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
+import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
 import { PAYMENT_ICONS } from "../config/payment_icons";
 import { toast } from "react-hot-toast";
@@ -24,6 +24,9 @@ import POSOrderHeader from '../components/pos/POSOrderHeader';
 import POSModifierDrawer from '../components/pos/POSModifierDrawer';
 import POSPaymentDrawer from '../components/pos/POSPaymentDrawer';
 import POSDraftsDrawer from '../components/pos/POSDraftsDrawer';
+import POSCustomerDrawer from '../components/pos/POSCustomerDrawer';
+import POSQROrdersDrawer from '../components/pos/POSQROrdersDrawer';
+import POSPaymentSuccessModal from '../components/pos/POSPaymentSuccessModal';
 import { clsx } from "clsx";
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -44,6 +47,14 @@ export default function POSPage() {
   const [isTablePickerOpen, setIsTablePickerOpen] = useState(false);
   const [selectedTableTitle, setSelectedTableTitle] = useState("");
   const [isDraftsDrawerOpen, setIsDraftsDrawerOpen] = useState(false);
+  const [isCustomerDrawerOpen, setIsCustomerDrawerOpen] = useState(false);
+  const [isQrOrdersDrawerOpen, setIsQrOrdersDrawerOpen] = useState(false);
+  const [completedPaymentInfo, setCompletedPaymentInfo] = useState(null);
+  const isQrOrdersDrawerOpenRef = useRef(false);
+
+  useEffect(() => {
+    isQrOrdersDrawerOpenRef.current = isQrOrdersDrawerOpen;
+  }, [isQrOrdersDrawerOpen]);
 
   // dialog: notes ref
   const dialogNotesIndexRef = useRef();
@@ -184,6 +195,10 @@ export default function POSPage() {
 
   const { categories, menuItems, paymentTypes, printSettings, storeSettings, storeTables, currency, cartItems, searchQuery, selectedCategory, selectedItemId, drafts, customer, customerType, isLoading } = state;
 
+  const posBillingMode = storeSettings?.pos_payment_mode || storeSettings?.posPaymentMode || "flexible";
+  const isPrepaidOnly = posBillingMode === "prepaid";
+  const isPostpaidOnly = posBillingMode === "postpaid";
+
   // Check if cart has duplicate identical lines that can be merged
   const hasDuplicateLines = React.useMemo(() => {
     if (!cartItems || cartItems.length < 2) return false;
@@ -243,6 +258,7 @@ export default function POSPage() {
     setState(prev => ({
       ...prev,
       cartItems: [],
+      selectedQrOrderItem: null,
       discountValue: 0,
       discountAmount: 0,
     }));
@@ -298,6 +314,13 @@ export default function POSPage() {
         } else if (isModifierDrawerOpen) {
           setIsModifierDrawerOpen(false);
           closeVariantModalSync();
+        } else if (isCustomerDrawerOpen) {
+          setIsCustomerDrawerOpen(false);
+          closeCustomerModalSync();
+        } else if (isQrOrdersDrawerOpen) {
+          setIsQrOrdersDrawerOpen(false);
+        } else if (isDraftsDrawerOpen) {
+          setIsDraftsDrawerOpen(false);
         } else if (editingNoteIndex !== null) {
           setEditingNoteIndex(null);
         } else if (state.searchQuery) {
@@ -311,8 +334,16 @@ export default function POSPage() {
       if (e.key === 'F2' || e.key === '/') {
         e.preventDefault();
         searchInputRef.current?.focus();
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        btnOpenSearchCustomerModal();
       } else if (e.key === 'F4') {
         e.preventDefault();
+        const currentMode = state.storeSettings?.pos_payment_mode || state.storeSettings?.posPaymentMode || 'flexible';
+        if (currentMode === 'postpaid') {
+          toast(t('pos.postpaid_only_hint', 'Store is in Postpaid mode. Please send order to kitchen (F8).'), { icon: 'ℹ' });
+          return;
+        }
         if (cartItems && cartItems.length > 0) {
           btnShowPayAndSendToKitchenModal();
         } else {
@@ -320,6 +351,11 @@ export default function POSPage() {
         }
       } else if (e.key === 'F8') {
         e.preventDefault();
+        const currentMode = state.storeSettings?.pos_payment_mode || state.storeSettings?.posPaymentMode || 'flexible';
+        if (currentMode === 'prepaid') {
+          toast(t('pos.prepaid_only_hint', 'Store is in Prepaid mode. Please collect payment (F4).'), { icon: 'ℹ' });
+          return;
+        }
         if (cartItems && cartItems.length > 0) {
           handleDirectSendToKitchen();
         } else {
@@ -330,7 +366,7 @@ export default function POSPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPaymentDrawerOpen, isModifierDrawerOpen, editingNoteIndex, cartItems, state.searchQuery]);
+  }, [isPaymentDrawerOpen, isModifierDrawerOpen, isCustomerDrawerOpen, isQrOrdersDrawerOpen, isDraftsDrawerOpen, editingNoteIndex, cartItems, state.searchQuery, state.storeSettings]);
 
   // Helper for dual screen cart summary calculations
   const getCartSummary = () => {
@@ -647,8 +683,6 @@ export default function POSPage() {
     }
   };
 
-
-
   const sendNewOrderEvent = (tokenNo, orderId) => {
     if (isSocketConnected) {
       socket.emit('new_order_backend', {tokenNo, orderId}, user.tenant_id);
@@ -719,38 +753,94 @@ export default function POSPage() {
       throw error;
     }
   }
-  const _initSocket = () => {
-    if(isSocketConnected) {
-      socket.emit("authenticate", user.tenant_id);
-      socket.on('new_qrorder', async (payload)=>{
-        try {
-          const totalQROrders = await _getQROrdersCount();
-
-          setState((prevState)=>({
+  const syncQrOrdersState = async () => {
+    try {
+      if (isQrOrdersDrawerOpenRef.current) {
+        const res = await getQROrders();
+        if (res.status == 200) {
+          const list = Array.isArray(res.data) ? res.data : [];
+          setState((prevState) => ({
             ...prevState,
-            qrOrdersCount: totalQROrders || 0
-          }))
-        } catch (error) {
-          console.log(error);
+            qrOrders: list,
+            qrOrdersCount: list.length,
+          }));
+          return;
         }
-      })
-    } else {
-      initSocket();
-      socket.emit("authenticate", user.tenant_id);
-      socket.on('new_qrorder', async (payload)=>{
-        try {
-          const totalQROrders = await _getQROrdersCount();
-
-          setState((prevState)=>({
-            ...prevState,
-            qrOrdersCount: totalQROrders || 0
-          }))
-        } catch (error) {
-          console.log(error);
-        }
-      })
+      }
+      const totalQROrders = await _getQROrdersCount();
+      setState((prevState) => ({
+        ...prevState,
+        qrOrdersCount: totalQROrders || 0,
+      }));
+    } catch (error) {
+      console.log(error);
     }
-  }
+  };
+
+  const _initSocket = () => {
+    const qrOrderAudio = new Audio("/new_order_sound.mp3");
+    if (!isSocketConnected) {
+      initSocket();
+    }
+    if (!socket) return;
+
+    socket.emit("authenticate", user.tenant_id);
+    socket.off("new_qrorder");
+    socket.on("new_qrorder", async (payload) => {
+      try {
+        qrOrderAudio.play().catch(() => {});
+        await syncQrOrdersState();
+
+        const tblText = payload?.tableTitle
+          ? `${t("pos.table", "Table")} ${payload.tableTitle}`
+          : payload?.tableId
+          ? `${t("pos.table", "Table")} #${payload.tableId}`
+          : t("pos.qr_orders", "QR Order");
+
+        toast.success(
+          (tObj) => (
+            <div className="flex items-center justify-between gap-3 min-w-[230px]">
+              <div className="flex items-center gap-2 min-w-0">
+
+                <div className="flex flex-col leading-tight min-w-0">
+                  <span className="font-extrabold text-xs text-restro-text truncate">
+                    {t("pos.new_qr_order", "New QR Order")} · {tblText}
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    {t("pos.tap_view_to_approve", "Tap View to review or send to KDS")}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.dismiss(tObj.id);
+                  btnShowQROrdersModal();
+                }}
+                className="px-2.5 py-1 bg-restro-green text-white text-[11px] font-extrabold rounded-lg hover:bg-restro-green-button-hover transition active:scale-95 shadow-2xs cursor-pointer shrink-0"
+              >
+                {t("pos.view", "View")}
+              </button>
+            </div>
+          ),
+          { duration: 6000 }
+        );
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
+    socket.off("table_status_update");
+    socket.on("table_status_update", async (payload) => {
+      if (
+        payload?.action === "qr_order_approved" ||
+        payload?.action === "qr_order_updated" ||
+        payload?.action === "qr_orders_cleared"
+      ) {
+        await syncQrOrdersState();
+      }
+    });
+  };
 
   if(isLoading) {
     return <Page className='px-4 py-3 flex flex-col min-h-0'>
@@ -760,7 +850,6 @@ export default function POSPage() {
       </div>
     </Page>
   }
-
 
   // cart
   function canPrepareMenuItem(menuItem, quantity = 1, selectedVariantId = null, selectedAddonIds = []) {
@@ -1138,8 +1227,9 @@ export default function POSPage() {
       autoTitle = `${currentSelectedTable.table_title}`;
     } else if (activeTableContext) {
       autoTitle = `${activeTableContext.tableTitle} #${activeTableContext.tokenNo}`;
-    } else if (customer?.label) {
-      autoTitle = customer.label.split(" - ")[0] || customer.label;
+    } else if (customer?.name || customer?.label) {
+      const rawCust = customer.name || customer.label;
+      autoTitle = rawCust.split(" - ")[0] || rawCust;
     } else if (customerType && customerType !== "WALKIN") {
       autoTitle = customerType;
     } else {
@@ -1190,7 +1280,7 @@ export default function POSPage() {
       (tObj) => (
         <div className="flex items-center justify-between gap-3 min-w-[220px]">
           <div className="flex items-center gap-2">
-            <span className="text-base">💾</span>
+
             <div className="flex flex-col">
               <span className="font-bold text-xs">{t('pos.draft_saved', 'Order Saved to Drafts')}</span>
               <span className="text-[11px] text-gray-500">{fullRefName}</span>
@@ -1307,8 +1397,9 @@ export default function POSPage() {
         autoTitle = `${currentSelectedTable.table_title}`;
       } else if (activeTableContext) {
         autoTitle = `${activeTableContext.tableTitle} #${activeTableContext.tokenNo}`;
-      } else if (customer?.label) {
-        autoTitle = customer.label.split(" - ")[0] || customer.label;
+      } else if (customer?.name || customer?.label) {
+        const rawCust = customer.name || customer.label;
+        autoTitle = rawCust.split(" - ")[0] || rawCust;
       } else if (customerType && customerType !== "WALKIN") {
         autoTitle = customerType;
       } else {
@@ -1363,15 +1454,17 @@ export default function POSPage() {
 
   // QR Menu Orders
   const btnShowQROrdersModal = async () => {
+    setIsQrOrdersDrawerOpen(true);
+    playTapSound();
     try {
       const res = await getQROrders();
-      if(res.status == 200) {
-        const data = res.data;
-        setState({
-          ...state,
-          qrOrders: [...data]
-        })
-        document.getElementById("modal-qrorders").showModal();
+      if (res.status == 200) {
+        const data = Array.isArray(res.data) ? res.data : [];
+        setState((prev) => ({
+          ...prev,
+          qrOrders: [...data],
+          qrOrdersCount: data.length,
+        }));
       }
     } catch (error) {
       console.log(error);
@@ -1379,107 +1472,232 @@ export default function POSPage() {
   };
 
   const btnClearQROrders = async () => {
-    setPosDeleteModalConfig({
-      title: t('pos.clear_qr_orders', 'Clear All QR Orders'),
-      description: t('pos.delete_confirm'),
-      onConfirm: async () => {
-        setPosDeleteModalConfig(null);
-        try {
-          toast.loading(t('pos.please_wait'));
-          const res = await cancelAllQROrders();
-          if(res.status == 200) {
-            toast.dismiss();
-            toast.success(res.data.message);
-            setState((prevState)=>({
-              ...prevState, qrOrders: [], qrOrdersCount: 0,
-            }));
-            playTapSound();
-          }
-        } catch (error) {
-          const message = error?.response?.data?.message || t('pos.getting_issues');
-          console.log(error);
-          toast.dismiss();
-          toast.error(message);
-        }
+    try {
+      const res = await cancelAllQROrders();
+      if (res.status == 200) {
+        toast.success(res.data?.message || t('pos.qr_orders_cleared', 'All QR orders rejected'));
+        setState((prevState) => ({
+          ...prevState,
+          qrOrders: [],
+          qrOrdersCount: 0,
+        }));
+        playTapSound();
       }
-    });
+    } catch (error) {
+      const message = error?.response?.data?.message || t('pos.getting_issues');
+      console.log(error);
+      toast.error(message);
+    }
   };
+
   const btnCancelQROrder = async (orderId) => {
-    setPosDeleteModalConfig({
-      title: t('pos.cancel_qr_order', 'Cancel QR Order'),
-      description: t('pos.delete_confirm'),
-      onConfirm: async () => {
-        setPosDeleteModalConfig(null);
-        try {
-          toast.loading(t('pos.please_wait'));
-          const res = await cancelQROrder(orderId);
-          if(res.status == 200) {
-            toast.dismiss();
-            toast.success(res.data.message);
-
-            const newQROrders = state.qrOrders.filter((item)=>item.id != orderId);
-            setState((prevState)=>({
-              ...prevState,
-              qrOrders: [...newQROrders],
-              qrOrdersCount: newQROrders.length
-            }));
-
-            playTapSound();
-          }
-        } catch (error) {
-          const message = error?.response?.data?.message || t('pos.getting_issues');
-          console.log(error);
-          toast.dismiss();
-          toast.error(message);
-        }
+    try {
+      const res = await cancelQROrder(orderId);
+      if (res.status == 200) {
+        toast.success(res.data?.message || t('pos.qr_order_rejected', 'QR Order rejected'));
+        setState((prevState) => {
+          const newQROrders = (prevState.qrOrders || []).filter((item) => item.id != orderId);
+          return {
+            ...prevState,
+            qrOrders: [...newQROrders],
+            qrOrdersCount: newQROrders.length,
+          };
+        });
+        playTapSound();
       }
-    });
+    } catch (error) {
+      const message = error?.response?.data?.message || t('pos.getting_issues');
+      console.log(error);
+      toast.error(message);
+    }
   };
-  const btnSelectQROrder = (qrOrder) => {
-    console.log(qrOrder);
 
-    if(qrOrder.table_id) {
-      tableRef.current.value = qrOrder.table_id;
+  const btnApproveQROrder = async (orderId) => {
+    try {
+      const res = await approveQROrder(orderId);
+      if (res.status == 200) {
+        toast.success(res.data?.message || "QR Order approved and sent to kitchen!");
+        setState((prevState) => {
+          const newQROrders = (prevState.qrOrders || []).filter((item) => item.id != orderId);
+          if (newQROrders.length === 0) {
+            setIsQrOrdersDrawerOpen(false);
+          }
+          return {
+            ...prevState,
+            qrOrders: [...newQROrders],
+            qrOrdersCount: newQROrders.length,
+          };
+        });
+        playTapSound();
+      }
+    } catch (error) {
+      const message = error?.response?.data?.message || t('pos.getting_issues');
+      console.error(error);
+      toast.error(message);
+    }
+  };
+
+  const btnApproveAllQROrders = async () => {
+    const ordersToApprove = [...(state.qrOrders || [])];
+    if (ordersToApprove.length === 0) return;
+
+    let approvedCount = 0;
+    const failedIds = new Set();
+
+    for (const qrOrder of ordersToApprove) {
+      try {
+        const res = await approveQROrder(qrOrder.id);
+        if (res.status == 200) {
+          approvedCount += 1;
+        } else {
+          failedIds.add(qrOrder.id);
+        }
+      } catch (err) {
+        console.error(err);
+        failedIds.add(qrOrder.id);
+      }
     }
 
-    // const itemCart = {...selectedItem, price: price, variant_id: selectedVariantId, variant: selectedVariant, addons_ids: selectedAddonsId, addons: selectedAddons}
+    const remaining = (state.qrOrders || []).filter((o) => failedIds.has(o.id));
+    setState((prev) => ({
+      ...prev,
+      qrOrders: remaining,
+      qrOrdersCount: remaining.length,
+    }));
 
-    const modifiedCart = qrOrder.items.map((item)=>{
-      const id = item.item_id;
+    playTapSound();
+    if (approvedCount > 0) {
+      toast.success(
+        `${t('pos.approved_qr_orders', 'Approved & sent to KDS')}: ${approvedCount} ${
+          approvedCount === 1 ? t('pos.order', 'order') : t('pos.orders', 'orders')
+        }`
+      );
+    }
+    if (remaining.length === 0) {
+      setIsQrOrdersDrawerOpen(false);
+    }
+  };
 
-      let selectedVariant = {
-        id: item.variant_id,
-        item_id: id,
-        price: item.variant_price,
-        title: item.variant_title,
+  const btnSelectQROrder = (qrOrder) => {
+    if (!qrOrder) return;
+
+    // 1. Auto-hold active cart if non-empty so cashier never loses work
+    let updatedDrafts = state.drafts || [];
+    if (cartItems && cartItems.length > 0 && state.selectedQrOrderItem !== qrOrder.id) {
+      const existingDrafts = getDrafts();
+      let autoTitle = "";
+      if (currentSelectedTable) {
+        autoTitle = `${currentSelectedTable.table_title}`;
+      } else if (activeTableContext) {
+        autoTitle = `${activeTableContext.tableTitle} #${activeTableContext.tokenNo}`;
+      } else if (customer?.name || customer?.label) {
+        const rawCust = customer.name || customer.label;
+        autoTitle = rawCust.split(" - ")[0] || rawCust;
+      } else {
+        autoTitle = `${t('pos.order', 'Order')} #${existingDrafts.length + 1}`;
       }
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const currentCartDraft = {
+        nameRef: `${autoTitle} (${nowTime})`,
+        date: nowTime,
+        cart: [...cartItems],
+        tableId: tableRef.current?.value || null,
+        tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
+        diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
+        customer: customer || null,
+        customerType: customerType || "WALKIN",
+        payableTotal: liveCartSummary.payableTotal,
+      };
+      updatedDrafts = [currentCartDraft, ...existingDrafts];
+      setDrafts(updatedDrafts);
+      toast(`${t('pos.auto_held_previous', 'Auto-held previous cart')}: ${autoTitle}`, { icon: '' });
+    }
+
+    // 2. Sync Dining Option & Table Header
+    const delType = (qrOrder.delivery_type || (qrOrder.table_id ? "dinein" : "dinein")).toLowerCase();
+    setSelectedDiningOption(delType);
+    if (diningOptionRef.current) {
+      diningOptionRef.current.value = delType;
+    }
+
+    if (qrOrder.table_id) {
+      if (tableRef.current) {
+        tableRef.current.value = qrOrder.table_id;
+      }
+      const tblObj = state.storeTables?.find((t) => String(t.id) === String(qrOrder.table_id));
+      if (tblObj) {
+        setSelectedTableTitle(`${tblObj.table_title} (${tblObj.seating_capacity} ${t('pos.person')}) - ${tblObj.floor}`);
+      } else if (qrOrder.table_title) {
+        setSelectedTableTitle(qrOrder.table_title);
+      }
+    } else {
+      if (tableRef.current) {
+        tableRef.current.value = "";
+      }
+      setSelectedTableTitle("");
+    }
+
+    // 3. Map QR order items into POS cart structure accurately
+    const modifiedCart = (qrOrder.items || []).map((item) => {
+      const id = item.item_id;
+      const hasVariant = Boolean(item.variant_id);
+      const selectedVariant = hasVariant
+        ? {
+            id: item.variant_id,
+            item_id: id,
+            price: item.variant_price,
+            title: item.variant_title,
+          }
+        : null;
+
+      const cleanAddons = Array.isArray(item.addons) ? item.addons.filter(Boolean) : [];
 
       return {
         ...item,
         id: id,
         title: item.item_title,
-        addons_ids: item?.addons?.map((i)=>i.id),
-        variant: selectedVariant || null,
+        addons: cleanAddons,
+        addons_ids: cleanAddons.map((i) => i.id),
+        variant: selectedVariant,
         variant_id: item.variant_id || null,
-      }
-    })
+        notes: item.notes || null,
+      };
+    });
 
-    setState({
-      ...state,
+    const isCust = qrOrder.customer_type === "CUSTOMER" && (qrOrder.customer_id || qrOrder.customer_name);
+    const attachedCust = isCust
+      ? {
+          phone: qrOrder.customer_id || "",
+          name: qrOrder.customer_name || qrOrder.customer_id || "Guest",
+          label: `${qrOrder.customer_name || "Guest"} - (${qrOrder.customer_id || ""})`,
+          value: qrOrder.customer_id || "",
+        }
+      : null;
+
+    setState((prev) => ({
+      ...prev,
       cartItems: modifiedCart,
       selectedQrOrderItem: qrOrder.id,
-      customerType: qrOrder.customer_type,
-      customer: {phone: qrOrder.customer_id, name: qrOrder.customer_name},
-    })
+      customerType: isCust ? "CUSTOMER" : "WALKIN",
+      customer: attachedCust,
+      drafts: updatedDrafts,
+    }));
+
+    broadcastOrderMeta(attachedCust, delType, qrOrder.table_id || "");
     playTapSound();
-
-    document.getElementById('modal-qrorders').close();
+    setIsQrOrdersDrawerOpen(false);
+    toast.success(
+      `${t('pos.qr_loaded_to_cart', 'Loaded QR Order')} #${qrOrder.id}${
+        qrOrder.table_title ? ` (${t('pos.table', 'Table')} ${qrOrder.table_title})` : ""
+      }`
+    );
   };
-  // QR MEnu Orders
+  // QR Menu Orders
 
-  // search customer modal
+  // search customer drawer & modal
   const btnOpenSearchCustomerModal = () => {
-    document.getElementById("modal-search-customer").showModal();
+    setIsCustomerDrawerOpen(true);
+    playTapSound();
     if (dualScreenRoomId && isSocketConnected) {
       socket.emit("customer_modal_open_backend", {
         roomId: dualScreenRoomId,
@@ -1489,16 +1707,18 @@ export default function POSPage() {
     }
   };
   const closeCustomerModalSync = () => {
+    setIsCustomerDrawerOpen(false);
     if (dualScreenRoomId && isSocketConnected) {
       socket.emit("customer_modal_close_backend", { roomId: dualScreenRoomId });
     }
   };
   const btnClearSearchCustomer = () => {
-    setState({
-      ...state,
+    setState(prev => ({
+      ...prev,
       customerType: "WALKIN",
       customer: null
-    });
+    }));
+    playTapSound();
     closeCustomerModalSync();
   };
   const btnSearchCustomer = async () => {
@@ -1530,7 +1750,6 @@ export default function POSPage() {
     }
   }
   // search customer modal
-
 
   // send to kitchen modal
   // send to kitchen modal
@@ -1619,7 +1838,6 @@ export default function POSPage() {
       ...summary
     }));
   };
-
 
   const broadcastPaymentModalOpen = (pTypes, selectedType) => {
     if (dualScreenRoomId && isSocketConnected) {
@@ -1723,6 +1941,9 @@ export default function POSPage() {
           tokenNo: data.tokenNo,
           orderId: data.orderId,
           paymentMethod: paymentMethodText,
+          paymentStatus: "paid",
+          billingMode: "prepaid",
+          billingTag: "PAID (PREPAID)",
           dualTenderInfo: tenderData || null,
         };
 
@@ -1760,149 +1981,36 @@ export default function POSPage() {
 
         if(is_enable_print) {
           triggerPrintReceipt(receiptPayload);
-          return;
         }
-
-        // show print token dialog
-        document.getElementById("modal-print-token")?.showModal();
-      }
-    } catch (error) {
-      setIsSubmittingPayment(false);
-      const message = error?.response?.data?.message || t('pos.something_went_wrong');
-      console.error(error);
-
-      toast.dismiss();
-      toast.error(message);
-    }
-  };
-
-  // 1-Tap Instant Cash Checkout without opening any drawer
-  const handleDirectQuickCash = async (tenderedVal = null) => {
-    if (!cartItems || cartItems.length === 0) {
-      toast.error(t('pos.empty_cart'));
-      return;
-    }
-
-    const cashType = paymentTypes.find(pt => pt.title?.toLowerCase().includes('cash')) || paymentTypes[0];
-    if (!cashType) {
-      toast.error(t('orders.select_payment_method'));
-      return;
-    }
-
-    const summary = calculateOrderSummary();
-    const payable = summary.payableTotal;
-
-    try {
-      const deliveryType = diningOptionRef.current?.value || selectedDiningOption || 'dinein';
-      const tableId = tableRef.current?.value || null;
-      const customerType = state.customerType;
-      const customer = state.customer;
-
-      toast.loading(t('pos.please_wait'));
-      setIsSubmittingPayment(true);
-
-      const res = await createOrderAndInvoice(
-        cartItems, deliveryType, customerType, customer, tableId,
-        summary.itemsTotal, summary.taxTotal, summary.serviceChargeTotal, payable,
-        state.selectedQrOrderItem, cashType.id,
-        state.discountType, state.discountValue, state.discountAmount
-      );
-      toast.dismiss();
-      setIsSubmittingPayment(false);
-
-      if (res.status === 200) {
-        const data = res.data;
-        toast.success(res.data.message || 'Order paid successfully!');
-
-        if (dualScreenRoomId && isSocketConnected) {
-          socket.emit("order_success_backend", {
-            roomId: dualScreenRoomId,
-            tokenNo: data.tokenNo,
-            orderId: data.orderId,
-            payableTotal: payable,
-          });
-        }
-
-        const is_enable_print = printSettings?.is_enable_print || 0;
-        const paymentMethodText = cashType.title || 'Cash';
 
         const defaultRate = customExchangeRate || storeSettings?.exchange_rate_usd_to_khr || storeSettings?.exchangeRateUsdToKhr || 4100;
         const isKHR = currency === '៛' || String(currency).toLowerCase() === 'khr';
-        const totalKHR = isKHR ? payable : payable * defaultRate;
-        const totalUSD = isKHR ? (payable / defaultRate) : payable;
-        const quickTenderInfo = {
-          tenderedUSD: isKHR ? 0 : payable,
-          tenderedKHR: isKHR ? payable : 0,
-          totalReceivedKHR: totalKHR,
-          totalReceivedUSD: totalUSD,
-          changeTotalKHR: 0,
-          changeTotalUSD: 0,
-          changeBreakdownUSD: 0,
-          changeBreakdownKHR: 0,
+
+        setCompletedPaymentInfo({
+          orderId: data.orderId,
+          tokenNo: data.tokenNo,
+          paymentMethod: paymentMethodText,
+          payableTotal: state.payableTotal,
+          tenderedUSD: tenderData?.tenderedUSD || (isKHR ? 0 : state.payableTotal),
+          tenderedKHR: tenderData?.tenderedKHR || (isKHR ? state.payableTotal : 0),
+          totalReceivedUSD: tenderData?.totalReceivedUSD || (isKHR ? state.payableTotal / defaultRate : state.payableTotal),
+          totalReceivedKHR: tenderData?.totalReceivedKHR || (isKHR ? state.payableTotal : state.payableTotal * defaultRate),
+          changeTotalUSD: tenderData?.changeTotalUSD || 0,
+          changeTotalKHR: tenderData?.changeTotalKHR || 0,
+          changeBreakdownUSD: tenderData?.changeBreakdownUSD || 0,
+          changeBreakdownKHR: tenderData?.changeBreakdownKHR || 0,
+          currency: currency,
           exchangeRate: defaultRate,
           isBaseKHR: isKHR,
-        };
-
-        const receiptPayload = {
-          cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
-          itemsTotal: summary.itemsTotal,
-          discountType: state.discountType,
-          discountValue: state.discountValue,
-          discountAmount: summary.discountAmount,
-          taxTotal: summary.taxTotal,
-          serviceChargeTotal: summary.serviceChargeTotal,
-          payableTotal: payable,
-          tokenNo: data.tokenNo,
-          orderId: data.orderId,
-          paymentMethod: paymentMethodText,
-          dualTenderInfo: quickTenderInfo,
-        };
-
-        setDetailsForReceiptPrint(receiptPayload);
-
-        sendNewOrderEvent(data.tokenNo, data.orderId);
-
-        let newQROrderItemCount = state.qrOrdersCount;
-        let newQROrders = [];
-        if (state.selectedQrOrderItem) {
-          newQROrderItemCount -= 1;
-          newQROrders = state?.qrOrders?.filter((item) => item.id != state.selectedQrOrderItem);
-        }
-
-        if (diningOptionRef.current) diningOptionRef.current.value = "";
-        if (tableRef.current) tableRef.current.value = "";
-
-        setState((prev) => ({
-          ...prev,
-          cartItems: [],
-          customer: null,
-          customerType: "WALKIN",
-          tokenNo: data.tokenNo,
-          orderId: data.orderId,
-          selectedQrOrderItem: null,
-          qrOrders: newQROrders,
-          qrOrdersCount: newQROrderItemCount,
-          selectedPaymentType: null,
-          discountType: "fixed",
-          discountValue: 0,
-          discountAmount: 0,
-        }));
-
-        playTapSound();
-        _initPOS();
-
-        if (is_enable_print) {
-          triggerPrintReceipt(receiptPayload);
-          return;
-        }
-
-        document.getElementById("modal-print-token")?.showModal();
+          receiptPayload: receiptPayload,
+        });
       }
     } catch (error) {
       setIsSubmittingPayment(false);
-      toast.dismiss();
       const message = error?.response?.data?.message || t('pos.something_went_wrong');
       console.error(error);
+
+      toast.dismiss();
       toast.error(message);
     }
   };
@@ -1934,7 +2042,6 @@ export default function POSPage() {
     setEditingNoteIndex(null);
   };
 
-
   // 1-Tap Direct Send to Kitchen (No blocking popup, instant dispatch & auto table prompt)
   const handleDirectSendToKitchen = async () => {
     if (!cartItems || cartItems.length === 0) {
@@ -1948,7 +2055,7 @@ export default function POSPage() {
     // Smart Table Prompt: if dine-in and no table selected, open Table Picker
     if (deliveryType === "dinein" && !tableId) {
       toast(t('pos.select_table_to_send', 'Please select a table to send order to kitchen'), {
-        icon: '🪑',
+        icon: '',
         duration: 3500,
       });
       setIsTablePickerOpen(true);
@@ -2000,6 +2107,9 @@ export default function POSPage() {
           tokenNo: data.tokenNo,
           orderId: data.orderId,
           paymentMethod: paymentMethodText,
+          paymentStatus: "unpaid",
+          billingMode: "postpaid",
+          billingTag: "PAY LATER (POSTPAID)",
         };
 
         setDetailsForReceiptPrint(receiptPayload);
@@ -2047,7 +2157,7 @@ export default function POSPage() {
           (tObj) => (
             <div className="flex items-center justify-between gap-3 min-w-[240px]">
               <div className="flex items-center gap-2">
-                <span className="text-base">🔥</span>
+
                 <span className="font-bold text-xs">
                   {t('pos.order_sent_to_kitchen', 'Sent to Kitchen')} #{data.tokenNo}
                   {tableLabel ? ` (Table ${tableLabel})` : ""}
@@ -2093,21 +2203,37 @@ export default function POSPage() {
   };
   // send to kitchen modal
 
+  const setCustomer = (customerObj) => {
+    if (customerObj) {
+      const phone = customerObj.phone || customerObj.value || "";
+      const rawName = customerObj.name || customerObj.label || "";
+      const cleanName =
+        phone && rawName.endsWith(` - (${phone})`)
+          ? rawName.slice(0, -` - (${phone})`.length).trim()
+          : rawName;
 
-  const setCustomer = (customer) => {
+      const normalizedCustomer = {
+        phone,
+        name: cleanName || phone,
+        email: customerObj.email || null,
+        birth_date: customerObj.birth_date || null,
+        gender: customerObj.gender || null,
+        label: `${cleanName || phone} - (${phone})`,
+        value: phone,
+      };
 
-    if(customer) {
-      setState({
-        ...state,
-        customer: {phone: customer.value, name:customer.label},
+      setState(prev => ({
+        ...prev,
+        customer: normalizedCustomer,
         customerType: "CUSTOMER"
-      })
-      document.getElementById("modal-search-customer").close()
+      }));
+      playTapSound();
+      document.getElementById("modal-search-customer")?.close();
       closeCustomerModalSync();
     } else {
       btnClearSearchCustomer();
     }
-  }
+  };
 
   const searchCustomersAsync = async (inputValue) => {
     try {
@@ -2177,19 +2303,17 @@ export default function POSPage() {
       <div className='mt-2 flex-1 min-h-0 h-full flex flex-col md:flex-row gap-2.5 sm:gap-3 overflow-hidden'>
 
         {/* Catalog Panel (70%) */}
-        <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-2xl border-restro-border-green bg-background shadow-sm">
+        <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-xl border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
           {/* Sub-bar: Full-Width Category Rail + View Switcher */}
-          <div className="bg-background flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-3 sm:px-4 py-2 border-b border-restro-border-green">
-            {/* Category horizontal pill bar with counts */}
+          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-3 sm:px-4 py-2 border-b border-[#E3E5E8] dark:border-slate-800">
+            {/* QBO Style Category horizontal pill bar with counts */}
             <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5 touch-pan-x custom-scroll-div-horizon-smooth">
               <button
                 type="button"
-                className={`flex-shrink-0 min-w-fit min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 flex items-center gap-2 shadow-xs touch-manipulation select-none cursor-pointer ${
+                className={`flex-shrink-0 min-w-fit min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
                   selectedCategory === "all" 
-                    ? 'bg-restro-green text-white shadow-emerald-500/20 ring-2 ring-restro-green/20' 
-                    : theme === 'black' 
-                    ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode border border-restro-border-green/50' 
-                    : 'bg-restro-gray/90 text-restro-text hover:bg-restro-button-hover border border-restro-border-green/60'
+                    ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
+                    : 'bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-[#D4D7DC] dark:border-slate-700'
                 }`}
                 onClick={() => {
                   setState({
@@ -2199,8 +2323,8 @@ export default function POSPage() {
                 }}
               >
                 <span>{t('pos.all')}</span>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${
-                  selectedCategory === "all" ? 'bg-white/25 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  selectedCategory === "all" ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700'
                 }`}>
                   {categoryCounts.all || 0}
                 </span>
@@ -2213,12 +2337,10 @@ export default function POSPage() {
                   <button
                     key={index}
                     type="button"
-                    className={`flex-shrink-0 min-w-fit min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition active:scale-95 flex items-center gap-2 shadow-xs touch-manipulation select-none cursor-pointer ${
+                    className={`flex-shrink-0 min-w-fit min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
                       isSelected 
-                        ? 'bg-restro-green text-white shadow-emerald-500/20 ring-2 ring-restro-green/20' 
-                        : theme === 'black' 
-                        ? 'bg-restro-bg-seconday-dark-mode text-gray-300 hover:bg-restro-bg-hover-dark-mode border border-restro-border-green/50' 
-                        : 'bg-restro-gray/90 text-restro-text hover:bg-restro-button-hover border border-restro-border-green/60'
+                        ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
+                        : 'bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-[#D4D7DC] dark:border-slate-700'
                     }`}
                     onClick={() => {
                       setState({
@@ -2228,8 +2350,8 @@ export default function POSPage() {
                     }}
                   >
                     <span>{category.title}</span>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-extrabold ${
-                      isSelected ? 'bg-white/25 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-500'
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      isSelected ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700'
                     }`}>
                       {count}
                     </span>
@@ -2239,14 +2361,14 @@ export default function POSPage() {
             </div>
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
-            <div className="flex items-center shrink-0 pl-1 border-l border-restro-border-green/60">
+            <div className="flex items-center shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
               <button
                 type="button"
                 className={clsx(
-                  "min-h-[42px] min-w-[42px] p-2 rounded-xl border border-restro-border-green flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer shadow-xs",
+                  "min-h-[38px] min-w-[38px] p-2 rounded-lg border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer",
                   state.view === "compact" 
-                    ? "text-restro-green bg-emerald-500/10 border-emerald-500/40" 
-                    : "text-restro-text bg-restro-gray hover:bg-restro-button-hover"
+                    ? "text-[#0D233A] dark:text-white bg-[#F4F5F8] dark:bg-slate-800 border-[#0D233A] dark:border-slate-600" 
+                    : "text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
                 )}
                 title={state.view === "compact" ? t('pos.compact_view', 'Compact View') : t('pos.detailed_view', 'Detailed View')}
                 onClick={() => {
@@ -2301,12 +2423,12 @@ export default function POSPage() {
         {cartItemsCount > 0 && !isMobileCartOpen && (
           <button
             onClick={() => setIsMobileCartOpen(true)}
-            className="md:hidden fixed bottom-20 inset-x-4 z-30 flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-white bg-restro-green hover:bg-restro-green-button-hover shadow-xl transition active:scale-95 border border-white/20"
+            className="md:hidden fixed bottom-20 inset-x-4 z-30 flex items-center justify-between gap-2 rounded-xl px-4 py-3 text-white bg-[#2CA01C] hover:bg-[#248417] shadow-xl transition active:scale-95 border border-white/20"
           >
             <span className="flex items-center gap-2.5">
               <span className="relative flex items-center justify-center">
                 <IconShoppingCart size={22} stroke={iconStroke} />
-                <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-restro-green text-[10px] font-bold flex items-center justify-center shadow">
+                <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-[#2CA01C] text-[10px] font-bold flex items-center justify-center shadow">
                   {cartItemsCount}
                 </span>
               </span>
@@ -2330,32 +2452,42 @@ export default function POSPage() {
 
         {/* Cart & Order Sidebar (30%) */}
         <div className={clsx(
-          "flex flex-col border-restro-border-green bg-background",
+          "flex flex-col border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900",
           "fixed inset-x-0 bottom-0 z-50 max-h-[88vh] rounded-t-3xl shadow-[0_24px_60px_rgba(15,23,42,0.25)] dark:shadow-none dark:max-md:border dark:max-md:border-b-0 transition-transform duration-300 ease-out",
           isMobileCartOpen ? "translate-y-0" : "translate-y-full",
-          "md:static md:z-auto md:h-full md:w-[32%] lg:w-[30%] md:max-h-none md:rounded-2xl md:border md:shadow-sm md:translate-y-0 md:transition-none md:relative overflow-hidden"
+          "md:static md:z-auto md:h-full md:w-[32%] lg:w-[30%] md:max-h-none md:rounded-xl md:border md:shadow-2xs md:translate-y-0 md:transition-none md:relative overflow-hidden"
         )}>
           {/* Mobile sheet drag handle */}
           <div className="md:hidden flex flex-col items-center flex-shrink-0 pt-2 pb-1">
             <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
             <div className="w-full flex items-center justify-between px-4 pt-1">
               <h3 className="font-bold text-base">{t('pos.cart')} ({cartItemsCount})</h3>
-              <button onClick={() => setIsMobileCartOpen(false)} className="text-restro-red p-1.5 rounded-full bg-restro-gray hover:bg-restro-button-hover">
+              <button onClick={() => setIsMobileCartOpen(false)} className="text-red-600 p-1.5 rounded-full bg-[#F4F5F8] hover:bg-gray-200">
                 <IconX size={18} stroke={iconStroke} />
               </button>
             </div>
           </div>
 
-          {/* Streamlined Ticket Header Bar */}
-          <div className="w-full px-3.5 py-2.5 border-b border-restro-border-green flex items-center justify-between bg-restro-gray/40 shrink-0">
+          {/* QBO Style Ticket Header Bar */}
+          <div className="w-full px-3.5 py-2.5 border-b border-[#E3E5E8] dark:border-slate-800 flex items-center justify-between bg-[#F4F5F8] dark:bg-slate-800/80 shrink-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-restro-text flex items-center gap-1.5">
-                <IconReceipt size={16} className="text-restro-green" stroke={iconStroke} />
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-slate-100 flex items-center gap-1.5">
+                <IconReceipt size={16} className="text-[#008489]" stroke={iconStroke} />
                 <span>{t('pos.order_ticket', 'Order Ticket')}</span>
               </span>
-              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold flex items-center justify-center border border-emerald-500/30">
+              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#0D233A] text-white text-[10px] font-bold flex items-center justify-center">
                 {cartItemsCount}
               </span>
+              {isPrepaidOnly && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 animate-in fade-in select-none">
+                  {t('pos.prepaid_badge', 'Prepaid Mode')}
+                </span>
+              )}
+              {isPostpaidOnly && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 animate-in fade-in select-none">
+                  {t('pos.postpaid_badge', 'Postpaid Mode')}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1">
@@ -2377,18 +2509,18 @@ export default function POSPage() {
                 type="button"
                 onClick={toggleAddSameLine}
                 className={clsx(
-                  "text-[11px] font-bold px-2 py-1 rounded-lg border transition active:scale-95 flex items-center gap-1 cursor-pointer",
+                  "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition active:scale-95 flex items-center gap-1 cursor-pointer",
                   isAddSameLine 
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 shadow-xs" 
-                    : "bg-background text-gray-500 hover:text-restro-text border-restro-border-green hover:bg-restro-button-hover"
+                    ? "bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 border-[#D4D7DC] dark:border-slate-700 shadow-2xs" 
+                    : "bg-transparent text-gray-500 hover:text-gray-800 border-gray-200 dark:border-slate-700"
                 )}
                 title={isAddSameLine ? t('pos.add_same_line_enabled_tooltip', 'Same Line: ON (identical items combine quantity)') : t('pos.add_same_line_disabled_tooltip', 'Same Line: OFF (creates separate line for each tap)')}
               >
-                <IconLayersIntersect size={13} stroke={iconStroke} className={isAddSameLine ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"} />
+                <IconLayersIntersect size={13} stroke={iconStroke} className={isAddSameLine ? "text-[#008489]" : "text-gray-400"} />
                 <span className="hidden sm:inline">{t('pos.same_line', 'Same Line')}</span>
                 <span className={clsx(
                   "w-1.5 h-1.5 rounded-full shrink-0",
-                  isAddSameLine ? "bg-emerald-500 animate-pulse" : "bg-gray-300 dark:bg-gray-600"
+                  isAddSameLine ? "bg-[#2CA01C]" : "bg-gray-300 dark:bg-gray-600"
                 )} />
               </button>
 
@@ -2428,14 +2560,94 @@ export default function POSPage() {
             </div>
           )}
 
+          {/* Editing QR Order Context Banner (if loaded from QR Orders Drawer) */}
+          {state.selectedQrOrderItem && (
+            <div className="px-3.5 py-1.5 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-800/50 flex items-center justify-between text-xs shrink-0">
+              <div className="flex items-center gap-1.5 text-rose-800 dark:text-rose-300 font-bold min-w-0">
+                <IconQrcode size={15} className="shrink-0 text-[#E11D48] dark:text-rose-400" />
+                <span className="truncate">
+                  {t("pos.editing_qr_order", "Editing QR Order")}
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-rose-200/80 dark:bg-rose-900/60 font-mono text-[10px] shrink-0">
+                  #{state.selectedQrOrderItem}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setState((prev) => ({ ...prev, selectedQrOrderItem: null }))}
+                title={t("pos.unlink_qr_order", "Detach from QR Order")}
+                className="text-rose-500 hover:text-rose-700 dark:hover:text-white p-0.5 cursor-pointer"
+              >
+                <IconX size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Attached Customer Context Banner OR Delivery Customer Prompt */}
+          {customerType === "CUSTOMER" && customer ? (
+            <div
+              onClick={btnOpenSearchCustomerModal}
+              className="px-3.5 py-2 bg-[#00A699]/10 dark:bg-[#00A699]/15 border-b border-[#00A699]/30 flex items-center justify-between gap-2 text-xs shrink-0 cursor-pointer hover:bg-[#00A699]/15 transition select-none"
+              title={t('pos.view_customer_insights', 'Tap to view customer loyalty & favorites')}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-6 h-6 rounded-full bg-[#00A699] text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                  {(customer.name || customer.phone || 'C').trim().slice(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex items-center gap-1.5">
+                  <span className="font-bold text-gray-900 dark:text-white truncate">
+                    {customer.name}
+                  </span>
+                  {customer.phone && (
+                    <span className="px-1.5 py-0.2 rounded bg-white/80 dark:bg-slate-900/70 text-[#00A699] font-mono text-[10px] font-bold border border-[#00A699]/20 shrink-0">
+                      {customer.phone}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[10px] font-bold text-[#00A699] hover:underline hidden sm:inline">
+                  {t('pos.change', 'Profile')}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    btnClearSearchCustomer();
+                  }}
+                  className="w-5 h-5 rounded-full hover:bg-red-500/15 text-gray-400 hover:text-red-500 flex items-center justify-center transition"
+                  title={t('pos.reset_walkin', 'Reset to Walk-in')}
+                >
+                  <IconX size={13} stroke={2.5} />
+                </button>
+              </div>
+            </div>
+          ) : selectedDiningOption === "delivery" ? (
+            <button
+              type="button"
+              onClick={btnOpenSearchCustomerModal}
+              className="w-full px-3.5 py-2 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100/70 border-b border-amber-200 dark:border-amber-800/50 flex items-center justify-between text-xs shrink-0 transition cursor-pointer text-left"
+            >
+              <span className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold truncate">
+                <IconUser size={15} className="shrink-0 text-[#EA580C]" />
+                <span className="truncate">
+                  {t('pos.delivery_customer_prompt', 'Delivery Order — Tap to attach customer')}
+                </span>
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-[#EA580C] text-white text-[10px] font-bold shrink-0">
+                + {t('pos.assign', 'Assign')}
+              </span>
+            </button>
+          ) : null}
+
           {/* Cart Items List Area */}
           <div onScroll={handleCartScroll} className='flex-1 flex flex-col gap-2 overflow-y-auto px-3 py-2.5 scrollbar-thin'>
             {cartItems?.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4 opacity-75">
-                <div className="w-16 h-16 rounded-full bg-restro-gray border border-restro-border-green flex items-center justify-center text-gray-400 mb-3 shadow-inner">
-                  <IconShoppingCart size={28} stroke={1.5} />
+              <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4 opacity-80">
+                <div className="w-14 h-14 rounded-full bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 flex items-center justify-center text-gray-400 mb-3">
+                  <IconShoppingCart size={24} stroke={1.6} />
                 </div>
-                <p className="text-sm font-bold text-restro-text">{t('pos.empty_cart_title', 'Ticket is empty')}</p>
+                <p className="text-sm font-bold text-gray-800 dark:text-slate-200">{t('pos.empty_cart_title', 'Ticket is empty')}</p>
                 <p className="text-xs text-gray-400 mt-1 max-w-[220px]">
                   {t('pos.empty_cart_hint', 'Tap menu items to add them to this order ticket')}
                 </p>
@@ -2450,11 +2662,11 @@ export default function POSPage() {
                   return (
                     <div 
                       key={i} 
-                      className="text-xs rounded-2xl p-2.5 border border-restro-border-green bg-restro-card-bg shadow-xs transition hover:border-restro-green/40 select-none"
+                      className="text-xs rounded-xl p-2.5 border border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs transition hover:border-gray-300 select-none"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-restro-text truncate text-[13px] leading-tight">
+                          <p className="font-bold text-gray-800 dark:text-slate-100 truncate text-[13px] leading-tight">
                             <span className="text-gray-400 text-xs font-normal mr-1">#{i + 1}</span>
                             {title}
                           </p>
@@ -2463,12 +2675,12 @@ export default function POSPage() {
                           {(variant || (addons && addons.length > 0)) && (
                             <div className="flex flex-wrap gap-1 mt-1">
                               {variant && (
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-restro-gray text-gray-600 dark:text-gray-300 border border-restro-border-green">
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-gray-300 border border-[#E3E5E8] dark:border-slate-700">
                                   {variant.title}
                                 </span>
                               )}
                               {addons?.map((addon, aIdx) => (
-                                <span key={aIdx} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                <span key={aIdx} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#F4F5F8] dark:bg-slate-800 text-[#008489] dark:text-emerald-400 border border-[#E3E5E8] dark:border-slate-700">
                                   +{addon.title}
                                 </span>
                               ))}
@@ -2493,21 +2705,21 @@ export default function POSPage() {
 
                         {/* Line Total & Unit Price */}
                         <div className="text-right shrink-0">
-                          <p className="font-black text-restro-text text-sm font-mono">{currency}{itemTotal.toFixed(2)}</p>
+                          <p className="font-black text-gray-900 dark:text-white text-sm font-mono">{currency}{itemTotal.toFixed(2)}</p>
                           <p className="text-[10px] text-gray-400 font-mono">{currency}{Number(price).toFixed(2)} ea</p>
                         </div>
                       </div>
 
                       {/* Inline Note Editor Box */}
                       {isEditingThisNote && (
-                        <div className="mt-2 p-2 rounded-xl bg-background border border-restro-border-green space-y-1.5 animate-in fade-in duration-150">
+                        <div className="mt-2 p-2 rounded-xl bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 space-y-1.5 animate-in fade-in duration-150">
                           <div className="flex flex-wrap gap-1">
                             {["No onions", "Less spicy", "No ice", "Extra sauce", "Allergy alert"].map((preset) => (
                               <button
                                 key={preset}
                                 type="button"
                                 onClick={() => setInlineNoteText(prev => prev ? `${prev}, ${preset}` : preset)}
-                                className="text-[10px] px-1.5 py-0.5 rounded-md border border-restro-border-green bg-restro-gray hover:bg-restro-button-hover font-semibold text-gray-500 cursor-pointer"
+                                className="text-[10px] px-1.5 py-0.5 rounded border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-gray-50 font-semibold text-gray-600 cursor-pointer"
                               >
                                 +{preset}
                               </button>
@@ -2520,7 +2732,7 @@ export default function POSPage() {
                               value={inlineNoteText}
                               onChange={(e) => setInlineNoteText(e.target.value)}
                               placeholder="Kitchen instructions..."
-                              className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-restro-border-green bg-background text-restro-text focus:outline-restro-green"
+                              className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-800 dark:text-white outline-none"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   handleSaveInlineNote(i, inlineNoteText);
@@ -2530,7 +2742,7 @@ export default function POSPage() {
                             <button
                               type="button"
                               onClick={() => handleSaveInlineNote(i, inlineNoteText)}
-                              className="px-2.5 py-1.5 rounded-lg bg-restro-green text-white text-xs font-bold hover:bg-restro-green-button-hover active:scale-95 cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg bg-[#2CA01C] text-white text-xs font-bold hover:bg-[#248417] active:scale-95 cursor-pointer"
                               title="Save note"
                             >
                               <IconCheck size={14} stroke={3} />
@@ -2538,7 +2750,7 @@ export default function POSPage() {
                             <button
                               type="button"
                               onClick={() => setEditingNoteIndex(null)}
-                              className="p-1.5 rounded-lg bg-restro-gray text-gray-400 hover:text-restro-text cursor-pointer"
+                              className="p-1.5 rounded-lg bg-white dark:bg-slate-900 text-gray-400 hover:text-gray-700 cursor-pointer"
                               title="Cancel"
                             >
                               <IconX size={14} stroke={iconStroke} />
@@ -2547,26 +2759,26 @@ export default function POSPage() {
                         </div>
                       )}
 
-                      {/* Steppers & Line Actions (Tablet-sized touch targets min 36x36px) */}
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-restro-border-green/60">
-                        {/* Stepper */}
-                        <div className="flex items-center gap-1 rounded-xl bg-restro-gray border border-restro-border-green p-0.5 shadow-inner select-none">
+                      {/* Steppers & Line Actions */}
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-slate-800">
+                        {/* Stepper: clean borderless and backgroundless icons */}
+                        <div className="flex items-center gap-0.5 select-none">
                           <button
                             type="button"
                             onClick={() => minusCartItemQuantity(i, quantity)}
-                            className="min-w-[36px] min-h-[36px] rounded-lg flex items-center justify-center bg-background hover:bg-restro-button-hover text-restro-text transition active:scale-90 cursor-pointer touch-manipulation shadow-2xs"
+                            className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-700 dark:text-slate-200 hover:text-red-500 active:scale-90 transition cursor-pointer touch-manipulation"
                             title="Decrease"
                           >
-                            <IconMinus size={15} stroke={2.5} />
+                            <IconMinus size={20} stroke={2.5} />
                           </button>
-                          <span className="min-w-[28px] text-center font-black text-xs sm:text-sm text-restro-text font-mono">{quantity}</span>
+                          <span className="min-w-[26px] text-center font-bold text-xs sm:text-sm text-gray-900 dark:text-white font-mono">{quantity}</span>
                           <button
                             type="button"
                             onClick={() => addCartItemQuantity(i, quantity)}
-                            className="min-w-[36px] min-h-[36px] rounded-lg flex items-center justify-center bg-background hover:bg-restro-button-hover text-restro-text transition active:scale-90 cursor-pointer touch-manipulation shadow-2xs"
+                            className="min-w-[32px] min-h-[32px] flex items-center justify-center text-gray-700 dark:text-slate-200 hover:text-[#2CA01C] dark:hover:text-[#2CA01C] active:scale-90 transition cursor-pointer touch-manipulation"
                             title="Increase"
                           >
-                            <IconPlus size={15} stroke={2.5} />
+                            <IconPlus size={20} stroke={2.5} />
                           </button>
                         </div>
 
@@ -2585,13 +2797,13 @@ export default function POSPage() {
                             }}
                             title={t('pos.add_notes', 'Note')}
                             className={clsx(
-                              "min-w-[36px] min-h-[36px] rounded-xl transition text-xs flex items-center justify-center border cursor-pointer touch-manipulation shadow-2xs active:scale-90",
+                              "min-w-[34px] min-h-[34px] rounded-lg transition text-xs flex items-center justify-center border cursor-pointer touch-manipulation active:scale-90",
                               notes 
                                 ? "bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-400 font-bold" 
-                                : "bg-restro-gray border-restro-border-green text-gray-400 hover:text-restro-text hover:bg-restro-button-hover"
+                                : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500 hover:text-gray-800"
                             )}
                           >
-                            <IconNote size={16} stroke={iconStroke} />
+                            <IconNote size={15} stroke={iconStroke} />
                           </button>
 
                           {/* Duplicate Item Button */}
@@ -2599,9 +2811,9 @@ export default function POSPage() {
                             type="button"
                             onClick={() => handleDuplicateCartItem(i)}
                             title={t('pos.duplicate', 'Duplicate item')}
-                            className="min-w-[36px] min-h-[36px] rounded-xl bg-restro-gray border border-restro-border-green text-gray-400 hover:text-restro-text hover:bg-restro-button-hover flex items-center justify-center transition active:scale-90 cursor-pointer touch-manipulation shadow-2xs"
+                            className="min-w-[34px] min-h-[34px] rounded-lg bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 text-gray-500 hover:text-gray-800 flex items-center justify-center transition active:scale-90 cursor-pointer touch-manipulation"
                           >
-                            <IconCopy size={16} stroke={iconStroke} />
+                            <IconCopy size={15} stroke={iconStroke} />
                           </button>
 
                           {/* Remove Item Button */}
@@ -2609,9 +2821,9 @@ export default function POSPage() {
                             type="button"
                             onClick={() => removeItemFromCart(i)}
                             title={t('pos.remove_item', 'Remove')}
-                            className="min-w-[36px] min-h-[36px] rounded-xl bg-restro-gray border border-restro-border-green text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-500/30 flex items-center justify-center transition active:scale-90 cursor-pointer touch-manipulation shadow-2xs"
+                            className="min-w-[34px] min-h-[34px] rounded-lg bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center transition active:scale-90 cursor-pointer touch-manipulation"
                           >
-                            <IconTrash size={16} stroke={iconStroke} />
+                            <IconTrash size={15} stroke={iconStroke} />
                           </button>
                         </div>
                       </div>
@@ -2622,14 +2834,13 @@ export default function POSPage() {
             )}
           </div>
 
-
           {/* Persistent Live Financial Calculation Tray & Actions */}
-          <div className="flex-shrink-0 w-full p-3.5 border-t border-restro-border-green bg-restro-gray/40 backdrop-blur-md space-y-2.5">
+          <div className="flex-shrink-0 w-full p-3.5 border-t border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8]/70 dark:bg-slate-800/50 space-y-2.5">
             {/* Live Financial Breakdown */}
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between text-gray-500">
                 <span>{t('pos.items_net_total', 'Subtotal')}</span>
-                <span className="font-medium text-restro-text">{currency}{liveCartSummary.itemsTotal.toFixed(2)}</span>
+                <span className="font-medium text-gray-800 dark:text-slate-100">{currency}{liveCartSummary.itemsTotal.toFixed(2)}</span>
               </div>
 
               {/* Discount line with quick toggle */}
@@ -2639,27 +2850,27 @@ export default function POSPage() {
                   <button
                     type="button"
                     onClick={() => setIsDiscountDrawerOpen(!isDiscountDrawerOpen)}
-                    className="text-[10px] text-restro-green hover:underline font-semibold"
+                    className="text-[10px] text-[#0077C5] hover:underline font-semibold"
                   >
                     ({liveCartSummary.discountAmount > 0 ? `${currency}${liveCartSummary.discountAmount.toFixed(2)} applied` : '+ add'})
                   </button>
                 </div>
-                <span className={liveCartSummary.discountAmount > 0 ? "font-semibold text-emerald-600" : "text-gray-400"}>
+                <span className={liveCartSummary.discountAmount > 0 ? "font-semibold text-[#2CA01C]" : "text-gray-400"}>
                   {liveCartSummary.discountAmount > 0 ? `-${currency}${liveCartSummary.discountAmount.toFixed(2)}` : `${currency}0.00`}
                 </span>
               </div>
 
               {/* Inline Discount Adjuster */}
               {isDiscountDrawerOpen && (
-                <div className="p-2 rounded-xl bg-background border border-restro-border-green space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
+                <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-[#D4D7DC] dark:border-slate-700 space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-center gap-1">
-                    <div className="flex rounded-lg overflow-hidden border border-restro-border-green p-0.5 bg-restro-gray shrink-0">
+                    <div className="flex rounded-md overflow-hidden border border-gray-200 dark:border-slate-700 p-0.5 bg-[#F4F5F8] dark:bg-slate-800 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleDiscountChange('fixed', state.discountValue)}
                         className={clsx(
                           "px-2 py-0.5 text-[10px] font-semibold rounded transition",
-                          state.discountType === 'fixed' ? "bg-restro-green text-white" : "text-gray-500"
+                          state.discountType === 'fixed' ? "bg-[#0D233A] text-white" : "text-gray-500"
                         )}
                       >
                         Fixed
@@ -2669,7 +2880,7 @@ export default function POSPage() {
                         onClick={() => handleDiscountChange('percentage', state.discountValue)}
                         className={clsx(
                           "px-2 py-0.5 text-[10px] font-semibold rounded transition",
-                          state.discountType === 'percentage' ? "bg-restro-green text-white" : "text-gray-500"
+                          state.discountType === 'percentage' ? "bg-[#0D233A] text-white" : "text-gray-500"
                         )}
                       >
                         %
@@ -2682,7 +2893,7 @@ export default function POSPage() {
                       placeholder="Amount"
                       value={state.discountValue || ''}
                       onChange={(e) => handleDiscountChange(state.discountType, e.target.value)}
-                      className="flex-1 text-xs rounded-lg px-2 py-1 border border-restro-border-green bg-background focus:outline-restro-green"
+                      className="flex-1 text-xs rounded-md px-2 py-1 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none"
                     />
                     {state.discountValue > 0 && (
                       <button
@@ -2699,65 +2910,24 @@ export default function POSPage() {
 
               <div className="flex items-center justify-between text-gray-500">
                 <span>{t('pos.tax_total', 'Taxes')}</span>
-                <span className="font-medium text-restro-text">+{currency}{liveCartSummary.taxTotal.toFixed(2)}</span>
+                <span className="font-medium text-gray-800 dark:text-slate-100">+{currency}{liveCartSummary.taxTotal.toFixed(2)}</span>
               </div>
 
               {state.serviceCharge && (
                 <div className="flex items-center justify-between text-gray-500">
                   <span>{t('pos.service_charge_total', 'Service Charge')}</span>
-                  <span className="font-medium text-restro-text">+{currency}{liveCartSummary.serviceChargeTotal.toFixed(2)}</span>
+                  <span className="font-medium text-gray-800 dark:text-slate-100">+{currency}{liveCartSummary.serviceChargeTotal.toFixed(2)}</span>
                 </div>
               )}
 
               {/* Total Payable Prominent Highlight */}
-              <div className="flex items-baseline justify-between pt-1.5 border-t border-restro-border-green">
-                <span className="text-sm font-bold text-restro-text">{t('pos.payable_total')}</span>
-                <span className="text-xl font-extrabold text-restro-green tracking-tight">
+              <div className="flex items-baseline justify-between pt-1.5 border-t border-[#E3E5E8] dark:border-slate-700">
+                <span className="text-sm font-bold text-gray-900 dark:text-white">{t('pos.payable_total')}</span>
+                <span className="text-xl font-extrabold text-[#2CA01C] tracking-tight">
                   {currency}{liveCartSummary.payableTotal.toFixed(2)}
                 </span>
               </div>
             </div>
-
-            {/* 1-Tap Instant Quick-Cash Strip */}
-            {cartItemsCount > 0 && (
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[11px] text-gray-500 font-bold uppercase tracking-wider">
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                    <IconBolt size={14} className="fill-emerald-500 text-emerald-500" />
-                    <span>{t('pos.quick_cash', '1-Tap Cash')}</span>
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-normal">Instant settle & receipt</span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    disabled={isSubmittingPayment}
-                    onClick={() => handleDirectQuickCash(liveCartSummary.payableTotal.toFixed(2))}
-                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 active:scale-95 transition shadow-xs flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none"
-                    title="Instant pay exact amount in cash"
-                  >
-                    <IconBolt size={14} />
-                    <span>Exact ({currency}{liveCartSummary.payableTotal.toFixed(2)})</span>
-                  </button>
-
-                  {[10, 20, 50, 100].map((step) => {
-                    const targetVal = Math.ceil((liveCartSummary.payableTotal + 0.01) / step) * step;
-                    if (targetVal <= liveCartSummary.payableTotal) return null;
-                    return (
-                      <button
-                        key={step}
-                        type="button"
-                        disabled={isSubmittingPayment}
-                        onClick={() => handleDirectQuickCash(targetVal.toFixed(2))}
-                        className="min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold bg-background border border-restro-border-green text-restro-text hover:bg-restro-button-hover active:scale-95 transition shadow-xs touch-manipulation cursor-pointer select-none"
-                      >
-                        {currency}{targetVal}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Action Buttons: Unified Single Row for High Tablet Efficiency */}
             <div className="flex items-center gap-2 pt-1 w-full">
@@ -2768,66 +2938,81 @@ export default function POSPage() {
                 disabled={cartItemsCount === 0}
                 title={t('pos.draft', 'Hold Draft')}
                 className={clsx(
-                  "min-h-[48px] px-2.5 sm:px-3 rounded-xl border border-restro-border-green flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs touch-manipulation select-none shrink-0",
+                  "min-h-[46px] px-3 rounded-lg border flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs touch-manipulation select-none shrink-0",
                   cartItemsCount === 0 
-                    ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
-                    : "bg-restro-gray hover:bg-restro-button-hover text-restro-text cursor-pointer"
+                    ? "opacity-50 cursor-not-allowed bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 text-gray-400" 
+                    : "bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-gray-50 text-gray-800 dark:text-slate-200 cursor-pointer"
                 )}
               >
                 <IconDeviceFloppy size={16} stroke={iconStroke} /> 
                 <span className="text-xs font-bold hidden xs:inline">{t('pos.draft', 'Draft')}</span>
               </button>
 
-              {/* 2. Send to Kitchen Button */}
-              <button 
-                type="button"
-                onClick={handleDirectSendToKitchen} 
-                disabled={cartItemsCount === 0 || isSendingToKitchen || isSubmittingPayment}
-                className={clsx(
-                  "flex-1 min-h-[48px] px-2.5 sm:px-3 rounded-xl border border-restro-border-green flex items-center justify-between gap-1 transition active:scale-95 shadow-xs touch-manipulation cursor-pointer select-none min-w-0",
-                  cartItemsCount === 0 || isSendingToKitchen || isSubmittingPayment
-                    ? "opacity-50 cursor-not-allowed bg-restro-gray text-gray-400" 
-                    : "bg-restro-gray hover:bg-restro-button-hover text-restro-text"
-                )}
-              >
-                <span className="flex items-center gap-1.5 truncate">
-                  {isSendingToKitchen ? (
-                    <IconLoader2 size={16} className="animate-spin text-restro-green shrink-0" />
-                  ) : (
-                    <IconChefHat size={16} stroke={iconStroke} className="shrink-0" />
+              {/* 2. Send to Kitchen Button (Hidden in Prepaid Only mode) */}
+              {!isPrepaidOnly && (
+                <button 
+                  type="button"
+                  onClick={handleDirectSendToKitchen} 
+                  disabled={cartItemsCount === 0 || isSendingToKitchen || isSubmittingPayment}
+                  className={clsx(
+                    "flex-1 min-h-[46px] px-3 rounded-lg border flex items-center justify-between gap-1 transition active:scale-95 shadow-2xs touch-manipulation cursor-pointer select-none min-w-0",
+                    cartItemsCount === 0 || isSendingToKitchen || isSubmittingPayment
+                      ? "opacity-50 cursor-not-allowed bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 text-gray-400" 
+                      : "bg-[#0D233A] border-[#0D233A] hover:opacity-95 text-white"
                   )}
-                  <span className="text-xs font-bold truncate">
-                    {isSendingToKitchen ? t('pos.sending', 'Sending...') : t('pos.kitchen', 'Kitchen')}
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    {isSendingToKitchen ? (
+                      <IconLoader2 size={16} className="animate-spin text-white shrink-0" />
+                    ) : (
+                      <IconChefHat size={16} stroke={iconStroke} className="shrink-0" />
+                    )}
+                    <span className="text-xs font-bold truncate">
+                      {isSendingToKitchen ? t('pos.sending', 'Sending...') : t('pos.kitchen', 'Kitchen')}
+                    </span>
+                    {isPostpaidOnly && (
+                      <span className="text-[10px] font-semibold opacity-75 hidden sm:inline">
+                        (Postpaid)
+                      </span>
+                    )}
                   </span>
-                </span>
-                <span className="text-[10px] font-mono font-semibold px-1 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400 shrink-0 hidden sm:inline">
-                  F8
-                </span>
-              </button>
+                  <span className="text-[10px] font-mono font-semibold px-1 py-0.5 rounded bg-white/15 text-white/80 shrink-0 hidden sm:inline">
+                    F8
+                  </span>
+                </button>
+              )}
 
-              {/* 3. Pay & Settle Button (Primary Action) */}
-              <button 
-                type="button"
-                onClick={btnShowPayAndSendToKitchenModal} 
-                disabled={cartItemsCount === 0 || isSubmittingPayment}
-                className={clsx(
-                  "flex-[1.5] sm:flex-[1.6] min-h-[48px] px-3 sm:px-3.5 rounded-xl font-black text-xs sm:text-sm text-white flex items-center justify-between gap-1 transition active:scale-[0.98] shadow-md shadow-emerald-600/20 touch-manipulation cursor-pointer select-none min-w-0",
-                  cartItemsCount === 0 || isSubmittingPayment
-                    ? "opacity-50 cursor-not-allowed bg-gray-400" 
-                    : "bg-restro-green hover:bg-restro-green-button-hover"
-                )}
-              >
-                <div className="flex items-center gap-1.5 truncate">
-                  <IconCash size={17} stroke={iconStroke} className="shrink-0" />
-                  <span className="truncate">{t('pos.pay', 'Pay')}</span>
-                  <span className="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-white/20 text-white shrink-0 hidden sm:inline">
-                    F4
+              {/* 3. Pay & Settle Button (Hidden in Postpaid Only mode) */}
+              {!isPostpaidOnly && (
+                <button 
+                  type="button"
+                  onClick={btnShowPayAndSendToKitchenModal} 
+                  disabled={cartItemsCount === 0 || isSubmittingPayment}
+                  className={clsx(
+                    isPrepaidOnly ? "flex-1" : "flex-[1.5] sm:flex-[1.6]",
+                    "min-h-[46px] px-3.5 rounded-lg font-bold text-xs sm:text-sm text-white flex items-center justify-between gap-1 transition active:scale-[0.98] shadow-sm touch-manipulation cursor-pointer select-none min-w-0",
+                    cartItemsCount === 0 || isSubmittingPayment
+                      ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                      : "bg-[#2CA01C] hover:bg-[#248417]"
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <IconCash size={17} stroke={iconStroke} className="shrink-0" />
+                    <span className="truncate">{t('pos.pay', 'Pay')}</span>
+                    {isPrepaidOnly && (
+                      <span className="text-[10px] font-semibold opacity-90 hidden sm:inline">
+                        (Prepaid)
+                      </span>
+                    )}
+                    <span className="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-white/20 text-white shrink-0 hidden sm:inline">
+                      F4
+                    </span>
+                  </div>
+                  <span className="font-mono text-xs sm:text-sm font-extrabold shrink-0 bg-white/20 px-2 py-0.5 rounded ml-1 tracking-tight">
+                    {currency}{liveCartSummary.payableTotal.toFixed(2)}
                   </span>
-                </div>
-                <span className="font-mono text-xs sm:text-sm font-extrabold shrink-0 bg-white/20 px-2 py-0.5 rounded-md ml-1 tracking-tight">
-                  {currency}{liveCartSummary.payableTotal.toFixed(2)}
-                </span>
-              </button>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2875,6 +3060,23 @@ export default function POSPage() {
         onTenderedAmountChange={setTenderedAmount}
         onPayAndComplete={btnPayAndSendToKitchen}
         isProcessing={isSubmittingPayment}
+        cartItems={cartItems}
+        customer={customer}
+        customerType={customerType}
+        diningOption={selectedDiningOption}
+        tableTitle={selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : '')}
+      />
+
+      {/* High-Impact Payment Success & Change Due Modal */}
+      <POSPaymentSuccessModal
+        isOpen={!!completedPaymentInfo}
+        onClose={() => {
+          setCompletedPaymentInfo(null);
+          playTapSound();
+        }}
+        paymentInfo={completedPaymentInfo}
+        onPrintReceipt={(payload) => triggerPrintReceipt(payload || detailsForReceiptPrint)}
+        onPrintToken={(payload) => triggerPrintToken(payload || detailsForReceiptPrint)}
       />
 
       {/* Slide-Over Drafts Drawer */}
@@ -2891,6 +3093,36 @@ export default function POSPage() {
         onHoldCurrentAndRestore={handleHoldCurrentAndRestore}
       />
 
+      {/* Slide-Over Customer & Loyalty Drawer */}
+      <POSCustomerDrawer
+        isOpen={isCustomerDrawerOpen}
+        onClose={closeCustomerModalSync}
+        selectedCustomer={customer}
+        customerType={customerType}
+        onSelectCustomer={(cust) => setCustomer(cust)}
+        onClearCustomer={btnClearSearchCustomer}
+        currency={currency}
+        menuItems={menuItems}
+        onQuickAddMenuItem={(favItem) => {
+          const hasVariantsOrAddons =
+            (favItem.variants && favItem.variants.length > 0) ||
+            (favItem.addons && favItem.addons.length > 0);
+          if (hasVariantsOrAddons) {
+            closeCustomerModalSync();
+            btnOpenVariantAndAddonModal(favItem.id);
+          } else {
+            addItemToCart({
+              ...favItem,
+              price: parseFloat(favItem.price),
+              variant_id: null,
+              variant: null,
+              addons_ids: [],
+              addons: [],
+            });
+            toast.success(`${t('pos.added', 'Added')}: ${favItem.title}`);
+          }
+        }}
+      />
 
       {/* dialog: notes */}
       <dialog id="modal-notes" className="modal modal-bottom sm:modal-middle">
@@ -3054,7 +3286,6 @@ export default function POSPage() {
       </dialog>
       {/* dialog: variants & addons */}
 
-
       {/* dialog: save draft (deprecated in favor of 1-tap direct hold) */}
 
       {/* dialog: drafts list (replaced by Slide-Over POSDraftsDrawer) */}
@@ -3069,7 +3300,7 @@ export default function POSPage() {
       <dialog id="modal-search-customer" className="modal modal-bottom sm:modal-middle">
       <div className='modal-box border border-restro-border-green dark:rounded-2xl h-96'>
           <div className="flex items-center justify-between">
-            
+
             <h3 className="font-bold text-lg">{t('pos.search_customer')}</h3>
             <form method="dialog">
               <button onClick={btnClearSearchCustomer} className='btn btn-circle btn-sm text-restro-text border-none bg-restro-gray hover:bg-restro-button-hover'><IconRotate size={18} stroke={iconStroke}/></button>
@@ -3422,47 +3653,25 @@ export default function POSPage() {
       </dialog>
       {/* dialog: print-token */}
 
-      {/* dialog: qrorders */}
-      <dialog id="modal-qrorders" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl p-0'>
-          <div className="flex justify-between items-center sticky top-0 px-6 py-4">
-            <h3 className="font-bold text-lg">{t('pos.qr_orders')}</h3>
-            <form method="dialog" className='flex gap-2'>
-              {/* if there is a button in form, it will close the modal */}
-              <button onClick={btnClearQROrders} className="rounded-full hover:bg-red-200 transition active:scale-95 bg-red-50 dark:bg-red-500 dark:text-white text-red-500 w-9 h-9 flex items-center justify-center"><IconClearAll stroke={iconStroke} /></button>
-              <button className="rounded-full hover:bg-gray-200 dark:hover:bg-black transition active:scale-95 bg-gray-100 dark:bg-restro-gray text-gray-500 dark:text-white w-9 h-9 flex items-center justify-center"><IconX stroke={iconStroke} /></button>
-            </form>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-6 pb-6">
-            {state?.qrOrders?.map((qrOrder, index)=>{
-              const { customer_type, customer_id, customer_name, table_id, table_title, items, id } = qrOrder;
-
-              return <div key={index} className='flex items-center gap-1 rounded-2xl p-2 border dark:border-restro-gray'>
-                <div className='w-12 h-12 rounded-full bg-gray-100 dark:bg-restro-gray dark:text-white text-gray-500 flex items-center justify-center'>
-                  <IconClipboardList stroke={iconStroke} />
-                </div>
-                <div className='flex-1'>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <IconArmchair2 stroke={iconStroke} size={14} />
-                    <p className=''>{table_title || "N/A"}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    <IconUser stroke={iconStroke} size={14} />
-                    <p className=''>{customer_type == "WALKIN" ? "WALKIN" : customer_name}</p>
-                  </div>
-                  <p className='text-xs'>{items?.length} {t('pos.cart_items')}</p>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <button onClick={()=>{btnSelectQROrder(qrOrder)}} className='rounded-full transition active:scale-95 w-6 h-6 flex items-center justify-center text-restro-text bg-restro-gray hover:bg-restro-button-hover'><IconPencil size={14} stroke={iconStroke} /></button>
-
-                  <button onClick={()=>{btnCancelQROrder(id)}} className='rounded-full transition active:scale-95 text-red-500 w-6 h-6 flex items-center justify-center bg-restro-gray hover:bg-restro-button-hover'><IconTrash size={14} stroke={iconStroke} /></button>
-                </div>
-              </div>
-            })}
-          </div>
-        </div>
-      </dialog>
+      {/* Slide-Over QR Menu Orders Drawer */}
+      <POSQROrdersDrawer
+        isOpen={isQrOrdersDrawerOpen}
+        onClose={() => setIsQrOrdersDrawerOpen(false)}
+        qrOrders={state.qrOrders || []}
+        onApproveOrder={btnApproveQROrder}
+        onApproveAllOrders={btnApproveAllQROrders}
+        onEditOrderInCart={btnSelectQROrder}
+        onRejectOrder={btnCancelQROrder}
+        onRejectAllOrders={btnClearQROrders}
+        currency={currency}
+        exchangeRateUsdToKhr={
+          customExchangeRate ||
+          state.storeSettings?.exchange_rate_usd_to_khr ||
+          state.storeSettings?.exchangeRateUsdToKhr ||
+          4100
+        }
+        activeCartItemsCount={cartItems?.length || 0}
+      />
       {/* dialog: dual screen pairing */}
       <dialog id="modal-dual-screen" className="modal modal-bottom sm:modal-middle">
         <div className="modal-box border border-restro-border-green dark:rounded-2xl max-w-lg">
@@ -3686,7 +3895,7 @@ export default function POSPage() {
         isOpen={isTablePickerOpen}
         onClose={() => setIsTablePickerOpen(false)}
         selectedTableId={tableRef.current?.value}
-        currency={currency}
+        currency={storeSettings?.currency || currency}
         onSelectTable={(tbl) => {
           if (tableRef.current) {
             tableRef.current.value = tbl.id;

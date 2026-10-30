@@ -3,8 +3,8 @@ import useSWR from "swr";
 
 const fetcher = (url) => ApiClient.get(url).then((res) => res.data);
 
-export function useCustomers({ page = 1, perPage = 10, filter = "" }) {
-  const APIURL = `/customers?sort=created_at&page=${page}&filter=${filter}&perPage=${perPage}`;
+export function useCustomers({ page = 1, perPage = 10, filter = "", sort = "created_at" }) {
+  const APIURL = `/customers?sort=${sort}&page=${page}&filter=${filter}&perPage=${perPage}`;
   const { data, error, isLoading } = useSWR(APIURL, fetcher);
   return {
     data,

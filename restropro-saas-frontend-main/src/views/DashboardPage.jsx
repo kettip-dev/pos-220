@@ -12,10 +12,14 @@ import {
   IconRotateClockwise2,
   IconLayout2,
   IconX,
+  IconEyeOff,
+  IconEye,
+  IconChartLine,
 } from "@tabler/icons-react";
 
 import Page from "../components/Page";
 import { iconStroke } from "../config/config";
+import { getQBOAppCategories, useQBOAccess } from "../components/QBONavigation";
 
 // ─── Widget framework ──────────────────────────────────────────
 import "../widgets/register-all";  // side-effect: registers all widgets
@@ -54,6 +58,40 @@ export default function DashboardPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(() => {
+    try {
+      return localStorage.getItem("restro_qbo_privacy_mode") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const togglePrivacyMode = () => {
+    setPrivacyMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("restro_qbo_privacy_mode", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const { hasAccess } = useQBOAccess();
+  const qboCategories = useMemo(() => {
+    return getQBOAppCategories(t)
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((it) => hasAccess(it.scopes, it.features)),
+      }))
+      .filter((cat) => cat.items.length > 0);
+  }, [t, hasAccess]);
+
+  const greetingText = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t("dashboard.good_morning", "Good morning");
+    if (hour < 18) return t("dashboard.good_afternoon", "Good afternoon");
+    return t("dashboard.good_evening", "Good evening");
+  }, [t]);
 
   // Show onboarding if no saved layout was found (data has loaded but layout is null on server).
   // We can detect this from the SWR response being non-undefined but with `layout: null`.
@@ -184,69 +222,145 @@ export default function DashboardPage() {
     );
   }
 
+  const firstName = (user?.name || "Manager").split(" ")[0];
+
+  const createActionShortcuts = [
+    { label: t("quick_new.pos_order", "Create POS order"), path: "/dashboard/pos" },
+    { label: t("quick_new.tables", "Open floor plan"), path: "/dashboard/tables" },
+    { label: t("quick_new.invoices", "View invoices"), path: "/dashboard/invoices" },
+    { label: t("quick_new.inventory", "Record stock"), path: "/dashboard/inventory" },
+    { label: t("quick_new.reservation", "Book reservation"), path: "/dashboard/reservation" },
+  ];
+
   // ─── Render ──────────────────────────────────────────────────
   return (
-    <Page>
-      <div className="px-1 pb-12">
-        {/* Toolbar */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-restro-green-10 text-restro-green">
-              <IconLayoutDashboard size={20} stroke={iconStroke} />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-foreground">Dashboard</h1>
-              <p className="text-xs text-restro-text">
-                {editMode ? "Drag, resize, add or remove widgets." : "Your personalized command center."}
-              </p>
-            </div>
-          </div>
+    <Page className="px-4 sm:px-8 pt-6 pb-12 max-w-[1440px] mx-auto">
+      <div>
+        {/* QBO Home Greeting & Top Controls */}
+        <div className="relative flex flex-col items-center justify-center mb-6 pt-1">
+          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-gray-900 dark:text-white text-center">
+            {greetingText}, {firstName}!
+          </h1>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Right-aligned Customise & Privacy buttons (like QBO Screenshot 1) */}
+          <div className="mt-3 sm:mt-0 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2 flex flex-wrap items-center justify-center gap-2">
             {!editMode ? (
               <>
-                <Link
-                  to="/dashboard/reports"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-restro-border-green bg-background px-3 py-2 text-sm font-bold text-foreground transition hover:bg-restro-bg-gray"
-                >
-                  View Reports <IconChevronRight size={14} stroke={iconStroke} />
-                </Link>
                 <button
+                  type="button"
                   onClick={() => setEditMode(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-restro-green px-4 py-2 text-sm font-bold text-white transition hover:bg-restro-green/90 active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
-                  <IconAdjustments size={15} stroke={iconStroke} /> Customize
+                  <IconAdjustments size={15} stroke={1.8} className="text-gray-500" />
+                  <span>{t("navbar.customise", "Customise")}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={togglePrivacyMode}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                >
+                  {privacyMode ? (
+                    <IconEye size={15} stroke={1.8} className="text-[#2CA01C]" />
+                  ) : (
+                    <IconEyeOff size={15} stroke={1.8} className="text-gray-500" />
+                  )}
+                  <span>{t("dashboard.privacy", "Privacy")}</span>
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={() => setPickerOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-restro-green px-3 py-2 text-sm font-bold text-white hover:bg-restro-green/90 active:scale-95"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#2CA01C] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#248417] active:scale-95 cursor-pointer"
                 >
-                  <IconPlus size={15} stroke={iconStroke} /> Add widget
+                  <IconPlus size={14} stroke={iconStroke} /> {t("dashboard.add_widget", "Add widget")}
                 </button>
                 <button
                   onClick={() => setTemplatesOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-restro-border-green bg-background px-3 py-2 text-sm font-bold text-foreground hover:bg-restro-bg-gray"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
-                  <IconLayout2 size={15} stroke={iconStroke} /> Templates
+                  <IconLayout2 size={14} stroke={iconStroke} /> {t("dashboard.templates", "Templates")}
                 </button>
                 <button
                   onClick={resetDashboard}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-restro-border-green bg-background px-3 py-2 text-sm font-bold text-foreground hover:bg-restro-bg-gray"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
-                  <IconRotateClockwise2 size={15} stroke={iconStroke} /> Reset
+                  <IconRotateClockwise2 size={14} stroke={iconStroke} /> {t("dashboard.reset", "Reset")}
                 </button>
                 <button
-                  onClick={() => { layoutHook.saveNow(); setEditMode(false); }}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-foreground px-4 py-2 text-sm font-bold text-background hover:opacity-90 active:scale-95"
+                  onClick={() => {
+                    layoutHook.saveNow();
+                    setEditMode(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#0D233A] px-3.5 py-1.5 text-xs font-bold text-white hover:opacity-90 active:scale-95 cursor-pointer"
                 >
-                  <IconCheck size={15} stroke={iconStroke} /> Done
+                  <IconCheck size={14} stroke={iconStroke} /> {t("common.done", "Done")}
                 </button>
               </>
             )}
           </div>
+        </div>
+
+        {/* QBO Category Pills Row (Screenshot 1) */}
+        <div className="flex items-center justify-start sm:justify-center gap-2.5 overflow-x-auto no-scrollbar pb-2 mb-8">
+          {qboCategories.map((cat) => (
+            <Link
+              key={cat.id}
+              to={cat.defaultPath}
+              className="shrink-0 h-10 pl-2 pr-4 rounded-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-700 shadow-2xs hover:shadow-sm flex items-center gap-2.5 text-xs font-semibold text-gray-800 dark:text-slate-100 transition active:scale-95"
+            >
+              <span
+                className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${cat.badgeBg}`}
+              >
+                {cat.badgeIcon}
+              </span>
+              <span>{cat.label}</span>
+            </Link>
+          ))}
+          <Link
+            to="/dashboard/reports"
+            className="shrink-0 h-10 pl-2 pr-4 rounded-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-700 shadow-2xs hover:shadow-sm flex items-center gap-2.5 text-xs font-semibold text-gray-800 dark:text-slate-100 transition active:scale-95"
+          >
+            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-indigo-600 text-white">
+              <IconChartLine size={14} stroke={2.2} />
+            </span>
+            <span>{t("navbar.reports", "Reports")}</span>
+          </Link>
+        </div>
+
+        {/* QBO 'Create actions' Pill Bar (Screenshot 1) */}
+        <div className="flex flex-wrap items-center gap-2.5 mb-7">
+          <span className="text-xs font-bold text-gray-800 dark:text-slate-200 mr-1">
+            {t("dashboard.create_actions", "Create actions")}
+          </span>
+          {createActionShortcuts.map((act, idx) => (
+            <Link
+              key={idx}
+              to={act.path}
+              className="h-8 px-3.5 rounded-full bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-gray-800 dark:text-slate-200 flex items-center transition active:scale-95"
+            >
+              {act.label}
+            </Link>
+          ))}
+          <Link
+            to="/dashboard/reports"
+            className="text-xs font-semibold text-[#0077C5] hover:underline ml-1"
+          >
+            {t("dashboard.view_reports", "View all reports")}
+          </Link>
+        </div>
+
+        {/* Section Header: Business at a glance */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">
+            {t("dashboard.business_at_a_glance", "Business at a glance")}
+          </h2>
+          {privacyMode && (
+            <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+              {t("dashboard.privacy_active", "Privacy mode active — sensitive figures blurred")}
+            </span>
+          )}
         </div>
 
         {/* Save indicator */}
@@ -263,13 +377,15 @@ export default function DashboardPage() {
         )}
 
         {/* Canvas */}
-        <WidgetCanvas
-          layout={layoutHook.layout}
-          editMode={editMode}
-          context={context}
-          onLayoutChange={onLayoutChange}
-          onRemoveItem={removeWidget}
-        />
+        <div className={privacyMode ? "[&_.text-2xl]:blur-sm [&_.text-3xl]:blur-sm [&_.font-extrabold]:blur-xs transition-all" : ""}>
+          <WidgetCanvas
+            layout={layoutHook.layout}
+            editMode={editMode}
+            context={context}
+            onLayoutChange={onLayoutChange}
+            onRemoveItem={removeWidget}
+          />
+        </div>
       </div>
 
       <WidgetPickerDrawer

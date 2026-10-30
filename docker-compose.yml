@@ -1,4 +1,24 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: restropro_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel notice
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   db:
     build:
       context: ./docker/mysql
@@ -23,6 +43,7 @@ services:
       start_period: 10s
 
   backend:
+    profiles: ["full"]
     build:
       context: ./restropro-saas-backend-main
       dockerfile: Dockerfile
@@ -31,9 +52,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       PORT: 3000
       DATABASE_URL: mysql://${DB_USER:-restro}:${DB_PASSWORD:-restropass}@db:3306/${DB_NAME:-restropro_saas}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_INTERNAL_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       JWT_SECRET: ${JWT_SECRET:-restro_jwt_secret_dev_key_change_in_production}
       JWT_EXPIRY: ${JWT_EXPIRY:-15m}
       JWT_EXPIRY_REFRESH: ${JWT_EXPIRY_REFRESH:-30d}
@@ -57,6 +83,7 @@ services:
       - backend_uploads:/usr/src/app/public
 
   frontend:
+    profiles: ["full"]
     build:
       context: ./restropro-saas-frontend-main
       dockerfile: Dockerfile
@@ -76,3 +103,4 @@ services:
 volumes:
   mysql_data:
   backend_uploads:
+  redis_data:

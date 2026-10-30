@@ -1,11 +1,12 @@
-// const { CONFIG } = require("../config/index")
 const jsonwebtoken = require("jsonwebtoken");
 const { CONFIG } = require("../config");
+
+const getIssuer = () => CONFIG.FRONTEND_DOMAIN_COOKIE || "restropro-saas";
 
 exports.generateAccessToken = (payload) => {
     const token = jsonwebtoken.sign(payload, CONFIG.JWT_SECRET, {
         expiresIn: CONFIG.JWT_EXPIRY,
-        issuer: CONFIG.FRONTEND_DOMAIN_COOKIE
+        issuer: getIssuer()
     });
     return token;
 };
@@ -13,12 +14,12 @@ exports.generateAccessToken = (payload) => {
 exports.generateRefreshToken = (payload) => {
     const token = jsonwebtoken.sign(payload, CONFIG.JWT_SECRET, {
         expiresIn: CONFIG.JWT_EXPIRY_REFRESH,
-        issuer: CONFIG.FRONTEND_DOMAIN_COOKIE
+        issuer: getIssuer()
     });
     return token;
 };
 
 exports.verifyToken = (token) => {
-    const decodedToken = jsonwebtoken.verify(token, CONFIG.JWT_SECRET, {issuer: CONFIG.FRONTEND_DOMAIN_COOKIE});
+    const decodedToken = jsonwebtoken.verify(token, CONFIG.JWT_SECRET, {issuer: getIssuer()});
     return decodedToken;
 };

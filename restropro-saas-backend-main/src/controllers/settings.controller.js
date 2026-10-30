@@ -1,5 +1,5 @@
 const { nanoid } = require("nanoid");
-const { getStoreSettingDB, setStoreSettingDB, uploadStoreImageDB, deleteStoreImageDB, getPrintSettingDB, setPrintSettingDB, getTaxesDB, addTaxDB, updateTaxDB, deleteTaxDB, getTaxDB, addPaymentTypeDB, getPaymentTypesDB, updatePaymentTypeDB, deletePaymentTypeDB, togglePaymentTypeDB, addStoreTableDB, getStoreTablesDB, updateStoreTableDB, deleteStoreTableDB, addCategoryDB, getCategoriesDB, updateCategoryDB, deleteCategoryDB, getQRMenuCodeDB, updateQRMenuCodeDB, changeCategoryVisibiltyDB, updateServiceChargeDB, getServiceChargeDB, getStoreTablesWithLiveStatusDB, saveTableLayoutPositionsDB, uploadFloorPlanImageDB, deleteFloorPlanImageDB } = require("../services/settings.service");
+const { getStoreSettingDB, setStoreSettingDB, uploadStoreImageDB, deleteStoreImageDB, getPrintSettingDB, setPrintSettingDB, getTaxesDB, addTaxDB, updateTaxDB, deleteTaxDB, getTaxDB, addPaymentTypeDB, getPaymentTypesDB, updatePaymentTypeDB, deletePaymentTypeDB, togglePaymentTypeDB, addStoreTableDB, getStoreTablesDB, updateStoreTableDB, deleteStoreTableDB, addCategoryDB, getCategoriesDB, updateCategoryDB, deleteCategoryDB, getQRMenuCodeDB, updateQRMenuCodeDB, changeCategoryVisibiltyDB, updateServiceChargeDB, getServiceChargeDB, getStoreTablesWithLiveStatusDB, saveTableLayoutPositionsDB, uploadFloorPlanImageDB, deleteFloorPlanImageDB, rotateTablePinDB } = require("../services/settings.service");
 const { getSuperAdminImageStorageConfigDB } = require("../services/image_storage.service");
 const { validateImageFile, getActiveStorageConfig, getStorageProvider, buildObjectKey, detectStorageType } = require("../utils/imageStorage");
 const path = require("path");
@@ -45,10 +45,13 @@ exports.getStoreDetails = async (req, res) => {
             phone: result?.phone || null,
             email: result?.email || null,
             currency: result?.currency || null,
+            businessType: result?.business_type || 'restaurant',
             exchangeRateUsdToKhr: Number(result?.exchange_rate_usd_to_khr || 4100),
+            posPaymentMode: result?.pos_payment_mode || 'flexible',
             image: result?.image || null,
             isQRMenuEnabled: result?.is_qr_menu_enabled || false,
             isQROrderEnabled: result?.is_qr_order_enabled || false,
+            isQROrderAutoKitchen: Boolean(result?.is_qr_order_auto_kitchen),
             uniqueQRCode: result?.unique_qr_code || null,
             isFeedbackEnabled: result?.is_feedback_enabled || false,
             uniqueId:result?.unique_id || null,
@@ -75,17 +78,19 @@ exports.setStoreDetails = async (req, res) => {
         const currency = req.body.currency;
         const isQRMenuEnabled = req.body.isQRMenuEnabled;
         const isQROrderEnabled = req.body.isQROrderEnabled;
+        const isQROrderAutoKitchen = Boolean(req.body.isQROrderAutoKitchen);
         const isFeedbackEnabled = req.body.isFeedbackEnabled;
         const exchangeRateUsdToKhr = req.body.exchangeRateUsdToKhr ? Number(req.body.exchangeRateUsdToKhr) : 4100;
+        const posPaymentMode = req.body.posPaymentMode || 'flexible';
 
         const uniqueQRCode = nanoid();
 
         const qrCodeExists = await getQRMenuCodeDB(tenantId);
         if(qrCodeExists) {
-            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr);
+            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr, isQROrderAutoKitchen, posPaymentMode);
         } else {
             await updateQRMenuCodeDB(uniqueQRCode, tenantId);
-            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr);
+            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr, isQROrderAutoKitchen, posPaymentMode);
         }
 
         return res.status(200).json({
@@ -606,6 +611,35 @@ exports.getAllStoreTables = async (req, res) => {
         const tenantId = req.user.tenant_id;
         const result = await getStoreTablesDB(tenantId);
         return res.status(200).json(result);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: req.__("something_went_wrong_try_later")
+        });
+    }
+};
+
+exports.rotateTablePin = async (req, res) => {
+    try {
+        const tenantId = req.user.tenant_id;
+        const tableId = req.params.id;
+        const updated = await rotateTablePinDB(tenantId, tableId);
+        if (!updated) {
+            return res.status(404).json({
+                success: false,
+                message: req.__("invalid_request") || "Table not found"
+            });
+        }
+        const io = req.app.get("io");
+        if (io) {
+            io.to(String(tenantId)).emit("table_status_update", { action: "pin_rotated", tableId: updated.table_id });
+        }
+        return res.status(200).json({
+            success: true,
+            message: "Table PIN rotated successfully",
+            ...updated
+        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({

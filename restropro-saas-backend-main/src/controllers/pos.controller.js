@@ -5,6 +5,7 @@ const {
   getStoreSettingDB,
   getStoreTablesDB,
   getServiceChargeDB,
+  rotateTablePinsByOrderIdsDB,
 } = require("../services/settings.service");
 const {
   getAllMenuItemsDB,
@@ -12,7 +13,7 @@ const {
   getAllVariantsDB,
   getAllRecipeItemsDB,
 } = require("../services/menu_item.service");
-const { createOrderDB, getPOSQROrdersCountDB, getPOSQROrdersDB, updateQROrderStatusDB, cancelAllQROrdersDB } = require("../services/pos.service");
+const { createOrderDB, getPOSQROrdersCountDB, getPOSQROrdersDB, updateQROrderStatusDB, approveQROrderDB, cancelAllQROrdersDB } = require("../services/pos.service");
 const { createInvoiceDB } = require("../services/orders.service");
 const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB, printJobToPrinterDB, testPrinterTcpDB } = require("../services/printer.service");
 const { getPosPrintFormatDB, upsertPosPrintFormatDB } = require("../services/pos-print-format.service");
@@ -97,7 +98,7 @@ exports.createOrder = async (req, res) => {
     const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username);
 
     if(selectedQrOrderItem) {
-      await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed");
+      await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
     }
 
     return res.status(200).json({
@@ -193,7 +194,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const tokenNo = result.tokenNo;
 
     if(selectedQrOrderItem) {
-      await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed");
+      await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
     }
 
     return res.status(200).json({
@@ -282,6 +283,11 @@ exports.updatePOSQROrderStatus = async (req, res) => {
     }
 
     await updateQROrderStatusDB(tenantId, orderId, status);
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("order_update", { qrOrderId: Number(orderId), status });
+      io.to(String(tenantId)).emit("table_status_update", { action: "qr_order_updated", qrOrderId: Number(orderId), status });
+    }
     return res.status(200).json({
       status: true,
       message: req.__("qr_order_item_status_updated") // Translate message
@@ -295,12 +301,56 @@ exports.updatePOSQROrderStatus = async (req, res) => {
   }
 };
 
+exports.approvePOSQROrder = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const username = req.user.username || "Staff";
+    const qrOrderId = req.params.id;
+
+    const approved = await approveQROrderDB(tenantId, qrOrderId, username);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("new_order", approved.tokenNo);
+      io.to(String(tenantId)).emit("order_update", {
+        orderId: approved.orderId,
+        qrOrderId: approved.qrOrderId,
+        tableId: approved.tableId,
+      });
+      io.to(String(tenantId)).emit("table_status_update", {
+        action: "qr_order_approved",
+        orderId: approved.orderId,
+        qrOrderId: approved.qrOrderId,
+        tableId: approved.tableId,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      status: true,
+      message: req.__("order_created_token", { token: approved.tokenNo }) || `Order #${approved.tokenNo} sent to kitchen`,
+      ...approved,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
 exports.cancelAllQROrders = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const status = 'cancelled';
 
     await cancelAllQROrdersDB(tenantId, status);
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("order_update", { action: "qr_orders_cleared" });
+      io.to(String(tenantId)).emit("table_status_update", { action: "qr_orders_cleared" });
+    }
     return res.status(200).json({
       status: true,
       message: req.__("all_qr_order_items_cleared") // Translate message

@@ -243,7 +243,7 @@ export default function SuperAdminFirebaseConfigPage() {
               <p className="text-gray-500">{t("superadmin_firebase.service_account", "Service Account")}</p>
               <p className="font-medium text-restro-text">
                 {config.configured
-                  ? t("superadmin_firebase.configured", "Configured ✓")
+                  ? t("superadmin_firebase.configured", "Configured ")
                   : t("superadmin_firebase.not_configured", "Not configured")}
               </p>
 
@@ -427,7 +427,7 @@ export default function SuperAdminFirebaseConfigPage() {
                 {t("superadmin_firebase.step_2_title", "Project Settings & Service Accounts")}
               </h4>
               <p>
-                {t("superadmin_firebase.step_2_desc", "Click ⚙️ Project Settings and navigate to the Service accounts tab.")}
+                {t("superadmin_firebase.step_2_desc", "Click  Project Settings and navigate to the Service accounts tab.")}
               </p>
             </li>
 

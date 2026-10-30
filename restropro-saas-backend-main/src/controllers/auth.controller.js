@@ -168,7 +168,7 @@ exports.signIn = async (req, res) => {
         httpOnly: true,
         domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
         sameSite: false,
-        secure: process.env.NODE_ENV == "production",
+        secure: CONFIG.COOKIE_SECURE,
         path: "/",
       };
 
@@ -180,7 +180,7 @@ exports.signIn = async (req, res) => {
         httpOnly: true,
         domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
         sameSite: false,
-        secure: process.env.NODE_ENV == "production",
+        secure: CONFIG.COOKIE_SECURE,
         path: "/",
       };
 
@@ -256,7 +256,7 @@ exports.signIn = async (req, res) => {
         ),
         domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
         sameSite: false,
-        secure: process.env.NODE_ENV == "production",
+        secure: CONFIG.COOKIE_SECURE,
         path: "/",
       });
 
@@ -304,9 +304,17 @@ exports.signIn = async (req, res) => {
 
 exports.signUp = async (req, res) => {
   try {
-    const biz_name = req.body.biz_name;
-    const username = req.body.username;
-    const password = req.body.password;
+    const {
+      biz_name,
+      username,
+      password,
+      owner_name,
+      phone,
+      address,
+      currency,
+      pos_payment_mode,
+      business_type,
+    } = req.body;
 
     if (!(biz_name && username && password)) {
       return res.status(400).json({
@@ -332,7 +340,14 @@ exports.signUp = async (req, res) => {
       CONFIG.PASSWORD_SALT,
     );
 
-    await signUpDB(biz_name, username, encryptedPassword);
+    await signUpDB(biz_name, username, encryptedPassword, {
+      ownerName: owner_name,
+      phone,
+      address,
+      currency,
+      posPaymentMode: pos_payment_mode,
+      businessType: business_type,
+    });
 
     return res.status(200).json({
       success: true,
@@ -360,7 +375,7 @@ exports.signOut = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
     res.clearCookie("refreshToken", {
@@ -368,14 +383,14 @@ exports.signOut = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
     res.clearCookie("restroprosaas__authenticated", {
       expires: new Date(Date.now()),
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
 
@@ -605,7 +620,7 @@ exports.getNewAccessToken = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     };
 
@@ -628,7 +643,7 @@ exports.getNewAccessToken = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
     res.clearCookie("refreshToken", {
@@ -636,14 +651,14 @@ exports.getNewAccessToken = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
     res.clearCookie("restroprosaas__authenticated", {
       expires: new Date(Date.now()),
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV == "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
 
@@ -1712,7 +1727,7 @@ exports.getGoogleAuthConfig = async (req, res) => {
 };
 
 exports.googleSignIn = async (req, res) => {
-  const { idToken, bizName } = req.body;
+  const { idToken, bizName, phone, address, currency, posPaymentMode, businessType } = req.body;
 
   if (!idToken) {
     return res.status(400).json({
@@ -1767,6 +1782,13 @@ exports.googleSignIn = async (req, res) => {
           name || "Google User",
           uid,
           encryptedPassword,
+          {
+            phone,
+            address,
+            currency,
+            posPaymentMode,
+            businessType,
+          }
         );
 
         // Fetch the newly created user
@@ -1818,7 +1840,7 @@ exports.googleSignIn = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV === "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     };
 
@@ -1830,7 +1852,7 @@ exports.googleSignIn = async (req, res) => {
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV === "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     };
 
@@ -1846,7 +1868,7 @@ exports.googleSignIn = async (req, res) => {
       ),
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
-      secure: process.env.NODE_ENV === "production",
+      secure: CONFIG.COOKIE_SECURE,
       path: "/",
     });
 

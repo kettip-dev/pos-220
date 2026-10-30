@@ -4,6 +4,7 @@ import {
   IconArmchair2,
   IconArrowUpRight,
   IconBook,
+  IconBrandTelegram,
   IconChefHat,
   IconCreditCard,
   IconInfoSquareRounded,
@@ -37,6 +38,15 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/print-settings",
       category: "General & Operations",
       icon: <IconPrinter stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "telegram-notifications",
+      title: "Telegram Notifications",
+      description:
+        "Configure Telegram bot token, group chat IDs, order dispatch tickets, and daily EOD summary reports.",
+      path: "/dashboard/settings/telegram",
+      category: "General & Operations",
+      icon: <IconBrandTelegram stroke={iconStroke} className="w-6 h-6 text-[#229ED9]" />,
     },
     {
       id: "thermal-printers",

@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   IconArmchair,
@@ -8,52 +8,55 @@ import {
   IconCalendarEvent,
   IconToolsKitchen3,
   IconSearch,
-  IconLayoutDashboard,
+  IconHome,
   IconBuildingStore,
-  IconChevronUp,
-  IconChevronDown,
+  IconArrowBarToLeft,
+  IconArrowBarToRight,
+  IconSettings,
 } from "@tabler/icons-react";
-import { iconStroke } from "../config/config";
-import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import AppBarDropdown from "./AppBarDropdown";
+import QuickNewMenu from "./QuickNewMenu";
 import { showSearchModal } from "./SearchModal";
 import clsx from "clsx";
 
 export default function OperationalBar({ isCollapsed = false, onToggleCollapse }) {
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
-  const user = getUserDetailsInLocalStorage();
 
   const operationalNavTabs = [
     {
       id: "tables",
+      shortLabel: t("navbar.tables_short", "Tables"),
       label: t("navbar.tables", "Floor Plan"),
-      icon: <IconArmchair size={18} stroke={iconStroke} />,
+      Icon: IconArmchair,
       path: "/dashboard/tables",
     },
     {
       id: "pos",
-      label: t("navbar.pos", "Register"),
-      icon: <IconDeviceIpadHorizontal size={18} stroke={iconStroke} />,
+      shortLabel: t("navbar.pos_short", t("top_bar.pos", "POS")),
+      label: t("navbar.pos", "Register (POS)"),
+      Icon: IconDeviceIpadHorizontal,
       path: "/dashboard/pos",
     },
     {
       id: "kitchen",
+      shortLabel: t("navbar.kitchen_short", "Kitchen"),
       label: t("navbar.kitchen", "Kitchen KDS"),
-      icon: <IconChefHat size={18} stroke={iconStroke} />,
+      Icon: IconChefHat,
       path: "/dashboard/kitchen",
     },
     {
       id: "orders",
+      shortLabel: t("navbar.orders", "Orders"),
       label: t("navbar.orders", "Orders"),
-      icon: <IconToolsKitchen3 size={18} stroke={iconStroke} />,
+      Icon: IconToolsKitchen3,
       path: "/dashboard/orders",
     },
     {
       id: "reservation",
+      shortLabel: t("navbar.reserve_short", "Reserve"),
       label: t("navbar.reservation", "Reservations"),
-      icon: <IconCalendarEvent size={18} stroke={iconStroke} />,
+      Icon: IconCalendarEvent,
       path: "/dashboard/reservation",
     },
   ];
@@ -62,97 +65,177 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
     return location.pathname.startsWith(itemPath);
   };
 
-  const currentActiveTab = operationalNavTabs.find((tab) => isTabActive(tab.path));
-
   if (isCollapsed) {
-    return null;
+    return (
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        title={t("navbar.expand_nav", "Open Left Navigation")}
+        className="fixed left-0 bottom-4 z-50 h-10 pl-1.5 pr-2.5 rounded-r-full bg-[#0D233A] hover:bg-[#16385c] text-white border border-l-0 border-white/20 shadow-lg flex items-center gap-1.5 transition active:scale-95 cursor-pointer select-none"
+      >
+        <span className="w-6 h-6 rounded-full bg-[#2CA01C] flex items-center justify-center text-white shrink-0">
+          <IconBuildingStore size={14} stroke={2.2} />
+        </span>
+        <IconArrowBarToRight size={15} stroke={2.2} className="text-white" />
+      </button>
+    );
   }
 
   return (
-    <header className="w-full h-13 bg-[#0D233A] dark:bg-[#081426] border-b border-[#1C3550] dark:border-[#1E293B] px-3 sm:px-4 flex items-center justify-between gap-3 text-white select-none z-50 shrink-0 sticky top-0 shadow-sm transition-all duration-200">
-      {/* Left: Brand Identity & Quick Store Indicator */}
-          <div className="flex items-center gap-3 shrink-0">
-            <Link
-              to="/dashboard/home"
-              title={t("navbar.dashboard", "Back to Backoffice")}
-              className="flex items-center gap-2 group cursor-pointer"
-            >
-              <div className="w-8 h-8 rounded-lg bg-[#2CA01C] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition">
-                <IconBuildingStore size={19} stroke={2.2} />
-              </div>
-              <div className="hidden lg:block text-left">
-                <p className="font-bold text-xs tracking-wide text-white leading-tight">
-                  RestroPRO
-                </p>
-                <p className="text-[10px] text-emerald-400 font-semibold tracking-wider uppercase">
-                  Operational Mode
-                </p>
-              </div>
-            </Link>
-          </div>
+    <aside className="w-[68px] shrink-0 h-screen bg-white dark:bg-[#0B1522] border-r border-[#E3E5E8] dark:border-slate-800/90 flex flex-col items-center justify-between py-2.5 select-none z-50">
+      {/* Top Pinned Brand Logo & + Create Button (outside overflow-y-auto so flyout menu is never clipped) */}
+      <div className="w-full flex flex-col items-center gap-1 shrink-0 z-50">
+        {/* QBO Green Circular Brand Logo */}
+        <Link
+          to="/dashboard/home"
+          title={t("navbar.dashboard", "Back to Home")}
+          className="w-9 h-9 rounded-full bg-[#2CA01C] hover:bg-[#248417] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 mb-1 shrink-0"
+        >
+          <IconBuildingStore size={19} stroke={2.3} />
+        </Link>
 
-          {/* Center: Fast 1-Tap Operational Mode Tabs */}
-          <nav className="flex items-center gap-1 sm:gap-1.5 p-1 bg-[#091827] dark:bg-[#050D18] rounded-xl border border-[#1C3550]/70">
-            {operationalNavTabs.map((tab) => {
-              const active = isTabActive(tab.path);
-              return (
-                <Link
-                  key={tab.id}
-                  to={tab.path}
+        {/* + Create Circular Button */}
+        <div className="w-full px-1 shrink-0">
+          <QuickNewMenu qboRail={true} />
+        </div>
+      </div>
+
+      {/* Center Scrollable Rail Items */}
+      <div className="w-full flex flex-col items-center gap-1 overflow-y-auto no-scrollbar flex-1 mt-0.5">
+
+        {/* Home (Backoffice) Link */}
+        <div className="w-full px-1 mt-0.5">
+          <Link
+            to="/dashboard/home"
+            title={t("navbar.home", "Home")}
+            className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
+          >
+            <span className="w-10 h-7 flex items-center justify-center text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+              <IconHome size={20} stroke={1.8} />
+            </span>
+            <span className="text-[10px] font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white leading-tight truncate max-w-[60px] transition-colors">
+              {t("navbar.home", "Home")}
+            </span>
+          </Link>
+        </div>
+
+        {/* Operational Modules Section */}
+        <div className="w-full pt-2 mt-0.5 border-t border-gray-200/80 dark:border-slate-800 flex flex-col items-center gap-1 px-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
+            {t("navbar.pos_section", "POS")}
+          </span>
+
+          {operationalNavTabs.map((tab) => {
+            const active = isTabActive(tab.path);
+            const TabIcon = tab.Icon;
+            return (
+              <Link
+                key={tab.id}
+                to={tab.path}
+                title={tab.label}
+                className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
+              >
+                {active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
+                )}
+                <span
                   className={clsx(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-150 active:scale-95 cursor-pointer whitespace-nowrap",
+                    "w-10 h-7 flex items-center justify-center transition-colors",
                     active
-                      ? "bg-[#2CA01C] text-white shadow-sm"
-                      : "text-slate-300 hover:text-white hover:bg-white/10"
+                      ? "text-[#2CA01C] dark:text-[#2CA01C]"
+                      : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
                   )}
                 >
-                  {tab.icon}
-                  <span className="hidden md:inline">{tab.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+                  <TabIcon size={20} stroke={active ? 2.2 : 1.8} />
+                </span>
+                <span
+                  className={clsx(
+                    "text-[10px] leading-tight truncate max-w-[62px] transition-colors",
+                    active
+                      ? "font-bold text-gray-900 dark:text-white"
+                      : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+                  )}
+                >
+                  {tab.shortLabel}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
 
-          {/* Right: Quick Search, Collapse, Backoffice, and Cashier Profile */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* Quick Search */}
-            <button
-              type="button"
-              onClick={showSearchModal}
-              title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
-              className="w-8 h-8 hidden sm:flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer border border-white/10"
-            >
-              <IconSearch size={16} stroke={iconStroke} />
-            </button>
-
-            {/* Exit to Backoffice / Manager Dashboard Button */}
-            <Link
-              to="/dashboard/home"
-              title={t("navbar.dashboard", "Back to Backoffice")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1C3550] hover:bg-[#23456C] text-slate-200 hover:text-white transition border border-[#2B4B70] shadow-2xs active:scale-95 cursor-pointer"
-            >
-              <IconLayoutDashboard size={15} stroke={iconStroke} className="text-emerald-400" />
-              <span className="hidden sm:inline">{t("top_bar.exit_to_office", "Backoffice")}</span>
-            </Link>
-
-            {/* Minimize / Collapse Toggle Button */}
-            {onToggleCollapse && (
-              <button
-                type="button"
-                onClick={onToggleCollapse}
-                title={t("navbar.collapse_nav", "Minimize Header (Tablet Fullscreen)")}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition border border-white/10 shadow-2xs active:scale-95 cursor-pointer min-h-[32px]"
-              >
-                <IconChevronUp size={16} stroke={2.5} className="text-emerald-400" />
-                <span className="hidden xl:inline text-[11px] font-medium">{t("navbar.minimize", "Minimize")}</span>
-              </button>
+        {/* Backoffice Shortcuts: Settings */}
+        <div className="w-full pt-2 mt-0.5 border-t border-gray-200/80 dark:border-slate-800 flex flex-col items-center gap-1 px-1">
+          <Link
+            to="/dashboard/settings"
+            title={t("navbar.settings", "Settings")}
+            className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
+          >
+            {isTabActive("/dashboard/settings") && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
             )}
+            <span
+              className={clsx(
+                "w-10 h-7 flex items-center justify-center transition-colors",
+                isTabActive("/dashboard/settings")
+                  ? "text-[#2CA01C] dark:text-[#2CA01C]"
+                  : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              )}
+            >
+              <IconSettings size={20} stroke={isTabActive("/dashboard/settings") ? 2.2 : 1.8} />
+            </span>
+            <span
+              className={clsx(
+                "text-[10px] leading-tight truncate max-w-[62px] transition-colors",
+                isTabActive("/dashboard/settings")
+                  ? "font-bold text-gray-900 dark:text-white"
+                  : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              )}
+            >
+              {t("navbar.settings_short", "Settings")}
+            </span>
+          </Link>
+        </div>
+      </div>
 
-            {/* User Profile Avatar with dropdown */}
-            <div className="relative">
-              <AppBarDropdown isCollapsed={true} className="!w-9 !h-9 !p-0.5" />
-            </div>
-          </div>
-        </header>
+      {/* Bottom Controls: Search, Minimize/Hide Rail, & Profile Avatar */}
+      <div className="w-full pt-1.5 border-t border-gray-200/80 dark:border-slate-800 flex flex-col items-center gap-1.5 px-1 shrink-0">
+        {/* Global Search */}
+        <button
+          type="button"
+          onClick={showSearchModal}
+          title={`${t("appbar.search_placeholder", "Search")} (Cmd+K)`}
+          className="group w-full flex flex-col items-center gap-0.5 py-0.5 cursor-pointer"
+        >
+          <span className="w-10 h-7 flex items-center justify-center text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+            <IconSearch size={18} stroke={1.9} />
+          </span>
+          <span className="text-[10px] font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white leading-tight transition-colors">
+            {t("appbar.search_placeholder", "Search")}
+          </span>
+        </button>
+
+        {/* Hide / Collapse Left Rail Button */}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={t("navbar.collapse_nav", "Hide Left Rail (Fullscreen)")}
+            className="group w-full flex flex-col items-center gap-0.5 py-0.5 cursor-pointer"
+          >
+            <span className="w-10 h-7 flex items-center justify-center text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+              <IconArrowBarToLeft size={16} stroke={2} />
+            </span>
+            <span className="text-[9px] font-medium text-gray-500 dark:text-slate-400 leading-tight">
+              {t("navbar.hide", "Hide")}
+            </span>
+          </button>
+        )}
+
+        {/* User Profile Avatar (opens menu to the right of the left rail) */}
+        <div className="pt-0.5">
+          <AppBarDropdown isCollapsed={true} align="left" className="!w-9 !h-9 !p-0.5" />
+        </div>
+      </div>
+    </aside>
   );
 }

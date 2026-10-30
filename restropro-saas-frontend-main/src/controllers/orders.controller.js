@@ -129,3 +129,40 @@ export async function updateOrderCustomer(orderId, customerPhone, customerType) 
     }
 }
 
+export async function transferTableOrder(sourceTableId, destinationTableId) {
+    try {
+        const response = await ApiClient.post(`/orders/transfer-table`, {
+            sourceTableId,
+            destinationTableId,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function moveOrderItems(sourceOrderId, destinationTableId, items) {
+    try {
+        const response = await ApiClient.post(`/orders/move-items`, {
+            sourceOrderId,
+            destinationTableId,
+            items,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function splitCheckByItems(sourceOrderId, items) {
+    try {
+        const response = await ApiClient.post(`/orders/split-check`, {
+            sourceOrderId,
+            items,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+

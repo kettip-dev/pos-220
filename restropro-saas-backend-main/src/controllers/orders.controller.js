@@ -1,4 +1,4 @@
-const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, updateOrderCustomerDB } = require("../services/orders.service");
+const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB } = require("../services/orders.service");
 const {
   getPaymentTypesDB,
   getPrintSettingDB,
@@ -16,14 +16,28 @@ exports.getOrders = async (req, res) => {
       const orderItems = kitchenOrdersItems.filter((oi)=>oi.order_id == order.id);
 
       orderItems.forEach((oi, index)=>{
-        const addonsIds = oi?.addons ? JSON.parse(oi?.addons) : null;
+        let addonsIds = [];
+        try {
+          addonsIds = oi?.addons ? JSON.parse(oi?.addons) : [];
+        } catch (e) {
+          addonsIds = [];
+        }
 
-        if(addonsIds) {
-          const itemAddons = addonsIds.map((addonId)=>{
-            const addon = addons.filter((a)=>a.id == addonId);
-            return addon[0];
+        if (Array.isArray(addonsIds) && addonsIds.length > 0) {
+          const itemAddons = addonsIds.map((addonRef)=>{
+            if (typeof addonRef === 'object' && addonRef !== null) {
+              return addonRef;
+            }
+            const found = addons.find((a) =>
+              (typeof addonRef === 'number' || !isNaN(Number(addonRef)))
+                ? a.id == addonRef
+                : a.title?.toLowerCase() === String(addonRef).toLowerCase()
+            );
+            return found || { id: null, title: String(addonRef), price: 0 };
           });
-          orderItems[index].addons = [...itemAddons];
+          orderItems[index].addons = [...itemAddons.filter(Boolean)];
+        } else {
+          orderItems[index].addons = [];
         }
       });
 
@@ -209,14 +223,28 @@ exports.getOrdersPaymentSummary = async (req, res) => {
       const orderItems = kitchenOrdersItems.filter((oi)=>oi.order_id == order.id);
 
       orderItems.forEach((oi, index)=>{
-        const addonsIds = oi?.addons ? JSON.parse(oi?.addons) : null;
+        let addonsIds = [];
+        try {
+          addonsIds = oi?.addons ? JSON.parse(oi?.addons) : [];
+        } catch (e) {
+          addonsIds = [];
+        }
 
-        if(addonsIds) {
-          const itemAddons = addonsIds.map((addonId)=>{
-            const addon = addons.filter((a)=>a.id == addonId);
-            return addon[0];
+        if (Array.isArray(addonsIds) && addonsIds.length > 0) {
+          const itemAddons = addonsIds.map((addonRef)=>{
+            if (typeof addonRef === 'object' && addonRef !== null) {
+              return addonRef;
+            }
+            const found = addons.find((a) =>
+              (typeof addonRef === 'number' || !isNaN(Number(addonRef)))
+                ? a.id == addonRef
+                : a.title?.toLowerCase() === String(addonRef).toLowerCase()
+            );
+            return found || { id: null, title: String(addonRef), price: 0 };
           });
-          orderItems[index].addons = [...itemAddons];
+          orderItems[index].addons = [...itemAddons.filter(Boolean)];
+        } else {
+          orderItems[index].addons = [];
         }
       });
 
@@ -395,6 +423,117 @@ exports.updateOrderCustomer = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.transferTableOrder = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { sourceTableId, destinationTableId } = req.body;
+
+    if (!sourceTableId || !destinationTableId) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_request") || "Source and destination table are required",
+      });
+    }
+
+    if (String(sourceTableId) === String(destinationTableId)) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_request") || "Destination table cannot be the same as source table",
+      });
+    }
+
+    const result = await transferTableOrderDB(sourceTableId, destinationTableId, tenantId);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", { action: "table_transferred", sourceTableId, destinationTableId });
+      io.to(String(tenantId)).emit("order_update", {});
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Order successfully moved to ${result.destinationTableTitle}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("transferTableOrder controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.moveOrderItems = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const username = req.user.username;
+    const { sourceOrderId, destinationTableId, items } = req.body;
+
+    if (!sourceOrderId || !destinationTableId || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_request") || "Invalid items or destination table",
+      });
+    }
+
+    const result = await moveOrderItemsDB(sourceOrderId, destinationTableId, items, tenantId, username);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", { action: "items_moved" });
+      io.to(String(tenantId)).emit("order_update", { orderId: sourceOrderId });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Items transferred successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("moveOrderItems controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.splitCheckByItems = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const username = req.user.username;
+    const { sourceOrderId, items } = req.body;
+
+    if (!sourceOrderId || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_request") || "Select at least one item to split",
+      });
+    }
+
+    const result = await splitCheckByItemsDB(sourceOrderId, items, tenantId, username);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", { action: "check_split" });
+      io.to(String(tenantId)).emit("order_update", { orderId: sourceOrderId });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Check split successfully (New Check #${result.splitTokenNo})`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("splitCheckByItems controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
     });
   }
 };

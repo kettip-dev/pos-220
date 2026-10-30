@@ -149,17 +149,17 @@ export default function FeedbackPage() {
 
   const _getEmojiFromRating = (rating) => {
     if (rating >= 4.5 && rating <= 5) {
-      return '😍'; // People really liked
+      return ''; // People really liked
     } else if (rating >= 3.5 && rating < 4.5) {
-      return '🙂'; // People liked your service
+      return ''; // People liked your service
     } else if (rating >= 2.5 && rating < 3.5) {
-      return '😐'; // Not good, not bad
+      return ''; // Not good, not bad
     } else if (rating >= 1.5 && rating < 2.5) {
-      return '🙁'; // Not good
+      return ''; // Not good
     } else if (rating >= 1.0 && rating < 1.5) {
-      return '😠'; // Very bad
+      return ''; // Very bad
     } else {
-      return '🤔'; // Default emoji for invalid ratings
+      return ''; // Default emoji for invalid ratings
     }
   };
   
@@ -286,23 +286,23 @@ export default function FeedbackPage() {
           </div>
 
           <div className="flex items-center justify-between mb-1 mt-2">
-            <p className='text-lg flex items-center gap-2'><span className="text-4xl">😍</span> {t("feedback.loved_it")}</p>
+            <p className='text-lg flex items-center gap-2'><span className="text-4xl"></span> {t("feedback.loved_it")}</p>
             <p>{state.loved}</p>
           </div>
           <div className="flex items-center justify-between mb-1">
-            <p className='text-lg flex items-center gap-2'><span className="text-4xl">🙂</span> {t("feedback.good")}</p>
+            <p className='text-lg flex items-center gap-2'><span className="text-4xl"></span> {t("feedback.good")}</p>
             <p>{state.good}</p>
           </div>
           <div className="flex items-center justify-between mb-1">
-            <p className='text-lg flex items-center gap-2'><span className="text-4xl">😐</span> {t("feedback.average")}</p>
+            <p className='text-lg flex items-center gap-2'><span className="text-4xl"></span> {t("feedback.average")}</p>
             <p>{state.average}</p>
           </div>
           <div className="flex items-center justify-between mb-1">
-            <p className='text-lg flex items-center gap-2'><span className="text-4xl">🙁</span> {t("feedback.bad")}</p>
+            <p className='text-lg flex items-center gap-2'><span className="text-4xl"></span> {t("feedback.bad")}</p>
             <p>{state.bad}</p>
           </div>
           <div className="flex items-center justify-between mb-1">
-            <p className='text-lg flex items-center gap-2'><span className="text-4xl">😠</span> {t("feedback.worst")}</p>
+            <p className='text-lg flex items-center gap-2'><span className="text-4xl"></span> {t("feedback.worst")}</p>
             <p>{state.worst}</p>
           </div>
         </div>
@@ -464,23 +464,23 @@ export default function FeedbackPage() {
 
           <div className="mt-6 flex flex-col">
             <div className="flex items-center gap-4 mb-2">
-              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray">😍 {t("feedback.loved_it")}</p>
+              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray"> {t("feedback.loved_it")}</p>
               <p className='flex-1 w-3/4 text-sm'>{t("feedback.loved_it_description")}</p>
             </div>
             <div className="flex items-center gap-4 mb-2">
-              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray">🙂 {t("feedback.good")}</p>
+              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray"> {t("feedback.good")}</p>
               <p className='flex-1 w-3/4 text-sm'>{t("feedback.good_description")}</p>
             </div>
             <div className="flex items-center gap-4 mb-2">
-              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray">😐 {t("feedback.average")}</p>
+              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray"> {t("feedback.average")}</p>
               <p className='flex-1 w-3/4 text-sm'>{t("feedback.average_description")}</p>
             </div>
             <div className="flex items-center gap-4 mb-2">
-              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray">🙁 {t("feedback.bad")}</p>
+              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray"> {t("feedback.bad")}</p>
               <p className='flex-1 w-3/4 text-sm'>{t("feedback.bad_description")}</p>
             </div>
             <div className="flex items-center gap-4 mb-2">
-              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray">😠 {t("feedback.worst")}</p>
+              <p className="text-lg font-bold w-1/4 text-center rounded-lg p-2 bg-restro-gray"> {t("feedback.worst")}</p>
               <p className='flex-1 w-3/4 text-sm'>{t("feedback.worst_description")}</p>
             </div>
           </div>

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import HorizontalSettingsNav from "../components/HorizontalSettingsNav";
 
 export default function SettingsPage() {
   const { pathname } = useLocation();
@@ -19,15 +18,8 @@ export default function SettingsPage() {
     });
   }, [pathname]);
 
-  // Check if we are on the main Settings Home landing page route
-  const isSettingsHome =
-    pathname === "/dashboard/settings" || pathname === "/dashboard/settings/";
-
   return (
     <div className="w-full min-h-[calc(100vh-64px)] flex flex-col">
-      {/* Top Horizontal Navigation Strip rendered only on setting sub-pages */}
-      {!isSettingsHome && <HorizontalSettingsNav />}
-
       {/* Main Content Area */}
       <div ref={contentContainerRef} className="flex-1 w-full overflow-y-auto">
         <Outlet />

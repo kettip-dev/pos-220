@@ -17,6 +17,9 @@ const {
   updateBusinessGroupOwnerPermissionDB,
   updateBusinessGroupOwnerStatusDB,
   deleteBusinessGroupOwnerDB,
+  createBranchInGroupDB,
+  updateBusinessGroupBranchLimitDB,
+  setMainBranchDB,
 } = require("../services/business_group.service");
 const { GROUP_PERMISSION_LEVELS } = require("../config/user.config");
 const { getAdminUserDB } = require("../services/superadmin.service");
@@ -70,9 +73,19 @@ const validateGroupPayload = (body) => {
     return { errorKey: "business_group_description_too_long" };
   }
 
+  let maxBranches = 5;
+  if (body?.max_branches !== undefined || body?.maxBranches !== undefined) {
+    const parsed = parseInt(body.max_branches ?? body.maxBranches, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return { errorKey: "invalid_branch_limit" };
+    }
+    maxBranches = parsed;
+  }
+
   return {
     name,
     description: rawDescription || null,
+    maxBranches,
   };
 };
 
@@ -154,7 +167,7 @@ exports.getBusinessGroupDetails = async (req, res) => {
  */
 exports.createBusinessGroup = async (req, res) => {
   try {
-    const { errorKey, name, description } = validateGroupPayload(req.body);
+    const { errorKey, name, description, maxBranches } = validateGroupPayload(req.body);
 
     if (errorKey) {
       return res.status(400).json({
@@ -177,6 +190,7 @@ exports.createBusinessGroup = async (req, res) => {
       name,
       description,
       req.user?.username || null,
+      maxBranches
     );
 
     return res.status(200).json({
@@ -195,7 +209,7 @@ exports.createBusinessGroup = async (req, res) => {
 
 /**
  * PUT /superadmin/business-groups/:id
- * Body: { name, description }
+ * Body: { name, description, maxBranches }
  */
 exports.updateBusinessGroup = async (req, res) => {
   try {
@@ -208,7 +222,7 @@ exports.updateBusinessGroup = async (req, res) => {
       });
     }
 
-    const { errorKey, name, description } = validateGroupPayload(req.body);
+    const { errorKey, name, description, maxBranches } = validateGroupPayload(req.body);
 
     if (errorKey) {
       return res.status(400).json({
@@ -236,7 +250,7 @@ exports.updateBusinessGroup = async (req, res) => {
       });
     }
 
-    await updateBusinessGroupDB(groupId, name, description);
+    await updateBusinessGroupDB(groupId, name, description, maxBranches);
 
     return res.status(200).json({
       success: true,
@@ -391,11 +405,16 @@ exports.linkBusiness = async (req, res) => {
       });
     }
 
-    // Guarded UPDATE: only succeeds while the business is still unlinked, so a
-    // concurrent request cannot move it out of another group.
-    const isLinked = await linkBusinessToGroupDB(groupId, tenantId);
+    // Guarded UPDATE with quota check: only succeeds while the business is still unlinked
+    const linkResult = await linkBusinessToGroupDB(groupId, tenantId);
 
-    if (!isLinked) {
+    if (!linkResult.success) {
+      if (linkResult.reason === "LIMIT_REACHED") {
+        return res.status(400).json({
+          success: false,
+          message: `Branch limit reached (${linkResult.currentBranches}/${linkResult.maxBranches}). Please increase the branch limit for this group.`,
+        });
+      }
       return res.status(409).json({
         success: false,
         message: req.__("business_already_linked_to_another_group"),
@@ -1088,6 +1107,185 @@ exports.removeGroupOwnerCapability = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+/**
+ * POST /superadmin/business-groups/:id/branches
+ * Body: { name, branchCode, email, password, isMainBranch, cloneFromTenantId, cloneFloorTables }
+ */
+exports.createBranch = async (req, res) => {
+  try {
+    const groupId = parseId(req.params.id);
+    if (!groupId) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_business_group"),
+      });
+    }
+
+    const {
+      name,
+      branchCode,
+      email,
+      password,
+      isMainBranch,
+      cloneFromTenantId,
+      cloneFloorTables,
+    } = req.body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Branch name is required.",
+      });
+    }
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Branch admin email is required.",
+      });
+    }
+
+    if (!password || typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
+    }
+
+    const parsedCloneSource = cloneFromTenantId ? parseId(cloneFromTenantId) : null;
+
+    const result = await createBranchInGroupDB({
+      groupId,
+      name: name.trim(),
+      branchCode: branchCode ? String(branchCode).trim() : null,
+      email: email.trim().toLowerCase(),
+      password,
+      isMainBranch: Boolean(isMainBranch),
+      cloneFromTenantId: parsedCloneSource,
+      cloneFloorTables: Boolean(cloneFloorTables),
+    });
+
+    if (!result.success) {
+      if (result.reason === "GROUP_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: req.__("business_group_not_found"),
+        });
+      }
+      if (result.reason === "LIMIT_REACHED") {
+        return res.status(400).json({
+          success: false,
+          message: `Branch limit reached (${result.currentBranches}/${result.maxBranches}). Please increase the branch limit for this group.`,
+        });
+      }
+      if (result.reason === "EMAIL_EXISTS") {
+        return res.status(400).json({
+          success: false,
+          message: "A user with this email/username already exists.",
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: "Unable to create branch.",
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Branch created successfully.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error creating branch:", error);
+    return res.status(500).json({
+      success: false,
+      message: req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+/**
+ * PATCH /superadmin/business-groups/:id/branch-limit
+ * Body: { maxBranches }
+ */
+exports.updateBusinessGroupBranchLimit = async (req, res) => {
+  try {
+    const groupId = parseId(req.params.id);
+    if (!groupId) {
+      return res.status(400).json({
+        success: false,
+        message: req.__("invalid_business_group"),
+      });
+    }
+
+    const maxBranches = parseInt(req.body?.maxBranches ?? req.body?.max_branches, 10);
+    if (!Number.isInteger(maxBranches) || maxBranches < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid branch limit: must be a positive integer >= 1.",
+      });
+    }
+
+    const group = await getBusinessGroupByIdDB(groupId);
+    if (!group) {
+      return res.status(404).json({
+        success: false,
+        message: req.__("business_group_not_found"),
+      });
+    }
+
+    await updateBusinessGroupBranchLimitDB(groupId, maxBranches);
+
+    return res.status(200).json({
+      success: true,
+      message: "Branch limit updated successfully.",
+      maxBranches,
+    });
+  } catch (error) {
+    console.error("Error updating branch limit:", error);
+    return res.status(500).json({
+      success: false,
+      message: req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+/**
+ * PATCH /superadmin/business-groups/:id/branches/:tenantId/main
+ */
+exports.setMainBranch = async (req, res) => {
+  try {
+    const groupId = parseId(req.params.id);
+    const tenantId = parseId(req.params.tenantId);
+
+    if (!groupId || !tenantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid group or branch ID.",
+      });
+    }
+
+    const success = await setMainBranchDB(groupId, tenantId);
+    if (!success) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found in this business group.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Main branch designated successfully.",
+    });
+  } catch (error) {
+    console.error("Error setting main branch:", error);
     return res.status(500).json({
       success: false,
       message: req.__("something_went_wrong_try_later"),

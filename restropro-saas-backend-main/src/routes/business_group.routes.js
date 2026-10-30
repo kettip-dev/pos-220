@@ -17,7 +17,10 @@ const {
   removeBusinessGroupOwner,
   getGroupOwnerCandidates,
   assignExistingUserAsGroupOwner,
-  removeGroupOwnerCapability
+  removeGroupOwnerCapability,
+  createBranch,
+  updateBusinessGroupBranchLimit,
+  setMainBranch,
 } = require("../controllers/business_group.controller");
 
 const router = Router();
@@ -33,10 +36,13 @@ router.get("/:id", isLoggedIn, isAuthenticated, isSuperAdmin, getBusinessGroupDe
 router.put("/:id", isLoggedIn, isAuthenticated, isSuperAdmin, updateBusinessGroup);
 router.delete("/:id", isLoggedIn, isAuthenticated, isSuperAdmin, deleteBusinessGroup);
 
-// Membership management
+// Membership & Branch management
 router.get("/:id/available-businesses", isLoggedIn, isAuthenticated, isSuperAdmin, getAvailableBusinesses);
 router.post("/:id/businesses", isLoggedIn, isAuthenticated, isSuperAdmin, linkBusiness);
 router.delete("/:id/businesses/:tenantId", isLoggedIn, isAuthenticated, isSuperAdmin, unlinkBusiness);
+router.post("/:id/branches", isLoggedIn, isAuthenticated, isSuperAdmin, createBranch);
+router.patch("/:id/branch-limit", isLoggedIn, isAuthenticated, isSuperAdmin, updateBusinessGroupBranchLimit);
+router.patch("/:id/branches/:tenantId/main", isLoggedIn, isAuthenticated, isSuperAdmin, setMainBranch);
 
 // Business Group Owners (Phase 2). Super Admin only — creating owners and
 // changing their permission level is never delegated to a Business Admin or to

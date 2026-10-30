@@ -1,9 +1,16 @@
 import React from 'react'
 import Page from "../../components/Page";
-import ImgGirlSmiling from "../../assets/girl-smiling.webp"
 import ImgUiflowLogo from "../../assets/uiflow-logo.svg"
 import { Link } from 'react-router-dom';
-import { IconArrowRight, IconInfoCircleFilled } from '@tabler/icons-react';
+import {
+  IconArrowRight,
+  IconInfoCircleFilled,
+  IconBuildingStore,
+  IconCurrencyDollar,
+  IconChartBar,
+  IconShoppingCart,
+  IconTrendingUp,
+} from '@tabler/icons-react';
 import { appVersion, iconStroke, subscriptionAmount } from '../../config/config';
 import { useSuperAdminDashboard } from "../../controllers/superadmin.controller";
 import { useTranslation } from 'react-i18next';
@@ -14,83 +21,186 @@ export default function SuperAdminDashboardPage() {
   const { theme } = useTheme();
   const { data, error, isLoading } = useSuperAdminDashboard();
 
-  if(isLoading) {
-    return <Page>
-      {t('superadmin_dashboard.please_wait')}
-    </Page>
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <span className="w-8 h-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#2CA01C]" />
+        <span className="text-xs text-gray-500">{t('superadmin_dashboard.please_wait', 'Loading dashboard...')}</span>
+      </div>
+    );
   }
 
-  if(error) {
+  if (error) {
     console.error(error);
-
-    return <Page>
-      {t('superadmin_dashboard.error_loading')}
-    </Page>
+    return (
+      <div className="p-6 text-center text-red-500 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-xl">
+        {t('superadmin_dashboard.error_loading', 'Error loading dashboard')}
+      </div>
+    );
   }
 
   const {
-    activeTenants, ordersProcessedToday, salesVolumeToday, mrr, arr
-  } = data;
+    activeTenants = 0,
+    ordersProcessedToday = 0,
+    salesVolumeToday = 0,
+    mrr = 0,
+    arr = 0,
+  } = data || {};
 
-  const mrrValue = mrr * subscriptionAmount
-  const arrValue = arr * subscriptionAmount*12
+  const mrrValue = mrr * subscriptionAmount;
+  const arrValue = arr * subscriptionAmount * 12;
 
   return (
-    <Page className='px-4 py-3 overflow-x-hidden h-full'>
-      <h3 className="text-2xl mt-2">{t('superadmin_dashboard.title')}</h3>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
-
-        <div className='md:row-span-3 bg-restro-superadmin-widget-bg rounded-[42px]'>
-          <p className='text-restro-superadmin-text-green font-bold text-center mt-4'>{t('superadmin_dashboard.active_tenants')}</p>
-          <p className='text-white font-black text-7xl text-center'>{Number(activeTenants).toLocaleString("en", {
-            notation: "compact"
-          })}</p>
-          <img src={ImgGirlSmiling} alt="img" className='block h-96 mx-auto mt-10' />
-        </div>
-
-        <div className='rounded-[42px] border px-8 py-5 flex flex-col justify-center border-restro-border-green'>
-          <p className='font-bold'>{t('superadmin_dashboard.mrr')}</p>
-          <p className='font-black text-5xl mt-2 text-restro-text '>${Number(mrrValue).toLocaleString('en',{notation: "compact"})}</p>
-        </div>
-
-        <div className='rounded-[42px] border px-8 py-5 flex flex-col justify-center border-restro-border-green'>
-          <p className='font-bold'>{t('superadmin_dashboard.arr')}</p>
-          <p className='font-black text-5xl text-restro-green mt-2'>${Number(arrValue).toLocaleString('en',{notation: "compact"})}</p>
-        </div>
-
-        <div className='border rounded-[42px] px-8 py-5 flex flex-col justify-center border-restro-border-green'>
-          <div className="flex items-center gap-1">
-            <p className='font-bold'>{t('superadmin_dashboard.store_sales')}</p>
-            <div className='tooltip cursor-pointer tooltip-top' data-tip={t('superadmin_dashboard.store_sales_info')}><IconInfoCircleFilled size={18} stroke={iconStroke}/></div>
+    <div className="space-y-6 animate-in fade-in duration-200">
+      
+      {/* QuickBooks Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+            <span>Dashboard</span>
+            <span>/</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">
+              Overview
+            </span>
           </div>
-          <p className='font-black text-5xl mt-2 text-restro-text'>
-            ${Number(salesVolumeToday).toLocaleString("en", {notation: "compact"})}
-          </p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('superadmin_dashboard.title', 'Executive Overview')}
+          </h1>
         </div>
 
-        <div className='rounded-[42px] border px-8 py-5 flex flex-col justify-center border-restro-border-green'>
-          <p className='font-bold'>{t('superadmin_dashboard.orders_processed')}</p>
-          <p className='font-black text-5xl mt-2 text-restro-text'>{Number(ordersProcessedToday).toLocaleString("en",{notation: "compact"})}</p>
-        </div>
-
-        <Link to="/superadmin/dashboard/reports" className='flex items-center justify-center gap-2 rounded-[42px] border px-8 py-5 md:col-span-2 transition active:scale-95 font-bold border-restro-border-green hover:bg-restro-button-hover '>
-          <p>{t('superadmin_dashboard.view_more')}</p>
-          <IconArrowRight stroke={iconStroke} />
+        <Link
+          to="/superadmin/dashboard/tenants"
+          className="inline-flex items-center gap-1.5 bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-semibold px-4 py-2 rounded-full shadow-xs transition"
+        >
+          <span>View All Businesses</span>
+          <IconArrowRight size={16} stroke={iconStroke} />
         </Link>
+      </div>
+
+      {/* KPI Metric Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Active Tenants */}
+        <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-[#2CA01C]" />
+          <div className="flex items-center justify-between text-gray-500 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">
+              {t('superadmin_dashboard.active_tenants', 'Active Businesses')}
+            </span>
+            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-[#2CA01C]">
+              <IconBuildingStore size={20} stroke={iconStroke} />
+            </div>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+              {Number(activeTenants).toLocaleString('en')}
+            </div>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1 flex items-center gap-1">
+              <IconTrendingUp size={14} />
+              <span>Operational & verified</span>
+            </p>
+          </div>
+        </div>
+
+        {/* MRR */}
+        <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-blue-600" />
+          <div className="flex items-center justify-between text-gray-500 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">
+              {t('superadmin_dashboard.mrr', 'Monthly Recurring Revenue')}
+            </span>
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600">
+              <IconCurrencyDollar size={20} stroke={iconStroke} />
+            </div>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+              ${Number(mrrValue).toLocaleString('en', { notation: 'compact' })}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Estimated Monthly SaaS
+            </p>
+          </div>
+        </div>
+
+        {/* ARR */}
+        <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600" />
+          <div className="flex items-center justify-between text-gray-500 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">
+              {t('superadmin_dashboard.arr', 'Annual Run Rate')}
+            </span>
+            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600">
+              <IconChartBar size={20} stroke={iconStroke} />
+            </div>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+              ${Number(arrValue).toLocaleString('en', { notation: 'compact' })}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Projected 12-Month ARR
+            </p>
+          </div>
+        </div>
+
+        {/* Today's Sales Volume */}
+        <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+          <div className="flex items-center justify-between text-gray-500 mb-2">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider">
+                {t('superadmin_dashboard.store_sales', 'Store Sales Today')}
+              </span>
+              <div
+                className="tooltip cursor-pointer"
+                data-tip={t('superadmin_dashboard.store_sales_info', 'Aggregated volume across all restaurants today')}
+              >
+                <IconInfoCircleFilled size={14} className="text-gray-400" />
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600">
+              <IconShoppingCart size={20} stroke={iconStroke} />
+            </div>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+              ${Number(salesVolumeToday).toLocaleString('en', { notation: 'compact' })}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              {Number(ordersProcessedToday).toLocaleString('en')} orders processed today
+            </p>
+          </div>
+        </div>
 
       </div>
 
-      <a href='https://uiflow.in' target='_blank' className="mt-16 flex flex-col md:flex-row items-center justify-center gap-4 text-[#A5A5A5]">
-        <img src={ImgUiflowLogo} alt="logo" className='block shadow w-16 h-16 rounded-2xl' />
+      {/* Quick Action Navigation Bar */}
+      <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <p>
-            Developed by UIFLOW<sup>TM</sup><br/>
-            Version {appVersion}
+          <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+            System Reports & Analytics
+          </h3>
+          <p className="text-xs text-gray-500">
+            View detailed transactions, tenant growth, and platform audit trails.
           </p>
         </div>
-      </a>
 
-    </Page>
-  )
+        <Link
+          to="/superadmin/dashboard/reports"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-semibold transition"
+        >
+          <span>{t('superadmin_dashboard.view_more', 'Detailed Reports')}</span>
+          <IconArrowRight size={15} stroke={iconStroke} />
+        </Link>
+      </div>
+
+      {/* Footer Branding */}
+      <div className="pt-6 pb-2 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+        <img src={ImgUiflowLogo} alt="UIFLOW" className="w-5 h-5 rounded" />
+        <span>Restro PRO SaaS Administration • Version {appVersion}</span>
+      </div>
+
+    </div>
+  );
 }

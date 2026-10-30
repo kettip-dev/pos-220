@@ -5,10 +5,12 @@
 
 body {
     font-family: 'Inter', 'Kantumruy Pro', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--background);
+    color: var(--foreground);
 }
 
 :root {
-    --background: #F4F5F8;
+    --background: #FFFFFF;
     --foreground: #1B2533;
     --restro-green: #2CA01C;
     --restro-green-light: #0D233A;
@@ -34,8 +36,8 @@ body {
     --restro-superadmin-text-green: #2CA01C;
     --restro-superadmin-text-black: #FFFFFF;
 
-    --scroll-wrapper-start: rgba(244, 245, 248, 1);
-    --scroll-wrapper-end: rgba(244, 245, 248, 0);
+    --scroll-wrapper-start: rgba(255, 255, 255, 1);
+    --scroll-wrapper-end: rgba(255, 255, 255, 0);
 }
 
 .dark {
@@ -142,204 +144,6 @@ body {
   scrollbar-width: none;
 }
 
-/* ===== Ecosystem widget (Apple-style) animations ===== */
-@keyframes eco-float-in {
-  0% {
-    opacity: 0;
-    transform: translateY(24px) scale(0.96);
-  }
-  60% {
-    opacity: 1;
-    transform: translateY(-2px) scale(1.004);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.eco-float-in {
-  animation: eco-float-in 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes eco-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.eco-slide-up {
-  animation: eco-slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes eco-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-.eco-fade {
-  animation: eco-fade 0.5s ease both;
-}
-
-@keyframes eco-pulse-ring {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.55;
-  }
-  70% {
-    transform: scale(1.5);
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-.eco-pulse-ring {
-  animation: eco-pulse-ring 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-
-@keyframes eco-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-.eco-shimmer {
-  background-size: 200% 100%;
-  animation: eco-shimmer 2.2s linear infinite;
-}
-
-/* ===== Launcher (premium) ===== */
-@keyframes eco-launch-in {
-  0% {
-    opacity: 0;
-    transform: translateY(16px) scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.eco-launch-in {
-  animation: eco-launch-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-/* slow ambient sheen sweeping across the launcher */
-@keyframes eco-sheen {
-  0% {
-    transform: translateX(-140%) skewX(-18deg);
-  }
-  100% {
-    transform: translateX(260%) skewX(-18deg);
-  }
-}
-.eco-sheen {
-  animation: eco-sheen 6.5s ease-in-out infinite;
-}
-
-/* gentle attention nudge for the sparkle */
-@keyframes eco-sparkle {
-  0%, 88%, 100% {
-    transform: rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  92% {
-    transform: rotate(-12deg) scale(1.18);
-    opacity: 0.92;
-  }
-  96% {
-    transform: rotate(10deg) scale(1.12);
-  }
-}
-.eco-sparkle {
-  animation: eco-sparkle 5.5s ease-in-out infinite;
-  transform-origin: center;
-}
-
-/* teaser bubble pop-in (from the right, near the launcher) */
-@keyframes eco-bubble-in {
-  0% {
-    opacity: 0;
-    transform: translateX(16px) scale(0.9);
-  }
-  60% {
-    opacity: 1;
-    transform: translateX(-2px) scale(1.01);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
-.eco-bubble-in {
-  animation: eco-bubble-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@keyframes eco-bubble-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(10px) scale(0.95);
-  }
-}
-.eco-bubble-out {
-  animation: eco-bubble-out 0.3s ease-in both;
-}
-
-/* tiny typing dots inside the bubble */
-@keyframes eco-typing {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  30% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
-}
-.eco-typing {
-  animation: eco-typing 1.2s ease-in-out infinite;
-}
-
-/* gentle bob for the launcher to draw the eye */
-@keyframes eco-bob {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-.eco-bob {
-  animation: eco-bob 3.2s ease-in-out infinite;
-}
-
-/* clean 2x2 dot-grid glyph — dots breathe in sequence */
-@keyframes eco-dot {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  50% {
-    transform: scale(1.35);
-    opacity: 1;
-  }
-}
-.eco-dot {
-  animation: eco-dot 2.8s ease-in-out infinite;
-  transform-origin: center;
-}
-
 /* Custom ApexCharts Tooltip Styles */
 .apexcharts-xaxistooltip {
   background: var(--restro-green-light) !important;
@@ -394,5 +198,25 @@ body {
 .dark .hover\:bg-restro-green-button-hover:hover,
 .dark button.hover\:bg-restro-green-button-hover:hover,
 .dark a.hover\:bg-restro-green-button-hover:hover {
+  color: #18181b !important;
+}
+
+/* Solar Duotone Icon Global Enhancements */
+.solar-duotone-icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Duotone contrast enhancement: ensure secondary duotone layers stay crisp and visible */
+.solar-duotone-icon [opacity] {
+  opacity: 0.48 !important;
+}
+
+.dark .bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light) svg.solar-duotone-icon,
+.dark button.bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light) svg.solar-duotone-icon,
+.dark a.bg-restro-green:not(.bg-restro-green-10):not(.bg-restro-green-light) svg.solar-duotone-icon,
+.dark .bg-restro-green-dark-mode svg.solar-duotone-icon,
+.dark button.bg-restro-green-dark-mode svg.solar-duotone-icon,
+.dark a.bg-restro-green-dark-mode svg.solar-duotone-icon {
   color: #18181b !important;
 }

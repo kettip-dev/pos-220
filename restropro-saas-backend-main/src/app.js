@@ -37,6 +37,7 @@ const orderStatusDisplayRoutes = require("./routes/order_status_display.routes")
 const deviceRoutes = require("./routes/device.routes");
 const businessGroupRoutes = require("./routes/business_group.routes");
 const kitchenStationRoutes = require("./routes/kitchen_stations.routes");
+const telegramRoutes = require("./routes/telegram.routes");
 // routes import
 
 
@@ -68,11 +69,46 @@ var corsWhitelist = (CONFIG.FRONTEND_DOMAIN || "")
 var corsOptions = {
   credentials: true,
   origin: function (origin, callback) {
-    if (corsWhitelist.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    if (!origin) {
+      return callback(null, true);
     }
+
+    if (corsWhitelist.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+
+    try {
+      const parsed = new URL(origin);
+      const hostname = parsed.hostname.toLowerCase();
+
+      // Permit production domain and subdomains (allkh.app, pos.allkh.app)
+      if (
+        hostname === "allkh.app" ||
+        hostname.endsWith(".allkh.app") ||
+        hostname === "10.36.200.125" ||
+        hostname === "localhost" ||
+        hostname === "127.0.0.1"
+      ) {
+        return callback(null, true);
+      }
+
+      // Check without protocol/port against any whitelist entry
+      const matchesWhitelist = corsWhitelist.some((item) => {
+        try {
+          const itemUrl = new URL(item.startsWith("http") ? item : `http://${item}`);
+          return itemUrl.hostname.toLowerCase() === hostname;
+        } catch {
+          return false;
+        }
+      });
+
+      if (matchesWhitelist) {
+        return callback(null, true);
+      }
+    } catch (e) {}
+
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    callback(new Error("Not allowed by CORS"));
   },
 };
 
@@ -131,10 +167,19 @@ app.use("/api/v1/plans", planRoutes);
 app.use("/api/v1/order-status-display", orderStatusDisplayRoutes);
 app.use("/api/v1/devices", deviceRoutes);
 app.use("/api/v1/kitchen-stations", kitchenStationRoutes);
+app.use("/api/v1/telegram", telegramRoutes);
 // routes
 
 app.get("/", (req, res)=>{
   res.send("⚡️");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/api/v1/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 

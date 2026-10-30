@@ -12,6 +12,7 @@ import {
   IconPrinter,
   IconReceiptTax,
   IconUsers,
+  IconBrandTelegram,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
@@ -31,6 +32,11 @@ export default function SettingsNavbar() {
       icon: <IconPrinter stroke={iconStroke} />,
       text: t("settings.print_settings"),
       path: "/dashboard/settings/print-settings",
+    },
+    {
+      icon: <IconBrandTelegram stroke={iconStroke} />,
+      text: t("settings.telegram_notifications", "Telegram Notifications"),
+      path: "/dashboard/settings/telegram",
     },
     {
       icon: <IconArmchair2 stroke={iconStroke} />,

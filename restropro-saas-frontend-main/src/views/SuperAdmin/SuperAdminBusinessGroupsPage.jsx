@@ -39,11 +39,13 @@ export default function SuperAdminBusinessGroupsPage() {
   // Create
   const nameRef = useRef();
   const descriptionRef = useRef();
+  const maxBranchesRef = useRef();
 
   // Update
   const [groupIdForUpdate, setGroupIdForUpdate] = useState(null);
   const updateNameRef = useRef();
   const updateDescriptionRef = useRef();
+  const updateMaxBranchesRef = useRef();
 
   // Delete
   const [groupForDelete, setGroupForDelete] = useState(null);
@@ -133,6 +135,7 @@ export default function SuperAdminBusinessGroupsPage() {
   const btnAdd = async () => {
     const name = nameRef.current.value?.trim();
     const description = descriptionRef.current.value?.trim();
+    const maxBranches = parseInt(maxBranchesRef.current?.value, 10) || 5;
 
     if (!name) {
       toast.error(
@@ -143,11 +146,12 @@ export default function SuperAdminBusinessGroupsPage() {
 
     try {
       toast.loading(t("superadmin_business_groups.please_wait", "Please wait..."));
-      const res = await createBusinessGroup(name, description);
+      const res = await createBusinessGroup(name, description, maxBranches);
 
       if (res.status == 200) {
         nameRef.current.value = null;
         descriptionRef.current.value = null;
+        if (maxBranchesRef.current) maxBranchesRef.current.value = 5;
 
         document.getElementById("modal-add-business-group").close();
         await fetchData();
@@ -169,6 +173,9 @@ export default function SuperAdminBusinessGroupsPage() {
   const btnShowUpdate = (group) => {
     updateNameRef.current.value = group.name || "";
     updateDescriptionRef.current.value = group.description || "";
+    if (updateMaxBranchesRef.current) {
+      updateMaxBranchesRef.current.value = group.max_branches || 5;
+    }
 
     setGroupIdForUpdate(group.id);
 
@@ -178,6 +185,7 @@ export default function SuperAdminBusinessGroupsPage() {
   const btnUpdate = async () => {
     const name = updateNameRef.current.value?.trim();
     const description = updateDescriptionRef.current.value?.trim();
+    const maxBranches = parseInt(updateMaxBranchesRef.current?.value, 10) || 5;
 
     if (!name) {
       toast.error(
@@ -188,7 +196,7 @@ export default function SuperAdminBusinessGroupsPage() {
 
     try {
       toast.loading(t("superadmin_business_groups.please_wait", "Please wait..."));
-      const res = await updateBusinessGroup(groupIdForUpdate, name, description);
+      const res = await updateBusinessGroup(groupIdForUpdate, name, description, maxBranches);
 
       if (res.status == 200) {
         document.getElementById("modal-update-business-group").close();
@@ -231,25 +239,44 @@ export default function SuperAdminBusinessGroupsPage() {
   };
 
   return (
-    <Page className="px-4 py-3 overflow-x-hidden h-full">
-      <div className="flex gap-6 items-center mb-6 mt-6">
-        <h1 className="text-2xl font-semibold">
-          {t("superadmin_business_groups.title", "Business Groups")}
-        </h1>
+    <div className="space-y-5 animate-in fade-in duration-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+            <span>Dashboard</span>
+            <span>/</span>
+            <span>Business Management</span>
+            <span>/</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">
+              {t("superadmin_business_groups.title", "Business Groups")}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+              {t("superadmin_business_groups.title", "Business Groups")}
+            </h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+              {state.total} Total
+            </span>
+          </div>
+        </div>
+
         <button
           onClick={() =>
             document.getElementById("modal-add-business-group").showModal()
           }
-          className="bg-restro-green text-white text-sm px-6 py-2 rounded-[42px] hover:bg-restro-green/80"
+          className="inline-flex items-center gap-2 bg-[#2CA01C] hover:bg-[#248417] text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-full shadow-sm hover:shadow transition active:scale-95"
         >
-          {t("superadmin_business_groups.create_group", "Create Group")}
+          <span>{t("superadmin_business_groups.create_group", "+ Create Group")}</span>
         </button>
       </div>
 
-      <div className="flex flex-col px-6 py-6 border border-restro-border-green rounded-3xl">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-          <label className="flex-grow bg-restro-gray rounded-[42px] px-3 py-2 text-gray-500 flex items-center gap-2 w-full sm:w-80">
-            <IconSearch size={16} stroke={iconStroke} />
+      <div className="bg-white dark:bg-[#161B22] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xs overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#FAFBFD] dark:bg-[#161B22]">
+          <div className="relative flex-1 max-w-sm">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <IconSearch size={16} stroke={iconStroke} />
+            </div>
             <input
               type="search"
               placeholder={t(
@@ -258,93 +285,102 @@ export default function SuperAdminBusinessGroupsPage() {
               )}
               value={state.search}
               onChange={handleSearchChange}
-              className="w-full bg-transparent outline-none text-sm"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#2CA01C] focus:border-[#2CA01C] transition"
             />
-          </label>
+          </div>
         </div>
 
         {state.isLoading ? (
-          <div className="text-center w-full h-[50vh] flex flex-col items-center justify-center text-gray-500">
-            <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
+          <div className="h-64 flex flex-col items-center justify-center gap-2">
+            <span className="w-8 h-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#2CA01C]" />
+            <p className="text-xs text-gray-500">Loading business groups...</p>
           </div>
         ) : state.groups.length === 0 ? (
-          <div className="text-center w-full h-[50vh] flex flex-col items-center justify-center text-gray-500">
-            <p>
+          <div className="h-64 flex flex-col items-center justify-center text-center px-4">
+            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3 text-gray-400">
+              <IconUsersGroup size={24} stroke={iconStroke} />
+            </div>
+            <p className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
               {t("superadmin_business_groups.no_groups_found", "No business groups found")}
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="table-auto w-full border-separate border-spacing-y-1">
-              <thead className="bg-transparent">
-                <tr>
-                  <th className="rounded-[42px] px-3 flex items-center justify-between">
-                    <div className="text-start px-0 py-1 w-1/3 min-w-[250px] max-w-[320px] text-sm md:text-sm lg:text-base">
-                      {t("superadmin_business_groups.group_name", "Name")}
-                    </div>
-                    <div className="px-2 py-1 w-1/4 min-w-[140px] max-w-[180px] text-sm md:text-sm lg:text-base">
-                      {t("superadmin_business_groups.businesses_count", "Businesses")}
-                    </div>
-                    <div className="px-2 py-1 w-1/4 min-w-[150px] max-w-[200px] text-sm md:text-sm lg:text-base">
-                      {t("superadmin_business_groups.created_date", "Created Date")}
-                    </div>
-                    <div className="px-2 py-1 w-1/4 min-w-[150px] max-w-[200px] text-sm md:text-sm lg:text-base mr-8">
-                      {t("superadmin_business_groups.actions", "Actions")}
-                    </div>
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-800 bg-[#F8F9FA] dark:bg-[#161B22] text-gray-600 dark:text-gray-400 font-semibold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4 min-w-[220px]">
+                    {t("superadmin_business_groups.group_name", "Group Name")}
+                  </th>
+                  <th className="py-3 px-4 min-w-[140px]">
+                    {t("superadmin_business_groups.branches_count", "Branches / Quota")}
+                  </th>
+                  <th className="py-3 px-4 min-w-[140px]">
+                    {t("superadmin_business_groups.created_date", "Created Date")}
+                  </th>
+                  <th className="py-3 px-4 text-right min-w-[130px]">
+                    {t("superadmin_business_groups.actions", "Actions")}
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {state.groups.map((group) => (
-                  <tr key={group.id}>
-                    <td className="py-1">
-                      <div className="bg-gray-100 dark:bg-restro-card-bg rounded-[42px] px-3 flex items-center justify-between">
-                        <div className="flex items-center py-2 w-1/3 min-w-[250px] max-w-[320px]">
-                          <div className="bg-gray-50 dark:bg-restro-bg-gray rounded-[42px] p-6 mr-4">
-                            <IconUsersGroup size={18} stroke={iconStroke} />
+                  <tr
+                    key={group.id}
+                    className="hover:bg-[#F9FAFB] dark:hover:bg-[#1C2128] transition-colors"
+                  >
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/60 dark:border-emerald-800/60 text-[#2CA01C] flex items-center justify-center shrink-0">
+                          <IconUsersGroup size={18} stroke={iconStroke} />
+                        </div>
+                        <div className="truncate">
+                          <div className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm truncate">
+                            {group.name}
                           </div>
-                          <div>
-                            <div className="font-bold text-sm">{group.name}</div>
-                            <div className="text-xs font-semibold text-gray-500">
-                              {group.description || "-"}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="w-1/4 min-w-[140px] max-w-[180px] flex items-center justify-center">
-                          <span className="px-4 py-2 text-sm rounded-[42px] bg-white dark:bg-restro-gray font-bold">
-                            {group.businesses_count}
-                          </span>
-                        </div>
-                        <div className="w-1/4 min-w-[150px] max-w-[200px] text-center text-sm font-bold">
-                          {group.created_at
-                            ? new Date(group.created_at).toLocaleDateString()
-                            : "-"}
-                        </div>
-                        <div className="w-1/4 min-w-[150px] max-w-[200px] text-right">
-                          <div className="flex gap-3">
-                            <Link
-                              to={`/superadmin/dashboard/business-groups/${group.id}`}
-                              title={t("superadmin_business_groups.view_details", "View Details")}
-                              className="rounded-[42px] flex items-center justify-center bg-white dark:bg-restro-bg-gray p-3 text-restro-text"
-                            >
-                              <IconEye size={24} stroke={iconStroke} />
-                            </Link>
-                            <button
-                              onClick={() => btnShowUpdate(group)}
-                              title={t("superadmin_business_groups.edit", "Edit")}
-                              className="rounded-[42px] bg-white dark:bg-restro-bg-gray p-3 text-restro-text"
-                            >
-                              <IconPencil size={24} stroke={iconStroke} />
-                            </button>
-                            <button
-                              onClick={() => setGroupForDelete(group)}
-                              title={t("superadmin_business_groups.delete", "Delete")}
-                              className="rounded-[42px] bg-white p-3 text-red-500 dark:bg-restro-gray"
-                            >
-                              <IconTrash size={24} stroke={iconStroke} />
-                            </button>
+                          <div className="text-[11px] text-gray-500 font-normal truncate">
+                            {group.description || "-"}
                           </div>
                         </div>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                        {group.businesses_count} / {group.max_branches || 5} Branches
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-4 text-gray-600 dark:text-gray-300 font-medium">
+                      {group.created_at
+                        ? new Date(group.created_at).toLocaleDateString()
+                        : "-"}
+                    </td>
+
+                    <td className="py-3 px-4 text-right">
+                      <div className="inline-flex items-center gap-1 justify-end">
+                        <Link
+                          to={`/superadmin/dashboard/business-groups/${group.id}`}
+                          title={t("superadmin_business_groups.view_details", "View Details")}
+                          className="h-7 px-2.5 rounded-md border border-emerald-200 dark:border-emerald-800 text-[#108000] dark:text-[#2CA01C] hover:bg-emerald-50 dark:hover:bg-emerald-950/50 font-semibold text-xs flex items-center gap-1 transition"
+                        >
+                          <IconEye size={13} stroke={iconStroke} />
+                          <span>View</span>
+                        </Link>
+                        <button
+                          onClick={() => btnShowUpdate(group)}
+                          title={t("superadmin_business_groups.edit", "Edit")}
+                          className="h-7 w-7 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
+                        >
+                          <IconPencil size={14} stroke={iconStroke} />
+                        </button>
+                        <button
+                          onClick={() => setGroupForDelete(group)}
+                          title={t("superadmin_business_groups.delete", "Delete")}
+                          className="h-7 w-7 rounded-md border border-gray-200 dark:border-gray-700 text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center transition"
+                        >
+                          <IconTrash size={14} stroke={iconStroke} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -354,85 +390,45 @@ export default function SuperAdminBusinessGroupsPage() {
           </div>
         )}
 
-        {/* pagination */}
-        <div className="flex justify-end mt-8">
-          <div className="join">
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-[#FAFBFD] dark:bg-[#161B22] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-400">
+          <div>
+            {t("superadmin_business_groups.showing", "Showing")} {state.groups.length}{" "}
+            {t("superadmin_business_groups.of", "of")} {state.total}
+          </div>
+          <div className="flex items-center gap-1">
             <button
               onClick={btnPaginationFirstPage}
               disabled={state.page <= 1}
-              className={clsx("join-item btn btn-sm", {
-                "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page > 1,
-                "bg-white text-gray-800": theme !== "black" && state.page > 1,
-                "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed":
-                  theme === "black" && state.page <= 1,
-                "bg-gray-100 text-gray-400 cursor-not-allowed":
-                  theme !== "black" && state.page <= 1,
-              })}
+              className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              <IconChevronsLeft stroke={iconStroke} />
+              <IconChevronsLeft size={14} stroke={iconStroke} />
             </button>
             <button
               onClick={btnPaginationPreviousPage}
               disabled={state.page <= 1}
-              className={clsx("join-item btn btn-sm", {
-                "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page > 1,
-                "bg-white text-gray-800": theme !== "black" && state.page > 1,
-                "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed":
-                  theme === "black" && state.page <= 1,
-                "bg-gray-100 text-gray-400 cursor-not-allowed":
-                  theme !== "black" && state.page <= 1,
-              })}
+              className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              <IconChevronLeft stroke={iconStroke} />
+              <IconChevronLeft size={14} stroke={iconStroke} />
             </button>
-            <button
-              className={clsx("join-item btn btn-sm", {
-                "bg-restro-bg-card-dark-mode text-gray-200": theme === "black",
-                "bg-white text-gray-800": theme !== "black",
-              })}
-            >
-              {t("superadmin_business_groups.showing", "Showing")} {state.groups.length}{" "}
-              {t("superadmin_business_groups.of", "of")} {state.total}
-            </button>
+            <span className="px-2.5 py-1 text-xs font-semibold rounded bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+              {state.page} / {state.totalPages}
+            </span>
             <button
               onClick={btnPaginationNextPage}
               disabled={state.page >= state.totalPages}
-              className={clsx("join-item btn btn-sm", {
-                "bg-restro-bg-card-dark-mode text-gray-200":
-                  theme === "black" && state.page < state.totalPages,
-                "bg-white text-gray-800": theme !== "black" && state.page < state.totalPages,
-                "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed":
-                  theme === "black" && state.page >= state.totalPages,
-                "bg-gray-100 text-gray-400 cursor-not-allowed":
-                  theme !== "black" && state.page >= state.totalPages,
-              })}
+              className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              <IconChevronRight stroke={iconStroke} />
+              <IconChevronRight size={14} stroke={iconStroke} />
             </button>
             <button
               onClick={btnPaginationLastPage}
               disabled={state.page >= state.totalPages}
-              className={clsx("join-item btn btn-sm", {
-                "bg-restro-bg-card-dark-mode text-gray-200":
-                  theme === "black" && state.page < state.totalPages,
-                "bg-white text-gray-800": theme !== "black" && state.page < state.totalPages,
-                "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed":
-                  theme === "black" && state.page >= state.totalPages,
-                "bg-gray-100 text-gray-400 cursor-not-allowed":
-                  theme !== "black" && state.page >= state.totalPages,
-              })}
+              className="p-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
-              <IconChevronsRight stroke={iconStroke} />
+              <IconChevronsRight size={14} stroke={iconStroke} />
             </button>
           </div>
         </div>
-        <div className="text-end mt-4">
-          <p>
-            {t("superadmin_business_groups.showing", "Showing")} {state.groups.length}{" "}
-            {t("superadmin_business_groups.of", "of")} {state.total}
-          </p>
-        </div>
-        {/* pagination */}
       </div>
 
       {/* modal add */}
@@ -482,6 +478,24 @@ export default function SuperAdminBusinessGroupsPage() {
                 "superadmin_business_groups.enter_description",
                 "Enter description",
               )}
+            />
+          </div>
+
+          <div className="mt-4">
+            <label
+              htmlFor="maxBranches"
+              className="mb-1 block text-gray-500 text-sm"
+            >
+              {t("superadmin_business_groups.branch_limit", "Branch Limit (Max Outlets)")}
+            </label>
+            <input
+              ref={maxBranchesRef}
+              type="number"
+              name="maxBranches"
+              min={1}
+              defaultValue={5}
+              className="text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green"
+              placeholder="5"
             />
           </div>
 
@@ -553,6 +567,24 @@ export default function SuperAdminBusinessGroupsPage() {
             />
           </div>
 
+          <div className="mt-4">
+            <label
+              htmlFor="updateMaxBranches"
+              className="mb-1 block text-gray-500 text-sm"
+            >
+              {t("superadmin_business_groups.branch_limit", "Branch Limit (Max Outlets)")}
+            </label>
+            <input
+              ref={updateMaxBranchesRef}
+              type="number"
+              name="updateMaxBranches"
+              min={1}
+              defaultValue={5}
+              className="text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green"
+              placeholder="5"
+            />
+          </div>
+
           <div className="modal-action mt-4">
             <form method="dialog">
               {/* if there is a button in form, it will close the modal */}
@@ -589,6 +621,6 @@ export default function SuperAdminBusinessGroupsPage() {
         confirmText={t("superadmin_business_groups.yes_delete", "Yes, Delete")}
         cancelText={t("superadmin_business_groups.cancel", "Cancel")}
       />
-    </Page>
+    </div>
   );
 }

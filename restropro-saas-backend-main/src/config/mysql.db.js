@@ -5,6 +5,11 @@ const { ensureTableFloorSchema } = require("../utils/tableFloorMigration");
 const { ensurePrintSettingsSchema } = require("../utils/printSettingsMigration");
 const { ensureKitchenStationsSchema } = require("../utils/kitchenStationsMigration");
 const { ensureCambodiaDualCurrencySchema } = require("../utils/cambodiaDualCurrencyMigration");
+const { ensureQrOrderSecuritySchema } = require("../utils/qrOrderSecurityMigration");
+const { ensureBillingModeSchema } = require("../utils/billingModeMigration");
+const { ensureBranchManagementSchema } = require("../utils/branchManagementMigration");
+const { ensureBusinessRegistrationSchema } = require("../utils/businessRegistrationMigration");
+const { ensureTelegramSettingsSchema } = require("../utils/telegramSettingsMigration");
 
 const pool = 
 mySqlPromise.createPool(`${CONFIG.DATABASE_URL}?ssl={"rejectUnauthorized":false}&multipleStatements=true&dateStrings=false&waitForConnections=true&connectionLimit=99&enableKeepAlive=true&keepAliveInitialDelay=10000`);
@@ -25,6 +30,26 @@ ensureKitchenStationsSchema(pool).catch((err) => {
 
 ensureCambodiaDualCurrencySchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring cambodia dual currency schema:", err);
+});
+
+ensureQrOrderSecuritySchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring QR order security schema:", err);
+});
+
+ensureBillingModeSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring billing mode schema:", err);
+});
+
+ensureBranchManagementSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring branch management schema:", err);
+});
+
+ensureBusinessRegistrationSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring business registration schema:", err);
+});
+
+ensureTelegramSettingsSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring telegram settings schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

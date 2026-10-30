@@ -17,6 +17,9 @@ const {
   payAndCompleteKitchenOrder,
   getInvoiceIdFromOrderId,
   updateOrderCustomer,
+  transferTableOrder,
+  moveOrderItems,
+  splitCheckByItems,
 } = require("../controllers/orders.controller");
 
 const router = Router();
@@ -141,6 +144,42 @@ router.post(
     SCOPES.ORDER_STATUS_DISPLAY,
   ]),
   updateOrderCustomer
+);
+
+router.post(
+  "/transfer-table",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  transferTableOrder
+);
+
+router.post(
+  "/move-items",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  moveOrderItems
+);
+
+router.post(
+  "/split-check",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  splitCheckByItems
 );
 
 module.exports = router;

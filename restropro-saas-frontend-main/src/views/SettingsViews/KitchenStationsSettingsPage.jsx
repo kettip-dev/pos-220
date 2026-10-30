@@ -328,7 +328,7 @@ export default function KitchenStationsSettingsPage() {
                         <span className="font-medium truncate">
                           {station.printer_name ? (
                             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                              🖨️ {station.printer_name} ({station.printer_transport})
+                               {station.printer_name} ({station.printer_transport})
                             </span>
                           ) : (
                             <span className="text-slate-400 italic">
@@ -500,7 +500,7 @@ export default function KitchenStationsSettingsPage() {
                   <option value="">No dedicated printer (Uses default KOT printer)</option>
                   {printers.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.transport.toUpperCase()} - {p.address || "Local"}) {p.is_kot_printer ? "★ KOT" : ""}
+                      {p.name} ({p.transport.toUpperCase()} - {p.address || "Local"}) {p.is_kot_printer ? " KOT" : ""}
                     </option>
                   ))}
                 </select>

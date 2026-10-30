@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import TopNavbar from "../components/TopNavbar";
+import QBONavigation from "../components/QBONavigation";
 import OperationalBar from "../components/OperationalBar";
 import SearchModal from "../components/SearchModal";
-import MobileNavbar from "../components/MobileNavbar";
 import useAuth from "../helpers/useAuth";
 
 export default function DashboardLayout() {
@@ -38,8 +37,7 @@ export default function DashboardLayout() {
     "/dashboard/reservation",
   ].some((route) => location.pathname.startsWith(route));
 
-  // Don't render (and thus don't fire any data requests) until the session has
-  // been refreshed once. Guarantees the first request carries a fresh token.
+  // Don't render until the session has been refreshed once
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -48,41 +46,30 @@ export default function DashboardLayout() {
     );
   }
 
-  return (
-    <div
-      className={
-        isOperationalRoute
-          ? "flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-sans relative"
-          : "flex flex-col min-h-screen bg-background text-foreground font-sans"
-      }
-    >
-      {/* Navigation: Operational Bar for POS/Tables/Kitchen OR TopNavbar for Backoffice */}
-      {isOperationalRoute ? (
+  // Operational Terminal Screens (POS / Tables / Kitchen / Orders / Reservations)
+  // Must use flex-row so the vertical OperationalBar rail is on the left and the page content fills the right.
+  if (isOperationalRoute) {
+    return (
+      <div className="flex flex-row h-screen w-screen overflow-hidden bg-background text-foreground font-sans relative">
         <OperationalBar
           isCollapsed={isOperationalBarCollapsed}
           onToggleCollapse={toggleOperationalBar}
         />
-      ) : (
-        <TopNavbar />
-      )}
+        <main className="flex-1 flex flex-col min-w-0 h-screen max-h-screen overflow-hidden transition-all duration-300">
+          <Outlet context={{ isOperationalBarCollapsed, toggleOperationalBar }} />
+        </main>
+        <SearchModal />
+      </div>
+    );
+  }
 
-      {/* Main View Canvas */}
-      <main
-        className={
-          isOperationalRoute
-            ? isOperationalBarCollapsed
-              ? "w-full flex-1 flex flex-col min-h-0 h-screen max-h-screen overflow-hidden transition-all duration-300"
-              : "w-full flex-1 flex flex-col min-h-0 h-[calc(100vh-52px)] max-h-[calc(100vh-52px)] overflow-hidden transition-all duration-300"
-            : "w-full flex-1 min-h-[calc(100vh-60px)] pb-16 md:pb-8"
-        }
-      >
+  // Backoffice Layout with QuickBooks-style Dual Navigation
+  return (
+    <QBONavigation>
+      <main className="w-full flex-1 min-h-[calc(100vh-56px)] pb-16 md:pb-8 p-4 sm:p-6 lg:p-8 bg-white dark:bg-[#08101D]">
         <Outlet context={{ isOperationalBarCollapsed, toggleOperationalBar }} />
       </main>
-
-      {/* Mobile nav only in Backoffice, never covering operational screens */}
-      {!isOperationalRoute && <MobileNavbar />}
       <SearchModal />
-    </div>
+    </QBONavigation>
   );
 }
-

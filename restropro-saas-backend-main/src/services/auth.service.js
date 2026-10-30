@@ -308,27 +308,78 @@ exports.checkEmailExistsSuperadminDB = async (
   }
 };
 
-exports.signUpDB = async (bizName, username, password) => {
+exports.signUpDB = async (bizName, username, password, businessDetails = {}) => {
+  const {
+    ownerName,
+    phone,
+    address,
+    currency = "USD",
+    posPaymentMode = "flexible",
+    businessType = "restaurant",
+  } = businessDetails;
+
   const conn = await getMySqlPromiseConnection();
 
   try {
+    await conn.beginTransaction();
+
     const [result] = await conn.query(
       `INSERT INTO tenants (name, is_active, subscription_id) VALUES (?, 0, null)`,
       [bizName],
     );
+    const tenantId = result.insertId;
 
-    const sql = `
-        INSERT INTO users (username, password, name, role, tenant_id) VALUES (?, ?, ?, 'admin', ?);
-        `;
+    const sqlUser = `
+        INSERT INTO users (username, password, name, phone, email, role, tenant_id) 
+        VALUES (?, ?, ?, ?, ?, 'admin', ?);
+    `;
 
-    await conn.query(sql, [
+    await conn.query(sqlUser, [
       username,
       password,
-      bizName,
-      result.insertId,
+      ownerName && ownerName.trim().length > 0 ? ownerName.trim() : bizName,
+      phone && phone.trim().length > 0 ? phone.trim() : null,
+      username,
+      tenantId,
     ]);
+
+    // Initialize business store details
+    await conn.query(
+      `INSERT INTO store_details 
+        (tenant_id, store_name, address, phone, email, currency, pos_payment_mode, business_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+        store_name = VALUES(store_name),
+        address = VALUES(address),
+        phone = VALUES(phone),
+        email = VALUES(email),
+        currency = VALUES(currency),
+        pos_payment_mode = VALUES(pos_payment_mode),
+        business_type = VALUES(business_type)`,
+      [
+        tenantId,
+        bizName,
+        address && address.trim().length > 0 ? address.trim() : null,
+        phone && phone.trim().length > 0 ? phone.trim() : null,
+        username,
+        currency || "USD",
+        posPaymentMode || "flexible",
+        businessType || "restaurant",
+      ]
+    );
+
+    // Seed default kitchen station so orders route properly
+    await conn.query(
+      `INSERT INTO kitchen_stations (tenant_id, name, color, icon, is_enabled, sort_order) 
+       VALUES (?, 'Kitchen', '#f97316', 'Flame', 1, 0)`,
+      [tenantId]
+    );
+
+    await conn.commit();
+    return tenantId;
   } catch (error) {
-    console.error(error);
+    await conn.rollback();
+    console.error("signUpDB error:", error);
     throw error;
   } finally {
     conn.release();
@@ -990,7 +1041,15 @@ exports.googleSignUpDB = async (
   name,
   uid,
   randomPasswordHash,
+  extraDetails = {}
 ) => {
+  const {
+    phone = null,
+    address = null,
+    currency = "USD",
+    posPaymentMode = "flexible",
+    businessType = "restaurant",
+  } = extraDetails;
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
@@ -1004,17 +1063,50 @@ exports.googleSignUpDB = async (
 
     // 2. Insert admin user
     const sql = `
-        INSERT INTO users (username, password, name, role, tenant_id, firebase_uid, signup_provider, email)
-        VALUES (?, ?, ?, 'admin', ?, ?, 'google', ?);
+        INSERT INTO users (username, password, name, phone, role, tenant_id, firebase_uid, signup_provider, email)
+        VALUES (?, ?, ?, ?, 'admin', ?, ?, 'google', ?);
         `;
     await conn.query(sql, [
       username,
       randomPasswordHash,
       name,
+      phone,
       tenantId,
       uid,
       username,
     ]);
+
+    // 3. Initialize store_details
+    await conn.query(
+      `INSERT INTO store_details 
+        (tenant_id, store_name, address, phone, email, currency, pos_payment_mode, business_type) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE 
+        store_name = VALUES(store_name),
+        address = VALUES(address),
+        phone = VALUES(phone),
+        email = VALUES(email),
+        currency = VALUES(currency),
+        pos_payment_mode = VALUES(pos_payment_mode),
+        business_type = VALUES(business_type)`,
+      [
+        tenantId,
+        bizName,
+        address,
+        phone,
+        username,
+        currency || "USD",
+        posPaymentMode || "flexible",
+        businessType || "restaurant",
+      ]
+    );
+
+    // 4. Seed default kitchen station
+    await conn.query(
+      `INSERT INTO kitchen_stations (tenant_id, name, color, icon, is_enabled, sort_order) 
+       VALUES (?, 'Kitchen', '#f97316', 'Flame', 1, 0)`,
+      [tenantId]
+    );
 
     await conn.commit();
     return tenantId;

@@ -46,6 +46,18 @@ io.on("connection", (socket)=>{
         console.log(`[socket] ${socket.id} joined tenant room "${String(tenantId)}"`);
     });
 
+    socket.on("join_qrmenu_backend", async (qrcode) => {
+        try {
+            if (!qrcode) return;
+            const tenantId = await getTenantIdFromQRCode(qrcode);
+            if (tenantId) {
+                socket.join(String(tenantId));
+            }
+        } catch (error) {
+            console.error("[socket] join_qrmenu_backend error:", error);
+        }
+    });
+
     socket.on("new_order_backend", (payload, tenantId)=>{
         console.log(payload);
         // socket.broadcast.emit("new_order", payload);

@@ -28,6 +28,7 @@ const {
   togglePaymentType,
   addStoreTable,
   getAllStoreTables,
+  rotateTablePin,
   updateStoreTable,
   deleteStoreTable,
   getStoreTablesLiveStatus,
@@ -240,6 +241,14 @@ router.post(
   isSubscriptionActive,
   authorize([SCOPES.SETTINGS]),
   deleteFloorPlanImage
+);
+router.post(
+  "/store-tables/:id/rotate-pin",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS, SCOPES.POS, SCOPES.DASHBOARD]),
+  rotateTablePin
 );
 router.post(
   "/store-tables/:id/update",

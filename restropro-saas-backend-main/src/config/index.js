@@ -3,17 +3,27 @@
 // the browser automatically scopes the cookie to whatever host served it.
 function resolveCookieDomain(value) {
   if (!value) return undefined;
+  // Strip protocol if mistakenly provided
+  let domain = value.trim().replace(/^https?:\/\//i, '');
+  // Strip port if provided (RFC 6265: cookie Domain attribute cannot contain a port)
+  domain = domain.split(':')[0];
   const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  return ipRegex.test(value.trim()) ? undefined : value.trim();
+  return ipRegex.test(domain) ? undefined : domain;
 }
 
 exports.CONFIG = {
     DATABASE_URL: process.env.DATABASE_URL,
+    REDIS_HOST: process.env.REDIS_HOST || "127.0.0.1",
+    REDIS_PORT: parseInt(process.env.REDIS_PORT) || 6379,
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD || undefined,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_EXPIRY: process.env.JWT_EXPIRY,
     JWT_EXPIRY_REFRESH: process.env.JWT_EXPIRY_REFRESH,
     COOKIE_EXPIRY: process.env.COOKIE_EXPIRY,
     COOKIE_EXPIRY_REFRESH: process.env.COOKIE_EXPIRY_REFRESH,
+    COOKIE_SECURE: process.env.COOKIE_SECURE !== undefined
+      ? process.env.COOKIE_SECURE === "true"
+      : (process.env.NODE_ENV === "production" && (process.env.FRONTEND_DOMAIN || "").startsWith("https://")),
     FRONTEND_DOMAIN: process.env.FRONTEND_DOMAIN,
     FRONTEND_DOMAIN_COOKIE: resolveCookieDomain(process.env.FRONTEND_DOMAIN_COOKIE),
     PASSWORD_SALT: parseInt(process.env.PASSWORD_SALT) || 10,

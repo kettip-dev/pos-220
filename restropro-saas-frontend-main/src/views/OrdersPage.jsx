@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Page from "../components/Page";
 import { SelectBusinessEmptyState } from "../components/RequiresSingleBusiness";
@@ -19,45 +19,115 @@ import {
   IconBoxSeam,
   IconCash,
   IconCheck,
-  IconChecks,
   IconChevronDown,
   IconClock,
   IconDeviceTv,
-  IconDotsVertical,
   IconExternalLink,
+  IconGridDots,
   IconHash,
+  IconLayoutGrid,
   IconListDetails,
   IconReceipt,
   IconRefresh,
+  IconSearch,
   IconStars,
+  IconTicket,
+  IconTrendingUp,
+  IconUser,
   IconX,
 } from "@tabler/icons-react";
-import { FRONTEND_DOMAIN, VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
+import { iconStroke } from "../config/config";
 import { CURRENCIES } from "../config/currencies.config";
-import { PAYMENT_ICONS } from "../config/payment_icons";
-import { setDetailsForReceiptPrint, triggerPrintReceipt } from "../helpers/ReceiptHelper";
-
+import { triggerPrintReceipt } from "../helpers/ReceiptHelper";
 import { SocketContext } from "../contexts/SocketContext";
-import { initSocket } from "../utils/socket";
-import { textToSpeech } from "../utils/textToSpeech";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
-import QRCode from "qrcode"
+import QRCode from "qrcode";
 import { getQRMenuLink } from "../helpers/QRMenuHelper";
 import { useTheme } from "../contexts/ThemeContext";
 import clsx from "clsx";
 
+// Redesigned Tablet-Native Subcomponents
+import OrderCard from "../components/orders/OrderCard";
+import OrderDetailsDrawer from "../components/orders/OrderDetailsDrawer";
+import POSPaymentDrawer from "../components/pos/POSPaymentDrawer";
+
 export default function OrdersPage() {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const printReceiptRef = useRef();
   const orderDisplayMenuRef = useRef(null);
   const user = getUserDetailsInLocalStorage();
   const { socket, isSocketConnected } = useContext(SocketContext);
+
+  // Filter & View States
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState("table"); // "table" (Group by Table) | "ticket" (Individual Tickets)
+  const [density, setDensity] = useState(() => {
+    try {
+      return localStorage.getItem("restro_orders_density") || "compact";
+    } catch {
+      return "compact";
+    }
+  });
+
+  const handleDensityChange = (nextDensity) => {
+    setDensity(nextDensity);
+    try {
+      localStorage.setItem("restro_orders_density", nextDensity);
+    } catch (e) {
+      console.warn("Could not save orders density to localStorage", e);
+    }
+  };
   const [showOrderDisplayMenu, setShowOrderDisplayMenu] = useState(false);
 
+  // Slide-over Drawer for deep order inspection
+  const [selectedOrderGroup, setSelectedOrderGroup] = useState(null);
+
+  // Main Page State
+  const [state, setState] = useState({
+    kitchenOrders: [],
+    printSettings: null,
+    storeSettings: null,
+    paymentTypes: [],
+    isLoading: true,
+    requiresSingleBusiness: false,
+    currency: "$",
+
+    cancelOrderIds: [],
+    completeOrderIds: [],
+
+    feedbackInvoiceId: null,
+    feedbackCustomerId: null,
+    feedbackQRCode: null,
+  });
+
+  // Unified POS Payment Drawer State (Consistent with POS & Tables)
+  const [paymentDrawerState, setPaymentDrawerState] = useState({
+    isOpen: false,
+    orderIds: [],
+    orderGroup: null,
+    summaryOrders: [],
+    cartItems: [],
+    subtotal: 0,
+    taxTotal: 0,
+    serviceCharge: 0,
+    discountType: "fixed",
+    discountValue: 0,
+    discountTotal: 0,
+    totalPayable: 0,
+    selectedPaymentType: null,
+    tenderedAmount: "",
+    customExchangeRate: null,
+    isSubmitting: false,
+  });
+
+  // Close Order Display dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (orderDisplayMenuRef.current && !orderDisplayMenuRef.current.contains(e.target)) {
+      if (
+        orderDisplayMenuRef.current &&
+        !orderDisplayMenuRef.current.contains(e.target)
+      ) {
         setShowOrderDisplayMenu(false);
       }
     };
@@ -71,51 +141,16 @@ export default function OrdersPage() {
     };
   }, [showOrderDisplayMenu]);
 
-  const [state, setState] = useState({
-    kitchenOrders: [],
-    printSettings: null,
-    storeSettings: null,
-    paymentTypes: [],
-    isLoading: true,
-    // Set when the backend reports that this module needs one business
-    // selected. Orders cannot be consolidated across a business group, so this
-    // is an expected state, not a failure.
-    requiresSingleBusiness: false,
-
-    cancelOrderIds: [],
-    completeOrderIds: [],
-    completeTokenIds: "",
-
-    currency: null,
-
-    summaryNetTotal: 0,
-    summaryTaxTotal: 0,
-    summaryServiceChargeTotal:0,
-    summaryTotal: 0,
-    summaryOrders: [],
-    order: null,
-
-    selectedPaymentType: null,
-
-    feedbackInvoiceId: null,
-    feedbackCustomerId: null,
-    feedbackQRCode: null,
-
-    discountType: "fixed",
-    discountValue: 0,
-    discountTotal: 0,
-    summaryPayableTotal: 0,
-  });
-
   useEffect(() => {
     _init();
     _initSocket();
 
     return () => {
-      // socket.disconnect()
-      socket.off('new_order')
-      socket.off('order_update')
-    }
+      if (socket) {
+        socket.off("new_order");
+        socket.off("order_update");
+      }
+    };
   }, []);
 
   const {
@@ -134,426 +169,546 @@ export default function OrdersPage() {
         getOrdersInit(),
       ]);
 
-      if (ordersResponse.status == 200 && ordersInitResponse.status == 200) {
+      if (ordersResponse.status === 200 && ordersInitResponse.status === 200) {
         const orders = ordersResponse?.data || [];
         const ordersInit = ordersInitResponse.data;
 
-        const currency = CURRENCIES.find(
-          (c) => c.cc == ordersInit?.storeSettings?.currency
+        const currencyObj = CURRENCIES.find(
+          (c) => c.cc === ordersInit?.storeSettings?.currency
         );
+        const resolvedCurrency = currencyObj?.symbol || ordersInit?.storeSettings?.currency || "$";
 
-        setState({
-          ...state,
+        setState((prev) => ({
+          ...prev,
           kitchenOrders: orders,
-          printSettings: ordersInit.printSettings || {},
-          storeSettings: ordersInit.storeSettings || {},
-          paymentTypes: ordersInit.paymentTypes || {},
-          currency: currency?.symbol,
+          printSettings: ordersInit.printSettings,
+          storeSettings: ordersInit.storeSettings,
+          paymentTypes: ordersInit.paymentTypes || [],
+          currency: resolvedCurrency,
           isLoading: false,
-        });
+          requiresSingleBusiness: false,
+        }));
       }
     } catch (error) {
-      console.error(error);
-      toast.dismiss();
-
-      // "Pick a business first" is a normal state in All Businesses mode, not
-      // an error — show the same screen the gated modules render instead of a
-      // failure toast the user can do nothing about.
       if (isBusinessRequiredError(error)) {
-        setState({
-          ...state,
-          requiresSingleBusiness: true,
+        setState((prev) => ({
+          ...prev,
           isLoading: false,
-        });
+          requiresSingleBusiness: true,
+        }));
         return;
       }
-
-      toast.error("Error loading orders! Please try later!");
-
-      setState({
-        ...state,
-        isLoading: false,
-      });
-    }
-  };
-
-  const refreshOrders = async () => {
-    try {
-      toast.loading(t('orders.loading_message'));
-      const res = await getOrders();
       toast.dismiss();
-      if (res.status == 200) {
-        toast.success(t('orders.orders_loaded'));
-        setState({
-          ...state,
-          kitchenOrders: res.data,
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      const message =
-        error.response.data.message ||
-        "Error loading orders! Please try later!";
-      console.error(error);
-      toast.dismiss();
-      toast.error(message);
-      setState({
-        ...state,
+      toast.error(t("orders.error_loading_orders"));
+      setState((prev) => ({
+        ...prev,
         isLoading: false,
-      });
+      }));
     }
   };
 
   const _initSocket = () => {
     const audio = new Audio("/new_order_sound.mp3");
-    if (isSocketConnected) {
+    if (isSocketConnected && socket) {
       socket.emit("authenticate", user.tenant_id);
       socket.on("new_order", (payload) => {
-        console.log(payload);
-        // textToSpeech(`New order received, token number: ${payload}`)
-        audio.play();
+        audio.play().catch(() => {});
         refreshOrders();
       });
-
       socket.on("order_update", () => {
-        console.log("Order update");
-        refreshOrders();
-      });
-    } else {
-      initSocket();
-      socket.emit("authenticate", user.tenant_id);
-      socket.on("new_order", (payload) => {
-        console.log(payload);
-        // textToSpeech(`New order received, token number: ${payload}`);
-        audio.play();
-        refreshOrders();
-      });
-
-      socket.on("order_update", () => {
-        console.log("Order update");
         refreshOrders();
       });
     }
   };
 
   const sendOrderUpdateEvent = () => {
-    const user = getUserDetailsInLocalStorage();
-
-    if (isSocketConnected) {
-      socket.emit("order_update_backend", {}, user.tenant_id);
-    } else {
-      // Handle disconnected state (optional)
-      initSocket();
-      socket.emit("order_update_backend", {}, user.tenant_id);
+    if (isSocketConnected && socket) {
+      socket.emit("order_update", user.tenant_id);
     }
   };
 
-  if (state.isLoading) {
-    return <Page>{t('orders.loading_message')}</Page>;
-  }
-
-  // Checked after loading so the empty state replaces the screen entirely,
-  // rather than rendering an Orders view with no orders in it.
-  if (state.requiresSingleBusiness) {
-    return (
-      <Page>
-        <SelectBusinessEmptyState />
-      </Page>
-    );
-  }
-
-  const btnChangeOrderItemStatus = async (orderItemId, status) => {
-    if (document.activeElement && typeof document.activeElement.blur === "function") {
-      document.activeElement.blur();
-    }
+  const refreshOrders = async () => {
     try {
-      toast.loading(t('orders.loading_message'));
-      const res = await updateKitchenOrderItemStatus(orderItemId, status);
-      toast.dismiss();
-      if (res.status == 200) {
-        sendOrderUpdateEvent();
-        await refreshOrders();
-        toast.success(res.data.message);
+      const res = await getOrders();
+      if (res.status === 200) {
+        setState((prev) => ({
+          ...prev,
+          kitchenOrders: res.data || [],
+        }));
       }
     } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
+      console.error("Refresh orders error:", error);
+    }
+  };
+
+  // ── Compute High-Level Metrics for Stat Ribbon ──
+  const summaryMetrics = useMemo(() => {
+    let openOrdersCount = 0;
+    let dineInCount = 0;
+    let takeawayCount = 0;
+    let deliveryCount = 0;
+    let unpaidCount = 0;
+    let unpaidTotal = 0;
+    let paidCount = 0;
+    let paidTotal = 0;
+
+    (kitchenOrders || []).forEach((group) => {
+      (group.orders || []).forEach((ord) => {
+        openOrdersCount += 1;
+        const type = String(
+          ord.delivery_type || (group.table_id ? "dinein" : "takeaway")
+        ).toLowerCase();
+        if (type.includes("dine")) dineInCount += 1;
+        else if (type.includes("deliv")) deliveryCount += 1;
+        else takeawayCount += 1;
+
+        // Calculate order value
+        let ordAmount = 0;
+        (ord.items || []).forEach((i) => {
+          const qty = Number(i.quantity) || 1;
+          const p = Number(i.price) || 0;
+          const add = (i.addons || []).reduce(
+            (sum, a) => sum + (Number(a.price) || 0),
+            0
+          );
+          ordAmount += (p + add) * qty;
+        });
+
+        if (ord.payment_status === "paid") {
+          paidCount += 1;
+          paidTotal += ordAmount;
+        } else {
+          unpaidCount += 1;
+          unpaidTotal += ordAmount;
+        }
+      });
+    });
+
+    return {
+      openOrdersCount,
+      dineInCount,
+      takeawayCount,
+      deliveryCount,
+      unpaidCount,
+      unpaidTotal,
+      paidCount,
+      paidTotal,
+    };
+  }, [kitchenOrders]);
+
+  // Filter Tabs Definition
+  const filterTabs = [
+    {
+      key: "all",
+      label: t("orders.filter_all", "All"),
+      count: summaryMetrics.openOrdersCount,
+    },
+    {
+      key: "dinein",
+      label: t("orders.filter_dinein", "Dine-In"),
+      count: summaryMetrics.dineInCount,
+    },
+    {
+      key: "takeaway",
+      label: t("orders.filter_takeaway", "Takeaway & Delivery"),
+      count: summaryMetrics.takeawayCount + summaryMetrics.deliveryCount,
+    },
+    {
+      key: "unpaid",
+      label: t("orders.filter_unpaid", "Unpaid"),
+      count: summaryMetrics.unpaidCount,
+    },
+    {
+      key: "paid",
+      label: t("orders.filter_paid", "Paid"),
+      count: summaryMetrics.paidCount,
+    },
+  ];
+
+  // ── Derived Order Cards Based on View Mode & Active Filters ──
+  const filteredOrders = useMemo(() => {
+    let list = [];
+
+    if (viewMode === "ticket") {
+      // Flatten into individual order ticket cards
+      (kitchenOrders || []).forEach((group) => {
+        (group.orders || []).forEach((ord) => {
+          list.push({
+            table_id: group.table_id,
+            table_title: group.table_title,
+            floor: group.floor,
+            orders: [ord],
+            order_ids: [ord.id],
+          });
+        });
+      });
+    } else {
+      // Group by table
+      list = [...(kitchenOrders || [])];
+    }
+
+    // Filter by Active Tab
+    if (activeFilter === "dinein") {
+      list = list.filter(
+        (g) =>
+          g.table_id != null ||
+          g.orders.some((o) =>
+            String(o.delivery_type || "").toLowerCase().includes("dine")
+          )
+      );
+    } else if (activeFilter === "takeaway") {
+      list = list.filter((g) =>
+        g.orders.some((o) => {
+          const dt = String(o.delivery_type || "").toLowerCase();
+          return dt.includes("take") || dt.includes("deliv");
+        })
+      );
+    } else if (activeFilter === "unpaid") {
+      list = list.filter((g) =>
+        g.orders.some((o) => o.payment_status !== "paid")
+      );
+    } else if (activeFilter === "paid") {
+      list = list.filter((g) =>
+        g.orders.every((o) => o.payment_status === "paid")
+      );
+    }
+
+    // Filter by Search Query (Order #, Table, Customer, Items)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((g) => {
+        const matchTable = g.table_title?.toLowerCase().includes(q);
+        const matchFloor = g.floor?.toLowerCase().includes(q);
+        const matchTokens = g.orders.some((o) =>
+          String(o.token_no).includes(q)
+        );
+        const matchCustomer = g.orders.some((o) =>
+          o.customer_name?.toLowerCase().includes(q)
+        );
+        const matchItems = g.orders.some((o) =>
+          (o.items || []).some((i) =>
+            i.item_title?.toLowerCase().includes(q)
+          )
+        );
+        return (
+          matchTable || matchFloor || matchTokens || matchCustomer || matchItems
+        );
+      });
+    }
+
+    return list;
+  }, [kitchenOrders, viewMode, activeFilter, searchQuery]);
+
+  // ── Item Status Tap Handler (Optimistic Local + Server) ──
+  const handleDirectItemStatusChange = async (orderItemId, newStatus) => {
+    try {
+      // Optimistically update local state in kitchenOrders
+      setState((prev) => {
+        const updated = prev.kitchenOrders.map((group) => ({
+          ...group,
+          orders: group.orders.map((ord) => ({
+            ...ord,
+            items: (ord.items || []).map((item) =>
+              item.id === orderItemId ? { ...item, status: newStatus } : item
+            ),
+          })),
+        }));
+        return { ...prev, kitchenOrders: updated };
+      });
+
+      // Also update selectedOrderGroup if drawer is open
+      setSelectedOrderGroup((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          orders: prev.orders.map((ord) => ({
+            ...ord,
+            items: (ord.items || []).map((item) =>
+              item.id === orderItemId ? { ...item, status: newStatus } : item
+            ),
+          })),
+        };
+      });
+
+      const res = await updateKitchenOrderItemStatus(orderItemId, newStatus);
+      if (res.status === 200) {
+        sendOrderUpdateEvent();
+        toast.success(t("orders.order_item_status_success", "Item status updated!"));
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
+      refreshOrders();
+    }
+  };
+
+  // ── Payment Settlement Flow (POSPaymentDrawer) ──
+  const handleOpenPayDrawer = async (orderIds, orderGroup) => {
+    try {
+      toast.loading(t("orders.loading_message"));
+      const res = await getCompleteOrderPaymentSummary(orderIds);
+      toast.dismiss();
+
+      if (res.status === 200) {
+        const {
+          subtotal = 0,
+          taxTotal = 0,
+          serviceChargeTotal = 0,
+          discountType = "fixed",
+          discountValue = 0,
+          discountTotal = 0,
+          total = 0,
+          orders = [],
+        } = res.data;
+
+        const firstPaymentId = paymentTypes?.[0]?.id || null;
+
+        // Flatten cart items for drawer breakdown
+        const cartItemsList = [];
+        (orders || []).forEach((ord) => {
+          (ord.items || []).forEach((item) => {
+            cartItemsList.push({
+              title: item.item_title || item.title,
+              quantity: item.quantity,
+              price: item.price,
+              addons: item.addons,
+            });
+          });
+        });
+
+        // Exchange rate from storeSettings
+        const storeRate =
+          storeSettings?.exchange_rate_usd_to_khr ||
+          storeSettings?.exchangeRateUsdToKhr ||
+          4100;
+
+        setPaymentDrawerState({
+          isOpen: true,
+          orderIds,
+          orderGroup,
+          summaryOrders: orders,
+          cartItems: cartItemsList,
+          subtotal: Number(subtotal),
+          taxTotal: Number(taxTotal),
+          serviceCharge: Number(serviceChargeTotal),
+          discountType: discountType || "fixed",
+          discountValue: Number(discountValue) || 0,
+          discountTotal: Number(discountTotal) || 0,
+          totalPayable: Number(total),
+          selectedPaymentType: firstPaymentId,
+          tenderedAmount: "",
+          customExchangeRate: storeRate,
+          isSubmitting: false,
+        });
+      }
+    } catch (error) {
       toast.dismiss();
       console.error(error);
-      toast.error(message);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
+    }
+  };
+
+  const handlePaymentDrawerDiscountChange = (type, val) => {
+    const numVal = parseFloat(val) || 0;
+    const netTotal = paymentDrawerState.subtotal || 0;
+    let discountTotal = 0;
+    if (type === "percentage") {
+      discountTotal = (netTotal * Math.min(100, Math.max(0, numVal))) / 100;
+    } else {
+      discountTotal = Math.min(netTotal, Math.max(0, numVal));
+    }
+    const tax = paymentDrawerState.taxTotal || 0;
+    const service = paymentDrawerState.serviceCharge || 0;
+    const payable = Math.max(0, netTotal - discountTotal + tax + service);
+
+    setPaymentDrawerState((prev) => ({
+      ...prev,
+      discountType: type,
+      discountValue: numVal,
+      discountTotal,
+      totalPayable: payable,
+    }));
+  };
+
+  const handleConfirmPayAndComplete = async (tenderData) => {
+    const {
+      orderIds,
+      selectedPaymentType,
+      subtotal,
+      taxTotal,
+      serviceCharge,
+      totalPayable,
+      discountType,
+      discountValue,
+      discountTotal,
+      summaryOrders,
+      orderGroup,
+    } = paymentDrawerState;
+
+    if (!selectedPaymentType) {
+      toast.error(t("orders.select_payment_method", "Please select a payment method"));
+      return;
+    }
+
+    try {
+      setPaymentDrawerState((prev) => ({ ...prev, isSubmitting: true }));
+      const res = await payAndCompleteKitchenOrder(
+        orderIds,
+        subtotal,
+        taxTotal,
+        serviceCharge,
+        totalPayable,
+        selectedPaymentType,
+        discountType,
+        discountValue,
+        discountTotal
+      );
+
+      if (res.status === 200) {
+        toast.success(
+          res.data?.message || t("orders.order_completed_successfully", "Bill settled and order completed!")
+        );
+
+        // Automatic Thermal / Browser Receipt Printing
+        try {
+          const formattedItems = [];
+          (summaryOrders || []).forEach((ord) => {
+            (ord.items || []).forEach((item) => {
+              formattedItems.push({
+                title: item.title || item.item_title,
+                quantity: item.quantity,
+                price: item.price,
+                variant:
+                  item.variant ||
+                  (item.variant_id
+                    ? {
+                        id: item.variant_id,
+                        title: item.variant_title,
+                        price: item.variant_price,
+                      }
+                    : null),
+                addons: item.addons,
+                notes: item.notes,
+              });
+            });
+          });
+
+          triggerPrintReceipt({
+            cartItems: formattedItems,
+            deliveryType:
+              orderGroup?.orders?.[0]?.delivery_type ||
+              (orderGroup?.table_id ? "dinein" : "takeaway"),
+            customerType: orderGroup?.orders?.[0]?.customer_type || "WALKIN",
+            customer: {
+              name: orderGroup?.orders?.[0]?.customer_name || "Walk-in Guest",
+              id: orderGroup?.orders?.[0]?.customer_id,
+            },
+            table: orderGroup?.table_id
+              ? {
+                  table_id: orderGroup.table_id,
+                  table_title: orderGroup.table_title,
+                  floor: orderGroup.floor,
+                }
+              : null,
+            tableId: orderGroup?.table_id,
+            printSettings,
+            storeSettings,
+            itemsTotal: subtotal,
+            taxTotal,
+            serviceChargeTotal: serviceCharge,
+            payableTotal: totalPayable,
+            currency,
+            discountType,
+            discountValue,
+            discountAmount: discountTotal || 0,
+            paymentType:
+              paymentTypes.find((p) => p.id === selectedPaymentType)?.title || "Cash",
+            tenderedAmount:
+              tenderData?.totalReceivedUSD ??
+              (parseFloat(paymentDrawerState.tenderedAmount) || totalPayable),
+            changeDue:
+              tenderData?.changeTotalUSD ??
+              Math.max(0, (parseFloat(paymentDrawerState.tenderedAmount) || 0) - totalPayable),
+            invoiceNo: res?.data?.invoiceNo || res?.data?.invoiceId,
+            orderIds: orderIds.join(", "),
+            tokenNo: orderGroup?.orders?.map((o) => o.token_no)?.join(", ") || "",
+          });
+        } catch (printErr) {
+          console.warn("Print receipt error:", printErr);
+        }
+
+        setPaymentDrawerState((prev) => ({
+          ...prev,
+          isOpen: false,
+          isSubmitting: false,
+        }));
+        setSelectedOrderGroup(null);
+        await refreshOrders();
+        sendOrderUpdateEvent();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
+      setPaymentDrawerState((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  };
+
+  // ── Modal Actions: Complete Order, Cancel Order, Print, Feedback ──
+  const btnShowCompleteOrderModal = (orderIds) => {
+    setState((prev) => ({ ...prev, completeOrderIds: orderIds }));
+    document.getElementById("modal-order-complete").showModal();
+  };
+
+  const btnCompleteOrder = async () => {
+    try {
+      toast.loading(t("orders.loading_message"));
+      const res = await completeKitchenOrder(state.completeOrderIds);
+      toast.dismiss();
+
+      if (res.status === 200) {
+        toast.success(res.data.message);
+        sendOrderUpdateEvent();
+        setSelectedOrderGroup(null);
+        refreshOrders();
+      }
+    } catch (error) {
+      toast.dismiss();
+      console.error(error);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
     }
   };
 
   const btnShowCancelOrderModal = (orderIds) => {
-    setState({
-      ...state,
-      cancelOrderIds: orderIds,
-    });
+    setState((prev) => ({ ...prev, cancelOrderIds: orderIds }));
     document.getElementById("modal-order-cancel").showModal();
   };
+
   const btnCancelOrder = async () => {
     try {
-      toast.loading(t('orders.loading_message'));
+      toast.loading(t("orders.loading_message"));
       const res = await cancelKitchenOrder(state.cancelOrderIds);
       toast.dismiss();
-      if (res.status == 200) {
-        sendOrderUpdateEvent();
-        await refreshOrders();
+
+      if (res.status === 200) {
         toast.success(res.data.message);
-        document.getElementById("modal-order-cancel").close();
-      }
-    } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
-      toast.dismiss();
-      console.error(error);
-      toast.error(message);
-    }
-  };
-
-  const btnShowCompleteOrderModal = (orderIds) => {
-    setState({
-      ...state,
-      completeOrderIds: orderIds,
-    });
-    document.getElementById("modal-order-complete").showModal();
-  };
-  const btnCompleteOrder = async () => {
-    try {
-      toast.loading(t('orders.loading_message'));
-      const res = await completeKitchenOrder(state.completeOrderIds);
-      toast.dismiss();
-      if (res.status == 200) {
         sendOrderUpdateEvent();
-        await refreshOrders();
-        toast.success(res.data.message);
-        document.getElementById("modal-order-complete").close();
+        setSelectedOrderGroup(null);
+        refreshOrders();
       }
     } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
       toast.dismiss();
       console.error(error);
-      toast.error(message);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
     }
   };
 
-  const handleDiscountChange = (type, val, baseState = state) => {
-    const newType = type !== undefined ? type : baseState.discountType;
-    let rawVal = val !== undefined ? val : baseState.discountValue;
-
-    const subtotal = Number(baseState.summaryNetTotal) || 0;
-
-    if (rawVal !== "" && rawVal !== null && rawVal !== undefined) {
-      let numVal = parseFloat(rawVal);
-      if (isNaN(numVal) || numVal < 0) {
-        numVal = 0;
-      }
-      if (newType === 'percentage' && numVal > 100) {
-        numVal = 100;
-      } else if (newType === 'fixed' && numVal > subtotal) {
-        numVal = subtotal;
-      }
-      rawVal = numVal;
-    }
-
-    const numDiscVal = Number(rawVal) || 0;
-    const taxTotal = Number(baseState.summaryTaxTotal) || 0;
-    const serviceChargeTotal = Number(baseState.summaryServiceChargeTotal) || 0;
-
-    let discountAmount = 0;
-    if (numDiscVal > 0 && subtotal > 0) {
-      if (newType === 'percentage') {
-        const safePerc = Math.min(Math.max(numDiscVal, 0), 100);
-        discountAmount = (subtotal * safePerc) / 100;
-      } else {
-        discountAmount = Math.min(Math.max(numDiscVal, 0), subtotal);
-      }
-    }
-
-    const basePayable = subtotal + taxTotal + serviceChargeTotal;
-    const newPayableTotal = Math.max(0, basePayable - discountAmount);
-
-    setState((prev) => ({
-      ...prev,
-      discountType: newType,
-      discountValue: rawVal,
-      discountTotal: discountAmount,
-      summaryPayableTotal: newPayableTotal,
-    }));
-  };
-
-  const btnShowPayAndComplete = async (orderIds, order) => {
+  const btnPrintReceipt = async (orderIdsArr, tokens, tableId = null) => {
     try {
-      toast.loading(t('orders.loading_message'));
-      const res = await getCompleteOrderPaymentSummary(orderIds);
-      toast.dismiss();
-
-      if (res.status == 200) {
-        const { subtotal, taxTotal, serviceChargeTotal, total, orders } = res.data;
-
-        const tokenNoArray = orders.map(o=>o.token_no);
-        const tokens = tokenNoArray.join(",");
-
-        const basePayable = (Number(subtotal) || 0) + (Number(taxTotal) || 0) + (Number(serviceChargeTotal) || 0);
-
-        setState({
-          ...state,
-          summaryNetTotal: subtotal,
-          summaryTaxTotal: taxTotal,
-          summaryServiceChargeTotal:serviceChargeTotal,
-          summaryTotal: total,
-          summaryOrders: orders,
-          completeOrderIds: orderIds,
-          completeTokenIds: tokens,
-          order: order,
-          discountType: "fixed",
-          discountValue: 0,
-          discountTotal: 0,
-          summaryPayableTotal: basePayable,
-        });
-
-        document.getElementById("modal-order-summary-complete").showModal();
-      }
-    } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
-      toast.dismiss();
-      console.error(error);
-      toast.error(message);
-    }
-  };
-  const btnPayAndComplete = async () => {
-    const isPrintReceipt = printReceiptRef.current.checked || false;
-
-    if(!state.selectedPaymentType) {
-      return toast.error(t('orders.select_payment_method'));
-    }
-    try {
-      toast.loading(t('orders.loading_message'));
-      const res = await payAndCompleteKitchenOrder(
-        state.completeOrderIds,
-        state.summaryNetTotal,
-        state.summaryTaxTotal,
-        state.summaryServiceChargeTotal,
-        state.summaryPayableTotal,
-        state.selectedPaymentType,
-        state.discountType,
-        state.discountValue,
-        state.discountTotal
-      );
-      toast.dismiss();
-      if (res.status == 200) {
-        const invoiceId = res.data?.invoiceId || null;
-        const customerId = res.data?.customerId || null;
-
-        sendOrderUpdateEvent();
-        await refreshOrders();
-        toast.success(res.data.message);
-        document.getElementById("modal-order-summary-complete").close();
-
-        if (isPrintReceipt) {
-          const { table_id, table_title, floor } = state.order;
-
-          const orders = [];
-          const orderIds = state.completeOrderIds.join(", ");
-
-          for (const o of state.summaryOrders) {
-            const items = o.items;
-            items.forEach((i) => {
-              const variant = i.variant_id
-                ? {
-                    id: i.variant_id,
-                    title: i.variant_title,
-                    price: i.variant_price,
-                  }
-                : null;
-              orders.push({
-                ...i,
-                title: i.item_title,
-                addons_ids:
-                  i?.addons?.length > 0 ? i?.addons?.map((a) => a.id) : [],
-                variant: variant,
-              });
-            });
-          }
-
-          const {
-            customer_id,
-            customer_type,
-            customer_name,
-            date,
-            delivery_type,
-          } = state.summaryOrders[0];
-
-          const paymentType = paymentTypes.find((v)=>v.id == state.selectedPaymentType);
-          let paymentMethodText;
-          if(paymentType) {
-            paymentMethodText = paymentType.title;
-          }
-
-          triggerPrintReceipt({
-            cartItems: orders,
-            deliveryType: delivery_type,
-            customerType: customer_type,
-            customer: { id: customer_id, name: customer_name },
-            tableId: table_id,
-            currency,
-            storeSettings,
-            printSettings,
-            itemsTotal: state.summaryNetTotal,
-            discountType: state.discountType,
-            discountValue: state.discountValue,
-            discountAmount: state.discountTotal || 0,
-            taxTotal: state.summaryTaxTotal,
-            serviceChargeTotal:state.summaryServiceChargeTotal,
-            payableTotal: state.summaryPayableTotal,
-            tokenNo: state.completeTokenIds,
-            orderId: orderIds,
-            paymentMethod: paymentMethodText
-          });
-        }
-
-
-
-        // Feedback
-        const link = getQRMenuLink(storeSettings?.unique_qr_code) + `/feedback?_ref=${invoiceId}${customerId?`&_cref=${customerId}`:''}`
-
-        const qrDataURL = await QRCode.toDataURL(link, {width: 1080});
-
-        if(storeSettings?.is_feedback_enabled) {
-          document.getElementById("modal-collect-feedback").showModal();
-        }
-
-        setState((prev)=>({...prev,
-          selectedPaymentType: null,
-          feedbackInvoiceId: invoiceId,
-          feedbackCustomerId: customerId,
-          feedbackQRCode: qrDataURL
-        }));
-        // Feedback
-      }
-    } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
-      toast.dismiss();
-      console.error(error);
-      toast.error(message);
-    }
-  };
-
-  const btnPrintReceipt = async (orderIdsArr, tokens) => {
-    try {
-      toast.loading(t('orders.loading_message'));
+      toast.loading(t("orders.loading_message"));
       const res = await getCompleteOrderPaymentSummary(orderIdsArr);
       toast.dismiss();
 
-      if (res.status == 200) {
+      if (res.status === 200) {
         const {
           subtotal,
           taxTotal,
@@ -562,751 +717,676 @@ export default function OrdersPage() {
           discountValue,
           discountTotal,
           total,
-          orders: ordersArr
+          orders: ordersArr,
         } = res.data;
 
-        const orders = [];
+        const formattedOrders = [];
         const orderIds = orderIdsArr.join(", ");
 
-        for (const o of ordersArr) {
-          const items = o.items;
-          items.forEach((i) => {
+        for (const o of ordersArr || []) {
+          (o.items || []).forEach((i) => {
             const variant = i.variant_id
-              ? {
-                  id: i.variant_id,
-                  title: i.variant_title,
-                  price: i.variant_price,
-                }
+              ? { id: i.variant_id, title: i.variant_title, price: i.variant_price }
               : null;
-            orders.push({
+            formattedOrders.push({
               ...i,
               title: i.item_title,
-              addons_ids:
-                i?.addons?.length > 0 ? i?.addons?.map((a) => a.id) : [],
-              variant: variant,
+              addons_ids: i?.addons?.length > 0 ? i?.addons?.map((a) => a.id) : [],
+              variant,
             });
           });
         }
 
-        const {
-          customer_id,
-          customer_type,
-          customer_name,
-          date,
-          delivery_type,
-        } = ordersArr;
+        const firstOrder = ordersArr?.[0] || {};
+        const { customer_id, customer_type, customer_name, delivery_type } = firstOrder;
 
         triggerPrintReceipt({
-          cartItems: orders,
-          deliveryType: delivery_type,
-          customerType: customer_type,
+          cartItems: formattedOrders,
+          deliveryType: delivery_type || "dinein",
+          customerType: customer_type || "WALKIN",
           customer: { id: customer_id, name: customer_name },
-          tableId: null,
+          tableId,
           currency,
           storeSettings,
           printSettings,
           itemsTotal: subtotal,
-          discountType: discountType,
-          discountValue: discountValue,
+          discountType,
+          discountValue,
           discountAmount: discountTotal || 0,
-          taxTotal: taxTotal,
-          serviceChargeTotal:serviceChargeTotal,
+          taxTotal,
+          serviceChargeTotal,
           payableTotal: total,
           tokenNo: tokens,
           orderId: orderIds,
         });
       }
     } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
       toast.dismiss();
       console.error(error);
-      toast.error(message);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
     }
   };
 
   const btnCollectFeedback = async (orderIdsArr) => {
     try {
-      toast.loading(t('orders.loading_message'));
+      toast.loading(t("orders.loading_message"));
       const res = await getInvoiceIdFromOrderId(orderIdsArr);
       toast.dismiss();
 
-      if (res.status == 200) {
+      if (res.status === 200) {
         const { invoiceId, customerId } = res.data;
 
-        if(!invoiceId) {
-          toast.error("Please finish the order to collect feedback!");
+        if (!invoiceId) {
+          toast.error(t("orders.please_finish_order_for_feedback_message"));
           return;
         }
 
-        const link = getQRMenuLink(storeSettings?.unique_qr_code) + `/feedback?_ref=${invoiceId}${customerId?`&_cref=${customerId}`:''}`
+        const link =
+          getQRMenuLink(storeSettings?.unique_qr_code) +
+          `/feedback?_ref=${invoiceId}${customerId ? `&_cref=${customerId}` : ""}`;
 
-        const qrDataURL = await QRCode.toDataURL(link, {width: 1080});
+        const qrDataURL = await QRCode.toDataURL(link, { width: 1080 });
 
-        setState({
-          ...state,
+        setState((prev) => ({
+          ...prev,
           feedbackInvoiceId: invoiceId,
           feedbackCustomerId: customerId,
-          feedbackQRCode: qrDataURL
-        })
+          feedbackQRCode: qrDataURL,
+        }));
 
         document.getElementById("modal-collect-feedback").showModal();
       }
     } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        "Error processing your request, Please try later!";
       toast.dismiss();
       console.error(error);
-      toast.error(message);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
     }
   };
 
   const btnOpenFeedbackLink = () => {
-    const a = document.createElement("a");
-    a.href = getQRMenuLink(storeSettings?.unique_qr_code) + `/feedback?_ref=${state.feedbackInvoiceId}${state.feedbackCustomerId?`&_cref=${state.feedbackCustomerId}`:''}`;
-    a.target = '_blank';
-    a.click();
-    a.remove();
-
-    document.getElementById("modal-collect-feedback").close();
+    const link =
+      getQRMenuLink(storeSettings?.unique_qr_code) +
+      `/feedback?_ref=${state.feedbackInvoiceId}${
+        state.feedbackCustomerId ? `&_cref=${state.feedbackCustomerId}` : ""
+      }`;
+    window.open(link, "_blank");
   };
+
+  if (state.requiresSingleBusiness) {
+    return (
+      <Page>
+        <SelectBusinessEmptyState />
+      </Page>
+    );
+  }
 
   return (
     <Page>
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <h3 className="text-3xl font-light">{t('orders.title')}</h3>
+      {/* ── Top Bar: Title, TV Display Menu, Refresh & Live Socket Pulse ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-[#2CA01C]/10 text-[#2CA01C] flex items-center justify-center border border-[#2CA01C]/20 shrink-0 shadow-2xs">
+            <IconReceipt size={24} stroke={iconStroke} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                {t("orders.title")}
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#2CA01C]/15 text-[#2CA01C] border border-[#2CA01C]/30">
+                {summaryMetrics.openOrdersCount}
+              </span>
+              {/* Live Socket Sync Pulse */}
+              <span
+                className={clsx(
+                  "w-2 h-2 rounded-full",
+                  isSocketConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-zinc-600"
+                )}
+                title={isSocketConnected ? "Live Socket Sync Active" : "Socket Connecting..."}
+              />
+            </div>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+              {t("orders.subtitle")}
+            </p>
+          </div>
+        </div>
+
+        {/* Top Right Actions: TV Display dropdown & Refresh button */}
         <div className="flex items-center gap-2">
+          {/* Order Display Dropdown */}
           <div ref={orderDisplayMenuRef} className="relative">
             <button
+              type="button"
               onClick={() => setShowOrderDisplayMenu((prev) => !prev)}
-              className="flex items-center gap-1.5 rounded-xl text-restro-text shadow-none transition active:scale-95 px-3 py-1.5 bg-restro-green-light text-restro-green-dark border border-restro-border-green hover:bg-restro-green/20 font-medium text-sm"
+              className="min-h-[42px] flex items-center gap-2 rounded-xl transition active:scale-95 px-3.5 py-2 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-750 font-bold text-xs sm:text-sm cursor-pointer shadow-2xs"
             >
-              <IconDeviceTv size={20} stroke={iconStroke} />
-              <span>{t('orders.order_display')}</span>
-              <IconChevronDown size={16} stroke={iconStroke} />
+              <IconDeviceTv size={18} stroke={iconStroke} className="text-[#2CA01C]" />
+              <span>{t("orders.order_display")}</span>
+              <IconChevronDown size={15} stroke={iconStroke} />
             </button>
 
             {showOrderDisplayMenu && (
               <div
-                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-60 bg-white dark:bg-[#181818] border border-restro-border-green rounded-2xl shadow-xl z-50 p-1.5 flex flex-col gap-1"
+                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 p-1.5 flex flex-col gap-1"
                 onMouseLeave={() => setShowOrderDisplayMenu(false)}
               >
                 <button
+                  type="button"
                   onClick={() => {
                     setShowOrderDisplayMenu(false);
-                    if (!state.storeSettings?.unique_qr_code) {
+                    if (!storeSettings?.unique_qr_code) {
                       toast.error("Store QR code not found!");
                       return;
                     }
-                    window.open(`/order-status/${state.storeSettings.unique_qr_code}?mode=detailed`, "_blank");
+                    window.open(
+                      `/order-status/${storeSettings.unique_qr_code}?mode=detailed`,
+                      "_blank"
+                    );
                   }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-restro-gray dark:hover:bg-gray-800 transition-all text-left"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-left cursor-pointer"
                 >
-                  <IconListDetails size={18} stroke={iconStroke} className="text-restro-green shrink-0" />
+                  <IconListDetails
+                    size={18}
+                    stroke={iconStroke}
+                    className="text-[#2CA01C] shrink-0"
+                  />
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">Detailed View</p>
-                    <p className="text-[10px] text-restro-text font-normal">Shows items & prep progress</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {t("orders.detailed_view", "Detailed View")}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-normal">
+                      {t("orders.detailed_view_desc", "Shows items & prep progress")}
+                    </p>
                   </div>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setShowOrderDisplayMenu(false);
-                    if (!state.storeSettings?.unique_qr_code) {
+                    if (!storeSettings?.unique_qr_code) {
                       toast.error("Store QR code not found!");
                       return;
                     }
-                    window.open(`/order-status/${state.storeSettings.unique_qr_code}?mode=token`, "_blank");
+                    window.open(
+                      `/order-status/${storeSettings.unique_qr_code}?mode=token`,
+                      "_blank"
+                    );
                   }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-800 dark:text-gray-200 hover:bg-restro-gray dark:hover:bg-gray-800 transition-all text-left"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-left cursor-pointer"
                 >
-                  <IconHash size={18} stroke={iconStroke} className="text-restro-green shrink-0" />
+                  <IconHash
+                    size={18}
+                    stroke={iconStroke}
+                    className="text-[#2CA01C] shrink-0"
+                  />
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">Token Display Mode</p>
-                    <p className="text-[10px] text-restro-text font-normal">Minimal TV view with tokens only</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      {t("orders.token_display_mode", "Token Display Mode")}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-normal">
+                      {t("orders.token_display_mode_desc", "Minimal TV view with tokens only")}
+                    </p>
                   </div>
                 </button>
               </div>
             )}
           </div>
+
+          {/* Refresh Button */}
           <button
+            type="button"
             onClick={refreshOrders}
-            className="flex items-center gap-1 rounded-xl text-restro-text shadow-none transition active:scale-95 px-3 py-1.5 bg-restro-gray hover:bg-restro-button-hover border border-restro-border-green text-sm"
+            className="min-h-[42px] flex items-center gap-1.5 rounded-xl text-slate-700 dark:text-zinc-200 transition active:scale-95 px-3.5 py-2 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 text-xs sm:text-sm font-bold shadow-2xs cursor-pointer"
           >
-            <IconRefresh size={20} stroke={iconStroke} /> {t('orders.refresh')}
+            <IconRefresh size={17} stroke={iconStroke} />
+            <span>{t("orders.refresh")}</span>
           </button>
         </div>
       </div>
 
-      {kitchenOrders?.length == 0 && (
-        <div className="w-full h-[calc(100vh-15vh)] flex gap-4 flex-col items-center justify-center">
-          <img
-            src="/assets/illustrations/orders-not-found.webp"
-            alt={t('orders.no_orders_img_alt')}
-            className="w-1/2 md:w-60"
-          />
-          <p className="text-gray-400">{t('orders.no_orders')}</p>
-        </div>
-      )}
-
+      {/* ── Live Stat Metric Ribbon (QuickBooks / Toast POS Standard) ── */}
       {kitchenOrders?.length > 0 && (
-        <div className={`mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 `}>
-          {kitchenOrders.map((order, index) => {
-            const { table_id, table_title, floor, orders, order_ids } = order;
-
-            const tokenNoArray = orders.map(o=>o.token_no);
-            const tokens = tokenNoArray.join(",")
-
-            const isPaid = orders.every((o)=>o.payment_status=='paid');
-
-            return (
-              <div
-                key={index}
-                className = "flex flex-col divide-y divide-dashed divide-gray-200 dark:divide-gray-700 px-4 py-5 border rounded-2xl border-restro-border-green"
-              >
-                <div className="flex md:items-center flex-col md:flex-row md:justify-between md:text-center gap-2 pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className = "flex w-12 h-12 rounded-full items-center justify-center bg-restro-gray">
-                      {table_id ? (
-                        <IconArmchair size={24} stroke={iconStroke} />
-                      ) : (
-                        <IconReceipt size={24} stroke={iconStroke} />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold">
-                        {table_id ? `${table_title}` : "Dine Out / Delivery"}
-                      </p>
-                      {floor && <p className="text-sm">{floor}</p>}
-                    </div>
-                  </div>
-                  <div className="dropdown dropdown-end">
-                    <div
-                      tabIndex={0}
-                      role="button"
-                      className="m-1 btn btn-sm btn-circle bg-transparent border-none shadow-none p-2 rounded-full hover:bg-restro-button-hover"
-                    >
-                      <IconDotsVertical size={18} stroke={iconStroke} />
-                    </div>
-                    <ul
-                      tabIndex={0}
-                      className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-lg w-52 border border-restro-border-green "
-                    >
-                      <li>
-                        <button
-                          className="flex items-center gap-2 bg-transparent border-none shadow-none "
-                          onClick={() => {
-                            btnPrintReceipt(order_ids, tokens);
-                          }}
-                        >
-                          <IconReceipt size={18} stroke={iconStroke} /> {t('orders.print_receipt')}
-                        </button>
-                      </li>
-                      {storeSettings?.is_feedback_enabled ? <li>
-                        <button
-                          className="flex items-center gap-2 bg-transparent border-none shadow-none "
-                          onClick={() => {
-                            btnCollectFeedback(order_ids);
-                          }}
-                        >
-                          <IconStars size={18} stroke={iconStroke} /> {t('orders.collect_feedback')}
-                        </button>
-                      </li>:<></>}
-                      <li>
-                        <button
-                          className="flex items-center gap-2 bg-transparent border-none shadow-none text-restro-red"
-                          onClick={() => {
-                            btnShowCancelOrderModal(order_ids);
-                          }}
-                        >
-                          <IconX size={18} stroke={iconStroke} /> {t('orders.cancel')}
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          className="flex items-center gap-2 bg-transparent border-none shadow-none text-restro-green"
-                          onClick={() => {
-                            if(isPaid == false) {
-                              toast.error(t('orders.payment_not_collected_error'));
-                              return;
-                            }
-                            btnShowCompleteOrderModal(order_ids);
-                          }}
-                        >
-                          <IconCheck size={18} stroke={iconStroke} /> {t('orders.complete')}
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          className="flex items-center gap-2 bg-transparent border-none shadow-none "
-                          onClick={() => {
-                            if(isPaid == true) {
-                              toast.error(t('orders.payment_already_collected_error'));
-                              return;
-                            }
-                            btnShowPayAndComplete(order_ids, order);
-                          }}
-                        >
-                          <IconCash size={18} stroke={iconStroke} /> {t('orders.pay_complete')}
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                {orders.map((o, i) => {
-                  const {
-                    id,
-                    date,
-                    delivery_type,
-                    customer_type,
-                    customer_id,
-                    customer_name,
-                    status,
-                    payment_status,
-                    token_no,
-                    items,
-                  } = o;
-
-                  return (
-                    <div className = "py-2 px-2 mt-2 mb-2 rounded-xl bg-gray-50 dark:bg-restro-gray" key={i}>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center justify-center flex-col text-center">
-                          <p>{t('orders.token')}</p>
-                          <div className = "w-12 h-12 flex items-center justify-center font-bold rounded-full bg-gray-700 dark:bg-[#0a0a0a] text-white" >
-                            {token_no}
-                          </div>
-                        </div>
-                        <div className="text-end">
-                          <p>
-                            {new Intl.DateTimeFormat("en-US", {
-                              timeStyle: "short",
-                            }).format(new Date(date))}
-                          </p>
-                          <p className={clsx("flex gap-2 items-center text-sm", {
-                            "text-amber-500": payment_status == "pending",
-                            "text-restro-green": payment_status == "paid",
-                          })}>
-                            {" "}
-                            <IconCash stroke={iconStroke} size={18} />{" "}
-                            {payment_status.toUpperCase()}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* order items */}
-                      <div className="mt-4 flex flex-col divide-y divide-gray-200 dark:divide-gray-700">
-                        {items.map((item, index) => {
-                          const {
-                            id: orderItemId,
-                            order_id,
-                            item_id,
-                            item_title,
-                            variant_id,
-                            variant_title,
-                            quantity,
-                            status,
-                            date,
-                            addons,
-                            notes,
-                          } = item;
-
-                          const addonsText =
-                            addons?.length > 0
-                              ? addons?.map((a) => a.title)?.join(", ")
-                              : null;
-
-                          return (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 py-2"
-                            >
-                              {/* status */}
-                              {status == "preparing" && (
-                                <IconClock
-                                  stroke={iconStroke}
-                                  className="text-restro-yellow"
-                                />
-                              )}
-                              {status == "completed" && (
-                                <IconCheck
-                                  stroke={iconStroke}
-                                  className="text-restro-green"
-                                />
-                              )}
-                              {status == "cancelled" && (
-                                <IconX
-                                  stroke={iconStroke}
-                                  className="text-restro-red"
-                                />
-                              )}
-                              {status == "delivered" && (
-                                <IconChecks
-                                  stroke={iconStroke}
-                                  className="text-restro-green"
-                                />
-                              )}
-                              {/* status */}
-
-                              {/* item title */}
-                              <div className="flex-1">
-                                <p>
-                                  {item_title} {variant_title} x {quantity}
-                                </p>
-                                {addonsText && (
-                                  <p className="text-sm text-gray-700 dark:text-white">
-                                    Addons: {addonsText}
-                                  </p>
-                                )}
-                                {notes && (
-                                  <p className="text-sm text-gray-700 dark:text-white">
-                                    Notes: {notes}
-                                  </p>
-                                )}
-                              </div>
-                              {/* item title */}
-
-                              {/* action */}
-                              <div className="dropdown dropdown-left">
-                                <div
-                                  tabIndex={0}
-                                  role="button"
-                                  className="btn btn-sm btn-circle bg-transparent border-none shadow-none m-1"
-                                >
-                                  <IconDotsVertical
-                                    size={18}
-                                    stroke={iconStroke}
-                                  />
-                                </div>
-                                <ul
-                                  tabIndex={0}
-                                  className="dropdown-content z-[1] menu p-2 shadow bg-base-100 w-52 rounded-lg border border-restro-border-green"
-                                >
-                                  <li>
-                                    <button
-                                      className="flex items-center gap-2 bg-transparent border-none shadow-none text-restro-yellow"
-                                      onClick={() => {
-                                        btnChangeOrderItemStatus(
-                                          orderItemId,
-                                          "preparing"
-                                        );
-                                      }}
-                                    >
-                                      <IconClock
-                                        size={18}
-                                        stroke={iconStroke}
-                                      />{" "}
-                                      {t('orders.preparing')}
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      className="flex items-center gap-2 bg-transparent border-none shadow-none text-restro-green"
-                                      onClick={() => {
-                                        btnChangeOrderItemStatus(
-                                          orderItemId,
-                                          "completed"
-                                        );
-                                      }}
-                                    >
-                                      <IconCheck
-                                        size={18}
-                                        stroke={iconStroke}
-                                      />{" "}
-                                      {t('orders.completed')}
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      className="flex items-center gap-2 bg-transparent border-none shadow-none "
-                                      onClick={() => {
-                                        btnChangeOrderItemStatus(
-                                          orderItemId,
-                                          "delivered"
-                                        );
-                                      }}
-                                    >
-                                      <IconChecks
-                                        size={18}
-                                        stroke={iconStroke}
-                                      />{" "}
-                                      {t('orders.delivered')}
-                                    </button>
-                                  </li>
-                                  <li>
-                                    <button
-                                      className="flex items-center gap-2 bg-transparent border-none shadow-none text-restro-red"
-                                      onClick={() => {
-                                        btnChangeOrderItemStatus(
-                                          orderItemId,
-                                          "cancelled"
-                                        );
-                                      }}
-                                    >
-                                      <IconX size={18} stroke={iconStroke} />{" "}
-                                      {t('orders.cancelled')}
-                                    </button>
-                                  </li>
-                                </ul>
-                              </div>
-                              {/* action */}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {/* order items */}
-                    </div>
-                  );
-                })}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Metric 1: Total Active Orders */}
+          <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                {t("orders.active_orders_metric", "Active Orders")}
+              </span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums">
+                  {summaryMetrics.openOrdersCount}
+                </span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                  ({summaryMetrics.dineInCount} {t("orders.filter_dinein", "Dine-in")}, {summaryMetrics.takeawayCount + summaryMetrics.deliveryCount} {t("pos.takeaway", "Takeaway")})
+                </span>
               </div>
-            );
-          })}
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300">
+              <IconArmchair size={20} stroke={iconStroke} />
+            </div>
+          </div>
+
+          {/* Metric 2: Unpaid Balance Pending Settlement */}
+          <div className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/40 via-white to-white dark:from-amber-950/20 dark:via-zinc-900 dark:to-zinc-900 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                {t("orders.unpaid_balance_metric", "Unpaid Balance")}
+              </span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-300 tabular-nums">
+                  {currency}
+                  {summaryMetrics.unpaidTotal.toLocaleString(undefined, {
+                    minimumFractionDigits: summaryMetrics.unpaidTotal % 1 === 0 ? 0 : 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                  • {summaryMetrics.unpaidCount} {t("orders.unpaid_status", "Unpaid")}
+                </span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center">
+              <IconCash size={20} stroke={iconStroke} />
+            </div>
+          </div>
+
+          {/* Metric 3: Paid & Active in Kitchen */}
+          <div className="p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-r from-emerald-50/40 via-white to-white dark:from-emerald-950/20 dark:via-zinc-900 dark:to-zinc-900 shadow-2xs flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                {t("orders.paid_ready_metric", "Paid & In Kitchen")}
+              </span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 tabular-nums">
+                  {currency}
+                  {summaryMetrics.paidTotal.toLocaleString(undefined, {
+                    minimumFractionDigits: summaryMetrics.paidTotal % 1 === 0 ? 0 : 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  • {summaryMetrics.paidCount} {t("orders.paid_status", "Paid")}
+                </span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center">
+              <IconCheck size={20} stroke={iconStroke} />
+            </div>
+          </div>
         </div>
       )}
 
-
-
-      {/* dialog: cancel order */}
-      <dialog id="modal-order-cancel" className="modal">
-        <div className="modal-box border border-restro-border-green rounded-2xl ">
-          <h3 className="font-bold text-lg">{t('orders.alert')}</h3>
-          <p className="py-4">
-            {t('orders.cancel_order_alert')}
-          </p>
-          <div className="modal-action">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 border border-restro-border-green rounded-xl bg-restro-gray hover:bg-restro-button-hover">{t('orders.dismiss')}</button>
+      {/* ── Segmented Toolbar: View Mode Switcher + Dining/Payment Filters + Search ── */}
+      {kitchenOrders?.length > 0 && (
+        <div className="mt-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Left: View Mode Toggle & Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+            {/* View Mode Switcher (Group by Table ↔ Individual Tickets) */}
+            <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shrink-0">
               <button
-                onClick={() => {
-                  btnCancelOrder();
-                }}
-                className={`ml-2 btn bg-restro-red text-white hover:bg-red-500 transition active:scale-95 px-4 py-3 rounded-xl border-restro-red hover:border-red-600`}
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
+                  viewMode === "table"
+                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
+                )}
+                title={t("orders.group_by_table", "Group by Table")}
               >
-                {t('orders.confirm')}
+                <IconArmchair size={15} stroke={iconStroke} />
+                <span className="hidden sm:inline">{t("orders.group_by_table", "By Table")}</span>
               </button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-      {/* dialog: cancel order */}
-
-      {/* dialog: complete order */}
-      <dialog id="modal-order-complete" className="modal">
-        <div className="modal-box border border-restro-border-green rounded-2xl ">
-          <h3 className="font-bold text-lg">{t('orders.alert')}</h3>
-          <p className="py-4">
-            {t('orders.complete_order_alert')}
-          </p>
-          <div className="modal-action">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="btn border-restro-gray bg-restro-gray rounded-xl hover:bg-restro-button-hover">{t('orders.dismiss')}</button>
               <button
-                onClick={() => {
-                  btnCompleteOrder();
-                }}
-                className="ml-2 btn bg-restro-green border-restro-green-light hover:bg-restro-green-button-hover rounded-xl"
+                type="button"
+                onClick={() => setViewMode("ticket")}
+                className={clsx(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
+                  viewMode === "ticket"
+                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
+                )}
+                title={t("orders.individual_tickets", "Individual Tickets")}
               >
-                {t('orders.confirm')}
+                <IconReceipt size={15} stroke={iconStroke} />
+                <span className="hidden sm:inline">{t("orders.individual_tickets", "Tickets")}</span>
               </button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-      {/* dialog: complete order */}
-
-      {/* dialog: complete order & payment summary */}
-      <dialog id="modal-order-summary-complete" className="modal">
-        <div className="modal-box border border-restro-border-green rounded-2xl max-w-xl md:max-w-2xl w-full">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-lg">{t('orders.pay_complete_order')}</h3>
-            <form method='dialog'>
-              <button className="btn btn-sm btn-circle text-restro-red border-none transition active:scale-105 hover:bg-restro-gray"><IconX size={18} stroke={iconStroke} /></button>
-            </form>
-          </div>
-
-          <div className="my-4">
-           
-          <div className="my-4 space-y-2.5 px-1">
-            {[
-              { label: t('orders.items_net_total'), value: state.summaryNetTotal },
-              ...(state.discountTotal > 0 ? [{ label: t('pos.discount_total', 'Discount Total'), value: state.discountTotal, prefix: "-" }] : []),
-              { label: t('orders.tax_total'), value: state.summaryTaxTotal, prefix: "+" },
-              { label: t('orders.service_charge_total'), value: state.summaryServiceChargeTotal, prefix: "+" },
-            ].map(({ label, value, prefix = "" }, index) => (
-              <div key={index} className="flex items-center justify-between text-restro-text text-sm">
-                <p>{label}</p>
-                <p className="text-base font-semibold">
-                  {prefix}{currency}{value.toFixed(2)}
-                </p>
-              </div>
-            ))}
-
-            <div className="flex items-center justify-between border-t border-gray-300 dark:border-restro-bg-gray pt-2 mt-2">
-              <p className="text-lg font-medium">{t('orders.payable_total')}</p>
-              <p className="text-xl font-bold text-restro-green">
-                {currency}{state.summaryPayableTotal.toFixed(2)}
-              </p>
-            </div>
-          </div>
-          {/* Apply Discount Control */}
-            <div className="p-3 mb-3 rounded-2xl border border-restro-border-green bg-restro-gray">
-              <label className="text-xs font-semibold text-restro-text block mb-2">
-                {t('pos.apply_discount')}
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-xl overflow-hidden border border-restro-border-green p-0.5 bg-background">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDiscountChange('fixed', state.discountValue);
-                    }}
-                    className={clsx(
-                      "px-3 py-1.5 text-xs font-medium rounded-lg transition",
-                      state.discountType === 'fixed'
-                        ? "bg-restro-green text-white"
-                        : "text-restro-text hover:bg-restro-button-hover"
-                    )}
-                  >
-                    {t('pos.discount_fixed', 'Fixed')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDiscountChange('percentage', state.discountValue);
-                    }}
-                    className={clsx(
-                      "px-3 py-1.5 text-xs font-medium rounded-lg transition",
-                      state.discountType === 'percentage'
-                        ? "bg-restro-green text-white"
-                        : "text-restro-text hover:bg-restro-button-hover"
-                    )}
-                  >
-                    {t('pos.discount_percentage', 'Percentage')}
-                  </button>
-                </div>
-
-                <div className="flex-1 relative">
-                  <input
-                    type="number"
-                    min="0"
-                    max={state.discountType === 'percentage' ? 100 : state.summaryNetTotal}
-                    step="any"
-                    placeholder={state.discountType === 'percentage' ? 'e.g. 10' : 'e.g. 50'}
-                    value={state.discountValue || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      handleDiscountChange(state.discountType, val);
-                    }}
-                    className="w-full text-sm rounded-xl px-3 py-1.5 border border-restro-border-green bg-background focus:outline-restro-border-green"
-                  />
-                </div>
-              </div>
             </div>
 
+            {/* Density Switcher (Comfortable ↔ Compact) */}
+            <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDensityChange("normal")}
+                className={clsx(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
+                  density === "normal"
+                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
+                )}
+                title={t("orders.comfortable_view", "Normal / Comfortable View")}
+              >
+                <IconLayoutGrid size={15} stroke={iconStroke} />
+                <span className="inline">{t("orders.normal_density", "Normal")}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDensityChange("compact")}
+                className={clsx(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
+                  density === "compact"
+                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
+                )}
+                title={t("orders.compact_view", "Compact View")}
+              >
+                <IconGridDots size={15} stroke={iconStroke} />
+                <span className="inline">{t("orders.compact_density", "Compact")}</span>
+              </button>
+            </div>
 
-            <label
-              htmlFor="print_receipt"
-              className="mt-2 w-full flex justify-end items-center gap-2 text-xs"
-            >
-              <input
-                type="checkbox"
-                className="checkbox checkbox-sm rounded-lg"
-                id="print_receipt"
-                ref={printReceiptRef}
-              />{" "}
-              {t('orders.print_receipt_option')}
-            </label>
-          </div>
+            {/* Filter Pills */}
+            <div className="h-6 w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0" />
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {paymentTypes.map((paymentType, i)=>{
-              const uniqueId = `icon-${paymentType?.id}`;
-              return <label key={i} className=''>
-                <input
-                checked={state?.selectedPaymentType == paymentType?.id}
-                onChange={e=>{
-                  setState({
-                    ...state,
-                    selectedPaymentType: e.target.value,
-                  });
-                }} type="radio" name="payment_type" id={uniqueId} value={paymentType?.id} className='peer hidden' />
-                <label htmlFor={uniqueId} className='border dark:border-restro-gray rounded-2xl flex items-center justify-center gap-1 flex-col px-3 py-2.5 peer-checked:border-restro-green peer-checked:text-restro-green peer-checked:font-bold cursor-pointer transition'>
-                  {paymentType?.icon ? <div>{PAYMENT_ICONS[paymentType?.icon]}</div>:<></>}
-                  <p className='text-xs text-center'>{paymentType.title}</p>
-                </label>
-              </label>
+            {filterTabs.map((tab) => {
+              const isSelected = activeFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveFilter(tab.key)}
+                  className={clsx(
+                    "min-h-[38px] flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all active:scale-95 border cursor-pointer",
+                    isSelected
+                      ? "bg-[#2CA01C] text-white border-[#2CA01C] shadow-2xs"
+                      : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                  )}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={clsx(
+                      "px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none",
+                      isSelected
+                        ? "bg-white/25 text-white"
+                        : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300"
+                    )}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
             })}
           </div>
 
-          <div className="modal-action mt-4">
-            
-              {/* if there is a button in form, it will close the modal */}
+          {/* Right: Search Input */}
+          <div className="min-h-[42px] w-full lg:w-72 px-3 rounded-xl flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus-within:border-[#2CA01C] transition shadow-2xs shrink-0">
+            <IconSearch size={17} stroke={iconStroke} className="text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("orders.search_placeholder")}
+              className="bg-transparent text-xs sm:text-sm text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 outline-none w-full"
+            />
+            {searchQuery && (
               <button
-                onClick={() => {
-                  btnPayAndComplete();
-                }}
-                className="w-full rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 bg-restro-green hover:bg-restro-green-button-hover text-white font-semibold"
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
               >
-                {t('orders.pay_complete_order')}
+                <IconX stroke={iconStroke} size={14} />
               </button>
-           
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Empty State: No Active Orders at all ── */}
+      {kitchenOrders?.length === 0 && !isLoading && (
+        <div className="w-full h-[calc(100vh-280px)] flex gap-3 flex-col items-center justify-center text-center px-4">
+          <img
+            src="/assets/illustrations/orders-not-found.webp"
+            alt={t("orders.no_orders_img_alt")}
+            className="w-44 md:w-56 opacity-90"
+          />
+          <h3 className="font-bold text-base text-slate-800 dark:text-zinc-200 mt-2">
+            {t("orders.no_orders")}
+          </h3>
+          <p className="text-xs text-slate-400 max-w-sm">
+            {t("orders.no_orders_subtitle")}
+          </p>
+        </div>
+      )}
+
+      {/* ── Empty State: Filtered out ── */}
+      {kitchenOrders?.length > 0 && filteredOrders.length === 0 && (
+        <div className="mt-8 rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 py-16 px-4 text-center shadow-xs">
+          <p className="font-black text-lg text-slate-800 dark:text-zinc-200">
+            {t("orders.no_matching_orders")}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {t("orders.no_matching_orders_subtitle")}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFilter("all");
+              setSearchQuery("");
+            }}
+            className="mt-4 min-h-[42px] px-5 py-2 rounded-xl bg-[#2CA01C] text-white text-xs font-bold active:scale-95 transition cursor-pointer shadow-xs"
+          >
+            {t("orders.filter_all")}
+          </button>
+        </div>
+      )}
+
+      {/* ── Elevated Orders Grid ── */}
+      {filteredOrders?.length > 0 && (
+        <div
+          className={clsx(
+            "mt-5 grid",
+            density === "compact"
+              ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3"
+              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+          )}
+        >
+          {filteredOrders.map((orderGroup, index) => (
+            <OrderCard
+              key={index}
+              orderGroup={orderGroup}
+              currency={currency}
+              viewMode={viewMode}
+              density={density}
+              onCardClick={(grp) => setSelectedOrderGroup(grp)}
+              onPrintReceipt={btnPrintReceipt}
+              onPayAndComplete={handleOpenPayDrawer}
+              onCompleteOrder={btnShowCompleteOrderModal}
+              onCancelOrder={btnShowCancelOrderModal}
+              onCollectFeedback={btnCollectFeedback}
+              onDirectItemStatusChange={handleDirectItemStatusChange}
+              storeSettings={storeSettings}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Slide-over Order Details Drawer ── */}
+      <OrderDetailsDrawer
+        isOpen={Boolean(selectedOrderGroup)}
+        onClose={() => setSelectedOrderGroup(null)}
+        orderGroup={selectedOrderGroup}
+        currency={currency}
+        paymentTypes={paymentTypes}
+        storeSettings={storeSettings}
+        printSettings={printSettings}
+        onDirectItemStatusChange={handleDirectItemStatusChange}
+        onPayAndComplete={handleOpenPayDrawer}
+        onCompleteOrder={btnShowCompleteOrderModal}
+        onCancelOrder={btnShowCancelOrderModal}
+        onPrintReceipt={btnPrintReceipt}
+        onCollectFeedback={btnCollectFeedback}
+      />
+
+      {/* ── Unified POS Payment Drawer (Dual currency numpad, banknote presets, change calculator) ── */}
+      <POSPaymentDrawer
+        isOpen={paymentDrawerState.isOpen}
+        onClose={() =>
+          setPaymentDrawerState((prev) => ({ ...prev, isOpen: false }))
+        }
+        paymentTypes={paymentTypes}
+        selectedPaymentType={paymentDrawerState.selectedPaymentType}
+        onSelectPaymentType={(id) =>
+          setPaymentDrawerState((prev) => ({
+            ...prev,
+            selectedPaymentType: id,
+          }))
+        }
+        payableTotal={paymentDrawerState.totalPayable}
+        itemsTotal={paymentDrawerState.subtotal}
+        taxTotal={paymentDrawerState.taxTotal}
+        serviceChargeTotal={paymentDrawerState.serviceCharge}
+        discountAmount={paymentDrawerState.discountTotal}
+        discountType={paymentDrawerState.discountType}
+        discountValue={paymentDrawerState.discountValue}
+        onDiscountChange={handlePaymentDrawerDiscountChange}
+        currency={currency}
+        exchangeRateUsdToKhr={
+          paymentDrawerState.customExchangeRate ||
+          storeSettings?.exchange_rate_usd_to_khr ||
+          4100
+        }
+        onUpdateExchangeRate={(rate) =>
+          setPaymentDrawerState((prev) => ({
+            ...prev,
+            customExchangeRate: rate,
+          }))
+        }
+        tenderedAmount={paymentDrawerState.tenderedAmount}
+        onTenderedAmountChange={(amt) =>
+          setPaymentDrawerState((prev) => ({
+            ...prev,
+            tenderedAmount: amt,
+          }))
+        }
+        onPayAndComplete={handleConfirmPayAndComplete}
+        isProcessing={paymentDrawerState.isSubmitting}
+        cartItems={paymentDrawerState.cartItems}
+        tableTitle={
+          paymentDrawerState.orderGroup?.table_title ||
+          paymentDrawerState.orderGroup?.orders?.[0]?.delivery_type?.toUpperCase() ||
+          ""
+        }
+      />
+
+      {/* ── Confirmation Modal: Cancel Order ── */}
+      <dialog id="modal-order-cancel" className="modal">
+        <div className="modal-box border border-slate-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-900 p-6">
+          <h3 className="font-black text-lg text-slate-900 dark:text-white">
+            {t("orders.alert")}
+          </h3>
+          <p className="py-3 text-sm text-slate-600 dark:text-zinc-300">
+            {t("orders.cancel_order_alert")}
+          </p>
+          <div className="modal-action">
+            <form method="dialog" className="flex items-center gap-2">
+              <button className="min-h-[42px] px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer">
+                {t("orders.dismiss")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("modal-order-cancel").close();
+                  btnCancelOrder();
+                }}
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+              >
+                {t("orders.confirm")}
+              </button>
+            </form>
           </div>
         </div>
       </dialog>
-      {/* dialog: complete order & payment summary */}
 
-      {/* dialog: complete order */}
-      <dialog id="modal-collect-feedback" className="modal">
-        <div className="modal-box border border-restro-border-green rounded-2xl ">
-          <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-restro-gray">
-            <IconStars stroke={iconStroke} />
+      {/* ── Confirmation Modal: Complete Order ── */}
+      <dialog id="modal-order-complete" className="modal">
+        <div className="modal-box border border-slate-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-900 p-6">
+          <h3 className="font-black text-lg text-slate-900 dark:text-white">
+            {t("orders.alert")}
+          </h3>
+          <p className="py-3 text-sm text-slate-600 dark:text-zinc-300">
+            {t("orders.complete_order_alert")}
+          </p>
+          <div className="modal-action">
+            <form method="dialog" className="flex items-center gap-2">
+              <button className="min-h-[42px] px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer">
+                {t("orders.dismiss")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("modal-order-complete").close();
+                  btnCompleteOrder();
+                }}
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+              >
+                {t("orders.confirm")}
+              </button>
+            </form>
           </div>
-          <h3 className="mt-4 font-bold text-lg text-center">{t('orders.collect_feedback')}</h3>
+        </div>
+      </dialog>
 
-          <div className="absolute top-6 right-6">
+      {/* ── Modal: Collect Feedback QR ── */}
+      <dialog id="modal-collect-feedback" className="modal">
+        <div className="modal-box border border-slate-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-900 p-6">
+          <div className="mx-auto w-14 h-14 flex items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900">
+            <IconStars stroke={iconStroke} size={28} />
+          </div>
+          <h3 className="mt-3 font-black text-lg text-center text-slate-900 dark:text-white">
+            {t("orders.collect_feedback")}
+          </h3>
+
+          <div className="absolute top-5 right-5">
             <form method="dialog">
-              <button className="btn btn-sm btn-circle border-none transition active:scale-95 text-restro-red hover:bg-restro-button-hover">
+              <button className="w-8 h-8 rounded-full flex items-center justify-center text-rose-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 cursor-pointer">
                 <IconX stroke={iconStroke} size={18} />
               </button>
             </form>
           </div>
 
           <div className="my-4">
-            <img src={state.feedbackQRCode} alt={t('orders.feedback_qr_img_alt')} className="w-52 h-52 mx-auto border rounded-lg" />
+            {state.feedbackQRCode && (
+              <img
+                src={state.feedbackQRCode}
+                alt={t("orders.feedback_qr_img_alt")}
+                className="w-48 h-48 mx-auto border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-sm"
+              />
+            )}
           </div>
 
-          <p className="text-center italic mb-10" dangerouslySetInnerHTML={{__html: t('orders.feedback_message')}}>
-
-          </p>
-
-          <div className="flex items-center gap-2 text-sm">
-            <div className="flex-1 border-b border-restro-gray"></div>
-            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-restro-gray">
-              OR
-            </div>
-            <div className="flex-1 border-b border-restro-gray"></div>
-          </div>
+          <p
+            className="text-center italic mb-6 text-xs text-slate-600 dark:text-zinc-400"
+            dangerouslySetInnerHTML={{ __html: t("orders.feedback_message") }}
+          />
 
           <div className="modal-action justify-center">
             <form method="dialog">
               <button
+                type="button"
                 onClick={() => {
                   btnOpenFeedbackLink();
                 }}
-                className="btn ml-2 transition active:scale-95 hover:shadow-lg px-4 py-3 border bg-restro-green hover:bg-restro-green-button-hover text-white rounded-xl"
+                className="min-h-[42px] flex items-center gap-2 transition active:scale-95 hover:shadow-lg px-5 py-2 bg-[#2CA01C] hover:bg-[#248217] text-white rounded-xl font-bold text-xs sm:text-sm cursor-pointer"
               >
-                {t('orders.open_in_new_tab')} <IconExternalLink stroke={iconStroke} />
+                <span>{t("orders.open_in_new_tab")}</span>
+                <IconExternalLink stroke={iconStroke} size={16} />
               </button>
             </form>
           </div>
-          </div>
+        </div>
       </dialog>
-      {/* dialog: complete order */}
-
     </Page>
   );
 }

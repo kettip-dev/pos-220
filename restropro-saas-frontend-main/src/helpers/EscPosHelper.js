@@ -233,6 +233,9 @@ export function buildReceiptEscPos(receiptDetails) {
   if (paymentMethod) {
     out += formatDivider("-", width) + "\n";
     out += formatTwoColumns("Payment Method:", paymentMethod.toUpperCase(), width) + "\n";
+    if (receiptDetails.billingTag) {
+      out += formatTwoColumns("Billing Mode:", receiptDetails.billingTag, width) + "\n";
+    }
   }
 
   if (dualTenderInfo) {
@@ -326,6 +329,9 @@ export function buildKotEscPos(kotDetails) {
   }
   if (waiterName) {
     out += `Server: ${waiterName}\n`;
+  }
+  if (kotDetails.billingTag) {
+    out += `Billing: [${kotDetails.billingTag}]\n`;
   }
 
   out += formatDivider("=", width) + "\n";

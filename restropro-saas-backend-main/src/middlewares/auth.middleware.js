@@ -418,7 +418,7 @@ exports.hasRefreshToken = (req, res, next) => {
             httpOnly: true,
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
-            secure: process.env.NODE_ENV == "production",
+            secure: CONFIG.COOKIE_SECURE,
             path: "/"
         });
         res.clearCookie('refreshToken', {
@@ -426,14 +426,14 @@ exports.hasRefreshToken = (req, res, next) => {
             httpOnly: true,
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
-            secure: process.env.NODE_ENV == "production",
+            secure: CONFIG.COOKIE_SECURE,
             path: "/"
         }); 
         res.clearCookie('restro__authenticated', {
             expires: new Date(Date.now()),
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
-            secure: process.env.NODE_ENV == "production",
+            secure: CONFIG.COOKIE_SECURE,
             path: "/"
         });
 

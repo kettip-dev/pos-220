@@ -514,7 +514,7 @@ export default function OrderStatusDisplayPage() {
 
   if (state.isLoading) {
     return (
-      <div className="min-h-screen bg-[#f8faf8] dark:bg-[#0a0a0a] text-gray-900 dark:text-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-restro-green border-t-transparent rounded-full animate-spin"></div>
           <p className="text-restro-text text-lg tracking-wide">Loading Order Status Display...</p>
@@ -525,7 +525,7 @@ export default function OrderStatusDisplayPage() {
 
   if (state.error) {
     return (
-      <div className="min-h-screen bg-[#f8faf8] dark:bg-[#0a0a0a] text-gray-900 dark:text-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-white flex items-center justify-center">
         <div className="text-center p-8 bg-white dark:bg-restro-gray border border-restro-border-green rounded-2xl max-w-md shadow-md">
           <p className="text-restro-red text-xl font-bold mb-2">Display Error</p>
           <p className="text-restro-text">{state.error}</p>
@@ -577,7 +577,7 @@ export default function OrderStatusDisplayPage() {
   });
 
   return (
-    <div className="h-screen max-h-screen min-h-screen bg-[#f8faf8] dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors">
+    <div className="h-screen max-h-screen min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors">
       {/* Compact Header Bar */}
       <header className="bg-white dark:bg-[#121212] border-b border-restro-border-green dark:border-emerald-500/30 px-6 py-2 flex items-center justify-between shadow-xs shrink-0 z-10">
         <div className="flex items-center gap-3.5">

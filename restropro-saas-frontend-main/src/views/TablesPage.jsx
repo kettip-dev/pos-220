@@ -29,6 +29,9 @@ import AddEditTableModal from "../components/tables/AddEditTableModal";
 import AllTablesCardsModal from "../components/tables/AllTablesCardsModal";
 import TablePayModal from "../components/tables/TablePayModal";
 import TableCustomerModal from "../components/tables/TableCustomerModal";
+import MoveTableModal from "../components/tables/MoveTableModal";
+import MoveItemModal from "../components/tables/MoveItemModal";
+import SplitCheckModal from "../components/tables/SplitCheckModal";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
@@ -132,6 +135,14 @@ export default function TablesPage() {
   const [isLoadingOrderSummary, setIsLoadingOrderSummary] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
+  // Table Management Modals (Move Table, Move Items, Split Checks)
+  const [isMoveTableModalOpen, setIsMoveTableModalOpen] = useState(false);
+  const [moveTableSource, setMoveTableSource] = useState(null);
+  const [isMoveItemModalOpen, setIsMoveItemModalOpen] = useState(false);
+  const [moveItemSource, setMoveItemSource] = useState(null);
+  const [isSplitCheckModalOpen, setIsSplitCheckModalOpen] = useState(false);
+  const [splitCheckTable, setSplitCheckTable] = useState(null);
+
   // Sync state when floor changes
   useEffect(() => {
     try {
@@ -214,6 +225,9 @@ export default function TablesPage() {
   // Live Metrics for Bottom Status Bar
   const bindoMetrics = useMemo(() => {
     const counts = {
+      all: tablesOnFloor.length,
+      available: 0,
+      occupied: 0,
       seated: 0,
       ordered: 0,
       ck_dropped: 0,
@@ -223,7 +237,6 @@ export default function TablesPage() {
       over_time: 0,
       reserved: 0,
       multiple: 0,
-      available: 0,
       blocked: 0,
       total_pax: 0,
     };
@@ -234,6 +247,7 @@ export default function TablesPage() {
         counts[statusKey]++;
       }
       if (tbl.active_order_id) {
+        counts.occupied++;
         counts.total_pax += Number(tbl.seating_capacity || 2);
       }
     });
@@ -252,7 +266,7 @@ export default function TablesPage() {
       if (isMergeMode) {
         if (!mergeSourceId) {
           setMergeSourceId(table.id);
-          toast(t("tables.merge_select_second", "Select a second table to link/merge"), { icon: "🔗" });
+          toast(t("tables.merge_select_second", "Select a second table to link/merge"), { icon: "" });
         } else if (mergeSourceId === table.id) {
           setMergeSourceId(null);
         } else {
@@ -510,8 +524,9 @@ export default function TablesPage() {
 
   // Item Void / Cancellation Handler
   const handleVoidOrderItem = async (item) => {
+    const itemName = item.item_title || item.title || "Item";
     const isConfirmed = window.confirm(
-      t("orders.confirm_void_item", `Are you sure you want to void / remove "${item.title}" from this order?`)
+      t("orders.confirm_void_item", `Are you sure you want to void / remove "${itemName}" from this order?`)
     );
     if (!isConfirmed) return;
 
@@ -520,7 +535,7 @@ export default function TablesPage() {
       const res = await updateKitchenOrderItemStatus(item.id, "cancelled");
       toast.dismiss();
       if (res?.status === 200) {
-        toast.success(t("orders.item_voided_successfully", `Voided ${item.title}`));
+        toast.success(t("orders.item_voided_successfully", `Voided ${itemName}`));
         await mutate();
         if (selectedTable?.active_order_id) {
           const updatedSummary = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
@@ -554,15 +569,26 @@ export default function TablesPage() {
       toast.error(t("tables.select_active_table_to_move", "Please select an active table with an open order to move"));
       return;
     }
-    toast(t("tables.select_dest_table", "Tap the empty destination table to transfer order"), { icon: "➡️" });
+    setMoveTableSource(table);
+    setIsMoveTableModalOpen(true);
+  };
+
+  const handleMoveLineItem = (table) => {
+    if (!table || !table.active_order_id) {
+      toast.error(t("tables.select_active_table_to_move_item", "Please select an active table with ordered items"));
+      return;
+    }
+    setMoveItemSource(table);
+    setIsMoveItemModalOpen(true);
   };
 
   const handleSplitChecks = (table) => {
-    if (table && table.active_order_id) {
-      setActiveDetailsTable(table);
-    } else {
-      navigate("/dashboard/orders");
+    if (!table || !table.active_order_id) {
+      toast.error(t("tables.select_active_table_to_split", "Please select an active table to split checks"));
+      return;
     }
+    setSplitCheckTable(table);
+    setIsSplitCheckModalOpen(true);
   };
 
   const handleSeatReservation = (res) => {
@@ -573,13 +599,13 @@ export default function TablesPage() {
       handleNewOrder("dine_in", selectedTable);
     } else {
       toast(t("tables.select_table_first_to_seat", "Select a table on the floor plan first, then click Seat"), {
-        icon: "🪑",
+        icon: "",
       });
     }
   };
 
   return (
-    <Page className="flex-1 w-full h-[calc(100vh-52px)] max-h-[calc(100vh-52px)] min-h-0 flex flex-col p-0 overflow-hidden bg-[#f8fafc] dark:bg-zinc-950">
+    <Page className="flex-1 w-full h-screen max-h-screen min-h-0 flex flex-col p-0 overflow-hidden bg-white dark:bg-zinc-950">
       {/* 1. Top Zone & Order Counters Bar */}
       <BindoTopBar
         zones={zones}
@@ -642,18 +668,19 @@ export default function TablesPage() {
             tables={rawTables}
             zones={zones}
             currentFloor={currentFloor}
+            currency={currency}
+            selectedTableId={selectedTableId}
+            activeFilter={activeFilter}
+            onSelectFilter={setActiveFilter}
             onSelectZone={(zone) => {
               setCurrentFloor(zone);
               setSelectedTableId(null);
             }}
-            onTableClick={(table) => {
-              setSelectedTableId(table.id);
-              setIsDrawerOpen(true);
-            }}
-            onAddZone={() => {
-              const nextZone = prompt(t("tables.enter_zone_name", "Enter new Zone / Floor:"));
-              if (nextZone && nextZone.trim()) setCurrentFloor(nextZone.trim());
-            }}
+            onTableClick={handleTableClick}
+            onNewOrder={(table) => handleAddMenuItems(table)}
+            onPayTable={handlePayTable}
+            onMoveTable={handleMoveTable}
+            onSplitChecks={handleSplitChecks}
             onRefresh={() => mutate()}
             isRefreshing={isLoading}
             isSocketConnected={isSocketConnected}
@@ -664,8 +691,26 @@ export default function TablesPage() {
           /* ── Floor Plan Canvas ──────────────────────────── */
           <>
             <div className="flex-1 h-full relative overflow-hidden">
+              {isMergeMode && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 bg-amber-500 text-white px-4 py-2 rounded-2xl shadow-xl flex items-center gap-3 animate-fade-in border border-amber-400">
+                  <span className="text-xs font-black">
+                     {t("tables.merge_mode_banner", "Merge Mode: Tap any 2 tables to link / unlink them on the floor plan")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMergeMode(false);
+                      setMergeSourceId(null);
+                    }}
+                    className="px-2.5 py-1 bg-white text-amber-900 text-xs font-black rounded-xl hover:bg-amber-100 transition cursor-pointer"
+                  >
+                    {t("common.done", "Done")}
+                  </button>
+                </div>
+              )}
               <FloorPlanCanvas
                 tables={tablesOnFloor}
+                currency={currency}
                 floorSettings={floorSettings}
                 mergedPairs={mergedPairs}
                 isMergeMode={isMergeMode}
@@ -708,7 +753,7 @@ export default function TablesPage() {
                 }}
                 onMoveTable={handleMoveTable}
                 onSplitChecks={handleSplitChecks}
-                onMoveLineItem={() => toast(t("tables.move_line_item_hint", "Select item in order modal to transfer"))}
+                onMoveLineItem={handleMoveLineItem}
                 onNewOrder={handleNewOrder}
                 onAddMenuItems={handleAddMenuItems}
                 onPayTable={handlePayTable}
@@ -721,6 +766,8 @@ export default function TablesPage() {
                   setIsAddEditModalOpen(true);
                 }}
                 currency={currency}
+                storeSettings={storeSettings}
+                onRefreshTables={() => mutate()}
               />
             )}
           </>
@@ -742,7 +789,7 @@ export default function TablesPage() {
             }}
             onMoveTable={handleMoveTable}
             onSplitChecks={handleSplitChecks}
-            onMoveLineItem={() => toast(t("tables.move_line_item_hint", "Select item in order modal to transfer"))}
+            onMoveLineItem={handleMoveLineItem}
             onNewOrder={handleNewOrder}
             onAddMenuItems={handleAddMenuItems}
             onPayTable={handlePayTable}
@@ -755,6 +802,8 @@ export default function TablesPage() {
               setIsAddEditModalOpen(true);
             }}
             currency={currency}
+            storeSettings={storeSettings}
+            onRefreshTables={() => mutate()}
           />
         )}
       </div>
@@ -890,6 +939,68 @@ export default function TablesPage() {
           }
           onSelectCustomer={handleAssignCustomer}
           onResetToWalkin={handleResetToWalkin}
+        />
+      )}
+
+      {/* 7. Move Table (Transfer Order) Modal */}
+      {isMoveTableModalOpen && (
+        <MoveTableModal
+          isOpen={isMoveTableModalOpen}
+          onClose={() => {
+            setIsMoveTableModalOpen(false);
+            setMoveTableSource(null);
+          }}
+          sourceTable={moveTableSource}
+          tables={rawTables}
+          onSuccess={async (destTable) => {
+            await mutate();
+            if (destTable?.id) {
+              setSelectedTableId(destTable.id);
+            }
+          }}
+        />
+      )}
+
+      {/* 8. Move Items Between Tables Modal */}
+      {isMoveItemModalOpen && (
+        <MoveItemModal
+          isOpen={isMoveItemModalOpen}
+          onClose={() => {
+            setIsMoveItemModalOpen(false);
+            setMoveItemSource(null);
+          }}
+          sourceTable={moveItemSource}
+          activeOrderSummary={activeOrderSummary}
+          tables={rawTables}
+          currency={currency}
+          onSuccess={async () => {
+            await mutate();
+            if (selectedTable?.active_order_id) {
+              const updatedSummary = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
+              if (updatedSummary?.data) setActiveOrderSummary(updatedSummary.data);
+            }
+          }}
+        />
+      )}
+
+      {/* 9. Split Checks (By Item or Equal Share) Modal */}
+      {isSplitCheckModalOpen && (
+        <SplitCheckModal
+          isOpen={isSplitCheckModalOpen}
+          onClose={() => {
+            setIsSplitCheckModalOpen(false);
+            setSplitCheckTable(null);
+          }}
+          table={splitCheckTable}
+          activeOrderSummary={activeOrderSummary}
+          currency={currency}
+          onSuccess={async () => {
+            await mutate();
+          }}
+          onPayPartial={(tbl) => {
+            setPayTable(tbl);
+            setIsPayModalOpen(true);
+          }}
         />
       )}
     </Page>

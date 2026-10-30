@@ -6,13 +6,20 @@ import { isBusinessRequiredError } from "../helpers/BusinessScope";
 import {
   IconArrowLeft,
   IconChevronRight,
+  IconChevronDown,
+  IconChevronUp,
   IconDownload,
   IconFileSpreadsheet,
   IconLoader2,
   IconSearch,
-  IconFilter
+  IconFilter,
+  IconStar,
+  IconStarFilled,
+  IconDotsVertical,
+  IconHelpCircle,
+  IconBrandTelegram,
 } from "@tabler/icons-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { iconStroke } from "../config/config";
 import { CURRENCIES } from "../config/currencies.config";
 import { REPORT_CATALOG, REPORT_CATEGORIES } from "../config/reportCatalog";
@@ -23,6 +30,7 @@ import {
   formatReportValue,
 } from "../utils/reportExports.jsx";
 import { getReportPageComponent } from "./reports/reportPageRegistry.jsx";
+import { sendManualEodReport } from "../controllers/telegram.controller";
 
 const DATE_FILTERS = [
   { key: "today", label: "Today" },
@@ -110,13 +118,143 @@ function ReportCard({ report, onOpen }) {
   );
 }
 
+const FAV_REPORTS_STORAGE_KEY = "restro_qbo_fav_reports_v1";
+const DEFAULT_FAV_REPORTS = [
+  "sales-summary",
+  "gross-sales",
+  "net-sales",
+  "daily-close",
+];
+
+function QBOReportRow({ report, isFav, onToggleFav, onOpen }) {
+  return (
+    <div
+      onClick={() => onOpen(report)}
+      className="group flex items-center justify-between border-b border-gray-200/80 dark:border-slate-800 py-3 px-2.5 hover:bg-[#F4F5F8] dark:hover:bg-slate-800/60 transition-colors cursor-pointer rounded-sm"
+    >
+      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+        <span className="text-[13px] text-gray-700 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white truncate">
+          {report.title}
+        </span>
+        {report.description && (
+          <span
+            title={report.description}
+            onClick={(e) => e.stopPropagation()}
+            className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <IconHelpCircle size={15} stroke={1.8} />
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFav(report.id);
+          }}
+          title={isFav ? "Remove from Favourites" : "Add to Favourites"}
+          className="p-1 rounded hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
+        >
+          {isFav ? (
+            <IconStarFilled size={16} className="text-[#008489] dark:text-emerald-400" />
+          ) : (
+            <IconStar size={16} stroke={1.8} className="text-gray-500 dark:text-slate-400 hover:text-[#008489]" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen(report);
+          }}
+          title="Open Report"
+          className="p-1 rounded text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
+        >
+          <IconDotsVertical size={15} stroke={2} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ReportsIndex() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
+  const category = searchParams.get("category") || "All";
   const normalizedQuery = query.trim().toLowerCase();
 
+  const [favReportIds, setFavReportIds] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FAV_REPORTS_STORAGE_KEY));
+      if (Array.isArray(saved)) return saved;
+    } catch {}
+    return DEFAULT_FAV_REPORTS;
+  });
+
+  const [collapsedSections, setCollapsedSections] = useState({});
+
+  const toggleSection = (key) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const toggleFavReport = (reportId) => {
+    setFavReportIds((prev) => {
+      const next = prev.includes(reportId)
+        ? prev.filter((id) => id !== reportId)
+        : [...prev, reportId];
+      try {
+        localStorage.setItem(FAV_REPORTS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const setCategoryFilter = (cat) => {
+    if (!cat || cat === "All") {
+      setSearchParams({});
+    } else {
+      setSearchParams({ category: cat });
+    }
+  };
+
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
+  const handleSendTelegramEod = async () => {
+    try {
+      setIsSendingTelegram(true);
+      const res = await sendManualEodReport({});
+      toast.success(res?.message || "EOD Summary sent to Telegram!");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to send EOD report");
+    } finally {
+      setIsSendingTelegram(false);
+    }
+  };
+
+  const favouriteReports = useMemo(() => {
+    return REPORT_CATALOG.filter((report) => {
+      if (!favReportIds.includes(report.id)) return false;
+      if (!normalizedQuery) return true;
+      const searchable = [
+        report.title,
+        report.category,
+        report.description,
+        ...(report.keywords || []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(normalizedQuery);
+    });
+  }, [favReportIds, normalizedQuery]);
+
   const groupedReports = useMemo(() => {
+    if (category === "Favourites") return [];
     return REPORT_CATEGORIES.map((categoryName) => {
       const reports = REPORT_CATALOG.filter((report) => {
         if (report.category !== categoryName) return false;
@@ -129,7 +267,9 @@ function ReportsIndex() {
           report.description,
           report.priority,
           ...(report.keywords || []),
-        ].join(" ").toLowerCase();
+        ]
+          .join(" ")
+          .toLowerCase();
 
         return searchable.includes(normalizedQuery);
       });
@@ -138,99 +278,156 @@ function ReportsIndex() {
     }).filter((group) => group.reports.length > 0);
   }, [category, normalizedQuery]);
 
-  const readyReports = REPORT_CATALOG.filter((report) => report.status === "ready").length;
-
   return (
-    <Page className="min-h-[calc(100vh-10rem)] bg-restro-bg-gray/20 px-4 py-8">
-      <div className="mx-auto max-w-7xl flex flex-col md:flex-row gap-6 lg:gap-10">
-        {/* Sidebar */}
-        <aside className="w-full md:w-60 lg:w-64 shrink-0">
-          <div className="sticky top-20 md:top-24">
-            <div className="mb-6 md:mb-8">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">Reports</h1>
-              <p className="mt-2 text-sm text-restro-text">
-                Analyze your performance. <span className="font-medium text-foreground">{readyReports} available</span>.
-              </p>
-            </div>
-
-            {/* Categories */}
-            <div>
-              <h3 className="mb-3 hidden text-xs font-bold uppercase tracking-wider text-restro-text md:block">Categories</h3>
-              <div className="custom-scroll-wrapper flex gap-2 overflow-x-auto pb-2 md:flex-col md:overflow-visible md:pb-0 md:after:hidden">
-                <button
-                  type="button"
-                  onClick={() => setCategory("All")}
-                  className={`flex h-10 shrink-0 items-center justify-between rounded-lg px-4 text-sm font-semibold transition md:h-auto md:shrink md:py-2.5 ${category === "All" ? "bg-restro-green text-white shadow-md md:shadow-sm" : "bg-restro-bg-gray text-restro-text hover:bg-restro-border-green hover:text-foreground md:bg-transparent md:hover:bg-restro-bg-gray"}`}
-                >
-                  <span>All Reports</span>
-                  <span className={`hidden md:block rounded-full px-2 py-0.5 text-[10px] ${category === "All" ? "bg-white/20" : "bg-restro-border-green"}`}>{REPORT_CATALOG.length}</span>
-                </button>
-                {REPORT_CATEGORIES.map((categoryName) => {
-                  const isSelected = category === categoryName;
-                  const count = REPORT_CATALOG.filter((r) => r.category === categoryName).length;
-                  return (
-                    <button
-                      key={categoryName}
-                      type="button"
-                      onClick={() => setCategory(categoryName)}
-                      className={`flex h-10 shrink-0 items-center justify-between rounded-lg px-4 text-sm font-semibold transition md:h-auto md:shrink md:py-2.5 ${isSelected ? "bg-restro-text text-white shadow-md md:shadow-sm" : "bg-restro-bg-gray text-restro-text hover:bg-restro-border-green hover:text-foreground md:bg-transparent md:hover:bg-restro-bg-gray"}`}
-                    >
-                      <span>{categoryName}</span>
-                      <span className={`hidden md:block rounded-full px-2 py-0.5 text-[10px] ${isSelected ? "bg-white/20 text-white" : "bg-restro-border-green text-restro-text"}`}>{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <div className="min-w-0 flex-1">
-          {/* Search */}
-          <div className="sticky top-20 z-10 mb-8 rounded-2xl border border-restro-border-green bg-background/80 p-2 shadow-sm backdrop-blur-md md:top-24">
-            <div className="relative">
-              <IconSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-restro-text" size={20} stroke={iconStroke} />
+    <Page className="min-h-[calc(100vh-56px)] bg-white dark:bg-[#08101D] px-4 sm:px-8 py-6">
+      <div className="mx-auto max-w-5xl">
+        {/* Top QBO Search & Filter Bar (matching Screenshots 2 & 3) */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <div className="relative flex-1 flex items-center rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-[#008489] focus-within:ring-1 focus-within:ring-[#008489] transition">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="h-10 w-full rounded-xl border-none bg-transparent pl-11 pr-4 text-sm outline-none transition focus:ring-0 md:h-12"
-                placeholder="Search reports by name, keyword, or category..."
+                className="h-9 w-full bg-transparent px-3 text-xs sm:text-sm text-gray-800 dark:text-slate-100 placeholder-gray-400 outline-none"
+                placeholder="Type report name here"
               />
+              <span className="h-9 px-2.5 border-l border-gray-200 dark:border-slate-800 flex items-center justify-center text-gray-500">
+                <IconChevronDown size={15} />
+              </span>
             </div>
           </div>
 
-          {/* Reports Grid */}
-          <div className="space-y-10">
-            {groupedReports.map((group) => (
-              <section key={group.category}>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-foreground">{group.category}</h2>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.reports.map((report) => (
-                    <ReportCard key={report.id} report={report} onOpen={(selectedReport) => navigate(`/dashboard/reports/${selectedReport.id}`)} />
-                  ))}
-                </div>
-              </section>
-            ))}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSendTelegramEod}
+              disabled={isSendingTelegram}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#229ED9]/40 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 text-[#229ED9] text-xs font-bold transition active:scale-95 disabled:opacity-50"
+              title="Send End-of-Day Summary to Telegram"
+            >
+              <IconBrandTelegram size={16} stroke={iconStroke} />
+              <span>{isSendingTelegram ? "Sending..." : "Send EOD to Telegram"}</span>
+            </button>
           </div>
 
-          {groupedReports.length === 0 && (
-            <div className="mt-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-restro-border-green bg-background py-20 text-center">
-              <IconSearch className="mb-4 text-restro-text opacity-50" size={48} stroke={iconStroke} />
-              <h3 className="text-lg font-bold text-foreground">No reports found</h3>
-              <p className="mt-1 text-restro-text">Try adjusting your search or filter criteria.</p>
+          {category !== "All" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">
+                Filtered by:{" "}
+                <strong className="text-gray-900 dark:text-white">{category}</strong>
+              </span>
               <button
-                onClick={() => { setQuery(""); setCategory("All"); }}
-                className="mt-4 rounded-lg bg-restro-bg-gray px-4 py-2 text-sm font-bold text-foreground hover:bg-restro-border-green"
+                type="button"
+                onClick={() => setCategoryFilter("All")}
+                className="text-xs font-semibold text-[#0077C5] hover:underline cursor-pointer"
               >
-                Clear Filters
+                Show all reports
               </button>
             </div>
           )}
         </div>
+
+        {/* Collapsible QBO Report Cards */}
+        <div className="space-y-4">
+          {/* 1. Favourites Card */}
+          {(category === "All" || category === "Favourites") &&
+            favouriteReports.length > 0 && (
+              <section className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => toggleSection("Favourites")}
+                  className="flex items-center gap-2 text-left cursor-pointer focus:outline-none"
+                >
+                  {collapsedSections["Favourites"] ? (
+                    <IconChevronRight size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                  ) : (
+                    <IconChevronDown size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                  )}
+                  <h2 className="text-base font-bold text-gray-800 dark:text-white">
+                    Favourites
+                  </h2>
+                </button>
+
+                {!collapsedSections["Favourites"] && (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-10">
+                    {favouriteReports.map((report) => (
+                      <QBOReportRow
+                        key={report.id}
+                        report={report}
+                        isFav={true}
+                        onToggleFav={toggleFavReport}
+                        onOpen={(r) => navigate(`/dashboard/reports/${r.id}`)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+          {/* 2. Category Report Sections */}
+          {groupedReports.map((group) => {
+            const isCollapsed = !!collapsedSections[group.category];
+            return (
+              <section
+                key={group.category}
+                className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-2xs"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSection(group.category)}
+                  className="flex items-center gap-2 text-left cursor-pointer focus:outline-none"
+                >
+                  {isCollapsed ? (
+                    <IconChevronRight size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                  ) : (
+                    <IconChevronDown size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                  )}
+                  <h2 className="text-base font-bold text-gray-800 dark:text-white">
+                    {group.category === "Sales"
+                      ? "Business overview & Sales"
+                      : group.category}
+                  </h2>
+                </button>
+
+                {!isCollapsed && (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-10">
+                    {group.reports.map((report) => (
+                      <QBOReportRow
+                        key={report.id}
+                        report={report}
+                        isFav={favReportIds.includes(report.id)}
+                        onToggleFav={toggleFavReport}
+                        onOpen={(r) => navigate(`/dashboard/reports/${r.id}`)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+
+        {groupedReports.length === 0 &&
+          (category !== "Favourites" || favouriteReports.length === 0) && (
+            <div className="mt-8 flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 py-16 text-center">
+              <IconSearch className="mb-3 text-gray-400" size={40} stroke={iconStroke} />
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                No reports found
+              </h3>
+              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                Try adjusting your search or category filter.
+              </p>
+              <button
+                onClick={() => {
+                  setQuery("");
+                  setCategoryFilter("All");
+                }}
+                className="mt-4 rounded-lg bg-[#2CA01C] px-4 py-2 text-xs font-bold text-white hover:bg-[#248417] cursor-pointer"
+              >
+                Show all reports
+              </button>
+            </div>
+          )}
       </div>
     </Page>
   );
@@ -412,12 +609,26 @@ function ReportDetail({ report }) {
   const ReportPageComponent = getReportPageComponent(report.id);
   const [filterState, setFilterState] = useState({ filter: "today", fromDate: null, toDate: null });
   const [isExporting, setIsExporting] = useState(false);
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
   const { data, error, isLoading } = useReport({
     reportId: report.id,
     type: filterState.filter,
     from: filterState.fromDate,
     to: filterState.toDate,
   });
+
+  const handleSendTelegramEod = async () => {
+    try {
+      setIsSendingTelegram(true);
+      const date = filterState.fromDate || new Date().toISOString().substring(0, 10);
+      const res = await sendManualEodReport({ date });
+      toast.success(res?.message || "EOD Summary sent to Telegram!");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to send EOD report");
+    } finally {
+      setIsSendingTelegram(false);
+    }
+  };
 
   const filterLabel = DATE_FILTERS.find((filter) => filter.key === filterState.filter)?.label || filterState.filter;
   const currency = getCurrencySymbol(data?.currency);
@@ -458,7 +669,19 @@ function ReportDetail({ report }) {
             <p className="mt-2 text-restro-text">Showing data for <span className="font-semibold text-foreground">{filterLabel}</span></p>
           </div>
 
-          <ExportMenu isExporting={isExporting} data={data} onExport={exportReport} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={isSendingTelegram}
+              onClick={handleSendTelegramEod}
+              className="flex h-10 items-center gap-2 rounded-lg border border-[#229ED9]/40 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 text-[#229ED9] px-4 text-sm font-bold transition active:scale-95 disabled:opacity-50"
+              title="Send Summary to Telegram"
+            >
+              <IconBrandTelegram size={18} stroke={iconStroke} />
+              <span>{isSendingTelegram ? "Sending..." : "Send to Telegram"}</span>
+            </button>
+            <ExportMenu isExporting={isExporting} data={data} onExport={exportReport} />
+          </div>
         </div>
 
         <div className="mt-8">

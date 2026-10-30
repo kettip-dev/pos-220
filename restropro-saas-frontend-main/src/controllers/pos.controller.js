@@ -90,4 +90,13 @@ export async function cancelQROrder(orderId) {
     throw error;
   }
 }
+
+export async function approveQROrder(orderId) {
+  try {
+    const response = await ApiClient.post(`/pos/qrorders/approve/${orderId}`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+}
 // qr orders

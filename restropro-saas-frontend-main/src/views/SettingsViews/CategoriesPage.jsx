@@ -1,8 +1,7 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Page from "../../components/Page";
 import DeleteModal from "../../components/DeleteModal";
 import {
-  IconCategory2,
   IconEye,
   IconEyeOff,
   IconPencil,
@@ -23,7 +22,6 @@ import { useKitchenStations } from "../../controllers/kitchen_stations.controlle
 import toast from "react-hot-toast";
 import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "../../contexts/ThemeContext";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
 
@@ -41,15 +39,13 @@ const CATEGORY_GRADIENTS = [
 
 export default function CategoriesPage() {
   const { t } = useTranslation();
-  const categoryTitleRef = useRef();
-  const categoryIdRef = useRef();
-  const categoryTitleUpdateRef = useRef();
   const [deleteCategoryId, setDeleteCategoryId] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [editCategory, setEditCategory] = useState(null); // { id, title, kitchen_station_id }
+  const [editCategory, setEditCategory] = useState(null); // { id, title, kitchen_station_id, ... }
+  const [addTitle, setAddTitle] = useState("");
   const [addStationId, setAddStationId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
   const [editStationId, setEditStationId] = useState("");
-  const { theme } = useTheme();
 
   const { APIURL, data: categories, error, isLoading } = useCategories();
   const { data: menuItems } = useMenuItems();
@@ -57,10 +53,10 @@ export default function CategoriesPage() {
 
   // Count items per category
   const itemCounts = useMemo(() => {
-    if (!menuItems) return {};
+    if (!Array.isArray(menuItems)) return {};
     const counts = {};
     menuItems.forEach((item) => {
-      if (item.category_id) {
+      if (item && item.category_id) {
         counts[item.category_id] = (counts[item.category_id] || 0) + 1;
       }
     });
@@ -76,86 +72,89 @@ export default function CategoriesPage() {
     return <Page className="px-8 py-6">{t("categories.error_loading_data")}</Page>;
   }
 
+  const categoryList = Array.isArray(categories) ? categories : [];
+
   async function btnAdd() {
-    const title = categoryTitleRef.current?.value?.trim();
+    const title = addTitle.trim();
     if (!title) {
       toast.error(t("categories.please_provide_category_title"));
       return;
     }
+    const toastId = toast.loading(t("categories.please_wait"));
     try {
-      toast.loading(t("categories.please_wait"));
       const res = await addCategory(title, addStationId || null);
-      if (res.status == 200) {
-        categoryTitleRef.current.value = "";
+      if (res.status === 200) {
+        setAddTitle("");
         setAddStationId("");
         setIsAddOpen(false);
         await mutate(APIURL);
-        toast.dismiss();
-        toast.success(res.data.message);
+        toast.dismiss(toastId);
+        toast.success(res.data?.message || t("categories.category_added_success", "Category added successfully"));
       }
     } catch (error) {
       const message = error?.response?.data?.message || t("categories.something_went_wrong");
       console.error(error);
-      toast.dismiss();
+      toast.dismiss(toastId);
       toast.error(message);
     }
   }
 
   const btnUpdate = async () => {
     const id = editCategory?.id;
-    const title = categoryTitleUpdateRef.current?.value?.trim();
+    const title = editTitle.trim();
     if (!title) {
       toast.error(t("categories.please_provide_category_title"));
       return;
     }
+    const toastId = toast.loading(t("categories.please_wait"));
     try {
-      toast.loading(t("categories.please_wait"));
       const res = await updateCategory(id, title, editStationId || null);
-      if (res.status == 200) {
+      if (res.status === 200) {
         setEditCategory(null);
+        setEditTitle("");
         setEditStationId("");
         await mutate(APIURL);
-        toast.dismiss();
-        toast.success(res.data.message);
+        toast.dismiss(toastId);
+        toast.success(res.data?.message || t("categories.category_updated_success", "Category updated successfully"));
       }
     } catch (error) {
       const message = error?.response?.data?.message || t("categories.something_went_wrong");
       console.error(error);
-      toast.dismiss();
+      toast.dismiss(toastId);
       toast.error(message);
     }
   };
 
   const btnDelete = async (id) => {
+    const toastId = toast.loading(t("categories.please_wait"));
     try {
-      toast.loading(t("categories.please_wait"));
       const res = await deleteCategory(id);
-      if (res.status == 200) {
+      if (res.status === 200) {
         await mutate(APIURL);
-        toast.dismiss();
-        toast.success(res.data.message);
+        toast.dismiss(toastId);
+        toast.success(res.data?.message || t("categories.category_deleted_success", "Category deleted successfully"));
       }
     } catch (error) {
       const message = error?.response?.data?.message || t("categories.something_went_wrong");
       console.error(error);
-      toast.dismiss();
+      toast.dismiss(toastId);
       toast.error(message);
     }
   };
 
   const btnChangeCategoryVisibilty = async (id, isEnabled) => {
+    const toastId = toast.loading(t("categories.please_wait"));
     try {
-      toast.loading(t("categories.please_wait"));
       const res = await changeCategoryVisibilty(id, isEnabled);
-      if (res.status == 200) {
+      if (res.status === 200) {
         await mutate(APIURL);
-        toast.dismiss();
-        toast.success(res.data.message);
+        toast.dismiss(toastId);
+        toast.success(res.data?.message);
       }
     } catch (error) {
       const message = error?.response?.data?.message || t("categories.something_went_wrong");
       console.error(error);
-      toast.dismiss();
+      toast.dismiss(toastId);
       toast.error(message);
     }
   };
@@ -174,14 +173,18 @@ export default function CategoriesPage() {
             </Link>
           </div>
           <h3 className="text-2xl font-bold text-restro-text">{t("categories.title")}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{categories?.length || 0} categories</p>
+          <p className="text-sm text-gray-500 mt-0.5">{categoryList.length} categories</p>
         </div>
         <button
           id="btn-add-category"
-          onClick={() => setIsAddOpen(true)}
-          className="rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-md px-3 py-2 text-sm flex items-center gap-1.5 text-white bg-restro-green hover:bg-restro-green-button-hover font-semibold shrink-0"
+          onClick={() => {
+            setAddTitle("");
+            setAddStationId("");
+            setIsAddOpen(true);
+          }}
+          className="rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-md px-3.5 py-2 text-sm flex items-center gap-1.5 text-white bg-restro-green hover:bg-restro-green-button-hover font-semibold shrink-0 min-h-[42px]"
         >
-          <IconPlus size={16} stroke={iconStroke} /> {t("categories.new")}
+          <IconPlus size={18} stroke={iconStroke} /> {t("categories.new", "New")}
         </button>
       </div>
 
@@ -189,23 +192,27 @@ export default function CategoriesPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {/* Add new card */}
         <button
-          onClick={() => setIsAddOpen(true)}
+          onClick={() => {
+            setAddTitle("");
+            setAddStationId("");
+            setIsAddOpen(true);
+          }}
           className="group flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-restro-border-green hover:border-restro-green/60 bg-restro-gray hover:bg-restro-button-hover transition-all duration-200 p-6 min-h-[140px] cursor-pointer active:scale-95"
         >
           <div className="w-10 h-10 rounded-xl bg-restro-green/10 group-hover:bg-restro-green/20 flex items-center justify-center transition">
             <IconPlus size={22} stroke={iconStroke} className="text-restro-green" />
           </div>
           <span className="text-sm font-semibold text-restro-text/70 group-hover:text-restro-text transition">
-            Add Category
+            {t("categories.add_category", "Add Category")}
           </span>
         </button>
 
         {/* Category cards */}
-        {categories?.map((category, index) => {
-          const { id, title, is_enabled } = category;
+        {categoryList.map((cat, index) => {
+          const { id, title, is_enabled, kitchen_station_name, kitchen_station_color, kitchen_station_id } = cat;
           const count = itemCounts[id] || 0;
           const gradient = CATEGORY_GRADIENTS[index % CATEGORY_GRADIENTS.length];
-          const initials = title.slice(0, 2).toUpperCase();
+          const initials = (title || "").slice(0, 2).toUpperCase();
 
           return (
             <div
@@ -226,7 +233,9 @@ export default function CategoriesPage() {
 
               {/* Body */}
               <div className="p-3 flex-1 flex flex-col gap-2">
-                <p className="font-semibold text-sm text-restro-text truncate">{title}</p>
+                <p className="font-semibold text-sm text-restro-text truncate" title={title}>
+                  {title}
+                </p>
 
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {/* Item count badge */}
@@ -245,50 +254,51 @@ export default function CategoriesPage() {
                     {is_enabled ? "Visible" : "Hidden"}
                   </span>
                   {/* Station badge */}
-                  {cat.kitchen_station_name && (
+                  {kitchen_station_name && (
                     <span
                       className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border border-black/5 dark:border-white/10"
                       style={{
-                        backgroundColor: `${cat.kitchen_station_color || '#f97316'}20`,
-                        color: cat.kitchen_station_color || '#f97316'
+                        backgroundColor: `${kitchen_station_color || '#f97316'}20`,
+                        color: kitchen_station_color || '#f97316'
                       }}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cat.kitchen_station_color || '#f97316' }} />
-                      <span>{cat.kitchen_station_name}</span>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: kitchen_station_color || '#f97316' }} />
+                      <span>{kitchen_station_name}</span>
                     </span>
                   )}
                 </div>
               </div>
 
               {/* Action bar */}
-              <div className="px-3 pb-3 flex items-center gap-1 justify-end">
+              <div className="px-3 pb-3 flex items-center gap-1.5 justify-end">
                 <button
                   title={is_enabled ? "Hide category" : "Show category"}
                   onClick={() => btnChangeCategoryVisibilty(id, !is_enabled)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
                 >
                   {is_enabled ? (
-                    <IconEye size={15} stroke={iconStroke} />
+                    <IconEye size={18} stroke={iconStroke} />
                   ) : (
-                    <IconEyeOff size={15} stroke={iconStroke} />
+                    <IconEyeOff size={18} stroke={iconStroke} />
                   )}
                 </button>
                 <button
                   title="Edit category"
                   onClick={() => {
                     setEditCategory(cat);
-                    setEditStationId(cat.kitchen_station_id ? String(cat.kitchen_station_id) : "");
+                    setEditTitle(title || "");
+                    setEditStationId(kitchen_station_id ? String(kitchen_station_id) : "");
                   }}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
                 >
-                  <IconPencil size={15} stroke={iconStroke} />
+                  <IconPencil size={18} stroke={iconStroke} />
                 </button>
                 <button
                   title="Delete category"
                   onClick={() => setDeleteCategoryId(id)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-restro-red transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-restro-red transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                  <IconTrash size={15} stroke={iconStroke} />
+                  <IconTrash size={18} stroke={iconStroke} />
                 </button>
               </div>
             </div>
@@ -308,7 +318,7 @@ export default function CategoriesPage() {
               <h3 className="text-lg font-bold text-restro-text">{t("categories.add_new_category")}</h3>
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition active:scale-95"
               >
                 <IconX size={18} stroke={iconStroke} />
               </button>
@@ -318,11 +328,12 @@ export default function CategoriesPage() {
                 {t("categories.category_title")}
               </label>
               <input
-                ref={categoryTitleRef}
                 type="text"
                 autoFocus
+                value={addTitle}
+                onChange={(e) => setAddTitle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && btnAdd()}
-                className="text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green"
+                className="text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
                 placeholder={t("categories.enter_category_title")}
               />
             </div>
@@ -333,10 +344,10 @@ export default function CategoriesPage() {
               <select
                 value={addStationId}
                 onChange={(e) => setAddStationId(e.target.value)}
-                className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green"
+                className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
               >
                 <option value="">Default (Master Kitchen)</option>
-                {stations?.filter(s => s.is_enabled)?.map((station) => (
+                {(Array.isArray(stations) ? stations : []).filter(s => s.is_enabled)?.map((station) => (
                   <option key={station.id} value={station.id}>
                     {station.name}
                   </option>
@@ -349,13 +360,13 @@ export default function CategoriesPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setIsAddOpen(false)}
-                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-medium text-restro-text bg-restro-gray hover:bg-restro-button-hover transition active:scale-95"
+                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-medium text-restro-text bg-restro-gray hover:bg-restro-button-hover transition active:scale-95 min-h-[42px]"
               >
                 {t("categories.close")}
               </button>
               <button
                 onClick={btnAdd}
-                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-semibold text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95"
+                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-semibold text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95 min-h-[42px]"
               >
                 {t("categories.save")}
               </button>
@@ -366,7 +377,7 @@ export default function CategoriesPage() {
 
       {/* ── Edit Category Mini Modal ── */}
       {editCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div key={editCategory.id} className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setEditCategory(null)}
@@ -376,7 +387,7 @@ export default function CategoriesPage() {
               <h3 className="text-lg font-bold text-restro-text">{t("categories.update_category")}</h3>
               <button
                 onClick={() => setEditCategory(null)}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition active:scale-95"
               >
                 <IconX size={18} stroke={iconStroke} />
               </button>
@@ -386,12 +397,12 @@ export default function CategoriesPage() {
                 {t("categories.category_title")}
               </label>
               <input
-                ref={categoryTitleUpdateRef}
                 type="text"
                 autoFocus
-                defaultValue={editCategory.title}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && btnUpdate()}
-                className="text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green"
+                className="text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
                 placeholder={t("categories.enter_category_title")}
               />
             </div>
@@ -402,10 +413,10 @@ export default function CategoriesPage() {
               <select
                 value={editStationId}
                 onChange={(e) => setEditStationId(e.target.value)}
-                className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green"
+                className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
               >
                 <option value="">Default (Master Kitchen)</option>
-                {stations?.filter(s => s.is_enabled)?.map((station) => (
+                {(Array.isArray(stations) ? stations : []).filter(s => s.is_enabled)?.map((station) => (
                   <option key={station.id} value={station.id}>
                     {station.name}
                   </option>
@@ -418,13 +429,13 @@ export default function CategoriesPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setEditCategory(null)}
-                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-medium text-restro-text bg-restro-gray hover:bg-restro-button-hover transition active:scale-95"
+                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-medium text-restro-text bg-restro-gray hover:bg-restro-button-hover transition active:scale-95 min-h-[42px]"
               >
                 {t("categories.close")}
               </button>
               <button
                 onClick={btnUpdate}
-                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-semibold text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95"
+                className="flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-semibold text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95 min-h-[42px]"
               >
                 {t("categories.save")}
               </button>

@@ -1,4 +1,5 @@
-const { getMySqlPromiseConnection } = require("../config/mysql.db")
+const { getMySqlPromiseConnection } = require("../config/mysql.db");
+const { getOrSetCache, invalidateTenantCatalog } = require("../utils/cache.util");
 
 exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = null) => {
     const conn = await getMySqlPromiseConnection();
@@ -22,6 +23,7 @@ exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categ
           kitchenStationId ? Number(kitchenStationId) : null
         ]);
 
+        await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
         console.error(error);
@@ -51,6 +53,7 @@ exports.updateMenuItemDB = async (id, title, description, price, netPrice, taxId
 
         await conn.query(sql, params);
 
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -72,6 +75,7 @@ exports.updateMenuItemImageDB = async (id, image, tenantId) => {
 
         await conn.query(sql, [image, id, tenantId]);
 
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -92,6 +96,7 @@ exports.deleteMenuItemDB = async (id, tenantId) => {
 
         await conn.query(sql, [id, tenantId]);
 
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -113,6 +118,7 @@ exports.changeMenuItemVisibilityDB = async (id, isEnabled, tenantId) => {
 
         await conn.query(sql, [isEnabled, id, tenantId]);
 
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -123,73 +129,77 @@ exports.changeMenuItemVisibilityDB = async (id, isEnabled, tenantId) => {
 }
 
 exports.getAllMenuItemsDB = async (tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
+    return getOrSetCache(`tenant:${tenantId}:catalog:menu_items:all`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
 
-        const sql = `
-        SELECT
-        i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
-        category as category_id, c.title AS category_title, image, i.is_enabled,
-        i.kitchen_station_id,
-        ks.name AS kitchen_station_name,
-        ks.color AS kitchen_station_color,
-        c.kitchen_station_id AS category_kitchen_station_id,
-        cks.name AS category_kitchen_station_name,
-        cks.color AS category_kitchen_station_color,
-        COALESCE(i.kitchen_station_id, c.kitchen_station_id) AS effective_kitchen_station_id,
-        COALESCE(ks.name, cks.name) AS effective_kitchen_station_name,
-        COALESCE(ks.color, cks.color) AS effective_kitchen_station_color
-        FROM menu_items i
-        LEFT JOIN taxes t ON i.tax_id = t.id
-        LEFT JOIN categories c ON i.category = c.id
-        LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
-        LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
-        WHERE i.tenant_id = ?;
-        `;
+            const sql = `
+            SELECT
+            i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
+            category as category_id, c.title AS category_title, image, i.is_enabled,
+            i.kitchen_station_id,
+            ks.name AS kitchen_station_name,
+            ks.color AS kitchen_station_color,
+            c.kitchen_station_id AS category_kitchen_station_id,
+            cks.name AS category_kitchen_station_name,
+            cks.color AS category_kitchen_station_color,
+            COALESCE(i.kitchen_station_id, c.kitchen_station_id) AS effective_kitchen_station_id,
+            COALESCE(ks.name, cks.name) AS effective_kitchen_station_name,
+            COALESCE(ks.color, cks.color) AS effective_kitchen_station_color
+            FROM menu_items i
+            LEFT JOIN taxes t ON i.tax_id = t.id
+            LEFT JOIN categories c ON i.category = c.id
+            LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
+            LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
+            WHERE i.tenant_id = ?;
+            `;
 
-        const [result] = await conn.query(sql, [tenantId]);
-        return result;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            const [result] = await conn.query(sql, [tenantId]);
+            return result;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 }
 
 exports.getMenuItemDB = async (id, tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
+    return getOrSetCache(`tenant:${tenantId}:catalog:menu_item:${id}`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
 
-        const sql = `
-        SELECT
-        i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
-        category as category_id, c.title AS category_title, image, i.is_enabled,
-        i.kitchen_station_id,
-        ks.name AS kitchen_station_name,
-        ks.color AS kitchen_station_color,
-        c.kitchen_station_id AS category_kitchen_station_id,
-        cks.name AS category_kitchen_station_name,
-        cks.color AS category_kitchen_station_color,
-        COALESCE(i.kitchen_station_id, c.kitchen_station_id) AS effective_kitchen_station_id,
-        COALESCE(ks.name, cks.name) AS effective_kitchen_station_name,
-        COALESCE(ks.color, cks.color) AS effective_kitchen_station_color
-        FROM menu_items i
-        LEFT JOIN taxes t ON i.tax_id = t.id
-        LEFT JOIN categories c ON i.category = c.id
-        LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
-        LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
-        WHERE i.id = ? AND i.tenant_id = ?
-        `;
+            const sql = `
+            SELECT
+            i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
+            category as category_id, c.title AS category_title, image, i.is_enabled,
+            i.kitchen_station_id,
+            ks.name AS kitchen_station_name,
+            ks.color AS kitchen_station_color,
+            c.kitchen_station_id AS category_kitchen_station_id,
+            cks.name AS category_kitchen_station_name,
+            cks.color AS category_kitchen_station_color,
+            COALESCE(i.kitchen_station_id, c.kitchen_station_id) AS effective_kitchen_station_id,
+            COALESCE(ks.name, cks.name) AS effective_kitchen_station_name,
+            COALESCE(ks.color, cks.color) AS effective_kitchen_station_color
+            FROM menu_items i
+            LEFT JOIN taxes t ON i.tax_id = t.id
+            LEFT JOIN categories c ON i.category = c.id
+            LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
+            LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
+            WHERE i.id = ? AND i.tenant_id = ?
+            `;
 
-        const [result] = await conn.query(sql, [id, tenantId]);
-        return result[0];
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            const [result] = await conn.query(sql, [id, tenantId]);
+            return result[0];
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 }
 
 /**
@@ -210,6 +220,7 @@ exports.addMenuItemAddonDB = async (itemId, title, price, tenantId) => {
         `;
 
         const [result] = await conn.query(sql, [itemId, title, price, tenantId]);
+        await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
         console.error(error);
@@ -238,6 +249,7 @@ exports.updateMenuItemAddonDB = async (itemId, addonId, title, price, tenantId) 
         `;
 
         await conn.query(sql, [title, price, addonId, itemId, tenantId]);
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -262,7 +274,7 @@ exports.deleteMenuItemAddonDB = async (itemId, addonId, tenantId) => {
         `;
 
         await conn.query(sql, [addonId, itemId, tenantId]);
-
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -278,43 +290,47 @@ exports.deleteMenuItemAddonDB = async (itemId, addonId, tenantId) => {
  * @returns {Promise<Array>}
  *  */
 exports.getMenuItemAddonsDB = async (itemId, tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
+    return getOrSetCache(`tenant:${tenantId}:catalog:addons:${itemId}`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
 
-        const sql = `
-        SELECT id, item_id, title, price FROM menu_item_addons
-        WHERE item_id = ? AND tenant_id = ?;
-        `;
+            const sql = `
+            SELECT id, item_id, title, price FROM menu_item_addons
+            WHERE item_id = ? AND tenant_id = ?;
+            `;
 
-        const [result] = await conn.query(sql, [itemId, tenantId]);
+            const [result] = await conn.query(sql, [itemId, tenantId]);
 
-        return result;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            return result;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 };
 
 exports.getAllAddonsDB = async (tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
+    return getOrSetCache(`tenant:${tenantId}:catalog:addons:all`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
 
-        const sql = `
-        SELECT id, item_id, title, price FROM menu_item_addons
-        WHERE tenant_id = ?;
-        `;
+            const sql = `
+            SELECT id, item_id, title, price FROM menu_item_addons
+            WHERE tenant_id = ?;
+            `;
 
-        const [result] = await conn.query(sql, [tenantId]);
+            const [result] = await conn.query(sql, [tenantId]);
 
-        return result;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            return result;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 };
 
 /**
@@ -335,7 +351,7 @@ exports.addMenuItemVariantDB = async (itemId, title, price, tenantId) => {
         `;
 
         const [result] = await conn.query(sql, [itemId, title, price, tenantId]);
-
+        await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
         console.error(error);
@@ -357,6 +373,7 @@ exports.updateMenuItemVariantDB = async (itemId, variantId, title, price, tenant
         `;
 
         await conn.query(sql, [title, price, itemId, variantId, tenantId]);
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -376,7 +393,7 @@ exports.deleteMenuItemVariantDB = async (itemId, variantId, tenantId) => {
         `;
 
         await conn.query(sql, [itemId, variantId, tenantId]);
-
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -387,41 +404,45 @@ exports.deleteMenuItemVariantDB = async (itemId, variantId, tenantId) => {
 };
 
 exports.getMenuItemVariantsDB = async (itemId, tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
+    return getOrSetCache(`tenant:${tenantId}:catalog:variants:${itemId}`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
 
-        const sql = `
-        SELECT id, item_id, title, price FROM menu_item_variants
-        WHERE item_id = ? AND tenant_id = ?;
-        `;
+            const sql = `
+            SELECT id, item_id, title, price FROM menu_item_variants
+            WHERE item_id = ? AND tenant_id = ?;
+            `;
 
-        const [result] = await conn.query(sql, [itemId, tenantId]);
+            const [result] = await conn.query(sql, [itemId, tenantId]);
 
-        return result;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            return result;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 };
 exports.getAllVariantsDB = async (tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
+    return getOrSetCache(`tenant:${tenantId}:catalog:variants:all`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
 
-        const sql = `
-        SELECT id, item_id, title, price FROM menu_item_variants
-        WHERE tenant_id = ?;
-        `;
+            const sql = `
+            SELECT id, item_id, title, price FROM menu_item_variants
+            WHERE tenant_id = ?;
+            `;
 
-        const [result] = await conn.query(sql, [tenantId]);
-        return result;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            const [result] = await conn.query(sql, [tenantId]);
+            return result;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 };
 
 
@@ -436,7 +457,7 @@ exports.addRecipeItemDB = async (menuItemId, variantId, addonId, ingredientId, q
         `;
 
         const [result] = await conn.query(sql, [menuItemId, variantId, addonId, ingredientId, quantity, tenantId]);
-
+        await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
         console.error(error);
@@ -470,6 +491,7 @@ exports.updateRecipeItemDB = async (recipeItemId, menuItemId, variantId, addonId
             tenantId
         ]);
 
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);
@@ -480,85 +502,89 @@ exports.updateRecipeItemDB = async (recipeItemId, menuItemId, variantId, addonId
 };
 
 exports.getRecipeItemsDB = async (menuItemId, tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
-        const sql = `
-        SELECT
-            mir.id,
-            mir.menu_item_id,
-            mir.variant_id,
-            mir.addon_id,
-            mir.inventory_item_id,
-            mi.title AS menu_item_title,
-            v.title AS variant_title,
-            a.title AS addon_title,
-            ii.title AS ingredient_title,
-            ii.unit,
-            mir.quantity
-        FROM
-            menu_item_recipes mir
-        LEFT JOIN
-            menu_items mi ON mir.menu_item_id = mi.id
-        LEFT JOIN
-            menu_item_variants v ON mir.variant_id = v.id
-        LEFT JOIN
-            menu_item_addons a ON mir.addon_id = a.id
-        LEFT JOIN
-            inventory_items ii ON mir.inventory_item_id = ii.id
-        WHERE
-            mir.menu_item_id = ? AND mir.tenant_id = ?
-        `;
+    return getOrSetCache(`tenant:${tenantId}:catalog:recipes:${menuItemId}`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
+            const sql = `
+            SELECT
+                mir.id,
+                mir.menu_item_id,
+                mir.variant_id,
+                mir.addon_id,
+                mir.inventory_item_id,
+                mi.title AS menu_item_title,
+                v.title AS variant_title,
+                a.title AS addon_title,
+                ii.title AS ingredient_title,
+                ii.unit,
+                mir.quantity
+            FROM
+                menu_item_recipes mir
+            LEFT JOIN
+                menu_items mi ON mir.menu_item_id = mi.id
+            LEFT JOIN
+                menu_item_variants v ON mir.variant_id = v.id
+            LEFT JOIN
+                menu_item_addons a ON mir.addon_id = a.id
+            LEFT JOIN
+                inventory_items ii ON mir.inventory_item_id = ii.id
+            WHERE
+                mir.menu_item_id = ? AND mir.tenant_id = ?
+            `;
 
-        const [rows] = await conn.query(sql, [menuItemId, tenantId]);
-        return rows;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            const [rows] = await conn.query(sql, [menuItemId, tenantId]);
+            return rows;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 };
 
 exports.getAllRecipeItemsDB = async (tenantId) => {
-    const conn = await getMySqlPromiseConnection();
-    try {
-        const sql = `
-        SELECT
-            mir.id,
-            mir.menu_item_id,
-            mir.variant_id,
-            mir.addon_id,
-            mir.inventory_item_id,
-            mi.title AS menu_item_title,
-            v.title AS variant_title,
-            a.title AS addon_title,
-            ii.title AS ingredient_title,
-            ii.unit,
-            ii.quantity as current_quantity,
-            ii.min_quantity_threshold,
-            mir.quantity as recipe_quantity
-        FROM
-            menu_item_recipes mir
-        LEFT JOIN
-            menu_items mi ON mir.menu_item_id = mi.id
-        LEFT JOIN
-            menu_item_variants v ON mir.variant_id = v.id
-        LEFT JOIN
-            menu_item_addons a ON mir.addon_id = a.id
-        LEFT JOIN
-            inventory_items ii ON mir.inventory_item_id = ii.id
-        WHERE
-            mir.tenant_id = ?
-        `;
+    return getOrSetCache(`tenant:${tenantId}:catalog:recipes:all`, 1800, async () => {
+        const conn = await getMySqlPromiseConnection();
+        try {
+            const sql = `
+            SELECT
+                mir.id,
+                mir.menu_item_id,
+                mir.variant_id,
+                mir.addon_id,
+                mir.inventory_item_id,
+                mi.title AS menu_item_title,
+                v.title AS variant_title,
+                a.title AS addon_title,
+                ii.title AS ingredient_title,
+                ii.unit,
+                ii.quantity as current_quantity,
+                ii.min_quantity_threshold,
+                mir.quantity as recipe_quantity
+            FROM
+                menu_item_recipes mir
+            LEFT JOIN
+                menu_items mi ON mir.menu_item_id = mi.id
+            LEFT JOIN
+                menu_item_variants v ON mir.variant_id = v.id
+            LEFT JOIN
+                menu_item_addons a ON mir.addon_id = a.id
+            LEFT JOIN
+                inventory_items ii ON mir.inventory_item_id = ii.id
+            WHERE
+                mir.tenant_id = ?
+            `;
 
-        const [rows] = await conn.query(sql, [tenantId]);
-        return rows;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    } finally {
-        conn.release();
-    }
+            const [rows] = await conn.query(sql, [tenantId]);
+            return rows;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            conn.release();
+        }
+    });
 };
 
 exports.deleteRecipeItemDB = async (itemId, recipeItemId, variant, addon, tenantId) => {
@@ -584,6 +610,7 @@ exports.deleteRecipeItemDB = async (itemId, recipeItemId, variant, addon, tenant
         }
 
         await conn.query(sql, params);
+        await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
         console.error(error);

@@ -90,44 +90,44 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
       id="modal-add-customer"
       className="modal modal-bottom sm:modal-middle"
     >
-      <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-        <h3 className="font-bold text-lg">{t("customers.new")}</h3>
+      <div className="modal-box bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-neutral-800 rounded-2xl shadow-2xl p-6">
+        <h3 className="font-bold text-lg text-slate-900 dark:text-white">{t("customers.new")}</h3>
 
         <div className="mt-4">
-          <label htmlFor="phone" className="mb-1 block text-gray-500 text-sm">
-            {t("customers.phone")} <span className="text-xs text-gray-400">- ({t("customers.required")})</span>
+          <label htmlFor="phone" className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium">
+            {t("customers.phone")} <span className="text-slate-400">- ({t("customers.required")})</span>
           </label>
           <input
             ref={phoneRef}
             type="tel"
             name="phone"
-            className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green bg-restro-gray dark:bg-black focus:outline-restro-border-green'
+            className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             placeholder={t("customers.phone_placeholder")}
           />
         </div>
 
         <div className="mt-4">
-          <label htmlFor="name" className="mb-1 block text-gray-500 text-sm">
-            {t("customers.name")} <span className="text-xs text-gray-400">- ({t("customers.required")})</span>
+          <label htmlFor="name" className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium">
+            {t("customers.name")} <span className="text-slate-400">- ({t("customers.required")})</span>
           </label>
           <input
             ref={nameRef}
             type="text"
             name="name"
-            className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green bg-restro-gray dark:bg-black focus:outline-restro-border-green'
+            className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             placeholder={t("customers.name_placeholder")}
           />
         </div>
 
         <div className="mt-4">
-          <label htmlFor="email" className="mb-1 block text-gray-500 text-sm">
+          <label htmlFor="email" className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium">
             {t("customers.email")}
           </label>
           <input
             ref={emailRef}
             type="email"
             name="email"
-            className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green bg-restro-gray dark:bg-black focus:outline-restro-border-green'
+            className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             placeholder={t("customers.email_placeholder")}
           />
         </div>
@@ -135,7 +135,7 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
         <div className="flex gap-4 w-full my-4">
           <div className="flex-1">
             <label htmlFor="birthdate"
-              className="mb-1 block text-gray-500 text-sm"
+              className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium"
               >
               {t("customers.birth_date")}
             </label>
@@ -144,18 +144,18 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
               type="date"
               name="birthdate"
               max={new Date().toISOString().substring(0, 10)}
-              className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green bg-restro-gray dark:bg-black focus:outline-restro-border-green'
+              className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
               placeholder={t("customers.birthdate_placeholder")}
             />
           </div>
           <div className="flex-1">
-            <label htmlFor="type" className="mb-1 block text-gray-500 text-sm">
+            <label htmlFor="type" className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium">
               {t("customers.gender")}
             </label>
             <select
               ref={genderRef}
               name="type"
-              className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green bg-restro-gray dark:bg-black focus:outline-restro-border-green'
+              className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
               placeholder={t("customers.gender")}
             >
               <option value="">
@@ -168,10 +168,9 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
           </div>
         </div>
 
-        <div className="modal-action">
-          <form method="dialog">
-            {/* if there is a button in form, it will close the modal */}
-            <button className='btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text'>
+        <div className="modal-action mt-6 flex items-center justify-end gap-2">
+          <form method="dialog" className="flex items-center gap-2">
+            <button className="min-h-[40px] px-4 py-2 rounded-lg border border-slate-300 dark:border-neutral-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs sm:text-sm font-medium transition active:scale-95">
               {t("customers.close")}
             </button>
           </form>
@@ -179,7 +178,7 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
             onClick={() => {
               btnAdd();
             }}
-            className='btn rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 text-white ml-3 border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover'
+            className="min-h-[40px] px-4 py-2 rounded-lg bg-[#107c41] hover:bg-[#0c6634] text-white text-xs sm:text-sm font-semibold transition active:scale-95 shadow-xs"
           >
             {t("customers.save")}
           </button>

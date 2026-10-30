@@ -199,10 +199,10 @@ export default function POSDraftsDrawer({
                       {draft.nameRef}
                     </h4>
 
-                    {draft.customer?.label && (
+                    {(draft.customer?.name || draft.customer?.label) && (
                       <span className="px-2 py-0.5 rounded-lg bg-restro-gray border border-restro-border-green text-[11px] text-gray-500 font-medium flex items-center gap-1">
                         <IconUser size={12} stroke={iconStroke} />
-                        <span className="truncate max-w-[120px]">{draft.customer.label.split(' - ')[0]}</span>
+                        <span className="truncate max-w-[120px]">{(draft.customer.name || draft.customer.label).split(' - ')[0]}</span>
                       </span>
                     )}
                   </div>
@@ -283,7 +283,7 @@ export default function POSDraftsDrawer({
               <p className="text-xs text-gray-400 mt-1 max-w-[280px] leading-relaxed">
                 {t(
                   'pos.drafts_empty_hint',
-                  'When a customer pauses or steps away, tap [ 💾 Draft ] in the cart to hold their ticket here.'
+                  'When a customer pauses or steps away, tap [  Draft ] in the cart to hold their ticket here.'
                 )}
               </p>
             </div>

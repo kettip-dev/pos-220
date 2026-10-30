@@ -64,19 +64,30 @@ export default function TableAssignmentsPage() {
     document.getElementById(DIALOG_ID)?.showModal();
   };
 
+  const formatFloor = (f) => {
+    if (!f || f === "—") return "—";
+    const key = String(f).trim().toLowerCase().replace(/[\s\-_]+/g, "_");
+    const translated = t(`floors.${key}`, "");
+    if (translated) return translated;
+    if (/^\d+$/.test(String(f).trim())) {
+      return t("table_settings.floor_label", { floor: f, defaultValue: `Floor ${f}` });
+    }
+    return f;
+  };
+
   // Assign or clear one role for the active table; refresh the list afterwards.
   const apply = async (role, userId) => {
     if (!activeTable) return;
     setBusy(true);
     try {
-      toast.loading("Saving...");
+      toast.loading(t("table_assignments_page.saving", "Saving..."));
       await setTableAssignment(activeTable.id, role, userId || null);
       await mutate(APIURL);
       toast.dismiss();
-      toast.success(userId ? "Assigned" : "Removed");
+      toast.success(userId ? t("table_assignments_page.assigned", "Assigned") : t("table_assignments_page.removed", "Removed"));
     } catch (error) {
       toast.dismiss();
-      toast.error(error?.response?.data?.message || "Something went wrong.");
+      toast.error(error?.response?.data?.message || t("table_assignments_page.something_went_wrong", "Something went wrong."));
     } finally {
       setBusy(false);
     }
@@ -88,19 +99,19 @@ export default function TableAssignmentsPage() {
     <Page className="px-4 md:px-8 py-6">
       <div className="flex items-center gap-2 mb-1">
         <IconArmchair2 size={26} stroke={iconStroke} />
-        <h3 className="text-2xl font-light">{t("settings.table_assignments")}</h3>
+        <h3 className="text-2xl font-light">{t("table_assignments_page.title", t("settings.table_assignments", "Table Assignments"))}</h3>
       </div>
       <p className="text-sm text-gray-500 mb-6 max-w-2xl leading-relaxed">
-        Tap any table to assign dedicated waiters or captains. Assigned tables appear under "My Tables" in staff apps, while unassigned tables remain available for open service.
+        {t("table_assignments_page.description", "Tap any table to assign dedicated waiters or captains. Assigned tables appear under \"My Tables\" in staff apps, while unassigned tables remain available for open service.")}
       </p>
 
       {tables.length === 0 ? (
-        <p className="text-gray-500">No tables configured. Add tables in Table settings first.</p>
+        <p className="text-gray-500">{t("table_assignments_page.no_tables", "No tables configured. Add tables in Table settings first.")}</p>
       ) : (
         <div className="flex flex-col gap-6">
           {byFloor.map((f) => (
             <div key={f}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">{f}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">{formatFloor(f)}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {floorMap.get(f).map((tbl) => {
                   const owners = ownerByTable.get(tbl.id) ?? {};
@@ -118,10 +129,10 @@ export default function TableAssignmentsPage() {
                         <IconPencil size={15} stroke={iconStroke} className="opacity-0 group-hover:opacity-60" />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <AssignLine icon={IconUser} label="Waiter" owner={owners.waiter} />
-                        <AssignLine icon={IconUserStar} label="Captain" owner={owners.captain} />
+                        <AssignLine icon={IconUser} label={t("table_assignments_page.waiter", "Waiter")} owner={owners.waiter} />
+                        <AssignLine icon={IconUserStar} label={t("table_assignments_page.captain", "Captain")} owner={owners.captain} />
                       </div>
-                      {!hasAny && <span className="text-[11px] text-gray-400">Tap to assign</span>}
+                      {!hasAny && <span className="text-[11px] text-gray-400">{t("table_assignments_page.tap_to_assign", "Tap to assign")}</span>}
                     </button>
                   );
                 })}
@@ -136,40 +147,42 @@ export default function TableAssignmentsPage() {
         <div className="modal-box border border-restro-border-green dark:rounded-2xl">
           <h3 className="font-bold text-lg flex items-center gap-2">
             <IconArmchair2 size={20} stroke={iconStroke} />
-            {activeTable ? activeTable.table_title : "Table"}
-            {activeTable?.floor ? <span className="text-sm font-normal text-gray-400">· {activeTable.floor}</span> : null}
+            {activeTable ? activeTable.table_title : t("table_assignments_page.table", "Table")}
+            {activeTable?.floor ? <span className="text-sm font-normal text-gray-400">· {formatFloor(activeTable.floor)}</span> : null}
           </h3>
 
           <div className="mt-5 flex flex-col gap-5">
             <RolePicker
-              label="Waiter"
+              label={t("table_assignments_page.waiter", "Waiter")}
               role="waiter"
               staffList={staffList}
               current={activeOwners.waiter}
               busy={busy}
               onApply={apply}
+              t={t}
             />
             <RolePicker
-              label="Captain"
+              label={t("table_assignments_page.captain", "Captain")}
               role="captain"
               staffList={staffList}
               current={activeOwners.captain}
               busy={busy}
               onApply={apply}
+              t={t}
             />
           </div>
 
           <div className="modal-action">
             <form method="dialog">
               <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text">
-                {t("table_settings.close") || "Close"}
+                {t("table_assignments_page.close", t("table_settings.close", "Close"))}
               </button>
             </form>
           </div>
         </div>
         {/* click-outside closes */}
         <form method="dialog" className="modal-backdrop">
-          <button>close</button>
+          <button>{t("table_assignments_page.close", "close")}</button>
         </form>
       </dialog>
     </Page>
@@ -190,7 +203,7 @@ function AssignLine({ icon: Icon, label, owner }) {
 }
 
 // Dropdown + assign + remove for one role inside the dialog.
-function RolePicker({ label, role, staffList, current, busy, onApply }) {
+function RolePicker({ label, role, staffList, current, busy, onApply, t }) {
   const Icon = role === "captain" ? IconUserStar : IconUser;
   const [pick, setPick] = useState("");
 
@@ -211,7 +224,7 @@ function RolePicker({ label, role, staffList, current, busy, onApply }) {
           onChange={(e) => setPick(e.target.value)}
           className="text-sm flex-1 border rounded-lg px-3 py-2 bg-restro-gray dark:bg-black border-restro-border-green focus:outline-restro-border-green"
         >
-          <option value="">Unassigned</option>
+          <option value="">{t ? t("table_assignments_page.unassigned", "Unassigned") : "Unassigned"}</option>
           {staffList.map((u) => (
             <option key={u.username} value={u.username}>
               {u.name || u.username}
@@ -224,13 +237,13 @@ function RolePicker({ label, role, staffList, current, busy, onApply }) {
           disabled={busy || pick === (current?.user_id ?? "")}
           className="btn rounded-xl px-4 py-2 text-sm text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95 disabled:opacity-40"
         >
-          {pick ? "Assign" : "Save"}
+          {pick ? (t ? t("table_assignments_page.assign", "Assign") : "Assign") : (t ? t("table_assignments_page.save", "Save") : "Save")}
         </button>
         {current ? (
           <button
             onClick={() => onApply(role, null)}
             disabled={busy}
-            title="Remove"
+            title={t ? t("table_assignments_page.remove", "Remove") : "Remove"}
             className="btn btn-circle btn-sm border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-red"
           >
             <IconX size={16} stroke={iconStroke} />

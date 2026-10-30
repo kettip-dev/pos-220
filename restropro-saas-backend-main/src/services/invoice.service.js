@@ -280,17 +280,46 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
         const [kitchenOrdersItemsResult] = await conn.query(sql2, [foundOrderIds, ...itemsTenantParams]);
         kitchenOrdersItems = kitchenOrdersItemsResult;
 
-        const addonIds = [...new Set(kitchenOrdersItems.flatMap((o)=>o.addons?JSON.parse(o?.addons):[]))]
-          .map(Number)
-          .filter((id) => Number.isInteger(id) && id > 0);
+        const rawAddons = kitchenOrdersItems.flatMap((o) => {
+          try {
+            return o.addons ? JSON.parse(o.addons) : [];
+          } catch (e) {
+            return [];
+          }
+        });
 
-        if (addonIds.length > 0) {
+        const numericIds = [...new Set(
+          rawAddons
+            .map((a) => (typeof a === "object" && a !== null ? a.id : a))
+            .filter((a) => a !== null && a !== undefined && !isNaN(Number(a)))
+            .map(Number)
+        )];
+
+        const titleNames = [...new Set(
+          rawAddons
+            .map((a) => (typeof a === "object" && a !== null ? a.title : a))
+            .filter((a) => typeof a === "string" && isNaN(Number(a)) && a.trim().length > 0)
+        )];
+
+        if (numericIds.length > 0 || titleNames.length > 0) {
           const { sql: addonTenantSql, params: addonTenantParams } = tenantFilter(scope, "menu_item_addons");
+          const whereClauses = [];
+          const queryParams = [];
+
+          if (numericIds.length > 0) {
+            whereClauses.push(`id IN (?)`);
+            queryParams.push(numericIds);
+          }
+          if (titleNames.length > 0) {
+            whereClauses.push(`title IN (?)`);
+            queryParams.push(titleNames);
+          }
+
           const [addonsResult] = await conn.query(
-            `SELECT id, item_id, title, price FROM menu_item_addons WHERE id IN (?) AND ${addonTenantSql};`,
-            [addonIds, ...addonTenantParams]
+            `SELECT id, item_id, title, price FROM menu_item_addons WHERE (${whereClauses.join(" OR ")}) AND ${addonTenantSql};`,
+            [...queryParams, ...addonTenantParams]
           );
-          addons = addonsResult;
+          addons = addonsResult || [];
         }
       }
 

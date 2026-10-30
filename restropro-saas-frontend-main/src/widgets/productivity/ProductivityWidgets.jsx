@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   IconBolt,
@@ -96,6 +97,7 @@ export function NotesWidget({ itemId }) {
    ─────────────────────────────────────────────────────────────── */
 
 export function ClockWidget() {
+  const { t } = useTranslation();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -110,11 +112,11 @@ export function ClockWidget() {
   });
   const hour = now.getHours();
   const greeting =
-    hour < 5 ? "Late night"
-    : hour < 12 ? "Good morning"
-    : hour < 17 ? "Good afternoon"
-    : hour < 21 ? "Good evening"
-    : "Good night";
+    hour < 5 ? t("dashboard.late_night", "Late night")
+    : hour < 12 ? t("dashboard.good_morning", "Good morning")
+    : hour < 17 ? t("dashboard.good_afternoon", "Good afternoon")
+    : hour < 21 ? t("dashboard.good_evening", "Good evening")
+    : t("dashboard.good_night", "Good night");
 
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
@@ -193,12 +195,13 @@ export function SalesGoalWidget({ config = {}, context }) {
    ─────────────────────────────────────────────────────────────── */
 
 export function WelcomeBannerWidget({ context }) {
+  const { t } = useTranslation();
   const userName = context?.user?.name || "there";
   const hour = new Date().getHours();
   const greeting =
-    hour < 12 ? "Good morning"
-    : hour < 17 ? "Good afternoon"
-    : "Good evening";
+    hour < 12 ? t("dashboard.good_morning", "Good morning")
+    : hour < 17 ? t("dashboard.good_afternoon", "Good afternoon")
+    : t("dashboard.good_evening", "Good evening");
 
   return (
     <div className="flex h-full flex-col justify-center">
@@ -206,10 +209,10 @@ export function WelcomeBannerWidget({ context }) {
         {greeting}
       </p>
       <h2 className="mt-1 text-2xl font-extrabold text-foreground">
-        Welcome back, {userName} 👋
+        {t("dashboard.welcome_back", "Welcome back, {{name}} ", { name: userName })}
       </h2>
       <p className="mt-1 text-sm text-restro-text">
-        Here's what's happening at your restaurant today.
+        {t("dashboard.happening_today", "Here's what's happening at your restaurant today.")}
       </p>
     </div>
   );

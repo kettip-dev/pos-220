@@ -1,6 +1,7 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db")
 const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
+const { sendOrderTelegramNotification } = require("./telegram.service");
 
 exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId=null, username = null) => {
   const conn = await getMySqlPromiseConnection();
@@ -62,11 +63,15 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
         return [
           orderId,
           item.id,
-          item.variant_id,
+          item.variant_id || item.variant?.id || null,
           item.price,
           item.quantity,
           item.notes,
-          item?.addons_ids?.length > 0 ? JSON.stringify(item.addons_ids) : null,
+          item?.addons_ids?.length > 0
+            ? JSON.stringify(item.addons_ids)
+            : (item?.addons?.length > 0
+                ? JSON.stringify(item.addons.map(a => typeof a === 'object' && a !== null ? a.id : a).filter(Boolean))
+                : null),
           tenantId,
           stationId ? Number(stationId) : null
         ];
@@ -203,6 +208,11 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     // Post-commit and fire-and-forget: a push must never delay or fail an order.
     queueLowStockAlerts(tenantId, newlyLowItems);
 
+    // Push notification to Telegram (if configured and enabled)
+    sendOrderTelegramNotification(tenantId, orderId).catch((err) => {
+      console.error(`[pos.service] Telegram order notify failed for order #${orderId}:`, err.message);
+    });
+
     return {
       tokenNo,
       orderId
@@ -221,8 +231,13 @@ exports.getPOSQROrdersCountDB = async (tenantId) => {
 
     try {
       const sql = `
-        SELECT COUNT(*) AS total_orders FROM qr_orders
-        WHERE tenant_id = ? AND status NOT IN('completed', 'cancelled');
+        SELECT COUNT(*) AS total_orders FROM qr_orders o
+        WHERE o.tenant_id = ?
+          AND o.status NOT IN('completed', 'cancelled')
+          AND EXISTS (
+            SELECT 1 FROM qr_order_items qoi
+            WHERE qoi.order_id = o.id AND qoi.tenant_id = o.tenant_id
+          );
       `;
 
       const [result] = await conn.query(sql, [tenantId]);
@@ -239,6 +254,18 @@ exports.getPOSQROrdersDB = async (tenantId) => {
   const conn = await getMySqlPromiseConnection();
 
     try {
+      // Auto-cleanup any orphaned qr_orders that have 0 items so they never get stuck
+      await conn.query(`
+        UPDATE qr_orders o
+        SET o.status = 'cancelled'
+        WHERE o.tenant_id = ?
+          AND o.status NOT IN ('completed', 'cancelled')
+          AND NOT EXISTS (
+            SELECT 1 FROM qr_order_items qoi
+            WHERE qoi.order_id = o.id AND qoi.tenant_id = o.tenant_id
+          )
+      `, [tenantId]);
+
       const sql = `
        SELECT
         o.id,
@@ -250,15 +277,21 @@ exports.getPOSQROrdersDB = async (tenantId) => {
         o.table_id,
         st.table_title,
         st.floor,
+        st.seating_capacity,
         o.status,
         o.payment_status
       FROM
         qr_orders o
         LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = o.tenant_id
-        LEFT JOIN store_tables st ON o.table_id = st.id
+        LEFT JOIN store_tables st ON o.table_id = st.id AND st.tenant_id = o.tenant_id
       WHERE
         o.status NOT IN('completed', 'cancelled')
         AND o.tenant_id = ?
+        AND EXISTS (
+          SELECT 1 FROM qr_order_items qoi
+          WHERE qoi.order_id = o.id AND qoi.tenant_id = o.tenant_id
+        )
+      ORDER BY o.id DESC
       `;
 
       const [kitchenOrders] = await conn.query(sql, [tenantId]);
@@ -267,13 +300,14 @@ exports.getPOSQROrdersDB = async (tenantId) => {
       let addons = [];
 
       if(kitchenOrders.length > 0) {
-        const orderIds = kitchenOrders.map(o=>o.id).join(",");
+        const orderIds = kitchenOrders.map(o=>o.id);
         const sql2 = `
           SELECT
             oi.id,
             oi.order_id,
             oi.item_id,
             mi.title AS item_title,
+            mi.image AS item_image,
             mi.tax_id,
             t.title as tax_title,
             t.rate as tax_rate,
@@ -289,19 +323,58 @@ exports.getPOSQROrdersDB = async (tenantId) => {
             oi.notes
           FROM
             qr_order_items oi
-            LEFT JOIN menu_items mi ON oi.item_id = mi.id
-            LEFT JOIN taxes t ON t.id = mi.tax_id
+            LEFT JOIN menu_items mi ON oi.item_id = mi.id AND mi.tenant_id = oi.tenant_id
+            LEFT JOIN taxes t ON t.id = mi.tax_id AND t.tenant_id = oi.tenant_id
             LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id
-            AND oi.variant_id = miv.id
+              AND oi.variant_id = miv.id
           WHERE
-            oi.order_id IN (${orderIds})
+            oi.order_id IN (?) AND oi.tenant_id = ?
         `
-        const [kitchenOrdersItemsResult] = await conn.query(sql2);
+        const [kitchenOrdersItemsResult] = await conn.query(sql2, [orderIds, tenantId]);
         kitchenOrdersItems = kitchenOrdersItemsResult;
 
-        const addonIds = [...new Set([...kitchenOrdersItems.flatMap((o)=>o.addons?JSON.parse(o?.addons):[])])].join(",");
-        const [addonsResult] = addonIds ? await conn.query(`SELECT id, item_id, title FROM menu_item_addons WHERE id IN (${addonIds});`):[]
-        addons = addonsResult;
+        const rawAddons = kitchenOrdersItems.flatMap((o) => {
+          try {
+            return o.addons ? JSON.parse(o.addons) : [];
+          } catch {
+            return [];
+          }
+        });
+
+        const numericIds = [...new Set(
+          rawAddons
+            .map((a) => (typeof a === "object" && a !== null ? a.id : a))
+            .filter((a) => a !== null && a !== undefined && !isNaN(Number(a)))
+            .map(Number)
+        )];
+
+        const titleNames = [...new Set(
+          rawAddons
+            .map((a) => (typeof a === "object" && a !== null ? a.title : a))
+            .filter((a) => typeof a === "string" && isNaN(Number(a)) && a.trim().length > 0)
+        )];
+
+        if (numericIds.length > 0 || titleNames.length > 0) {
+          const whereClauses = [];
+          const queryParams = [];
+
+          if (numericIds.length > 0) {
+            whereClauses.push(`id IN (?)`);
+            queryParams.push(numericIds);
+          }
+          if (titleNames.length > 0) {
+            whereClauses.push(`title IN (?)`);
+            queryParams.push(titleNames);
+          }
+
+          queryParams.push(tenantId);
+
+          const [addonsResult] = await conn.query(
+            `SELECT id, item_id, title, price FROM menu_item_addons WHERE (${whereClauses.join(" OR ")}) AND tenant_id = ?;`,
+            queryParams
+          );
+          addons = addonsResult || [];
+        }
       }
 
       // Get recipe items for all menu items
@@ -358,24 +431,135 @@ exports.getPOSQROrdersDB = async (tenantId) => {
     }
 };
 
-exports.updateQROrderStatusDB = async (tenantId, orderId, status) => {
+exports.updateQROrderStatusDB = async (tenantId, orderId, status, linkedOrderId = null) => {
   const conn = await getMySqlPromiseConnection();
 
   try {
-    const sql = `
-      UPDATE qr_orders
-      SET status = ?
-      WHERE tenant_id = ? AND id = ?;
-    `;
+    const sql = linkedOrderId
+      ? `UPDATE qr_orders SET status = ?, linked_order_id = ? WHERE tenant_id = ? AND id = ?;`
+      : `UPDATE qr_orders SET status = ? WHERE tenant_id = ? AND id = ?;`;
 
-    const [result] = await conn.query(sql, [status, tenantId, orderId]);
-    return
+    const params = linkedOrderId
+      ? [status, Number(linkedOrderId), tenantId, orderId]
+      : [status, tenantId, orderId];
+
+    await conn.query(sql, params);
+    return;
   } catch (error) {
       console.error(error);
       throw error;
   } finally {
       conn.release();
   }
+};
+
+exports.approveQROrderDB = async (tenantId, qrOrderId, username = "Staff") => {
+  const conn = await getMySqlPromiseConnection();
+  let qrOrder = null;
+  let cartItems = [];
+  let validCreatedBy = null;
+
+  try {
+    if (username) {
+      const [userRows] = await conn.query(
+        `SELECT username FROM users WHERE username = ? AND tenant_id = ? LIMIT 1`,
+        [username, tenantId]
+      );
+      if (userRows.length > 0) {
+        validCreatedBy = userRows[0].username;
+      }
+    }
+
+    const [orderRows] = await conn.query(
+      `SELECT id, delivery_type, customer_type, customer_id, table_id, status, payment_status
+       FROM qr_orders
+       WHERE id = ? AND tenant_id = ?
+       LIMIT 1`,
+      [qrOrderId, tenantId]
+    );
+
+    qrOrder = orderRows[0];
+    if (!qrOrder) {
+      const err = new Error("QR order not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (qrOrder.status === "completed" || qrOrder.status === "cancelled") {
+      const err = new Error(`QR order is already ${qrOrder.status}`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const [itemRows] = await conn.query(
+      `SELECT qoi.id, qoi.item_id, qoi.variant_id, qoi.price, qoi.quantity, qoi.notes, qoi.addons,
+              mi.kitchen_station_id, c.kitchen_station_id AS cat_station_id
+       FROM qr_order_items qoi
+       LEFT JOIN menu_items mi ON qoi.item_id = mi.id
+       LEFT JOIN categories c ON mi.category = c.id
+       WHERE qoi.order_id = ? AND qoi.tenant_id = ?`,
+      [qrOrderId, tenantId]
+    );
+
+    if (!itemRows.length) {
+      const err = new Error("QR order has no items");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const [recipeRows] = await conn.query(
+      `SELECT mir.id, mir.menu_item_id, mir.variant_id, mir.addon_id, mir.inventory_item_id,
+              ii.title AS ingredient_title, ii.unit, mir.quantity AS recipe_quantity
+       FROM menu_item_recipes mir
+       LEFT JOIN inventory_items ii ON mir.inventory_item_id = ii.id
+       WHERE mir.tenant_id = ?`,
+      [tenantId]
+    );
+
+    cartItems = itemRows.map((row) => {
+      let addonsIds = [];
+      try {
+        addonsIds = row.addons ? JSON.parse(row.addons) : [];
+      } catch {
+        addonsIds = [];
+      }
+      const itemRecipes = recipeRows.filter((r) => Number(r.menu_item_id) === Number(row.item_id));
+      return {
+        id: row.item_id,
+        variant_id: row.variant_id,
+        price: row.price,
+        quantity: row.quantity,
+        notes: row.notes,
+        addons_ids: Array.isArray(addonsIds) ? addonsIds : [],
+        kitchen_station_id: row.kitchen_station_id || row.cat_station_id || null,
+        recipeItems: itemRecipes,
+      };
+    });
+  } finally {
+    conn.release();
+  }
+
+  // Create real kitchen order with station routing & recipe deduction
+  const created = await exports.createOrderDB(
+    tenantId,
+    cartItems,
+    qrOrder.delivery_type || (qrOrder.table_id ? "dinein" : null),
+    qrOrder.customer_type || "WALKIN",
+    qrOrder.customer_id || null,
+    qrOrder.table_id || null,
+    qrOrder.payment_status || "pending",
+    null,
+    validCreatedBy
+  );
+
+  await exports.updateQROrderStatusDB(tenantId, qrOrderId, "completed", created.orderId);
+
+  return {
+    qrOrderId: Number(qrOrderId),
+    orderId: created.orderId,
+    tokenNo: created.tokenNo,
+    tableId: qrOrder.table_id || null,
+  };
 };
 
 
@@ -386,7 +570,7 @@ exports.cancelAllQROrdersDB = async (tenantId, status) => {
     const sql = `
       UPDATE qr_orders
       SET status = ?
-      WHERE tenant_id = ?;
+      WHERE tenant_id = ? AND status NOT IN ('completed', 'cancelled');
     `;
 
     const [result] = await conn.query(sql, [status, tenantId]);

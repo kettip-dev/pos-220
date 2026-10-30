@@ -47,7 +47,8 @@ restro-220/
 │   └── skills/                            # On-demand runbooks & procedural knowledge
 │       ├── pos-workflows/SKILL.md
 │       ├── kitchen-kds-workflows/SKILL.md
-│       └── restro-stack-ops/SKILL.md
+│       ├── restro-stack-ops/SKILL.md
+│       └── rebuild-and-deploy/SKILL.md
 │
 ├── restropro-saas-frontend-main/          # React + Vite Frontend
 │   └── src/

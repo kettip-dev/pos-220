@@ -29,6 +29,7 @@ export default function PrintReceiptPage() {
     tokenNo,
     orderId,
     paymentMethod,
+    billingTag,
     currency = "$",
     dualTenderInfo = null,
   } = receiptDetails;
@@ -96,6 +97,9 @@ export default function PrintReceiptPage() {
         <>
           <div className="border-b border-dashed"></div>
           <p className='mt-1 text-xs'>{t("print_receipt.payment_method")}: <span className="font-semibold uppercase">{paymentMethod}</span></p>
+          {billingTag && (
+            <p className='text-xs font-semibold text-gray-700'>[{billingTag}]</p>
+          )}
         </>
       )}
 

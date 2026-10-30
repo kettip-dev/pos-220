@@ -12,11 +12,12 @@ import {
   IconToolsKitchen3,
   IconChefHat,
   IconChartBar,
+  IconX,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { useTranslation } from "react-i18next";
 
-export default function QuickNewMenu({ isCollapsed = false, compact = false }) {
+export default function QuickNewMenu({ isCollapsed = false, compact = false, qboRail = false }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
@@ -54,56 +55,73 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false }) {
   const quickActionGroups = [
     {
       title: t("quick_new.sales_orders", "Sales & Orders"),
+      badgeColor: "bg-emerald-500",
       items: [
         {
           label: t("quick_new.pos_order", "New POS Sale"),
           path: "/dashboard/pos",
-          icon: <IconDeviceIpadHorizontal size={18} stroke={iconStroke} className="text-emerald-500" />,
+          icon: <IconDeviceIpadHorizontal size={18} stroke={iconStroke} />,
+          iconBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white",
         },
         {
-          label: t("quick_new.tables", "Dine-in Floor / Tables"),
+          label: t("quick_new.tables", "Tables & Floor"),
           path: "/dashboard/tables",
-          icon: <IconArmchair size={18} stroke={iconStroke} className="text-blue-500" />,
+          icon: <IconArmchair size={18} stroke={iconStroke} />,
+          iconBg: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white",
         },
         {
-          label: t("quick_new.kitchen", "Kitchen Display (KDS)"),
+          label: t("quick_new.kitchen", "Kitchen (KDS)"),
           path: "/dashboard/kitchen",
-          icon: <IconChefHat size={18} stroke={iconStroke} className="text-orange-500" />,
+          icon: <IconChefHat size={18} stroke={iconStroke} />,
+          iconBg: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white",
         },
       ],
     },
     {
       title: t("quick_new.billing_reports", "Billing & Customers"),
+      badgeColor: "bg-indigo-500",
       items: [
         {
           label: t("quick_new.invoices", "Invoices & Receipts"),
           path: "/dashboard/invoices",
-          icon: <IconFileInvoice size={18} stroke={iconStroke} className="text-indigo-500" />,
+          icon: <IconFileInvoice size={18} stroke={iconStroke} />,
+          iconBg: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white",
         },
         {
-          label: t("quick_new.customers", "Customer Directory"),
+          label: t("quick_new.customers", "Customers"),
           path: "/dashboard/customers",
-          icon: <IconUsersGroup size={18} stroke={iconStroke} className="text-teal-500" />,
+          icon: <IconUsersGroup size={18} stroke={iconStroke} />,
+          iconBg: "bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400 group-hover:bg-teal-500 group-hover:text-white",
         },
         {
-          label: t("quick_new.reservation", "New Table Reservation"),
+          label: t("quick_new.reservation", "Table Reservations"),
           path: "/dashboard/reservation",
-          icon: <IconCalendarEvent size={18} stroke={iconStroke} className="text-amber-500" />,
+          icon: <IconCalendarEvent size={18} stroke={iconStroke} />,
+          iconBg: "bg-orange-50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white",
         },
       ],
     },
     {
-      title: t("quick_new.operations", "Operations"),
+      title: t("quick_new.operations", "Operations & Catalog"),
+      badgeColor: "bg-rose-500",
       items: [
+        {
+          label: t("quick_new.menu_items", "Menu & Pricing"),
+          path: "/dashboard/settings/menu-items",
+          icon: <IconToolsKitchen3 size={18} stroke={iconStroke} />,
+          iconBg: "bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white",
+        },
         {
           label: t("quick_new.inventory", "Inventory & Stock"),
           path: "/dashboard/inventory",
-          icon: <IconBuildingWarehouse size={18} stroke={iconStroke} className="text-purple-500" />,
+          icon: <IconBuildingWarehouse size={18} stroke={iconStroke} />,
+          iconBg: "bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400 group-hover:bg-purple-500 group-hover:text-white",
         },
         {
-          label: t("quick_new.reports", "Financial Sales Reports"),
+          label: t("quick_new.reports", "Sales Reports"),
           path: "/dashboard/reports",
-          icon: <IconChartBar size={18} stroke={iconStroke} className="text-cyan-500" />,
+          icon: <IconChartBar size={18} stroke={iconStroke} />,
+          iconBg: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white",
         },
       ],
     },
@@ -111,7 +129,43 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false }) {
 
   return (
     <div className={clsx("relative", compact ? "inline-block" : "w-full")} ref={menuRef}>
-      {isCollapsed ? (
+      {qboRail ? (
+        // QBO Far-Left Rail '+ Create' circular button with label underneath
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          title={t("quick_new.create", "Create")}
+          className="group w-full flex flex-col items-center justify-center gap-1.5 py-1 cursor-pointer select-none focus:outline-none"
+        >
+          <span
+            className={clsx(
+              "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md active:scale-95 select-none",
+              isOpen
+                ? "bg-[#0D233A] text-white ring-4 ring-emerald-500/30 scale-105 shadow-lg"
+                : "bg-gradient-to-tr from-[#248417] via-[#2CA01C] to-[#36be24] text-white shadow-emerald-600/25 hover:shadow-lg hover:shadow-emerald-600/40 hover:scale-105"
+            )}
+          >
+            <span
+              className={clsx(
+                "inline-flex items-center justify-center transition-transform duration-200 text-white",
+                isOpen && "rotate-45"
+              )}
+            >
+              <IconPlus size={22} stroke={2.6} className="text-white drop-shadow-xs" />
+            </span>
+          </span>
+          <span
+            className={clsx(
+              "text-[11px] font-bold tracking-tight leading-none transition-colors duration-150",
+              isOpen
+                ? "text-[#2CA01C] dark:text-emerald-400"
+                : "text-slate-700 dark:text-slate-300 group-hover:text-[#2CA01C] dark:group-hover:text-emerald-400"
+            )}
+          >
+            {t("quick_new.create", "Create")}
+          </span>
+        </button>
+      ) : isCollapsed ? (
         // Collapsed mode: Circular button (sidebar collapsed)
         <button
           type="button"
@@ -170,37 +224,65 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false }) {
       {isOpen && (
         <div
           className={clsx(
-            "absolute z-[100] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150",
-            isCollapsed ? "left-full ml-3 top-0 w-80" : "right-0 top-full mt-2 w-72"
+            "absolute z-[200] bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md",
+            isCollapsed || qboRail ? "left-full ml-3 top-0 w-[710px] max-w-[92vw]" : "right-0 top-full mt-2 w-80"
           )}
         >
-          <div className="px-4 py-3 bg-gray-50 dark:bg-zinc-800/60 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              {t("quick_new.quick_create", "Quick Actions")}
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-semibold">
-              QuickBooks
-            </span>
+          {/* Header */}
+          <div className="px-5 py-3.5 bg-slate-50/80 dark:bg-zinc-800/60 border-b border-slate-200/70 dark:border-zinc-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#2CA01C]" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                {t("quick_new.quick_create", "Create & Quick Actions")}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded shadow-2xs">
+                ESC
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="w-6 h-6 rounded-md hover:bg-slate-200/70 dark:hover:bg-zinc-700/80 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
+                title="Close"
+              >
+                <IconX size={15} stroke={2} />
+              </button>
+            </div>
           </div>
 
-          <div className="p-2 divide-y divide-gray-100 dark:divide-zinc-800 max-h-[70vh] overflow-y-auto">
+          {/* 3 Columns Grid with soft card groups */}
+          <div
+            className={clsx(
+              "p-4 max-h-[80vh] overflow-y-auto",
+              isCollapsed || qboRail
+                ? "grid grid-cols-1 sm:grid-cols-3 gap-3.5"
+                : "space-y-3"
+            )}
+          >
             {quickActionGroups.map((group, gIdx) => (
-              <div key={gIdx} className={gIdx > 0 ? "pt-2 mt-2" : ""}>
-                <p className="px-2.5 pb-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                  {group.title}
-                </p>
-                <div className="space-y-0.5">
+              <div
+                key={gIdx}
+                className="flex flex-col p-2.5 rounded-xl bg-slate-50/60 dark:bg-zinc-800/30 border border-slate-100 dark:border-zinc-800/50"
+              >
+                <div className="flex items-center gap-1.5 px-2 pb-2 mb-1 border-b border-slate-200/40 dark:border-zinc-800/40">
+                  <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", group.badgeColor)} />
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                    {group.title}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1">
                   {group.items.map((item, iIdx) => (
                     <Link
                       key={iIdx}
                       to={item.path}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-zinc-800/80 hover:text-emerald-700 dark:hover:text-emerald-400 transition group"
+                      className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-all shadow-2xs hover:shadow-sm border border-transparent hover:border-slate-200/60 dark:hover:border-zinc-700/50 group"
                     >
-                      <span className="p-1 rounded-md bg-gray-50 dark:bg-zinc-800 group-hover:bg-white dark:group-hover:bg-zinc-700 transition shadow-2xs">
+                      <span className={clsx("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors shadow-2xs", item.iconBg)}>
                         {item.icon}
                       </span>
-                      <span className="font-medium">{item.label}</span>
+                      <span className="truncate whitespace-nowrap">{item.label}</span>
                     </Link>
                   ))}
                 </div>

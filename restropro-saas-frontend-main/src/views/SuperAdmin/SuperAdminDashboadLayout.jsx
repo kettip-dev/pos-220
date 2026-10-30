@@ -13,20 +13,31 @@ export default function SuperAdminDashboadLayout() {
   // Don't fire any data requests until the session has been refreshed once.
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-[#0D1117]">
+        <div className="flex flex-col items-center gap-3">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#2CA01C]" />
+          <span className="text-xs font-medium text-gray-500">Loading Restro Super Admin...</span>
+        </div>
       </div>
     );
   }
 
   return (
-   <div className='flex'>
+    <div className="flex min-h-screen bg-white dark:bg-[#0D1117]">
       <SuperAdminNavbar />
-      <div className={isNavbarCollapsed?`w-full ml-[5.5rem] md:ml-[5.5rem] overflow-y-auto h-screen pb-20 md:pb-0`:`w-full ml-0 md:ml-72 overflow-y-auto h-screen pb-20 md:pb-0`}>
+      <div
+        className={
+          isNavbarCollapsed
+            ? "w-full ml-0 md:ml-16 overflow-y-auto h-screen pb-20 md:pb-0 bg-white dark:bg-[#0D1117] transition-all duration-200"
+            : "w-full ml-0 md:ml-64 overflow-y-auto h-screen pb-20 md:pb-0 bg-white dark:bg-[#0D1117] transition-all duration-200"
+        }
+      >
         <SuperAdminAppBar />
-        <Outlet />
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+          <Outlet />
+        </main>
       </div>
       <SuperAdminMobileNavbar />
     </div>
-  )
+  );
 }

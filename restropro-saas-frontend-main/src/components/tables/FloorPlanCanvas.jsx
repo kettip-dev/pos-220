@@ -6,36 +6,44 @@ import {
   IconTrash,
   IconUpload,
   IconPhoto,
-  IconAspectRatio,
   IconLoader2,
   IconPlus,
   IconMinus,
-  IconFocusCentered,
   IconLink,
   IconGridDots,
+  IconDeviceDesktopAnalytics,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getImageURL } from "../../helpers/ImageHelper";
-import BindoTableNode, { BINDO_STATUS_CONFIG, getTableBindoStatus } from "./BindoTableNode";
+import BindoTableNode, { getTableBindoStatus } from "./BindoTableNode";
 
-function getBezierPath(x1, y1, x2, y2) {
+function getBezierCurveData(x1, y1, x2, y2) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const dist = Math.sqrt(dx * dx + dy * dy);
   const nx = -dy / (dist || 1);
   const ny = dx / (dist || 1);
-  const curvature = Math.min(32, Math.max(12, dist * 0.2));
+  const curvature = Math.min(36, Math.max(14, dist * 0.18));
 
   const cx1 = x1 + dx * 0.35 + nx * curvature;
   const cy1 = y1 + dy * 0.35 + ny * curvature;
   const cx2 = x1 + dx * 0.65 + nx * curvature;
   const cy2 = y1 + dy * 0.65 + ny * curvature;
 
-  return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+  // Exact midpoint on cubic Bezier at t = 0.5
+  const midX = 0.125 * x1 + 0.375 * cx1 + 0.375 * cx2 + 0.125 * x2;
+  const midY = 0.125 * y1 + 0.375 * cy1 + 0.375 * cy2 + 0.125 * y2;
+
+  return {
+    path: `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`,
+    midX,
+    midY,
+  };
 }
 
 export default function FloorPlanCanvas({
   tables = [],
+  currency = "$",
   floorSettings = {
     show_cashier: true,
     cashier_x: 60,
@@ -83,10 +91,16 @@ export default function FloorPlanCanvas({
   const [internalZoomLevel, setInternalZoomLevel] = useState(1);
   const [internalPanOffset, setInternalPanOffset] = useState({ x: 0, y: 0 });
 
-  const zoomLevel = externalZoomLevel !== null && externalZoomLevel !== undefined ? externalZoomLevel : internalZoomLevel;
+  const zoomLevel =
+    externalZoomLevel !== null && externalZoomLevel !== undefined
+      ? externalZoomLevel
+      : internalZoomLevel;
   const setZoomLevel = externalSetZoomLevel || setInternalZoomLevel;
 
-  const panOffset = externalPanOffset !== null && externalPanOffset !== undefined ? externalPanOffset : internalPanOffset;
+  const panOffset =
+    externalPanOffset !== null && externalPanOffset !== undefined
+      ? externalPanOffset
+      : internalPanOffset;
   const setPanOffset = externalSetPanOffset || setInternalPanOffset;
 
   const [isPanning, setIsPanning] = useState(false);
@@ -116,15 +130,17 @@ export default function FloorPlanCanvas({
         y = 120 + row * 140;
       }
 
-      const shape = tbl.shape || (tbl.seating_capacity > 4 ? "rectangle" : tbl.seating_capacity > 2 ? "square" : "round");
-      let w = 72;
-      let h = 72;
+      const shape =
+        tbl.shape ||
+        (tbl.seating_capacity > 4 ? "rectangle" : tbl.seating_capacity > 2 ? "square" : "round");
+      let w = 76;
+      let h = 76;
       if (shape === "round") {
-        w = (tbl.seating_capacity || 2) >= 8 ? 96 : 80;
+        w = (tbl.seating_capacity || 2) >= 8 ? 96 : 82;
         h = w;
       } else if (shape === "rectangle") {
-        w = 124;
-        h = 74;
+        w = 128;
+        h = 76;
       }
 
       return {
@@ -311,7 +327,17 @@ export default function FloorPlanCanvas({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [isPanning, panStart, draggingItem, drawingWall, zoomLevel, panOffset, onTableUpdate, onFloorSettingsChange]);
+  }, [
+    isPanning,
+    panStart,
+    draggingItem,
+    drawingWall,
+    zoomLevel,
+    panOffset,
+    onTableUpdate,
+    onFloorSettingsChange,
+    setPanOffset,
+  ]);
 
   const handleRotateTable = (e, table) => {
     e.stopPropagation();
@@ -322,21 +348,36 @@ export default function FloorPlanCanvas({
 
   const isDark = theme === "black" || theme === "dark";
 
-  // Build curved connection paths for merged table groups
+  // Build curved connection paths for merged table groups (strictly behind table nodes)
   const mergeConnections = useMemo(() => {
     const lines = [];
     mergedPairs.forEach(([id1, id2], idx) => {
       const t1 = processedTables.find((t) => String(t.id) === String(id1));
       const t2 = processedTables.find((t) => String(t.id) === String(id2));
       if (t1 && t2) {
-        const path = getBezierPath(t1.center_x, t1.center_y, t2.center_x, t2.center_y);
-        const status1 = getTableBindoStatus(t1);
-        const color = BINDO_STATUS_CONFIG[status1]?.bg.replace("bg-[", "").replace("]", "") || "#0ea5e9";
-        lines.push({ id: `merge-${idx}`, path, x1: t1.center_x, y1: t1.center_y, x2: t2.center_x, y2: t2.center_y, color });
+        const { path, midX, midY } = getBezierCurveData(
+          t1.center_x,
+          t1.center_y,
+          t2.center_x,
+          t2.center_y
+        );
+        const isEitherOccupied = Boolean(t1.active_order_id || t2.active_order_id);
+        const color = isEitherOccupied ? "#0ea5e9" : "#64748b";
+        lines.push({
+          id: `merge-${idx}`,
+          path,
+          midX,
+          midY,
+          label: `${t1.table_title} + ${t2.table_title}`,
+          color,
+          isEitherOccupied,
+        });
       }
     });
     return lines;
   }, [mergedPairs, processedTables]);
+
+  const isCashierHorizontal = (floorSettings.cashier_rotation || 0) % 180 === 90;
 
   return (
     <div
@@ -345,19 +386,19 @@ export default function FloorPlanCanvas({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="absolute inset-0 w-full h-full bg-[#f8fafc] dark:bg-zinc-950 overflow-hidden select-none"
+      className="absolute inset-0 w-full h-full bg-white dark:bg-zinc-950 overflow-hidden select-none"
       style={{
         cursor: isDrawingWall ? "crosshair" : isPanning ? "grabbing" : "default",
       }}
     >
-      {/* Blueprint Grid Lines Background (Faint Bindo pattern) */}
+      {/* Blueprint Grid Lines Background (Subtle architectural dot/grid pattern) */}
       {showGrid ? (
         <div
           className="canvas-pan-surface absolute inset-0 pointer-events-auto"
           style={{
             backgroundImage: isDark
-              ? "linear-gradient(to right, #27272a 1px, transparent 1px), linear-gradient(to bottom, #27272a 1px, transparent 1px)"
-              : "linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)",
+              ? "linear-gradient(to right, rgba(63,63,70,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(63,63,70,0.35) 1px, transparent 1px)"
+              : "linear-gradient(to right, rgba(226,232,240,0.75) 1px, transparent 1px), linear-gradient(to bottom, rgba(226,232,240,0.75) 1px, transparent 1px)",
             backgroundSize: "28px 28px",
             backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
           }}
@@ -388,9 +429,9 @@ export default function FloorPlanCanvas({
           </div>
         )}
 
-        {/* SVG Layer: Architectural Boundary Walls & Merged Table Bezier Curves */}
+        {/* SVG Layer (z-[1]): Architectural Boundary Walls & Merged Table Connectors (Strictly Behind Tables) */}
         <svg
-          className="absolute inset-0 w-[2400px] h-[1600px] pointer-events-none z-5 overflow-visible"
+          className="absolute inset-0 w-[2400px] h-[1600px] pointer-events-none z-[1] overflow-visible"
           xmlns="http://www.w3.org/2000/svg"
         >
           {/* Architectural Wall Dividers */}
@@ -406,19 +447,17 @@ export default function FloorPlanCanvas({
                   onMouseLeave={() => isEditMode && setHoveredWallId(null)}
                   className={isEditMode ? "pointer-events-auto cursor-pointer" : "pointer-events-none"}
                 >
-                  {/* Visual wall line */}
                   <line
                     x1={w.x1}
                     y1={w.y1}
                     x2={w.x2}
                     y2={w.y2}
-                    stroke={isHovered ? "#ef4444" : (isDark ? "#475569" : "#94a3b8")}
+                    stroke={isHovered ? "#ef4444" : isDark ? "#475569" : "#94a3b8"}
                     strokeWidth="10"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     className="transition-colors duration-150"
                   />
-                  {/* Wider transparent line for easy hover/tap in edit mode */}
                   {isEditMode && (
                     <line
                       x1={w.x1}
@@ -430,7 +469,6 @@ export default function FloorPlanCanvas({
                       strokeLinecap="round"
                     />
                   )}
-                  {/* Delete button at midpoint on hover in Edit Mode */}
                   {isHovered && (
                     <g
                       className="cursor-pointer"
@@ -445,8 +483,24 @@ export default function FloorPlanCanvas({
                       }}
                     >
                       <circle cx={midX} cy={midY} r="13" fill="#ef4444" className="shadow-lg" />
-                      <line x1={midX - 4} y1={midY - 4} x2={midX + 4} y2={midY + 4} stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                      <line x1={midX + 4} y1={midY - 4} x2={midX - 4} y2={midY + 4} stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                      <line
+                        x1={midX - 4}
+                        y1={midY - 4}
+                        x2={midX + 4}
+                        y2={midY + 4}
+                        stroke="white"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1={midX + 4}
+                        y1={midY - 4}
+                        x2={midX - 4}
+                        y2={midY + 4}
+                        stroke="white"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
                     </g>
                   )}
                 </g>
@@ -472,24 +526,49 @@ export default function FloorPlanCanvas({
             )}
           </g>
 
-          {/* Curved Bezier Connection Lines for Merged Tables */}
+          {/* Curved Bezier Connection Lines for Merged Tables (Rendered Behind Table Nodes) */}
           {mergeConnections.map((m) => (
-            <g key={m.id} className="animate-fade-in">
+            <g key={m.id}>
+              {/* Soft outer glow halo */}
               <path
                 d={m.path}
                 fill="none"
                 stroke={m.color}
-                strokeWidth="4"
+                strokeOpacity="0.18"
+                strokeWidth="10"
                 strokeLinecap="round"
-                className="drop-shadow-sm"
               />
-              <circle cx={m.x1} cy={m.y1} r="5" fill={m.color} />
-              <circle cx={m.x2} cy={m.y2} r="5" fill={m.color} />
+              {/* Crisp dashed link line */}
+              <path
+                d={m.path}
+                fill="none"
+                stroke={m.color}
+                strokeWidth="3"
+                strokeDasharray="7 5"
+                strokeLinecap="round"
+              />
             </g>
           ))}
         </svg>
 
-        {/* Cashier Station (if enabled) */}
+        {/* Midpoint Linked Badges for Merged Tables (z-[2] — above SVG curve, strictly below z-10 tables) */}
+        <div className="absolute inset-0 pointer-events-none z-[2]">
+          {mergeConnections.map((m) => (
+            <div
+              key={`${m.id}-badge`}
+              style={{
+                left: `${m.midX}px`,
+                top: `${m.midY}px`,
+              }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-white/95 dark:bg-zinc-900/95 border border-sky-200 dark:border-sky-800 shadow-sm flex items-center gap-1 text-[9.5px] font-extrabold text-[#0284c7] dark:text-sky-300 whitespace-nowrap"
+            >
+              <IconLink size={11} className="shrink-0" />
+              <span>{m.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Cashier Station (z-[3] — Architectural Counter Card) */}
         {floorSettings.show_cashier && (
           <div
             onPointerDown={(e) =>
@@ -502,7 +581,7 @@ export default function FloorPlanCanvas({
                 floorSettings.cashier_y ?? 260
               )
             }
-            className={`absolute rounded-2xl border-2 border-slate-300/80 dark:border-zinc-700 bg-slate-100/70 dark:bg-zinc-800/70 flex items-center justify-center font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase shadow-xs z-[2] group transition-shadow ${
+            className={`absolute rounded-2xl border-2 border-slate-300/90 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xs flex items-center justify-center shadow-sm z-[3] group transition-all ${
               isEditMode
                 ? "cursor-grab active:cursor-grabbing hover:border-[#0ea5e9] hover:shadow-md pointer-events-auto"
                 : "pointer-events-none"
@@ -510,17 +589,31 @@ export default function FloorPlanCanvas({
             style={{
               left: `${floorSettings.cashier_x ?? 60}px`,
               top: `${floorSettings.cashier_y ?? 260}px`,
-              width: (floorSettings.cashier_rotation || 0) % 180 === 90 ? "160px" : "74px",
-              height: (floorSettings.cashier_rotation || 0) % 180 === 90 ? "74px" : "160px",
+              width: isCashierHorizontal ? "168px" : "76px",
+              height: isCashierHorizontal ? "72px" : "168px",
             }}
           >
-            <span
-              className={`select-none pointer-events-none text-xs px-2 text-center leading-snug ${
-                (floorSettings.cashier_rotation || 0) % 180 === 90 ? "" : "rotate-[-90deg]"
+            {/* Subtle Counter Accent Rim */}
+            <div
+              className={`absolute bg-slate-200/80 dark:bg-zinc-800 rounded-full ${
+                isCashierHorizontal
+                  ? "top-1.5 left-3 right-3 h-1.5"
+                  : "left-1.5 top-3 bottom-3 w-1.5"
+              }`}
+            />
+
+            <div
+              className={`select-none pointer-events-none flex items-center justify-center gap-1.5 px-2 text-center ${
+                isCashierHorizontal ? "flex-row" : "flex-col rotate-[-90deg] whitespace-nowrap"
               }`}
             >
-              {t("tables.cashier", "CASHIER")}
-            </span>
+              <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
+                <IconDeviceDesktopAnalytics size={13} />
+              </div>
+              <span className="text-[11px] font-extrabold tracking-wider text-slate-600 dark:text-slate-300 uppercase leading-snug">
+                {t("tables.cashier", "CASHIER")}
+              </span>
+            </div>
 
             {/* In Edit Mode: rotate & hide buttons */}
             {isEditMode && (
@@ -560,11 +653,11 @@ export default function FloorPlanCanvas({
           </div>
         )}
 
-        {/* Interactive Bindo Tables */}
+        {/* Interactive Bindo Tables (z-10) */}
         <div className="absolute inset-0 pointer-events-none z-10">
           {processedTables.map((table) => {
-            const isSelected = selectedTableId === table.id;
-            const isMergeSource = mergeSourceId === table.id;
+            const isSelected = String(selectedTableId) === String(table.id);
+            const isMergeSource = String(mergeSourceId) === String(table.id);
             const isOccupied = Boolean(table.active_order_id);
             let isDimmed = false;
             if (activeFilter === "available") {
@@ -573,6 +666,8 @@ export default function FloorPlanCanvas({
               isDimmed = !isOccupied;
             } else if (activeFilter === "reserved") {
               isDimmed = !table.has_reservation || isOccupied;
+            } else if (activeFilter === "attention") {
+              isDimmed = !table.is_over_time && !table.is_alert;
             } else if (activeFilter && activeFilter !== "all" && activeFilter !== "pax") {
               isDimmed = getTableBindoStatus(table) !== activeFilter;
             }
@@ -581,6 +676,7 @@ export default function FloorPlanCanvas({
               <BindoTableNode
                 key={table.id}
                 table={table}
+                currency={currency}
                 isSelected={isSelected}
                 isMergeSource={isMergeSource}
                 isMergeTarget={isMergeMode && !isMergeSource}

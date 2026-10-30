@@ -1,11 +1,11 @@
-export const API = import.meta.env.VITE_BACKEND
-export const VITE_BACKEND_SOCKET_IO = import.meta.env.VITE_BACKEND_SOCKET_IO
-export const API_IMAGES_BASE_URL = import.meta.env.VITE_BACKEND_IMAGES_BASE_URL
+export const API = import.meta.env.VITE_BACKEND || "/api/v1";
+export const VITE_BACKEND_SOCKET_IO = import.meta.env.VITE_BACKEND_SOCKET_IO || "";
+export const API_IMAGES_BASE_URL = import.meta.env.VITE_BACKEND_IMAGES_BASE_URL || "";
 export const FRONTEND_DOMAIN = (import.meta.env.VITE_FRONTEND_DOMAIN || "").split(",")[0]?.trim() || (typeof window !== "undefined" ? window.location.origin : "");
 
 export const iconStroke = 1.5;
 
-export const supportEmail = "hi@uiflow.in";
+export const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || "kettip.dev@gmail.com";
 export const appVersion = "2.2.0";
 
 export const subscriptionAmount = 5;

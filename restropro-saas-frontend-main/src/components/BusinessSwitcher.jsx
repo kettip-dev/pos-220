@@ -37,7 +37,7 @@ import { getMyBusinesses, switchBusiness } from "../controllers/auth.controller"
  * refetches against the newly selected business rather than showing stale data
  * from the previous one.
  */
-export default function BusinessSwitcher() {
+export default function BusinessSwitcher({ variant = "dark" }) {
   const { t } = useTranslation();
   const user = getUserDetailsInLocalStorage();
 
@@ -89,8 +89,18 @@ export default function BusinessSwitcher() {
     };
   }, [isGroupOwner]);
 
-  // Business Admins and Staff must never see the switcher.
+  // Business Admins and Staff must never see the switcher dropdown,
+  // but in QBO header mode we still display the clean company/store name label.
   if (!isGroupOwner) {
+    if (variant === "qbo") {
+      return (
+        <div className="flex items-center gap-2 px-2 py-1.5 select-none">
+          <span className="font-bold text-sm text-gray-800 dark:text-slate-100 tracking-tight truncate max-w-[180px]">
+            {user?.store_name || user?.business_name || "RestroPRO"}
+          </span>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -167,21 +177,27 @@ export default function BusinessSwitcher() {
     <Menu as="div" className="relative inline-block text-left">
       <Menu.Button
         disabled={state.isSwitching}
-        className="rounded-lg w-full flex items-center justify-between gap-2 px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white disabled:opacity-60 transition cursor-pointer shadow-2xs"
+        className={
+          variant === "qbo"
+            ? "rounded-lg flex items-center justify-between gap-2 px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 border border-transparent hover:border-gray-200 dark:hover:border-slate-700 text-gray-800 dark:text-slate-100 disabled:opacity-60 transition cursor-pointer"
+            : "rounded-lg w-full flex items-center justify-between gap-2 px-3 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white disabled:opacity-60 transition cursor-pointer shadow-2xs"
+        }
       >
         <div className="flex items-center gap-2 min-w-0">
           {isAllBusinesses ? (
-            <IconBuilding size={18} stroke={iconStroke} className="text-emerald-400 shrink-0" />
+            <IconBuilding size={18} stroke={iconStroke} className={variant === "qbo" ? "text-[#2CA01C] shrink-0" : "text-emerald-400 shrink-0"} />
           ) : (
-            <IconBuildingStore size={18} stroke={iconStroke} className="text-emerald-400 shrink-0" />
+            <IconBuildingStore size={18} stroke={iconStroke} className={variant === "qbo" ? "text-[#2CA01C] shrink-0" : "text-emerald-400 shrink-0"} />
           )}
           <div className="text-start truncate">
-            <div className="text-[11px] text-slate-300 leading-none">
-              {isAllBusinesses
-                ? t("business_switcher.viewing", "Viewing")
-                : t("business_switcher.current_business", "Current Business")}
-            </div>
-            <div className="text-sm font-semibold leading-tight text-white truncate mt-0.5">
+            {variant !== "qbo" && (
+              <div className="text-[11px] text-slate-300 leading-none">
+                {isAllBusinesses
+                  ? t("business_switcher.viewing", "Viewing")
+                  : t("business_switcher.current_business", "Current Business")}
+              </div>
+            )}
+            <div className={variant === "qbo" ? "text-sm font-bold leading-tight text-gray-800 dark:text-slate-100 truncate" : "text-sm font-semibold leading-tight text-white truncate mt-0.5"}>
               {isAllBusinesses
                 ? t("business_switcher.all_businesses", "All Businesses")
                 : state.isLoading
@@ -191,7 +207,7 @@ export default function BusinessSwitcher() {
             </div>
           </div>
         </div>
-        <IconChevronDown size={16} stroke={iconStroke} className="text-slate-300 shrink-0" />
+        <IconChevronDown size={15} stroke={iconStroke} className={variant === "qbo" ? "text-gray-500 dark:text-slate-400 shrink-0" : "text-slate-300 shrink-0"} />
       </Menu.Button>
 
       <Transition

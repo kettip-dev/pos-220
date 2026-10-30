@@ -1,6 +1,8 @@
 const {
   getMySqlPromiseConnection,
 } = require("../config/mysql.db");
+const bcrypt = require("bcrypt");
+const { CONFIG } = require("../config");
 
 /**
  * Business Groups (Phase 1) — Super Admin only.
@@ -29,6 +31,7 @@ exports.getBusinessGroupsDB = async (page, perPage, search) => {
             bg.id,
             bg.name,
             bg.description,
+            bg.max_branches,
             bg.created_by,
             bg.created_at,
             bg.updated_at,
@@ -102,6 +105,7 @@ exports.getBusinessGroupByIdDB = async (groupId) => {
             bg.id,
             bg.name,
             bg.description,
+            bg.max_branches,
             bg.created_by,
             bg.created_at,
             bg.updated_at,
@@ -154,21 +158,25 @@ exports.getBusinessGroupByNameDB = async (name, excludeGroupId = null) => {
   }
 };
 
-exports.createBusinessGroupDB = async (name, description, createdBy) => {
+exports.createBusinessGroupDB = async (name, description, createdBy, maxBranches = 5) => {
   const conn = await getMySqlPromiseConnection();
   try {
+    const limit = parseInt(maxBranches, 10);
+    const safeLimit = Number.isInteger(limit) && limit >= 1 ? limit : 5;
+
     const sql = `
-        INSERT INTO business_groups (name, description, created_by)
-        VALUES (?, ?, ?);
+        INSERT INTO business_groups (name, description, created_by, max_branches)
+        VALUES (?, ?, ?, ?);
     `;
 
-    const [result] = await conn.query(sql, [name, description, createdBy]);
+    const [result] = await conn.query(sql, [name, description, createdBy, safeLimit]);
 
     return {
       id: result.insertId,
       name,
       description,
       created_by: createdBy,
+      max_branches: safeLimit,
     };
   } catch (error) {
     console.error("Error creating business group: ", error);
@@ -178,16 +186,27 @@ exports.createBusinessGroupDB = async (name, description, createdBy) => {
   }
 };
 
-exports.updateBusinessGroupDB = async (groupId, name, description) => {
+exports.updateBusinessGroupDB = async (groupId, name, description, maxBranches = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
-    const sql = `
+    let sql = `
         UPDATE business_groups
         SET name = ?, description = ?
-        WHERE id = ?;
     `;
+    const params = [name, description];
 
-    await conn.query(sql, [name, description, groupId]);
+    if (maxBranches !== null && maxBranches !== undefined) {
+      const limit = parseInt(maxBranches, 10);
+      if (Number.isInteger(limit) && limit >= 1) {
+        sql += `, max_branches = ?`;
+        params.push(limit);
+      }
+    }
+
+    sql += ` WHERE id = ?;`;
+    params.push(groupId);
+
+    await conn.query(sql, params);
   } catch (error) {
     console.error("Error updating business group: ", error);
     throw error;
@@ -217,7 +236,7 @@ exports.deleteBusinessGroupDB = async (groupId) => {
 
     // 1. Detach every member business — the tenants themselves survive.
     const [unlinkResult] = await conn.query(
-      `UPDATE tenants SET business_group_id = NULL WHERE business_group_id = ?`,
+      `UPDATE tenants SET business_group_id = NULL, is_main_branch = 0 WHERE business_group_id = ?`,
       [groupId],
     );
 
@@ -295,6 +314,8 @@ exports.getBusinessesByGroupIdDB = async (groupId) => {
             t.id,
             t.name,
             t.is_active,
+            t.is_main_branch,
+            t.branch_code,
             t.subscription_start,
             t.subscription_end,
             t.isTrialPlan,
@@ -304,7 +325,7 @@ exports.getBusinessesByGroupIdDB = async (groupId) => {
         FROM tenants t
         LEFT JOIN users u ON u.tenant_id = t.id AND u.role = 'admin'
         WHERE t.business_group_id = ?
-        ORDER BY t.name ASC;
+        ORDER BY t.is_main_branch DESC, t.name ASC;
     `;
 
     const [result] = await conn.query(sql, [groupId]);
@@ -389,15 +410,52 @@ exports.getTenantGroupInfoDB = async (tenantId) => {
 exports.linkBusinessToGroupDB = async (groupId, tenantId) => {
   const conn = await getMySqlPromiseConnection();
   try {
+    await conn.beginTransaction();
+
+    // Check group existence and branch quota
+    const [[group]] = await conn.query(
+      `SELECT bg.max_branches, COUNT(t.id) AS current_branches
+       FROM business_groups bg
+       LEFT JOIN tenants t ON t.business_group_id = bg.id
+       WHERE bg.id = ?
+       GROUP BY bg.id`,
+      [groupId]
+    );
+
+    if (!group) {
+      await conn.rollback();
+      return { success: false, reason: "GROUP_NOT_FOUND" };
+    }
+
+    if (group.current_branches >= group.max_branches) {
+      await conn.rollback();
+      return {
+        success: false,
+        reason: "LIMIT_REACHED",
+        currentBranches: group.current_branches,
+        maxBranches: group.max_branches,
+      };
+    }
+
+    const isFirstBranch = group.current_branches === 0;
+
     const sql = `
         UPDATE tenants
-        SET business_group_id = ?
+        SET business_group_id = ?,
+            is_main_branch = IF(?, 1, is_main_branch)
         WHERE id = ? AND business_group_id IS NULL;
     `;
 
-    const [result] = await conn.query(sql, [groupId, tenantId]);
-    return result.affectedRows > 0;
+    const [result] = await conn.query(sql, [groupId, isFirstBranch ? 1 : 0, tenantId]);
+    if (result.affectedRows === 0) {
+      await conn.rollback();
+      return { success: false, reason: "CONFLICT_OR_NOT_FOUND" };
+    }
+
+    await conn.commit();
+    return { success: true };
   } catch (error) {
+    await conn.rollback();
     console.error("Error linking business to business group: ", error);
     throw error;
   } finally {
@@ -413,15 +471,36 @@ exports.linkBusinessToGroupDB = async (groupId, tenantId) => {
 exports.unlinkBusinessFromGroupDB = async (groupId, tenantId) => {
   const conn = await getMySqlPromiseConnection();
   try {
+    await conn.beginTransaction();
+
     const sql = `
         UPDATE tenants
-        SET business_group_id = NULL
+        SET business_group_id = NULL,
+            is_main_branch = 0
         WHERE id = ? AND business_group_id = ?;
     `;
 
     const [result] = await conn.query(sql, [tenantId, groupId]);
-    return result.affectedRows > 0;
+    const unlinked = result.affectedRows > 0;
+
+    if (unlinked) {
+      // If there are remaining tenants in this group and none is main_branch, set the first one as main branch
+      const [[hasMain]] = await conn.query(
+        `SELECT COUNT(*) AS count FROM tenants WHERE business_group_id = ? AND is_main_branch = 1`,
+        [groupId]
+      );
+      if (hasMain.count === 0) {
+        await conn.query(
+          `UPDATE tenants SET is_main_branch = 1 WHERE business_group_id = ? ORDER BY id ASC LIMIT 1`,
+          [groupId]
+        );
+      }
+    }
+
+    await conn.commit();
+    return unlinked;
   } catch (error) {
+    await conn.rollback();
     console.error("Error unlinking business from business group: ", error);
     throw error;
   } finally {
@@ -1078,6 +1157,356 @@ exports.setGroupOwnerActiveBusinessDB = async (username, tenantId) => {
     return result.affectedRows > 0;
   } catch (error) {
     console.error("Error setting group owner active business: ", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/* ==========================================================================
+ * Multi-Branch Management & Cloning (Super Admin Controlled)
+ * ========================================================================== */
+
+/**
+ * Updates the max allowed branches for a business group.
+ */
+exports.updateBusinessGroupBranchLimitDB = async (groupId, maxBranches) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const limit = parseInt(maxBranches, 10);
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error("Invalid branch limit: must be a positive integer >= 1.");
+    }
+
+    const sql = `UPDATE business_groups SET max_branches = ? WHERE id = ?;`;
+    const [result] = await conn.query(sql, [limit, groupId]);
+    return result.affectedRows > 0;
+  } catch (error) {
+    console.error("Error updating business group branch limit: ", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Designates a tenant as the Main Branch of the group, clearing the flag on siblings.
+ */
+exports.setMainBranchDB = async (groupId, tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT id FROM tenants WHERE id = ? AND business_group_id = ?`,
+      [tenantId, groupId]
+    );
+    if (rows.length === 0) {
+      await conn.rollback();
+      return false;
+    }
+
+    await conn.query(
+      `UPDATE tenants SET is_main_branch = 0 WHERE business_group_id = ?`,
+      [groupId]
+    );
+
+    await conn.query(
+      `UPDATE tenants SET is_main_branch = 1 WHERE id = ? AND business_group_id = ?`,
+      [tenantId, groupId]
+    );
+
+    await conn.commit();
+    return true;
+  } catch (error) {
+    await conn.rollback();
+    console.error("Error setting main branch: ", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Clones menu and catalog data from a source tenant (main branch) to a newly created branch.
+ * Executes atomically within the parent transaction connection.
+ */
+async function cloneBranchDataDB(conn, sourceTenantId, targetTenantId, options = {}) {
+  const taxIdMap = new Map();
+  const stationIdMap = new Map();
+  const categoryIdMap = new Map();
+  const itemIdMap = new Map();
+
+  // 1. Clone Taxes
+  const [taxes] = await conn.query(
+    `SELECT id, title, rate, type FROM taxes WHERE tenant_id = ?`,
+    [sourceTenantId]
+  );
+  for (const tax of taxes) {
+    const [insTax] = await conn.query(
+      `INSERT INTO taxes (title, rate, type, tenant_id) VALUES (?, ?, ?, ?)`,
+      [tax.title, tax.rate, tax.type, targetTenantId]
+    );
+    taxIdMap.set(tax.id, insTax.insertId);
+  }
+
+  // 2. Clone Kitchen Stations
+  const [stations] = await conn.query(
+    `SELECT id, name, color, icon, is_enabled, sort_order FROM kitchen_stations WHERE tenant_id = ?`,
+    [sourceTenantId]
+  );
+  for (const st of stations) {
+    const [insSt] = await conn.query(
+      `INSERT INTO kitchen_stations (tenant_id, name, color, icon, is_enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+      [targetTenantId, st.name, st.color, st.icon, st.is_enabled, st.sort_order]
+    );
+    stationIdMap.set(st.id, insSt.insertId);
+  }
+
+  if (stations.length === 0) {
+    const [defSt] = await conn.query(
+      `INSERT INTO kitchen_stations (tenant_id, name, color, icon, is_enabled, sort_order) 
+       VALUES (?, 'Kitchen', '#f97316', 'Flame', 1, 0)`,
+      [targetTenantId]
+    );
+    stationIdMap.set("default", defSt.insertId);
+  }
+
+  // 3. Clone Categories
+  const [categories] = await conn.query(
+    `SELECT id, title, is_enabled, kitchen_station_id FROM categories WHERE tenant_id = ?`,
+    [sourceTenantId]
+  );
+  for (const cat of categories) {
+    const newStationId = cat.kitchen_station_id ? (stationIdMap.get(cat.kitchen_station_id) || null) : null;
+    const [insCat] = await conn.query(
+      `INSERT INTO categories (title, tenant_id, is_enabled, kitchen_station_id) VALUES (?, ?, ?, ?)`,
+      [cat.title, targetTenantId, cat.is_enabled, newStationId]
+    );
+    categoryIdMap.set(cat.id, insCat.insertId);
+  }
+
+  // 4. Clone Menu Items
+  const [items] = await conn.query(
+    `SELECT id, title, price, net_price, tax_id, image, category, is_enabled, description, kitchen_station_id 
+     FROM menu_items WHERE tenant_id = ?`,
+    [sourceTenantId]
+  );
+  for (const item of items) {
+    const newCatId = item.category ? (categoryIdMap.get(item.category) || null) : null;
+    const newTaxId = item.tax_id ? (taxIdMap.get(item.tax_id) || null) : null;
+    const newStationId = item.kitchen_station_id ? (stationIdMap.get(item.kitchen_station_id) || null) : null;
+
+    const [insItem] = await conn.query(
+      `INSERT INTO menu_items (title, price, net_price, tax_id, image, category, tenant_id, is_enabled, description, kitchen_station_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [item.title, item.price, item.net_price, newTaxId, item.image, newCatId, targetTenantId, item.is_enabled, item.description, newStationId]
+    );
+    itemIdMap.set(item.id, insItem.insertId);
+  }
+
+  // 5. Clone Item Variants
+  const [variants] = await conn.query(
+    `SELECT id, item_id, title, price FROM menu_item_variants WHERE tenant_id = ?`,
+    [sourceTenantId]
+  );
+  for (const v of variants) {
+    const newItemId = itemIdMap.get(v.item_id);
+    if (newItemId) {
+      await conn.query(
+        `INSERT INTO menu_item_variants (item_id, title, price, tenant_id) VALUES (?, ?, ?, ?)`,
+        [newItemId, v.title, v.price, targetTenantId]
+      );
+    }
+  }
+
+  // 6. Clone Item Addons
+  const [addons] = await conn.query(
+    `SELECT id, item_id, title, price FROM menu_item_addons WHERE tenant_id = ?`,
+    [sourceTenantId]
+  );
+  for (const a of addons) {
+    const newItemId = itemIdMap.get(a.item_id);
+    if (newItemId) {
+      await conn.query(
+        `INSERT INTO menu_item_addons (item_id, title, price, tenant_id) VALUES (?, ?, ?, ?)`,
+        [newItemId, a.title, a.price, targetTenantId]
+      );
+    }
+  }
+
+  // 7. Clone Store Details
+  const [storeDetails] = await conn.query(
+    `SELECT currency, service_charge, exchange_rate_usd_to_khr, pos_payment_mode 
+     FROM store_details WHERE tenant_id = ? LIMIT 1`,
+    [sourceTenantId]
+  );
+  if (storeDetails.length > 0) {
+    const sd = storeDetails[0];
+    await conn.query(
+      `INSERT INTO store_details (tenant_id, currency, service_charge, exchange_rate_usd_to_khr, pos_payment_mode) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [targetTenantId, sd.currency || 'USD', sd.service_charge || 0, sd.exchange_rate_usd_to_khr || 4000, sd.pos_payment_mode || 'flexible']
+    );
+  } else {
+    await conn.query(
+      `INSERT INTO store_details (tenant_id, currency, pos_payment_mode) VALUES (?, 'USD', 'flexible')`,
+      [targetTenantId]
+    );
+  }
+
+  // 8. Clone Floor Layouts and Tables if requested
+  if (options.cloneFloorTables) {
+    const [floors] = await conn.query(
+      `SELECT floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, cashier_rotation 
+       FROM store_floor_layouts WHERE tenant_id = ?`,
+      [sourceTenantId]
+    );
+    for (const f of floors) {
+      await conn.query(
+        `INSERT INTO store_floor_layouts (tenant_id, floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, cashier_rotation) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [targetTenantId, f.floor, f.show_cashier, f.cashier_x, f.cashier_y, f.cashier_w, f.cashier_h, f.floor_plan_image, f.floor_plan_opacity, f.floor_plan_fit, f.walls, f.cashier_rotation]
+      );
+    }
+
+    const [tables] = await conn.query(
+      `SELECT table_title, floor, seating_capacity, pos_x, pos_y, shape, rotation, table_pin 
+       FROM store_tables WHERE tenant_id = ?`,
+      [sourceTenantId]
+    );
+    for (const t of tables) {
+      await conn.query(
+        `INSERT INTO store_tables (table_title, floor, seating_capacity, tenant_id, pos_x, pos_y, shape, rotation, table_pin) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [t.table_title, t.floor, t.seating_capacity, targetTenantId, t.pos_x, t.pos_y, t.shape, t.rotation, t.table_pin]
+      );
+    }
+  }
+
+  return {
+    clonedCategories: categoryIdMap.size,
+    clonedItems: itemIdMap.size,
+    clonedStations: stationIdMap.size,
+    clonedTaxes: taxIdMap.size,
+  };
+}
+
+/**
+ * Creates a new branch under a business group, enforcing quota and allowing blank vs clone.
+ */
+exports.createBranchInGroupDB = async ({
+  groupId,
+  name,
+  branchCode = null,
+  email,
+  password,
+  isMainBranch = false,
+  cloneFromTenantId = null,
+  cloneFloorTables = false,
+}) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    // 1. Verify group exists and check quota
+    const [[group]] = await conn.query(
+      `SELECT bg.id, bg.name, bg.max_branches, COUNT(t.id) AS current_branches
+       FROM business_groups bg
+       LEFT JOIN tenants t ON t.business_group_id = bg.id
+       WHERE bg.id = ?
+       GROUP BY bg.id`,
+      [groupId]
+    );
+
+    if (!group) {
+      await conn.rollback();
+      return { success: false, reason: "GROUP_NOT_FOUND" };
+    }
+
+    if (group.current_branches >= group.max_branches) {
+      await conn.rollback();
+      return {
+        success: false,
+        reason: "LIMIT_REACHED",
+        currentBranches: group.current_branches,
+        maxBranches: group.max_branches,
+      };
+    }
+
+    // 2. Check if username / email already exists
+    const [existingUsers] = await conn.query(
+      `SELECT username FROM users WHERE username = ? LIMIT 1`,
+      [email]
+    );
+    if (existingUsers.length > 0) {
+      await conn.rollback();
+      return { success: false, reason: "EMAIL_EXISTS" };
+    }
+
+    const isFirstBranch = group.current_branches === 0;
+    const setAsMain = isMainBranch || isFirstBranch;
+
+    if (setAsMain) {
+      await conn.query(
+        `UPDATE tenants SET is_main_branch = 0 WHERE business_group_id = ?`,
+        [groupId]
+      );
+    }
+
+    // 3. Create tenant
+    const [tenantRes] = await conn.query(
+      `INSERT INTO tenants (name, is_active, business_group_id, is_main_branch, branch_code)
+       VALUES (?, 1, ?, ?, ?)`,
+      [name, groupId, setAsMain ? 1 : 0, branchCode || null]
+    );
+    const newTenantId = tenantRes.insertId;
+
+    // 4. Create admin user
+    const encryptedPassword = await bcrypt.hash(password, CONFIG.PASSWORD_SALT);
+    await conn.query(
+      `INSERT INTO users (username, password, name, role, tenant_id)
+       VALUES (?, ?, ?, 'admin', ?)`,
+      [email, encryptedPassword, name, newTenantId]
+    );
+
+    // 5. Blank vs Clone execution
+    let cloneSummary = null;
+    if (cloneFromTenantId) {
+      const [sourceTenant] = await conn.query(
+        `SELECT id FROM tenants WHERE id = ? AND business_group_id = ?`,
+        [cloneFromTenantId, groupId]
+      );
+      if (sourceTenant.length > 0) {
+        cloneSummary = await cloneBranchDataDB(conn, cloneFromTenantId, newTenantId, { cloneFloorTables });
+      }
+    } else {
+      // Default Blank Branch: Setup default store_details and default kitchen station
+      await conn.query(
+        `INSERT INTO store_details (tenant_id, store_name, currency, pos_payment_mode) VALUES (?, ?, 'USD', 'flexible')`,
+        [newTenantId, name]
+      );
+      await conn.query(
+        `INSERT INTO kitchen_stations (tenant_id, name, color, icon, is_enabled, sort_order) 
+         VALUES (?, 'Kitchen', '#f97316', 'Flame', 1, 0)`,
+        [newTenantId]
+      );
+    }
+
+    await conn.commit();
+
+    return {
+      success: true,
+      tenantId: newTenantId,
+      name,
+      branchCode,
+      isMainBranch: Boolean(setAsMain),
+      cloned: Boolean(cloneSummary),
+      cloneSummary,
+    };
+  } catch (error) {
+    await conn.rollback();
+    console.error("Error creating branch in business group:", error);
     throw error;
   } finally {
     conn.release();

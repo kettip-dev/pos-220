@@ -174,7 +174,7 @@ export default function SuperAdminPaymentGatewaysPage() {
     }
 
     
-    // ✅ 1. SEND ONLY REAL USER INPUT
+    //  1. SEND ONLY REAL USER INPUT
     const payload = Object.fromEntries(
       Object.entries(credentials).filter(
         ([_, value]) => value && value.trim() !== ""
@@ -216,10 +216,10 @@ export default function SuperAdminPaymentGatewaysPage() {
       toast.dismiss();
       toast.success(t('superadmin_payment_gateways.update_credentials_success'));
 
-      // ✅ 2. CLEAR LOCAL STATE (never store secrets)
+      //  2. CLEAR LOCAL STATE (never store secrets)
       setCredentials({});
 
-      // ✅ 3. REFRESH FROM BACKEND (sanitized response)
+      //  3. REFRESH FROM BACKEND (sanitized response)
       await fetchGateways();
       closeManageDialog();
     } catch (error) {
@@ -518,7 +518,7 @@ export default function SuperAdminPaymentGatewaysPage() {
                         )}
                       </label>
                       {selectedGateway.credentials?.[field.key] === "configured" && (
-                        <span className="ml-2 text-xs text-green-600">✓ Configured</span>
+                        <span className="ml-2 text-xs text-green-600"> Configured</span>
                       )}
                     </div>
                      
@@ -568,7 +568,7 @@ export default function SuperAdminPaymentGatewaysPage() {
                           // }
                           placeholder={
                             selectedGateway.credentials?.[field.key] === "configured"
-                              ? "••••••••"           // ✅ UI hint only
+                              ? "••••••••"           //  UI hint only
                               : field.placeholder
                           }
                         />

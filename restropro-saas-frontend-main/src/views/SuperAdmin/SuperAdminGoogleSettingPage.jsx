@@ -461,7 +461,7 @@ export default function SuperAdminGoogleSettingPage() {
                 {t("superadmin_google.step_2_title", "Project Settings")}
               </h4>
               <p>
-                {t("superadmin_google.step_2_desc", "Click the ⚙️ Project Settings icon next to Project Overview and stay on the General tab.")}
+                {t("superadmin_google.step_2_desc", "Click the  Project Settings icon next to Project Overview and stay on the General tab.")}
               </p>
             </li>
 

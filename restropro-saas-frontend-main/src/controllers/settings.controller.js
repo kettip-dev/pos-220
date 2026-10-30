@@ -23,12 +23,12 @@ export function useStoreSettings() {
   };
 }
 
-export async function saveStoreSettings(storeName, address, phone, email, currency, image, isQRMenuEnabled , isQROrderEnabled, isFeedbackEnabled, exchangeRateUsdToKhr) {
+export async function saveStoreSettings(storeName, address, phone, email, currency, image, isQRMenuEnabled , isQROrderEnabled, isFeedbackEnabled, exchangeRateUsdToKhr, isQROrderAutoKitchen = false, posPaymentMode = 'flexible') {
   try {
     const response = await ApiClient.post("/settings/store-setting", {
       storeName, address, phone, email, currency, image,
-      isQRMenuEnabled, isQROrderEnabled, isFeedbackEnabled,
-      exchangeRateUsdToKhr
+      isQRMenuEnabled, isQROrderEnabled, isQROrderAutoKitchen, isFeedbackEnabled,
+      exchangeRateUsdToKhr, posPaymentMode
     });
     return response;
   } catch (error) {
@@ -284,6 +284,15 @@ export async function updateStoreTable(id, title, floor, seatingCapacity, shape 
     const response = await ApiClient.post(`/settings/store-tables/${id}/update`, {
       title, floor, seatingCapacity, shape, rotation, posX, posY
     })
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export async function rotateStoreTablePin(id) {
+  try {
+    const response = await ApiClient.post(`/settings/store-tables/${id}/rotate-pin`);
     return response;
   } catch (error) {
     throw error;

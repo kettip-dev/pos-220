@@ -34,7 +34,8 @@ export default function AllTablesCardsModal({
   const formatZoneLabel = (zone) => {
     const s = String(zone).trim();
     if (/^(zone|floor)\b/i.test(s)) return s;
-    return `${t("tables.zone", "Zone")} ${s}`;
+    if (/^[\d០-៩]+$/.test(s)) return `${t("tables.zone", "Zone")} ${s}`;
+    return s;
   };
 
   // Filtered tables list
@@ -245,7 +246,7 @@ export default function AllTablesCardsModal({
                     className="group relative flex flex-col justify-between p-4 rounded-2xl bg-white dark:bg-zinc-800/80 border-2 border-slate-200 dark:border-zinc-700 hover:border-[#0ea5e9] dark:hover:border-[#0ea5e9] shadow-xs hover:shadow-xl transition-all duration-200 cursor-pointer hover:-translate-y-0.5 overflow-hidden"
                   >
                     {/* Top Stripe with Status Color */}
-                    <div className={`absolute top-0 inset-x-0 h-1.5 ${status.bg}`} />
+                    <div className={`absolute top-0 inset-x-0 h-1.5 ${status.accentBg || "bg-[#0ea5e9]"}`} />
 
                     {/* Table Title, Floor Badge & Capacity */}
                     <div>
@@ -264,7 +265,7 @@ export default function AllTablesCardsModal({
 
                         {/* Status Chip Badge */}
                         <div
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight shadow-xs ${status.bg} ${status.text}`}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight shadow-xs border ${status.badgeBg || "bg-sky-50 text-sky-700 border-sky-200"}`}
                         >
                           {status.label}
                         </div>
@@ -307,7 +308,7 @@ export default function AllTablesCardsModal({
                       ) : (
                         <div className="mt-3 py-3 px-2 rounded-xl bg-slate-50/60 dark:bg-zinc-900/30 border border-dashed border-slate-200 dark:border-zinc-800 text-center">
                           <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                            ✓ {t("tables.ready_for_guests", "Ready for guests")}
+                             {t("tables.ready_for_guests", "Ready for guests")}
                           </span>
                         </div>
                       )}

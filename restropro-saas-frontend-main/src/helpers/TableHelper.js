@@ -63,3 +63,57 @@ export function generateDuplicateTableTitle(sourceTitle, existingTables = []) {
     i += 1;
   }
 }
+
+/**
+ * Formats a table title for UI presentation.
+ * If purely numeric (e.g. "1", "12", "១"), prepends prefix (e.g. "Table 1" or "តុ 1").
+ * If already prefixed or custom named (e.g. "Table 1", "Bar Stool 1", "VIP Booth"), keeps it clean.
+ * 
+ * @param {string|number} tableTitle 
+ * @param {string} prefix - Defaults to "Table"
+ * @returns {string}
+ */
+export function formatTableTitle(tableTitle, prefix = "Table") {
+  if (tableTitle === null || tableTitle === undefined) return "";
+  const title = String(tableTitle).trim();
+  if (!title) return "";
+
+  // If purely numeric digits (Arabic or Khmer numerals)
+  if (/^[\d០-៩]+$/.test(title)) {
+    return `${prefix} ${title}`;
+  }
+
+  // If already starts with the prefix or "table" case-insensitively
+  if (new RegExp(`^(${prefix}|table)\\b`, "i").test(title)) {
+    return title;
+  }
+
+  return title;
+}
+
+/**
+ * Formats a floor/zone label for UI presentation.
+ * Prevents awkward redundancy like "Floor Main Lounge" or "Floor Floor 1".
+ * 
+ * @param {string|number} floor 
+ * @param {string} prefix - Defaults to "Floor"
+ * @returns {string}
+ */
+export function formatFloorTitle(floor, prefix = "Floor") {
+  if (floor === null || floor === undefined) return "";
+  const s = String(floor).trim();
+  if (!s) return "";
+
+  // Already prefixed with "floor" or "zone"
+  if (new RegExp(`^(${prefix}|floor|zone)\\b`, "i").test(s)) {
+    return s;
+  }
+
+  // Purely numeric (e.g. "0", "1", "២") -> "Floor 1"
+  if (/^[\d០-៩]+$/.test(s)) {
+    return `${prefix} ${s}`;
+  }
+
+  // Named floor / room area (e.g. "Main Lounge", "Terrace", "Patio")
+  return s;
+}

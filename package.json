@@ -1,0 +1,18 @@
+{
+  "name": "restro-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Restro PRO monorepo workspace for local development",
+  "scripts": {
+    "docker:up": "docker compose up -d db redis",
+    "docker:down": "docker compose stop db redis",
+    "docker:full": "docker compose --profile full up -d",
+    "dev:backend": "npm run dev --prefix restropro-saas-backend-main",
+    "dev:frontend": "npm run dev --prefix restropro-saas-frontend-main",
+    "dev": "docker compose up -d db redis && concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:local": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

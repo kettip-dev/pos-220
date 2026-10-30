@@ -1,7 +1,7 @@
 import io from 'socket.io-client';
 import { VITE_BACKEND_SOCKET_IO } from '../config/config';
 
-const socket = io(VITE_BACKEND_SOCKET_IO, {
+const socket = io(VITE_BACKEND_SOCKET_IO || undefined, {
   autoConnect: false, // Prevent automatic connection until explicit initialization
   // transports: ['websocket'], // Prefer WebSockets for better performance
   rejectUnauthorized: false,

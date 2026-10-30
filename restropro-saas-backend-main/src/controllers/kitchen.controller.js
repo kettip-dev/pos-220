@@ -45,14 +45,28 @@ exports.getKitchenOrders = async (req, res) => {
       const orderItems = kitchenOrdersItems.filter((oi)=>oi.order_id == order.id);
       
       orderItems.forEach((oi, index)=>{
-        const addonsIds = oi?.addons ? JSON.parse(oi?.addons) : null;
+        let addonsIds = [];
+        try {
+          addonsIds = oi?.addons ? JSON.parse(oi?.addons) : [];
+        } catch (e) {
+          addonsIds = [];
+        }
 
-        if(addonsIds) {
-          const itemAddons = addonsIds.map((addonId)=>{
-            const addon = addons.filter((a)=>a.id == addonId);
-            return addon[0];
+        if (Array.isArray(addonsIds) && addonsIds.length > 0) {
+          const itemAddons = addonsIds.map((addonRef)=>{
+            if (typeof addonRef === 'object' && addonRef !== null) {
+              return addonRef;
+            }
+            const found = addons.find((a) =>
+              (typeof addonRef === 'number' || !isNaN(Number(addonRef)))
+                ? a.id == addonRef
+                : a.title?.toLowerCase() === String(addonRef).toLowerCase()
+            );
+            return found || { id: null, title: String(addonRef), price: 0 };
           });
-          orderItems[index].addons = [...itemAddons];
+          orderItems[index].addons = [...itemAddons.filter(Boolean)];
+        } else {
+          orderItems[index].addons = [];
         }
       });
 

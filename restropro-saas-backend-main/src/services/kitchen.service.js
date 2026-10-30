@@ -46,7 +46,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
     let addons = [];
 
     if(kitchenOrders.length > 0) {
-      const orderIds = kitchenOrders.map(o=>o.id).join(",");
+      const orderIds = kitchenOrders.map(o=>o.id);
       const sql2 = `
       SELECT
         oi.id,
@@ -70,14 +70,53 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
         LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
         
-      WHERE oi.order_id IN (${orderIds})
-      `
-      const [kitchenOrdersItemsResult] = await conn.query(sql2);
+      WHERE oi.order_id IN (?)
+      `;
+      const [kitchenOrdersItemsResult] = await conn.query(sql2, [orderIds]);
       kitchenOrdersItems = kitchenOrdersItemsResult;
 
-      const addonIds = [...new Set([...kitchenOrdersItems.flatMap((o)=>o.addons?JSON.parse(o?.addons):[])])].join(",");
-      const [addonsResult] = addonIds ? await conn.query(`SELECT id, item_id, title FROM menu_item_addons WHERE id IN (${addonIds});`):[]
-      addons = addonsResult;
+      const rawAddons = kitchenOrdersItems.flatMap((o) => {
+        try {
+          return o.addons ? JSON.parse(o.addons) : [];
+        } catch (e) {
+          return [];
+        }
+      });
+
+      const numericIds = [...new Set(
+        rawAddons
+          .map((a) => (typeof a === "object" && a !== null ? a.id : a))
+          .filter((a) => a !== null && a !== undefined && !isNaN(Number(a)))
+          .map(Number)
+      )];
+
+      const titleNames = [...new Set(
+        rawAddons
+          .map((a) => (typeof a === "object" && a !== null ? a.title : a))
+          .filter((a) => typeof a === "string" && isNaN(Number(a)) && a.trim().length > 0)
+      )];
+
+      if (numericIds.length > 0 || titleNames.length > 0) {
+        const whereClauses = [];
+        const queryParams = [];
+
+        if (numericIds.length > 0) {
+          whereClauses.push(`id IN (?)`);
+          queryParams.push(numericIds);
+        }
+        if (titleNames.length > 0) {
+          whereClauses.push(`title IN (?)`);
+          queryParams.push(titleNames);
+        }
+
+        queryParams.push(tenantId);
+
+        const [addonsResult] = await conn.query(
+          `SELECT id, item_id, title, price FROM menu_item_addons WHERE (${whereClauses.join(" OR ")}) AND tenant_id = ?;`,
+          queryParams
+        );
+        addons = addonsResult || [];
+      }
     }
 
     return {

@@ -1,112 +1,177 @@
-import React, { useState, useEffect , useRef, useContext} from 'react';
-import { IconChevronRight, IconCarrot, IconTrash, IconMinus, IconPlus, IconShoppingCartX, IconMoodEmptyFilled, IconChevronLeft, IconCheck, IconX, IconTable, IconShovelPitchforks, IconDoor, IconNote } from '@tabler/icons-react';
-import { createOrderFromQrMenu, getCart, setCart } from '../controllers/qrmenu.controller';
-import { getImageURL } from '../helpers/ImageHelper';
-import { iconStroke } from '../config/config';
-import { useLocation, useParams , useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useContext, useMemo } from "react";
+import {
+  IconChevronRight,
+  IconCarrot,
+  IconTrash,
+  IconMinus,
+  IconPlus,
+  IconShoppingCartX,
+  IconChevronLeft,
+  IconX,
+  IconNote,
+  IconShieldCheck,
+  IconLock,
+  IconUser,
+  IconPhone,
+  IconArmchair,
+} from "@tabler/icons-react";
+import {
+  createOrderFromQrMenu,
+  getCart,
+  getQRMenuInit,
+  getQRTableSession,
+  setCart,
+  setLastQROrderReceipt,
+  setQRTableSession,
+  verifyQRTablePin,
+} from "../controllers/qrmenu.controller";
+import { CURRENCIES } from "../config/currencies.config";
+import { getImageURL, setImageStorageConfig } from "../helpers/ImageHelper";
+import { iconStroke } from "../config/config";
+import { useLocation, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
-import { validatePhone } from '../utils/phoneValidator';
-import { SocketContext } from '../contexts/SocketContext';
-import { initSocket } from '../utils/socket';
-import { useTranslation } from 'react-i18next';
-import {useTheme} from '../contexts/ThemeContext';
+import { validatePhone } from "../utils/phoneValidator";
+import { SocketContext } from "../contexts/SocketContext";
+import { initSocket } from "../utils/socket";
+import { useTranslation } from "react-i18next";
 
 const CartPage = () => {
   const { t } = useTranslation();
   const { socket, isSocketConnected } = useContext(SocketContext);
 
-  const [state, setState] = useState({ cartItems: [], itemsTotal: 0, taxTotal: 0, serviceChargeTotal: 0, payableTotal: 0 });
-  const [showPhoneFields, setShowPhoneFields] = useState(false);
-  const [selectedCustomerType, setSelectedCustomerType] = useState(null);
   const params = useParams();
   const qrcode = params.qrcode;
   const navigate = useNavigate();
-
   const location = useLocation();
-  const { storeTable , currency , serviceCharge } = location.state || null;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTableParam = searchParams.get("table") || null;
+
+  const savedSession = useMemo(() => getQRTableSession(qrcode), [qrcode]);
+
+  const [cartItems, setCartItems] = useState(() => getCart() || []);
+  const [storeTable, setStoreTable] = useState(
+    location.state?.storeTable ||
+      (savedSession?.tableId
+        ? {
+            id: savedSession.tableId,
+            encrypted_id: savedSession.encryptedTableId,
+            table_title: savedSession.tableTitle,
+            floor: savedSession.floor,
+          }
+        : null)
+  );
+  const [publicTables, setPublicTables] = useState(location.state?.publicTables || []);
+  const [currency, setCurrency] = useState(
+    location.state?.currency || savedSession?.currency || "$"
+  );
+  const [serviceCharge, setServiceCharge] = useState(
+    location.state?.serviceCharge ?? savedSession?.serviceCharge ?? null
+  );
+  const [isTablePinVerified, setIsTablePinVerified] = useState(
+    Boolean(location.state?.isTablePinVerified || savedSession?.sessionToken)
+  );
+  const [sessionToken, setSessionToken] = useState(
+    location.state?.sessionToken || savedSession?.sessionToken || null
+  );
+  const [selectedTableRef, setSelectedTableRef] = useState(
+    location.state?.storeTable?.encrypted_id ||
+      urlTableParam ||
+      savedSession?.encryptedTableId ||
+      ""
+  );
+  const [tablePinInput, setTablePinInput] = useState("");
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  const [showPhoneFields, setShowPhoneFields] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+
+  // Notes modal state
+  const [editingNoteIndex, setEditingNoteIndex] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
 
   const nameRef = useRef(null);
   const phoneRef = useRef(null);
 
-  // dialog: notes ref
-  const dialogNotesIndexRef = useRef();
-  const dialogNotesTextRef = useRef();
-
+  // Self-heal state on page reload
   useEffect(() => {
-    const storedCart = getCart() || [];
-    const { itemsTotal, taxTotal, serviceChargeTotal, payableTotal } = calculateOrderSummary(storedCart);
-    setState((prevState) => ({
-      ...prevState,
-      itemsTotal,
-      taxTotal,
-      serviceChargeTotal,
-      payableTotal,
-      cartItems: storedCart
-    }));
-  }, []);
+    let isMounted = true;
+    const syncInitData = async () => {
+      try {
+        const currentSession = getQRTableSession(qrcode);
+        const tableParam =
+          urlTableParam ||
+          location.state?.storeTable?.encrypted_id ||
+          currentSession?.encryptedTableId ||
+          null;
+        const tokenParam =
+          location.state?.sessionToken || currentSession?.sessionToken || null;
 
-  const { cartItems, itemsTotal, taxTotal, serviceChargeTotal, payableTotal } = state;
+        const res = await getQRMenuInit(qrcode, tableParam, tokenParam);
+        if (!isMounted || res.status !== 200) return;
 
-  const sendNewOrderEvent = () => {
-    if (isSocketConnected) {
-      socket.emit('new_qrorder_backend', {}, qrcode);
-    } else {
-      // Handle disconnected state (optional)
-      initSocket();
-      socket.emit('new_qrorder_backend', {}, qrcode);
-    }
-  }
+        const data = res.data;
+        if (data?.imageStorageConfig) {
+          setImageStorageConfig(data.imageStorageConfig);
+        }
 
-  function removeItemFromCart(index) {
-    const newCartItems = cartItems.filter((_, i) => i !== index);
-    setCart(newCartItems);
-    updateCart(newCartItems);
-  }
+        const currencyObj = CURRENCIES.find((c) => c.cc == data?.storeSettings?.currency);
+        const resolvedCurrency = currencyObj?.symbol || data?.storeSettings?.currency || "$";
 
-  function addCartItemQuantity(index, currentQuantity) {
-    const newQuantity = currentQuantity + 1;
-    const newCartItems = [...cartItems];
-    newCartItems[index].quantity = newQuantity;
-    setCart(newCartItems);
-    updateCart(newCartItems);
-  }
+        setCurrency(resolvedCurrency);
+        setServiceCharge(data?.serviceCharge ?? null);
+        setPublicTables(data?.publicTables || []);
 
-  function minusCartItemQuantity(index, currentQuantity) {
-    const newQuantity = currentQuantity - 1;
-    let newCartItems = [...cartItems];
-    newCartItems[index].quantity = newQuantity;
+        if (data?.storeTable) {
+          setStoreTable(data.storeTable);
+          setSelectedTableRef(data.storeTable.encrypted_id || String(data.storeTable.id));
+        }
 
-    if (newQuantity === 0) {
-      newCartItems = newCartItems.filter((_, i) => i !== index);
-    }
+        const verified = Boolean(data?.isTablePinVerified && data?.storeTable);
+        setIsTablePinVerified(verified);
+        setSessionToken(verified ? data?.verifiedSessionToken : null);
 
-    setCart(newCartItems);
-    updateCart(newCartItems);
-  }
+        if (data?.storeTable && verified && data?.verifiedSessionToken) {
+          setQRTableSession(qrcode, {
+            tableId: data.storeTable.id,
+            encryptedTableId: data.storeTable.encrypted_id,
+            tableTitle: data.storeTable.table_title,
+            floor: data.storeTable.floor,
+            sessionToken: data.verifiedSessionToken,
+            currency: resolvedCurrency,
+            serviceCharge: data?.serviceCharge ?? null,
+            storeName: data?.storeSettings?.store_name || "",
+          });
+        }
+      } catch (err) {
+        console.error("Cart init sync error:", err);
+      }
+    };
 
-  const updateCart = (items) => {
-    const { itemsTotal, taxTotal, payableTotal } = calculateOrderSummary(items);
-    setState({ ...state, cartItems: items, itemsTotal, taxTotal, payableTotal });
-  };
+    syncInitData();
+    return () => {
+      isMounted = false;
+    };
+  }, [qrcode, urlTableParam]);
 
-  const calculateOrderSummary = (items) => {
+  const orderSummary = useMemo(() => {
     let itemsTotal = 0;
     let taxTotal = 0;
     let serviceChargeTotal = 0;
     let payableTotal = 0;
 
-    items.forEach((item) => {
-      const taxRate = Number(item.tax_rate);
+    (cartItems || []).forEach((item) => {
+      const taxRate = Number(item.tax_rate) || 0;
       const taxType = item.tax_type;
-      const itemPrice = Number(item.price) * Number(item.quantity);
+      const itemPrice = (Number(item.price) || 0) * (Number(item.quantity) || 1);
 
-      if (taxType === 'exclusive') {
+      if (taxType === "exclusive") {
         const tax = (itemPrice * taxRate) / 100;
         taxTotal += tax;
         itemsTotal += itemPrice;
         payableTotal += itemPrice + tax;
-      } else if (taxType === 'inclusive') {
-        const tax = itemPrice - (itemPrice * (100 / (100 + taxRate)));
+      } else if (taxType === "inclusive") {
+        const tax = itemPrice - itemPrice * (100 / (100 + taxRate));
         taxTotal += tax;
         itemsTotal += itemPrice - tax;
         payableTotal += itemPrice;
@@ -116,36 +181,140 @@ const CartPage = () => {
       }
     });
 
-     // Calculate Total Service charge % from items total
-     if (serviceCharge) {
-      let calculatedServiceCharge = (Number(itemsTotal) * Number(serviceCharge)) / 100;
+    if (serviceCharge) {
+      const calculatedServiceCharge = (Number(itemsTotal) * Number(serviceCharge)) / 100;
       serviceChargeTotal += calculatedServiceCharge;
       payableTotal += calculatedServiceCharge;
     }
 
     return { itemsTotal, taxTotal, serviceChargeTotal, payableTotal };
+  }, [cartItems, serviceCharge]);
+
+  const { itemsTotal, taxTotal, serviceChargeTotal, payableTotal } = orderSummary;
+
+  const sendNewOrderEvent = () => {
+    if (isSocketConnected) {
+      socket.emit("new_qrorder_backend", {}, qrcode);
+    } else {
+      initSocket();
+      socket.emit("new_qrorder_backend", {}, qrcode);
+    }
   };
 
-    const btnPlaceOrder = async () => {
+  const updateCartItems = (nextItems) => {
+    setCart(nextItems);
+    setCartItems([...nextItems]);
+  };
 
-      if (showPhoneFields) {
-        const phone = phoneRef.current?.value || "";
-        const name = nameRef.current?.value || "";
+  const removeItemFromCart = (index) => {
+    const next = cartItems.filter((_, i) => i !== index);
+    updateCartItems(next);
+  };
 
-        if (!name.trim()) {
-          toast.error(t('cart.name_required'));
-          return;
-        }
+  const addCartItemQuantity = (index, currentQuantity) => {
+    const next = [...cartItems];
+    next[index] = { ...next[index], quantity: currentQuantity + 1 };
+    updateCartItems(next);
+  };
 
-        if (!validatePhone(phone)) {
-          toast.error(t('cart.valid_phone_error'));
-          return;
-        }
-      }
+  const minusCartItemQuantity = (index, currentQuantity) => {
+    const newQuantity = currentQuantity - 1;
+    let next = [...cartItems];
+    if (newQuantity <= 0) {
+      next = next.filter((_, i) => i !== index);
+    } else {
+      next[index] = { ...next[index], quantity: newQuantity };
+    }
+    updateCartItems(next);
+  };
+
+  const handleInlineVerifyPin = async () => {
+    const targetTable = selectedTableRef || storeTable?.encrypted_id || storeTable?.id;
+    if (!targetTable) {
+      toast.error(t("qr_menu.select_table_prompt", "Please select your table first"));
+      return false;
+    }
+    if (!tablePinInput || tablePinInput.trim().length < 4) {
+      toast.error(t("qr_menu.enter_4digit_pin", "Please enter the 4-digit Table PIN"));
+      return false;
+    }
 
     try {
-      const deliveryType = null;
-      const tableId = storeTable?.id || null;
+      setIsVerifyingPin(true);
+      const res = await verifyQRTablePin(qrcode, targetTable, tablePinInput.trim());
+      if (res.status === 200 && res.data?.success) {
+        const verifiedTbl = res.data.storeTable;
+        const verifiedTok = res.data.sessionToken;
+
+        setStoreTable(verifiedTbl);
+        setSelectedTableRef(verifiedTbl.encrypted_id);
+        setIsTablePinVerified(true);
+        setSessionToken(verifiedTok);
+        setSearchParams({ table: verifiedTbl.encrypted_id }, { replace: true });
+
+        setQRTableSession(qrcode, {
+          tableId: verifiedTbl.id,
+          encryptedTableId: verifiedTbl.encrypted_id,
+          tableTitle: verifiedTbl.table_title,
+          floor: verifiedTbl.floor,
+          sessionToken: verifiedTok,
+          currency,
+          serviceCharge,
+        });
+
+        toast.success(`Table ${verifiedTbl.table_title} PIN verified!`);
+        return { table: verifiedTbl, token: verifiedTok };
+      }
+      return false;
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        "Invalid 4-digit Table PIN. Please check your table slip or ask your server.";
+      toast.error(msg);
+      return false;
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  };
+
+  const btnPlaceOrder = async () => {
+    if (showPhoneFields) {
+      const phone = phoneRef.current?.value || "";
+      const name = nameRef.current?.value || "";
+
+      if (!name.trim()) {
+        toast.error(t("cart.name_required", "Please enter your name"));
+        return;
+      }
+
+      if (!validatePhone(phone)) {
+        toast.error(t("cart.valid_phone_error", "Please enter a valid phone number"));
+        return;
+      }
+    }
+
+    const effectiveTableRef =
+      storeTable?.encrypted_id || storeTable?.id || selectedTableRef || urlTableParam;
+
+    if (!effectiveTableRef) {
+      toast.error(t("qr_menu.select_table_prompt", "Please select your table to place an order"));
+      return;
+    }
+
+    let activeToken = isTablePinVerified ? sessionToken : null;
+    if (!activeToken && (!tablePinInput || tablePinInput.trim().length < 4)) {
+      toast.error(
+        t(
+          "qr_menu.enter_4digit_pin",
+          "Please enter the 4-digit Table PIN for your table to place an order"
+        )
+      );
+      return;
+    }
+
+    try {
+      setIsSubmittingOrder(true);
+      const deliveryType = "dinein";
       const customerType = showPhoneFields ? "CUSTOMER" : "WALKIN";
       const customer = showPhoneFields
         ? {
@@ -154,308 +323,649 @@ const CartPage = () => {
           }
         : { name: "Guest", phone: "" };
 
-      toast.loading(t('cart.please_wait'));
+      toast.loading(t("cart.please_wait", "Submitting your order..."));
 
-      const res = await createOrderFromQrMenu(deliveryType , cartItems, customerType, customer, tableId , qrcode);
+      const res = await createOrderFromQrMenu(
+        deliveryType,
+        cartItems,
+        customerType,
+        customer,
+        effectiveTableRef,
+        qrcode,
+        tablePinInput.trim() || null,
+        activeToken
+      );
+
       toast.dismiss();
-      if(res.status == 200) {
+      if (res.status == 200) {
         const data = res.data;
-        toast.success(t('cart.order_success'));
-        document.getElementById("modal-place-order").close();
+        const confirmedTable = data.storeTable || storeTable;
+        const confirmedToken = data.sessionToken || activeToken;
 
+        if (confirmedTable && confirmedToken) {
+          setQRTableSession(qrcode, {
+            tableId: confirmedTable.id,
+            encryptedTableId: confirmedTable.encrypted_id,
+            tableTitle: confirmedTable.table_title,
+            floor: confirmedTable.floor,
+            sessionToken: confirmedToken,
+            currency,
+            serviceCharge,
+          });
+        }
 
-        setState({
-          ...state,
-          cartItems: [],
-        })
+        setLastQROrderReceipt({
+          qrcode,
+          orderId: data.orderId,
+          kitchenOrderId: data.kitchenOrderId || null,
+          tokenNo: data.tokenNo || null,
+          autoSentToKitchen: Boolean(data.autoSentToKitchen),
+          storeTable: confirmedTable,
+          sessionToken: confirmedToken,
+          currency,
+          serviceCharge,
+          items: [...cartItems],
+          itemsTotal,
+          taxTotal,
+          serviceChargeTotal,
+          payableTotal,
+          placedAt: new Date().toISOString(),
+        });
 
+        toast.success(t("cart.order_success", "Order placed successfully!"));
+        setIsCheckoutModalOpen(false);
         setCart([]);
-
-        setSelectedCustomerType(null);
+        setCartItems([]);
         sendNewOrderEvent();
 
-        navigate('/m/order-success');
+        const nextTableParam = confirmedTable?.encrypted_id || effectiveTableRef || "";
+        navigate(
+          `/m/order-success?qrcode=${encodeURIComponent(qrcode)}&table=${encodeURIComponent(
+            nextTableParam
+          )}&orderId=${encodeURIComponent(data.orderId)}`
+        );
       }
     } catch (error) {
-      const message = error?.response?.data?.message || t('cart.something_went_wrong');
+      toast.dismiss();
+      const code = error?.response?.data?.code;
+      const message =
+        error?.response?.data?.message || t("cart.something_went_wrong", "Something went wrong");
       console.error(error);
 
-      toast.dismiss();
+      if (code === "INVALID_TABLE_PIN" || error?.response?.status === 403) {
+        // Clear stale session token and keep guest on cart modal to enter current PIN
+        setIsTablePinVerified(false);
+        setSessionToken(null);
+        toast.error(message);
+        return;
+      }
+
       toast.error(message);
-      navigate('/m/order-failed');
+    } finally {
+      setIsSubmittingOrder(false);
     }
   };
 
-    // order notes
-    const btnOpenNotesModal = (index, notes) => {
-      dialogNotesIndexRef.current.value = index;
-      dialogNotesTextRef.current.value = notes;
-      document.getElementById('modal-notes').showModal()
+  const goBackToMenu = () => {
+    const tblParam = storeTable?.encrypted_id || selectedTableRef || urlTableParam;
+    navigate(`/m/${qrcode}${tblParam ? `?table=${encodeURIComponent(tblParam)}` : ""}`);
+  };
+
+  const handleSaveNotes = (e) => {
+    if (e) e.preventDefault();
+    if (editingNoteIndex === null) return;
+    const next = [...cartItems];
+    if (next[editingNoteIndex]) {
+      next[editingNoteIndex] = {
+        ...next[editingNoteIndex],
+        notes: editingNoteText.trim() || null,
+      };
+      updateCartItems(next);
     }
-    const btnAddNotes = () => {
-      const index = dialogNotesIndexRef.current.value;
-      const notes = dialogNotesTextRef.current.value || null;
-
-      const newCartItems = cartItems;
-      newCartItems[index].notes = notes;
-
-      setState({
-        ...state,
-        cartItems: newCartItems
-      })
-    };
+    setEditingNoteIndex(null);
+  };
 
   return (
-    <div className='w-full'>
-      <div className='container w-full max-w-5xl mx-auto flex justify-center items-center'>
-          <div className="w-full mx-auto max-w-5xl bg-gray-50 dark:bg-black rounded-xl p-4 h-screen border border-restro-green-light"> {/* Centered cart container */}
-          <div className="relative flex items-center justify-between p-4shadow-md">
-          {/* Back Button */}
-          <button className="absolute left-0 p-2" onClick={() => window.history.back()}>
-            <IconChevronLeft size={24} stroke={2} /> {/* Back arrow icon */}
+    <div className="min-h-screen w-full bg-white dark:bg-zinc-950 text-slate-900 dark:text-slate-100 pb-32">
+      {/* Top Bar */}
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800">
+        <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={goBackToMenu}
+            className="min-h-[42px] px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-xs font-bold active:scale-95 transition cursor-pointer"
+          >
+            <IconChevronLeft size={18} stroke={2.2} />
+            <span>{t("qr_menu.menu", "Menu")}</span>
           </button>
 
-          {/* Centered Title */}
-          <h3 className="text-xl md:text-2xl font-bold text-center w-full">{t('cart.title')}</h3>
+          <h1 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
+            {t("cart.title", "Your Order Cart")}
+          </h1>
+
+          <div className="w-16" />
         </div>
+      </header>
 
+      <main className="max-w-3xl mx-auto px-4 pt-4 space-y-4">
+        {/* Table & Security Status Banner */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  storeTable && isTablePinVerified
+                    ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600"
+                    : "bg-amber-50 dark:bg-amber-950/50 text-amber-600"
+                }`}
+              >
+                {storeTable && isTablePinVerified ? (
+                  <IconShieldCheck size={22} />
+                ) : (
+                  <IconArmchair size={20} />
+                )}
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  {t("tables.table", "Dining Table")}
+                </p>
+                {storeTable ? (
+                  <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                    Table {storeTable.table_title}
+                    {storeTable.floor ? ` • ${storeTable.floor}` : ""}
+                  </p>
+                ) : (
+                  <p className="text-sm font-bold text-amber-600">
+                    {t("qr_menu.select_table_prompt", "Select your table below")}
+                  </p>
+                )}
+              </div>
+            </div>
 
-        {storeTable && (
-          <div className="flex items-center gap-2 mt-4 p-2 justify-center bg-white dark:bg-black rounded-lg shadow-sm">
-            <IconShovelPitchforks size={20} stroke={2} className="text-gray-700" />
-
-            <h3 className="text-lg font-semibold">
-              <span className="font-bold text-gray-800">{storeTable.table_title}</span>
-            </h3>
-
-            {storeTable.floor && (
-              <p className="text-md text-gray-600">
-                <span className="font-semibold">( {storeTable.floor})</span>
-              </p>
+            {storeTable && isTablePinVerified ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-extrabold">
+                <IconShieldCheck size={15} />
+                <span>{t("qr_menu.pin_verified", "Table PIN Verified")}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-extrabold">
+                <IconLock size={14} />
+                <span>{t("qr_menu.pin_required", "4-Digit PIN Required")}</span>
+              </span>
             )}
           </div>
-        )}
 
+          {/* If no table or PIN not verified yet, allow inline selection + PIN verification right on CartPage */}
+          {(!storeTable || !isTablePinVerified) && (
+            <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+              {!storeTable && (
+                <div className="sm:col-span-5">
+                  <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
+                    Select Table
+                  </label>
+                  <select
+                    value={selectedTableRef}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedTableRef(val);
+                      const found = publicTables.find(
+                        (tObj) =>
+                          String(tObj.encrypted_id) === String(val) ||
+                          String(tObj.id) === String(val)
+                      );
+                      if (found) setStoreTable(found);
+                    }}
+                    className="w-full min-h-[42px] rounded-xl px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700"
+                  >
+                    <option value="">-- Choose Table --</option>
+                    {publicTables.map((tbl) => (
+                      <option key={tbl.id} value={tbl.encrypted_id || tbl.id}>
+                        Table {tbl.table_title} {tbl.floor ? `(${tbl.floor})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-        {/* Cart Items */}
-        <div className="mt-4">
-          {cartItems.length > 0 ? (
-            cartItems.map((item, i) => {
-              const { id, title, price, quantity, image , notes} = item;
+              <div className={storeTable ? "sm:col-span-8" : "sm:col-span-4"}>
+                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
+                  4-Digit Table PIN (Ask Server or Check Table Slip)
+                </label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={tablePinInput}
+                  onChange={(e) => setTablePinInput(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Enter 4-digit PIN"
+                  className="w-full min-h-[42px] rounded-xl px-3.5 py-2 text-sm font-extrabold tracking-widest bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className={storeTable ? "sm:col-span-4" : "sm:col-span-3"}>
+                <button
+                  type="button"
+                  disabled={isVerifyingPin}
+                  onClick={handleInlineVerifyPin}
+                  className="w-full min-h-[42px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-4 py-2 transition active:scale-95 cursor-pointer"
+                >
+                  {isVerifyingPin ? "Checking..." : "Verify PIN"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Cart Items List */}
+        {cartItems.length > 0 ? (
+          <div className="space-y-3">
+            {cartItems.map((item, i) => {
+              const { title, price, quantity, image, notes, variant, addons } = item;
               const imageURL = getImageURL(image);
 
               return (
-                <div key={i} className="w-full bg-white dark:bg-black rounded-lg p-2 mb-2 md:mb-4 flex items-center justify-between">
-                  <div className="flex items-start">
-                    <div className="w-20 h-20 md:w-28 md:h-28 bg-gray-200 dark:bg-black rounded-lg overflow-hidden mr-4 md:mr-6 object-cover flex items-center justify-center text-gray-500 flex-shrink-0">
+                <div
+                  key={`${item.id}-${i}`}
+                  className="w-full bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3.5 shadow-2xs flex items-start justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-20 h-20 bg-slate-100 dark:bg-zinc-800 rounded-xl overflow-hidden flex items-center justify-center text-slate-400 shrink-0">
                       {image ? (
                         <img src={imageURL} alt={title} className="object-cover w-full h-full" />
                       ) : (
                         <IconCarrot size={24} />
                       )}
                     </div>
-                    <div className="flex-grow">
-                      <p className="text-sm font-semibold md:text-lg line-clamp-2 text-ellipsis">{title}</p>
-                      <div className="text-xs text-gray-400 md:text-sm">
-                       {item?.variant?.title && <p>{item.variant.title}</p>}
-                        {item.addons?.length > 0 && <p>{item.addons.length} Addons</p>}
-                      </div>
-                      <p className="text-sm md:text-lg">{currency}{(price * quantity).toFixed(2)}</p>
-                      {notes && <p className='text-xs text-gray-500 md:text-sm'>{t('cart.notes')}: {notes}</p>}
+
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-2">
+                        {title}
+                      </h4>
+
+                      {variant?.title && (
+                        <span className="inline-block mt-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300">
+                          {variant.title}
+                        </span>
+                      )}
+
+                      {addons?.length > 0 && (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                          + {addons.map((a) => a.title).join(", ")}
+                        </p>
+                      )}
+
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white mt-1.5">
+                        {currency}
+                        {(Number(price) * Number(quantity)).toFixed(2)}
+                      </p>
+
+                      {notes && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 italic">
+                          “{notes}”
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNoteIndex(i);
+                          setEditingNoteText(notes || "");
+                        }}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-emerald-600 transition cursor-pointer"
+                      >
+                        <IconNote size={14} stroke={iconStroke} />
+                        <span>{notes ? "Edit note" : t("cart.add_notes", "Add note")}</span>
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => minusCartItemQuantity(i, quantity)}
-                      className="btn btn-square btn-xs md:btn-sm rounded-lg"
-                    >
-                      <IconMinus stroke={iconStroke} size={14}/>
-                    </button>
 
-                    <div className="text-center text-sm w-6 md:text-xl rounded-lg">{quantity}</div>
-
+                  {/* Stepper & Delete */}
+                  <div className="flex flex-col items-end justify-between gap-3 shrink-0">
                     <button
-                      onClick={() => addCartItemQuantity(i, quantity)}
-                      className="btn btn-square btn-xs md:btn-sm rounded-lg"
-                    >
-                      <IconPlus stroke={iconStroke} size={14} />
-                    </button>
-
-                    <button
+                      type="button"
                       onClick={() => removeItemFromCart(i)}
-                      className="text-restro-red hover:text-red-700 transition ml-4 w-4 h-4 md:w-8 md:h-8"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"
+                      title="Remove item"
                     >
-                      <IconTrash stroke={iconStroke} className='w-full h-full'/>
+                      <IconTrash stroke={iconStroke} size={17} />
                     </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => minusCartItemQuantity(i, quantity)}
+                        className="w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-red-500 active:scale-95 transition cursor-pointer"
+                      >
+                        <IconMinus stroke={2.5} size={20} />
+                      </button>
+
+                      <span className="w-6 text-center text-xs sm:text-sm font-extrabold">{quantity}</span>
+
+                      <button
+                        type="button"
+                        onClick={() => addCartItemQuantity(i, quantity)}
+                        className="w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-[#2CA01C] active:scale-95 transition cursor-pointer"
+                      >
+                        <IconPlus stroke={2.5} size={20} />
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    onClick={() => {btnOpenNotesModal(i, notes)}}
-                    className="text-sm md:text-md transition active:scale-95 hover:shadow-lg px-2 py-1 flex md:px-4 md:py-1 items-center gap-1 mt-4 ml-auto rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text' "
-                  >
-                    <IconNote size={18} stroke={iconStroke} />
-                    <p className='text-sm md:text-lg'>{t('cart.add_notes')}</p>
-                  </button>
-                </div>
-
-
                 </div>
               );
-            })
-          ) : (
-            <div className="text-center text-gray-500 flex flex-col justify-center items-center h-[85vh] gap-4">
-              <IconShoppingCartX size={50} />
-              <p className='text-xl'>{t('cart.empty_cart')}</p>
-            </div>
-          )}
-        </div>
+            })}
 
-        {/* Order Summary Section */}
-        {cartItems.length > 0 && (
-          <div className="join join-vertical w-full">
-            <div className="collapse collapse-arrow join-item bg-white dark:bg-black">
-              <input type="checkbox" className="peer" />
-              <div className="collapse-title text-lg md:text-xl font-bold flex justify-between">
-                <span>{t('cart.payable_total')}</span>
-                <span className='text-restro-green font-bold'>{currency}{payableTotal.toFixed(2)}</span>
-              </div>
-              <div className="collapse-content space-y-2 text-sm md:text-md">
-                <div className="flex justify-between">
-                  <span>{t('cart.items_total')}</span>
-                  <span>{currency}{itemsTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{t('cart.tax_total')}</span>
-                  <span>{currency}{taxTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>{t('cart.service_charge_total')}</span>
-                  <span>{currency}{serviceChargeTotal.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-      <div className="h-28"/>
-
-        {/* Checkout Section */}
-        {cartItems.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-black shadow-lg p-4 flex justify-between items-center rounded-2xl max-w-5xl mx-auto">
+            {/* Add More Items Button */}
             <button
-            onClick={() => {
-              document.getElementById('modal-place-order').showModal();
-            }}
-            className="bg-restro-green text-white py-4 px-6 rounded-xl flex justify-between w-full items-center">
-              <p className="text-md font-bold md:text-lg">{t('cart.total')} {currency}{payableTotal.toFixed(2)}</p>
-              <p className="text-white text-lg md:text-xl font-bold px-2 rounded-lg flex items-center">
-                {t('cart.checkout')} <IconChevronRight size={20} stroke={3} />
-              </p>
+              type="button"
+              onClick={goBackToMenu}
+              className="w-full min-h-[44px] rounded-2xl border border-dashed border-emerald-500/60 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold flex items-center justify-center gap-1.5 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition cursor-pointer"
+            >
+              <IconPlus size={16} />
+              <span>{t("qr_menu.add_more_items", "Add More Items from Menu")}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="py-20 text-center text-slate-400 flex flex-col justify-center items-center gap-4">
+            <IconShoppingCartX size={56} stroke={1.5} />
+            <p className="text-base font-bold text-slate-600 dark:text-slate-300">
+              {t("cart.empty_cart", "Your cart is empty")}
+            </p>
+            <button
+              type="button"
+              onClick={goBackToMenu}
+              className="min-h-[44px] px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-extrabold shadow-sm active:scale-95 transition cursor-pointer"
+            >
+              {t("qr_menu.browse_menu", "Browse Menu")}
             </button>
           </div>
         )}
-      </div>
 
+        {/* Order Summary Card */}
+        {cartItems.length > 0 && (
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-2xs space-y-2.5">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+              {t("cart.order_summary", "Bill Summary")}
+            </h3>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                <span>{t("cart.items_total", "Items Subtotal")}</span>
+                <span className="font-semibold">
+                  {currency}
+                  {itemsTotal.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                <span>{t("cart.tax_total", "Tax")}</span>
+                <span className="font-semibold">
+                  {currency}
+                  {taxTotal.toFixed(2)}
+                </span>
+              </div>
+              {serviceChargeTotal > 0 && (
+                <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                  <span>{t("cart.service_charge_total", "Service Charge")}</span>
+                  <span className="font-semibold">
+                    {currency}
+                    {serviceChargeTotal.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-between items-center text-base font-extrabold text-slate-900 dark:text-white">
+                <span>{t("cart.payable_total", "Total Payable")}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 text-lg">
+                  {currency}
+                  {payableTotal.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
 
-      <dialog id="modal-place-order" className="modal modal-bottom sm:modal-middle w-full mx-auto max-w-5xl">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
+      {/* Bottom Checkout Bar */}
+      {cartItems.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 p-3 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95">
+          <div className="max-w-3xl mx-auto">
+            <button
+              type="button"
+              onClick={() => setIsCheckoutModalOpen(true)}
+              className="w-full min-h-[56px] bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 px-5 rounded-2xl shadow-lg flex justify-between items-center active:scale-98 transition cursor-pointer"
+            >
+              <div>
+                <p className="text-xs font-medium text-emerald-100 text-left">
+                  {t("cart.total", "Total")}
+                </p>
+                <p className="text-lg font-extrabold">
+                  {currency}
+                  {payableTotal.toFixed(2)}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-base font-extrabold">
+                <span>{t("cart.checkout", "Confirm & Place Order")}</span>
+                <IconChevronRight size={20} stroke={2.5} />
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
 
-          <div className="my-2 mx-auto w-full relative">
-            <h3 className='text-center text-xl font-semibold'>{t('cart.continue_as')}</h3>
-
-            <div className="absolute top-0 right-0 text-red-400 cursor-pointer">
-              <button onClick={() => {document.getElementById('modal-place-order').close()}}>
-                <IconX size={20} />
+      {/* Checkout & PIN Confirmation Modal */}
+      {isCheckoutModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                {t("cart.confirm_order", "Confirm Your Order")}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCheckoutModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500"
+              >
+                <IconX size={18} />
               </button>
             </div>
 
-            <div className="flex flex-col justify-around mt-4">
-              <button
-                className={`rounded-lg transition px-4 py-3 text-lg font-semibold  border-2 ${
-                  !showPhoneFields ? 'bg-white dark:bg-black border-restro-green text-restro-green shadow-sm' : 'bg-gray-100 dark:bg-black text-gray-600 hover:bg-gray-200'
-                }`}
-                onClick={() => setShowPhoneFields(false)}
-              >
-                {t('cart.guest')}
-              </button>
-
-              <div className="relative flex items-center justify-center my-6">
-                <div className="border-t border-restro-border-green w-full"></div>
-                <span className="absolute bg-white dark:bg-black px-4 text-gray-500 text-sm">{t('cart.or')}</span>
+            {/* Step 1: Table & 4-Digit PIN Verification */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/70 border border-slate-200 dark:border-zinc-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                  Table Verification
+                </span>
+                {storeTable && isTablePinVerified && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+                    <IconShieldCheck size={15} />
+                    Verified
+                  </span>
+                )}
               </div>
 
-              <button
-                className={`rounded-lg transition px-4 py-3 text-lg font-semibold  border-2 ${
-                  showPhoneFields ? 'bg-white dark:bg-black border-restro-green text-restro-green shadow-sm ' : 'bg-gray-100 dark:bg-black text-restro-text hover:bg-gray-200 border-restro-border-green'
-                }`}
-                onClick={() => setShowPhoneFields(true)}
-              >
-                {t('cart.using_phone_number')}
-              </button>
-            </div>
-
-            {showPhoneFields && (
-              <div className="mt-6">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">{t('cart.name_label')} <span className="text-xs text-gray-400">- (Required)</span></label>
-                  <input
-                    type="text"
-                    ref={nameRef}
-                    className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green'
-                    placeholder={t('cart.name_placeholder')}
-                  />
+              {!storeTable && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    Select Your Table
+                  </label>
+                  <select
+                    value={selectedTableRef}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedTableRef(val);
+                      const found = publicTables.find(
+                        (tObj) =>
+                          String(tObj.encrypted_id) === String(val) ||
+                          String(tObj.id) === String(val)
+                      );
+                      if (found) setStoreTable(found);
+                    }}
+                    className="w-full min-h-[44px] rounded-xl px-3 py-2 text-sm font-bold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700"
+                  >
+                    <option value="">-- Choose Table --</option>
+                    {publicTables.map((tbl) => (
+                      <option key={tbl.id} value={tbl.encrypted_id || tbl.id}>
+                        Table {tbl.table_title} {tbl.floor ? `(${tbl.floor})` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">{t('cart.phone_label')} <span className="text-xs text-gray-400">- (Required)</span></label>
+              )}
+
+              {storeTable && (
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Ordering for Table {storeTable.table_title}
+                  {storeTable.floor ? ` (${storeTable.floor})` : ""}
+                </p>
+              )}
+
+              {!isTablePinVerified && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">
+                    Enter 4-Digit Table PIN{" "}
+                    <span className="text-slate-400 font-normal">
+                      (Check table slip or ask server)
+                    </span>
+                  </label>
                   <input
                     type="tel"
-                    ref={phoneRef}
-                    className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green'
-                    placeholder={t('cart.phone_placeholder')}
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={tablePinInput}
+                    onChange={(e) => setTablePinInput(e.target.value.replace(/\D/g, ""))}
+                    placeholder="• • • •"
+                    className="w-full min-h-[48px] rounded-xl px-4 py-2.5 text-center text-xl font-black tracking-[0.5em] bg-white dark:bg-zinc-900 border-2 border-emerald-500/60 outline-none focus:border-emerald-600"
+                    autoFocus
                   />
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <div className="modal-action justify-center w-full">
+            {/* Step 2: Guest vs Customer Phone */}
+            <div className="space-y-2.5">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                {t("cart.continue_as", "Guest Details")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPhoneFields(false)}
+                  className={`min-h-[44px] rounded-xl px-3 py-2 text-xs font-extrabold border transition cursor-pointer ${
+                    !showPhoneFields
+                      ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                      : "border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-300"
+                  }`}
+                >
+                  {t("cart.guest", "Order as Guest")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPhoneFields(true)}
+                  className={`min-h-[44px] rounded-xl px-3 py-2 text-xs font-extrabold border transition cursor-pointer ${
+                    showPhoneFields
+                      ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                      : "border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-300"
+                  }`}
+                >
+                  {t("cart.using_phone_number", "Add Name & Phone")}
+                </button>
+              </div>
+
+              {showPhoneFields && (
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      {t("cart.name_label", "Your Name")} *
+                    </label>
+                    <div className="relative flex items-center">
+                      <IconUser size={16} className="absolute left-3 text-slate-400" />
+                      <input
+                        type="text"
+                        ref={nameRef}
+                        className="w-full min-h-[42px] rounded-xl pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 outline-none focus:border-emerald-500"
+                        placeholder={t("cart.name_placeholder", "Enter your name")}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      {t("cart.phone_label", "Phone Number")} *
+                    </label>
+                    <div className="relative flex items-center">
+                      <IconPhone size={16} className="absolute left-3 text-slate-400" />
+                      <input
+                        type="tel"
+                        ref={phoneRef}
+                        className="w-full min-h-[42px] rounded-xl pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 outline-none focus:border-emerald-500"
+                        placeholder={t("cart.phone_placeholder", "Enter phone number")}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
-              onClick={() => {btnPlaceOrder()}}
-              className="rounded-lg hover:bg-restro-green-dark transition active:scale-95 hover:shadow-lg px-4 py-4 bg-restro-green text-white w-full text-xl font-semibold"
+              type="button"
+              disabled={isSubmittingOrder}
+              onClick={btnPlaceOrder}
+              className="w-full min-h-[52px] rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-base font-extrabold py-3.5 shadow-lg active:scale-98 transition cursor-pointer"
             >
-              {t('cart.place_order')}
+              {isSubmittingOrder
+                ? t("cart.please_wait", "Submitting...")
+                : `${t("cart.place_order", "Place Order")} • ${currency}${payableTotal.toFixed(2)}`}
             </button>
           </div>
         </div>
-      </dialog>
+      )}
 
+      {/* Item Notes Modal */}
+      {editingNoteIndex !== null && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <form
+            onSubmit={handleSaveNotes}
+            className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                {t("cart.add_notes", "Special Instructions")}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingNoteIndex(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500"
+              >
+                <IconX size={17} />
+              </button>
+            </div>
 
-      {/* dialog: notes */}
-      <dialog id="modal-notes" className="modal modal-bottom sm:modal-middle">
-        <div className='modal-box border border-restro-border-green dark:rounded-2xl'>
-          <h3 className="font-bold text-lg">{t('cart.add_notes')}</h3>
+            <div>
+              <input
+                type="text"
+                maxLength={150}
+                value={editingNoteText}
+                onChange={(e) => setEditingNoteText(e.target.value)}
+                placeholder={t("cart.notes_placeholder", "E.g. No onions, extra sauce...")}
+                className="w-full min-h-[44px] rounded-xl px-3.5 py-2 text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 outline-none focus:border-emerald-500"
+                autoFocus
+              />
+            </div>
 
-          <div className="my-4">
-            <input type="hidden" ref={dialogNotesIndexRef} />
-            <label htmlFor="dialogNotesText" className="mb-1 block text-gray-500 text-sm">{t('cart.notes')} <span className="text-xs text-gray-500">(100 character max.)</span></label>
-            <input ref={dialogNotesTextRef} type="text" name="dialogNotesText" id='dialogNotesText' className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green' placeholder={t('cart.notes_placeholder')} />
-          </div>
-
-          <div className="modal-action">
-            <form method="dialog">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="rounded-lg transition active:scale-95 hover:shadow-lg px-4 py-3 bg-restro-gray hover:bg-restro-button-hover text-restro-text">{t('cart.close')}</button>
-              <button onClick={()=>{btnAddNotes();}} className="rounded-lg hover:bg-green-800 transition active:scale-95 hover:shadow-lg px-4 py-3 bg-restro-green text-white ml-3">{t('cart.save')}</button>
-            </form>
-          </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingNoteIndex(null)}
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-700 dark:text-slate-300"
+              >
+                {t("cart.close", "Cancel")}
+              </button>
+              <button
+                type="submit"
+                className="min-h-[42px] px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-extrabold"
+              >
+                {t("cart.save", "Save Note")}
+              </button>
+            </div>
+          </form>
         </div>
-      </dialog>
-      {/* dialog: notes */}
-
-
-      </div>
-
+      )}
     </div>
   );
 };
