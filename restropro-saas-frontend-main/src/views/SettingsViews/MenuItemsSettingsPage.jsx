@@ -1309,36 +1309,30 @@ export default function MenuItemsSettingsPage() {
           })}
         </div>
       ) : (
-        /* ── High-Density Table / List View ── */
-        <div className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#202020] overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-restro-border-green bg-restro-gray/60 text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                  <th className="py-3.5 pl-4 pr-2 w-10">
-                    <button
-                      type="button"
-                      onClick={toggleSelectAllFiltered}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition active:scale-95"
-                      title={allFilteredSelected ? "Deselect all" : "Select all"}
-                    >
-                      {allFilteredSelected ? (
-                        <IconSquareCheckFilled size={18} className="text-restro-green" />
-                      ) : (
-                        <IconSquare size={18} stroke={iconStroke} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="py-3.5 px-3">Menu Item</th>
-                  <th className="py-3.5 px-3">Category</th>
-                  <th className="py-3.5 px-3">Kitchen Station</th>
-                  <th className="py-3.5 px-3">Modifiers</th>
-                  <th className="py-3.5 px-3">Price / Tax</th>
-                  <th className="py-3.5 px-3">POS Status</th>
-                  <th className="py-3.5 pl-3 pr-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-restro-border-green/60 text-sm">
+        /* ── High-Density Table / List View (QuickBooks Style) ── */
+        <div className="w-full overflow-x-auto border-t border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b]">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
+                <th className="py-3 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAllFiltered}
+                    aria-label="Select all menu items"
+                    className="w-4 h-4 rounded border-slate-300 dark:border-neutral-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </th>
+                <th className="py-3 px-3">Menu item</th>
+                <th className="py-3 px-3">Category</th>
+                <th className="py-3 px-3">Kitchen station</th>
+                <th className="py-3 px-3">Modifiers</th>
+                <th className="py-3 px-3">Price / Tax</th>
+                <th className="py-3 px-3">POS status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
                 {filteredItems.map((menuItem) => {
                   const {
                     id,
@@ -1365,32 +1359,24 @@ export default function MenuItemsSettingsPage() {
                       key={id}
                       onClick={() => btnShowUpdate(id)}
                       className={clsx(
-                        "group cursor-pointer transition-colors",
+                        "group cursor-pointer transition hover:bg-slate-50/70 dark:hover:bg-neutral-800/40",
                         isSelected
-                          ? "bg-restro-green/10"
-                          : "hover:bg-restro-gray/50",
+                          ? "bg-emerald-50/40 dark:bg-emerald-950/20"
+                          : "",
                         !is_enabled && "opacity-70"
                       )}
                     >
                       {/* Checkbox */}
                       <td
-                        className="py-3 pl-4 pr-2"
+                        className="py-3 px-3 text-center w-10"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectItem(id)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition active:scale-95"
-                        >
-                          {isSelected ? (
-                            <IconSquareCheckFilled
-                              size={19}
-                              className="text-restro-green"
-                            />
-                          ) : (
-                            <IconSquare size={19} stroke={iconStroke} />
-                          )}
-                        </button>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectItem(id)}
+                          className="w-4 h-4 rounded border-slate-300 dark:border-neutral-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
                       </td>
 
                       {/* Thumbnail + Title */}
@@ -1512,21 +1498,13 @@ export default function MenuItemsSettingsPage() {
                           type="button"
                           onClick={() => btnChangeItemVisibilty(id, !is_enabled)}
                           className={clsx(
-                            "min-h-[36px] px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 transition active:scale-95 border",
+                            "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border transition active:scale-95",
                             is_enabled
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
-                              : "bg-gray-200 dark:bg-gray-800 text-gray-500 border-gray-300 dark:border-gray-700 hover:bg-gray-300"
+                              ? "bg-[#dcfce7] text-[#15803d] dark:bg-emerald-950/70 dark:text-emerald-400 border-[#bbf7d0] dark:border-emerald-800"
+                              : "bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-neutral-400 border-slate-200 dark:border-neutral-700"
                           )}
                         >
-                          {is_enabled ? (
-                            <>
-                              <IconEye size={14} stroke={iconStroke} /> Active
-                            </>
-                          ) : (
-                            <>
-                              <IconEyeOff size={14} stroke={iconStroke} /> Hidden
-                            </>
-                          )}
+                          {is_enabled ? "Active" : "Hidden"}
                         </button>
                       </td>
 
@@ -1579,8 +1557,7 @@ export default function MenuItemsSettingsPage() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ── Floating Multi-Select Bulk Action Bar ── */}
       {selectedIds.length > 0 && (

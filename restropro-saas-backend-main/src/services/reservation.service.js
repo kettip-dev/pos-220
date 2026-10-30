@@ -6,14 +6,21 @@ exports.addReservationDB = async (customerId, date, tableId, status, notes, peop
     try {
         conn.config.dateStrings = true;
         const sql = `
-        INSERT INTO reservations
+        INSERT INTO reservations 
         (customer_id, date, table_id, status, notes, people_count, unique_code, tenant_id)
         VALUES
         (?, ?, ?, ?, ?, ?, ?, ?);
         `;
 
-        const utcDateTime = new Date(date).toISOString().slice(0, 19).replace("T", " ");
-        const [result] = await conn.query(sql, [customerId, utcDateTime, tableId, status, notes, peopleCount, uniqueCode, tenantId]);
+        let formattedDate = date;
+        if (date) {
+            const d = new Date(date);
+            if (!isNaN(d.getTime())) {
+                formattedDate = d.toISOString().slice(0, 19).replace("T", " ");
+            }
+        }
+
+        const [result] = await conn.query(sql, [customerId, formattedDate, tableId, status || 'booked', notes, peopleCount, uniqueCode, tenantId]);
 
         return result.insertId;
     } catch (error) {
@@ -34,8 +41,14 @@ exports.updateReservationDB = async (reservationId, date, tableId, status, notes
         date = ?, table_id = ?, status = ?, notes = ?, people_count = ?, updated_at = NOW()
         WHERE id = ? AND tenant_id = ?;
         `;
-        const utcDateTime = new Date(date).toISOString().slice(0, 19).replace("T", " ");
-        await conn.query(sql, [utcDateTime, tableId, status, notes, peopleCount, reservationId, tenantId]);
+        let formattedDate = date;
+        if (date) {
+            const d = new Date(date);
+            if (!isNaN(d.getTime())) {
+                formattedDate = d.toISOString().slice(0, 19).replace("T", " ");
+            }
+        }
+        await conn.query(sql, [formattedDate, tableId, status, notes, peopleCount, reservationId, tenantId]);
 
         return;
     } catch (error) {
@@ -44,6 +57,24 @@ exports.updateReservationDB = async (reservationId, date, tableId, status, notes
     } finally {
         conn.release();
       }
+};
+
+exports.updateReservationStatusDB = async (reservationId, status, tenantId) => {
+    const conn = await getMySqlPromiseConnection();
+    try {
+        const sql = `
+        UPDATE reservations
+        SET status = ?, updated_at = NOW()
+        WHERE id = ? AND tenant_id = ?;
+        `;
+        await conn.query(sql, [status, reservationId, tenantId]);
+        return;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    } finally {
+        conn.release();
+    }
 };
 
 exports.cancelReservationDB = async (reservationId, status, tenantId) => {
@@ -127,14 +158,14 @@ exports.searchReservationsDB = async (search, scope, businessTenantIds = []) => 
         }
 
         const sql = `
-        SELECT ${businessColumn(scope)} r.id, customer_id, c.name as customer_name, r.date, table_id, st.table_title, status, notes, people_count, unique_code, r.created_at, r.updated_at
+        SELECT ${businessColumn(scope)} r.id, r.customer_id, COALESCE(c.name, r.customer_id) as customer_name, c.email as customer_email, r.date,
+        r.table_id, st.table_title, st.seating_capacity, st.floor, r.status, r.notes, r.people_count, r.unique_code, r.created_at, r.updated_at
         FROM reservations r
-        INNER JOIN customers c ON r.customer_id = c.phone AND r.tenant_id = c.tenant_id
-        LEFT JOIN store_tables st
-        ON r.table_id = st.id AND st.tenant_id = r.tenant_id
+        LEFT JOIN customers c ON r.customer_id = c.phone AND r.tenant_id = c.tenant_id
+        LEFT JOIN store_tables st ON r.table_id = st.id AND st.tenant_id = r.tenant_id
         WHERE ${tenantSql} AND (${matches.join(" OR ")})
-        ORDER BY r.created_at DESC
-        LIMIT 20;
+        ORDER BY r.date ASC
+        LIMIT 50;
         `;
         conn.config.dateStrings = true;
         const [results] = await conn.query(sql, [...tenantParams, ...matchParams]);
@@ -155,13 +186,13 @@ exports.getReservationsDB = async (type, from, to, scope) => {
         const {filter, params} = getFilterConditionForReservationSearch(type, from, to, scope);
 
         const sql = `
-        SELECT ${businessColumn(scope)} r.id, customer_id, c.name as customer_name, r.date,
-        table_id, st.table_title, status, notes, people_count, unique_code, r.created_at, r.updated_at
+        SELECT ${businessColumn(scope)} r.id, r.customer_id, COALESCE(c.name, r.customer_id) as customer_name, c.email as customer_email, r.date,
+        r.table_id, st.table_title, st.seating_capacity, st.floor, r.status, r.notes, r.people_count, r.unique_code, r.created_at, r.updated_at
         FROM reservations r
-        INNER JOIN customers c ON r.customer_id = c.phone AND r.tenant_id = c.tenant_id
-        LEFT JOIN store_tables st
-        ON r.table_id = st.id AND st.tenant_id = r.tenant_id
+        LEFT JOIN customers c ON r.customer_id = c.phone AND r.tenant_id = c.tenant_id
+        LEFT JOIN store_tables st ON r.table_id = st.id AND st.tenant_id = r.tenant_id
         WHERE ${filter}
+        ORDER BY r.date ASC
         `;
 
         conn.config.dateStrings=true;
@@ -179,15 +210,7 @@ exports.getReservationsDB = async (type, from, to, scope) => {
 
 /**
  * Consolidated reservation KPIs — total, today, upcoming, and a count per
- * status. ONE query for the date-based figures plus one grouped by status, so a
- * group with 40 branches costs the same as one with 2.
- *
- * Status counts are grouped by the value actually stored rather than hardcoded.
- * `reservations.status` is a free VARCHAR and the app's vocabulary is
- * booked / paid / cancelled (see ReservationPage) — there is no "completed" or
- * "no-show" state, so counters for those would always read zero and imply a
- * feature that does not exist. Grouping keeps this correct if the vocabulary
- * ever grows.
+ * status. ONE query for the date-based figures plus one grouped by status.
  */
 exports.getReservationSummaryDB = async (scope) => {
     const conn = await getMySqlPromiseConnection();
@@ -200,6 +223,8 @@ exports.getReservationSummaryDB = async (scope) => {
                     COUNT(*) AS total,
                     COUNT(CASE WHEN DATE(date) = CURDATE() THEN 1 END) AS today,
                     COUNT(CASE WHEN DATE(date) > CURDATE() AND status <> 'cancelled' THEN 1 END) AS upcoming,
+                    COUNT(CASE WHEN DATE(date) = CURDATE() AND status = 'seated' THEN 1 END) AS seated,
+                    COALESCE(SUM(CASE WHEN DATE(date) = CURDATE() THEN people_count ELSE 0 END), 0) AS guests_today,
                     COALESCE(SUM(people_count), 0) AS guests
                 FROM reservations
                 WHERE ${tenantSql};
@@ -302,6 +327,10 @@ const getFilterConditionForReservationSearch = (type, from, to, scope) => {
         }
         case 'tomorrow': {
             dateFilter = `DATE(date) = DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND `;
+            break;
+        }
+        case 'all': {
+            dateFilter = '';
             break;
         }
         default: {

@@ -12,6 +12,7 @@ import {
   IconToolsKitchen3,
   IconChefHat,
   IconChartBar,
+  IconTruck,
   IconX,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
@@ -118,6 +119,12 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
           iconBg: "bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400 group-hover:bg-purple-500 group-hover:text-white",
         },
         {
+          label: t("navbar.vendors_directory", "Suppliers Directory"),
+          path: "/dashboard/suppliers",
+          icon: <IconTruck size={18} stroke={iconStroke} />,
+          iconBg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white",
+        },
+        {
           label: t("quick_new.reports", "Sales Reports"),
           path: "/dashboard/reports",
           icon: <IconChartBar size={18} stroke={iconStroke} />,
@@ -130,12 +137,13 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
   return (
     <div className={clsx("relative", compact ? "inline-block" : "w-full")} ref={menuRef}>
       {qboRail ? (
-        // QBO Far-Left Rail '+ Create' circular button with label underneath
+        // QBO Far-Left Rail '+ Create' circular button (icon only)
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           title={t("quick_new.create", "Create")}
-          className="group w-full flex flex-col items-center justify-center gap-1.5 py-1 cursor-pointer select-none focus:outline-none"
+          aria-label={t("quick_new.create", "Create")}
+          className="group w-full flex items-center justify-center py-1 cursor-pointer select-none focus:outline-none"
         >
           <span
             className={clsx(
@@ -153,16 +161,6 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
             >
               <IconPlus size={22} stroke={2.6} className="text-white drop-shadow-xs" />
             </span>
-          </span>
-          <span
-            className={clsx(
-              "text-[11px] font-bold tracking-tight leading-none transition-colors duration-150",
-              isOpen
-                ? "text-[#2CA01C] dark:text-emerald-400"
-                : "text-slate-700 dark:text-slate-300 group-hover:text-[#2CA01C] dark:group-hover:text-emerald-400"
-            )}
-          >
-            {t("quick_new.create", "Create")}
           </span>
         </button>
       ) : isCollapsed ? (

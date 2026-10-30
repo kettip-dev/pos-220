@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2 } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
@@ -27,6 +27,9 @@ import POSDraftsDrawer from '../components/pos/POSDraftsDrawer';
 import POSCustomerDrawer from '../components/pos/POSCustomerDrawer';
 import POSQROrdersDrawer from '../components/pos/POSQROrdersDrawer';
 import POSPaymentSuccessModal from '../components/pos/POSPaymentSuccessModal';
+import POSPromotionDrawer from '../components/pos/POSPromotionDrawer';
+import { useActivePromotions } from '../controllers/promotions.controller';
+import { evaluateCartPromotions } from '../helpers/promotionEvaluator';
 import { clsx } from "clsx";
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -49,6 +52,9 @@ export default function POSPage() {
   const [isDraftsDrawerOpen, setIsDraftsDrawerOpen] = useState(false);
   const [isCustomerDrawerOpen, setIsCustomerDrawerOpen] = useState(false);
   const [isQrOrdersDrawerOpen, setIsQrOrdersDrawerOpen] = useState(false);
+  const [isPromotionDrawerOpen, setIsPromotionDrawerOpen] = useState(false);
+  const [enteredCouponCode, setEnteredCouponCode] = useState("");
+  const { promotions: activePromotionsList = [] } = useActivePromotions();
   const [completedPaymentInfo, setCompletedPaymentInfo] = useState(null);
   const isQrOrdersDrawerOpenRef = useRef(false);
 
@@ -1787,6 +1793,19 @@ export default function POSPage() {
       }
     });
 
+    // Promotion Engine evaluation
+    const promoEval = evaluateCartPromotions({
+      promotions: activePromotionsList,
+      cartItems: cartItems,
+      diningOption: selectedDiningOption,
+      enteredCode: enteredCouponCode,
+      now: new Date()
+    });
+
+    const promotionDiscountTotal = promoEval?.totalPromotionDiscount || 0;
+    const appliedPromotions = promoEval?.appliedPromotions || [];
+    const eligiblePromotions = promoEval?.eligiblePromotions || [];
+
     let discountAmount = 0;
     const numDiscVal = Number(discVal) || 0;
     if (numDiscVal > 0) {
@@ -1798,7 +1817,8 @@ export default function POSPage() {
       }
     }
 
-    payableTotal = Math.max(0, payableTotal - discountAmount);
+    const totalDeductions = discountAmount + promotionDiscountTotal;
+    payableTotal = Math.max(0, payableTotal - totalDeductions);
 
     // Calculate Total Service charge % from items total
     if (state.serviceCharge) {
@@ -1808,8 +1828,15 @@ export default function POSPage() {
     }
 
     return {
-      itemsTotal, discountAmount, taxTotal, serviceChargeTotal, payableTotal
-    }
+      itemsTotal,
+      discountAmount,
+      promotionDiscountTotal,
+      appliedPromotions,
+      eligiblePromotions,
+      taxTotal,
+      serviceChargeTotal,
+      payableTotal
+    };
   };
 
   const handleDiscountChange = (type, val) => {
@@ -1895,11 +1922,15 @@ export default function POSPage() {
 
       toast.loading(t('pos.please_wait'));
       setIsSubmittingPayment(true);
+      const summary = calculateOrderSummary();
+      const loyaltyPointsRedeemed = tenderData?.loyaltyPointsRedeemed || 0;
       const res = await createOrderAndInvoice(
         cartItems, deliveryType, customerType, customer, tableId,
-        state.itemsTotal, state.taxTotal, state.serviceChargeTotal, state.payableTotal,
+        summary.itemsTotal, summary.taxTotal, summary.serviceChargeTotal, summary.payableTotal,
         state.selectedQrOrderItem, state.selectedPaymentType,
-        state.discountType, state.discountValue, state.discountAmount
+        state.discountType, state.discountValue, summary.discountAmount,
+        summary.appliedPromotions, summary.promotionDiscountTotal,
+        loyaltyPointsRedeemed
       );
       toast.dismiss();
       setIsSubmittingPayment(false);
@@ -1931,13 +1962,15 @@ export default function POSPage() {
 
         const receiptPayload = {
           cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
-          itemsTotal: state.itemsTotal,
+          itemsTotal: summary.itemsTotal,
           discountType: state.discountType,
           discountValue: state.discountValue,
-          discountAmount: state.discountAmount,
-          taxTotal: state.taxTotal,
-          serviceChargeTotal: state.serviceChargeTotal,
-          payableTotal: state.payableTotal,
+          discountAmount: summary.discountAmount,
+          appliedPromotions: summary.appliedPromotions,
+          promotionDiscountTotal: summary.promotionDiscountTotal,
+          taxTotal: summary.taxTotal,
+          serviceChargeTotal: summary.serviceChargeTotal,
+          payableTotal: summary.payableTotal,
           tokenNo: data.tokenNo,
           orderId: data.orderId,
           paymentMethod: paymentMethodText,
@@ -1945,7 +1978,14 @@ export default function POSPage() {
           billingMode: "prepaid",
           billingTag: "PAID (PREPAID)",
           dualTenderInfo: tenderData || null,
+          loyaltyPointsRedeemed: tenderData?.loyaltyPointsRedeemed || 0,
+          loyaltyDiscountAmount: tenderData?.loyaltyDiscountAmount || 0,
+          loyaltyPointsEarned: tenderData?.loyaltyPointsEarned || 0,
         };
+
+        if (customer?.phone) {
+          mutate((key) => typeof key === 'string' && (key.startsWith('/customers') || key.startsWith('/loyalty')));
+        }
 
         setDetailsForReceiptPrint(receiptPayload);
 
@@ -1976,6 +2016,7 @@ export default function POSPage() {
           discountValue: 0,
           discountAmount: 0,
         }))
+        setEnteredCouponCode("");
 
         _initPOS()
 
@@ -2070,7 +2111,7 @@ export default function POSPage() {
       const customer = state.customer;
 
       const summary = calculateOrderSummary();
-      const res = await createOrder(cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem);
+      const res = await createOrder(cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem, summary.appliedPromotions, summary.promotionDiscountTotal);
 
       if (res.status === 200) {
         const data = res.data;
@@ -2101,6 +2142,8 @@ export default function POSPage() {
           discountType: state.discountType,
           discountValue: state.discountValue,
           discountAmount: summary.discountAmount,
+          appliedPromotions: summary.appliedPromotions,
+          promotionDiscountTotal: summary.promotionDiscountTotal,
           taxTotal: summary.taxTotal,
           serviceChargeTotal: summary.serviceChargeTotal,
           payableTotal: summary.payableTotal,
@@ -2655,8 +2698,9 @@ export default function POSPage() {
             ) : (
               <>
                 {cartItems.map((cartItem, i) => {
-                  const { quantity, notes, title, price, variant, addons } = cartItem;
+                  const { id, quantity, notes, title, price, variant, addons } = cartItem;
                   const itemTotal = price * quantity;
+                  const itemDiscount = liveCartSummary.itemDiscounts?.[id] || 0;
                   const isEditingThisNote = editingNoteIndex === i;
 
                   return (
@@ -2687,6 +2731,16 @@ export default function POSPage() {
                             </div>
                           )}
 
+                          {/* Item-level promotion discount badge */}
+                          {itemDiscount > 0 && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-2xs">
+                                <IconTag size={11} />
+                                Deal: -{currency}{Number(itemDiscount).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+
                           {/* Existing notes indicator */}
                           {notes && !isEditingThisNote && (
                             <div 
@@ -2705,8 +2759,21 @@ export default function POSPage() {
 
                         {/* Line Total & Unit Price */}
                         <div className="text-right shrink-0">
-                          <p className="font-black text-gray-900 dark:text-white text-sm font-mono">{currency}{itemTotal.toFixed(2)}</p>
-                          <p className="text-[10px] text-gray-400 font-mono">{currency}{Number(price).toFixed(2)} ea</p>
+                          {itemDiscount > 0 ? (
+                            <>
+                              <p className="font-black text-emerald-600 dark:text-emerald-400 text-sm font-mono">
+                                {currency}{Math.max(0, itemTotal - itemDiscount).toFixed(2)}
+                              </p>
+                              <p className="text-[10px] text-gray-400 line-through font-mono">
+                                {currency}{itemTotal.toFixed(2)}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-black text-gray-900 dark:text-white text-sm font-mono">{currency}{itemTotal.toFixed(2)}</p>
+                              <p className="text-[10px] text-gray-400 font-mono">{currency}{Number(price).toFixed(2)} ea</p>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -2836,6 +2903,34 @@ export default function POSPage() {
 
           {/* Persistent Live Financial Calculation Tray & Actions */}
           <div className="flex-shrink-0 w-full p-3.5 border-t border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8]/70 dark:bg-slate-800/50 space-y-2.5">
+            {/* Quick Upsell Encouragement Pill */}
+            {(() => {
+              const rawSub = liveCartSummary.rawSubtotal || liveCartSummary.itemsTotal || 0;
+              const nextDeal = (liveCartSummary.eligiblePromotions || []).find((p) => {
+                const minS = Number(p.min_order_amount) || 0;
+                return minS > 0 && rawSub < minS && (minS - rawSub) <= 20;
+              });
+              if (!nextDeal) return null;
+              const needed = Number(nextDeal.min_order_amount) - rawSub;
+              return (
+                <button
+                  type="button"
+                  onClick={() => setIsPromotionDrawerOpen(true)}
+                  className="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-300 dark:border-amber-700/60 text-left flex items-center justify-between text-xs transition active:scale-98 cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <IconFlame size={16} className="text-orange-500 animate-pulse shrink-0" />
+                    <span className="text-gray-800 dark:text-gray-200">
+                      Add <strong className="text-amber-600 dark:text-amber-400 font-mono font-black">{currency}{needed.toFixed(2)}</strong> more for <strong>{nextDeal.title}</strong>!
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 underline shrink-0">
+                    View
+                  </span>
+                </button>
+              );
+            })()}
+
             {/* Live Financial Breakdown */}
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between text-gray-500">
@@ -2859,6 +2954,53 @@ export default function POSPage() {
                   {liveCartSummary.discountAmount > 0 ? `-${currency}${liveCartSummary.discountAmount.toFixed(2)}` : `${currency}0.00`}
                 </span>
               </div>
+
+              {/* Promotions Touch-Friendly Row */}
+              <button
+                type="button"
+                onClick={() => setIsPromotionDrawerOpen(true)}
+                className={`w-full min-h-[42px] px-2.5 py-1.5 rounded-xl border flex items-center justify-between transition active:scale-98 cursor-pointer ${
+                  (liveCartSummary.promotionDiscountTotal || 0) > 0
+                    ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 shadow-2xs"
+                    : "bg-white dark:bg-slate-900 border-[#E3E5E8] dark:border-slate-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    (liveCartSummary.promotionDiscountTotal || 0) > 0
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400"
+                  }`}>
+                    {(liveCartSummary.promotionDiscountTotal || 0) > 0 ? (
+                      <IconSparkles size={16} />
+                    ) : (
+                      <IconTag size={15} />
+                    )}
+                  </span>
+                  <div className="text-left">
+                    <span className="text-xs font-bold block leading-tight">
+                      {t('pos.promotions', 'Promotions & Coupons')}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block leading-tight">
+                      {(liveCartSummary.promotionDiscountTotal || 0) > 0
+                        ? `${liveCartSummary.appliedPromotions?.length || 0} deal(s) active on cart`
+                        : '+ Tap to enter voucher code'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  {(liveCartSummary.promotionDiscountTotal || 0) > 0 ? (
+                    <span className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400">
+                      -{currency}{liveCartSummary.promotionDiscountTotal.toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold text-gray-400">
+                      {currency}0.00
+                    </span>
+                  )}
+                </div>
+              </button>
 
               {/* Inline Discount Adjuster */}
               {isDiscountDrawerOpen && (
@@ -3050,6 +3192,8 @@ export default function POSPage() {
         taxTotal={liveCartSummary.taxTotal}
         serviceChargeTotal={liveCartSummary.serviceChargeTotal}
         discountAmount={liveCartSummary.discountAmount}
+        promotionDiscountTotal={liveCartSummary.promotionDiscountTotal}
+        appliedPromotions={liveCartSummary.appliedPromotions}
         discountType={state.discountType}
         discountValue={state.discountValue}
         onDiscountChange={handleDiscountChange}
@@ -3091,6 +3235,28 @@ export default function POSPage() {
         exchangeRateUsdToKhr={customExchangeRate || state.storeSettings?.exchange_rate_usd_to_khr || state.storeSettings?.exchangeRateUsdToKhr || 4100}
         activeCartItemsCount={cartItems?.length || 0}
         onHoldCurrentAndRestore={handleHoldCurrentAndRestore}
+      />
+
+      {/* Slide-Over Promotions & Coupons Drawer */}
+      <POSPromotionDrawer
+        isOpen={isPromotionDrawerOpen}
+        onClose={() => setIsPromotionDrawerOpen(false)}
+        promotions={activePromotionsList}
+        enteredCouponCode={enteredCouponCode}
+        onApplyCouponCode={(code) => {
+          setEnteredCouponCode(code);
+          toast.success(`Coupon "${code}" applied to cart`);
+        }}
+        onRemoveCouponCode={() => {
+          setEnteredCouponCode("");
+          toast.success("Coupon code removed");
+        }}
+        appliedPromotions={liveCartSummary.appliedPromotions || []}
+        eligiblePromotions={liveCartSummary.eligiblePromotions || []}
+        totalPromotionDiscount={liveCartSummary.promotionDiscountTotal || 0}
+        rawSubtotal={liveCartSummary.rawSubtotal || liveCartSummary.itemsTotal || 0}
+        currency={currency}
+        exchangeRateUsdToKhr={customExchangeRate || state.storeSettings?.exchange_rate_usd_to_khr || 4100}
       />
 
       {/* Slide-Over Customer & Loyalty Drawer */}

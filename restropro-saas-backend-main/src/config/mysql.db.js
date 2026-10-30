@@ -10,6 +10,9 @@ const { ensureBillingModeSchema } = require("../utils/billingModeMigration");
 const { ensureBranchManagementSchema } = require("../utils/branchManagementMigration");
 const { ensureBusinessRegistrationSchema } = require("../utils/businessRegistrationMigration");
 const { ensureTelegramSettingsSchema } = require("../utils/telegramSettingsMigration");
+const { ensureSupplierManagementSchema } = require("../utils/supplierManagementMigration");
+const { ensurePromotionSchema } = require("../utils/promotionMigration");
+const { ensureLoyaltyProgramSchema } = require("../utils/loyaltyMigration");
 
 const pool = 
 mySqlPromise.createPool(`${CONFIG.DATABASE_URL}?ssl={"rejectUnauthorized":false}&multipleStatements=true&dateStrings=false&waitForConnections=true&connectionLimit=99&enableKeepAlive=true&keepAliveInitialDelay=10000`);
@@ -50,6 +53,18 @@ ensureBusinessRegistrationSchema(pool).catch((err) => {
 
 ensureTelegramSettingsSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring telegram settings schema:", err);
+});
+
+ensureSupplierManagementSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring supplier management schema:", err);
+});
+
+ensurePromotionSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring promotion schema:", err);
+});
+
+ensureLoyaltyProgramSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring loyalty program schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

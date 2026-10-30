@@ -445,6 +445,30 @@ export default function POSCustomerDrawer({
                   </div>
 
                   {/* Customer Loyalty & Spend Metrics */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1 rounded-lg bg-amber-500 text-white">
+                        <IconSparkles size={15} stroke={2.2} />
+                      </span>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                          {t('customers.loyalty_points', 'Loyalty Balance')}
+                        </span>
+                        <p className="text-base font-black text-amber-900 dark:text-amber-200 font-mono leading-none mt-0.5">
+                          {isLoadingInsights ? '...' : (insightsData?.pointsBalance ?? selectedCustomer?.points_balance ?? 0)} <span className="text-xs font-normal">pts</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/25 text-amber-900 dark:text-amber-200 text-xs font-extrabold uppercase">
+                        {insightsData?.membershipTier || selectedCustomer?.membership_tier || 'Standard'}
+                      </span>
+                      <p className="text-[10px] text-amber-800/80 dark:text-amber-300/80 font-mono mt-0.5">
+                        Lifetime: {insightsData?.lifetimePointsEarned ?? selectedCustomer?.lifetime_points_earned ?? 0} pts
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#00A699]/20">
                     <div className="rounded-xl bg-white/80 dark:bg-slate-900/70 p-2.5 border border-[#E3E5E8] dark:border-slate-800">
                       <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-gray-400">
@@ -659,9 +683,14 @@ export default function POSCustomerDrawer({
                               <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
                                 {cleanName}
                               </p>
-                              {cust.is_member === 1 && (
+                              {cust.membership_tier && (
                                 <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-extrabold uppercase">
-                                  VIP
+                                  {cust.membership_tier}
+                                </span>
+                              )}
+                              {Number(cust.points_balance || 0) > 0 && (
+                                <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold font-mono">
+                                  {cust.points_balance} pts
                                 </span>
                               )}
                             </div>

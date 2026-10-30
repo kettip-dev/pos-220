@@ -3,7 +3,7 @@ const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
 
-exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId=null, username = null) => {
+exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0) => {
   const conn = await getMySqlPromiseConnection();
 
   try {
@@ -22,8 +22,6 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     console.log(tokenLastUpdated, today);
 
-
-
     if(tokenLastUpdated != today) {
       tokenNo = 0;
     }
@@ -32,9 +30,26 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     tokenNo += 1;
 
     // step 3: save data to orders table
-    const [orderResult] = await conn.query(`INSERT INTO orders (delivery_type, customer_type, customer_id, table_id, token_no, payment_status, invoice_id, tenant_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [deliveryType, customerType, customerId, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, tenantId, username]);
+    const cleanAppliedPromos = appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0
+      ? JSON.stringify(appliedPromotions)
+      : null;
+    const promoDiscount = Number(promotionDiscountTotal || 0);
+
+    const [orderResult] = await conn.query(
+      `INSERT INTO orders (delivery_type, customer_type, customer_id, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [deliveryType, customerType, customerId, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username]
+    );
 
     const orderId = orderResult.insertId;
+
+    // Increment promotion redemptions if applied
+    if (appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0) {
+      const promoIds = appliedPromotions.map(p => p.id).filter(Boolean);
+      if (promoIds.length > 0) {
+        const { incrementRedemptions } = require("./promotions.service");
+        await incrementRedemptions(tenantId, promoIds, conn);
+      }
+    }
 
     // step 4: save data to order_items with station resolution
     const itemIds = [...new Set(cartItems.map(i => i.id).filter(Boolean))];

@@ -17,6 +17,7 @@ const path = require("path")
 const authRoutes = require("./routes/auth.routes");
 const settingsRoutes = require("./routes/settings.routes");
 const customerRoutes = require("./routes/customer.routes");
+const loyaltyRoutes = require("./routes/loyalty.routes");
 const reservationRoutes = require("./routes/reservation.routes");
 const userRoutes = require("./routes/user.routes");
 const menuItemRoutes = require("./routes/menu_item.routes");
@@ -38,6 +39,9 @@ const deviceRoutes = require("./routes/device.routes");
 const businessGroupRoutes = require("./routes/business_group.routes");
 const kitchenStationRoutes = require("./routes/kitchen_stations.routes");
 const telegramRoutes = require("./routes/telegram.routes");
+const vendorRoutes = require("./routes/vendor.routes");
+const purchaseOrderRoutes = require("./routes/purchase_order.routes");
+const promotionsRoutes = require("./routes/promotions.routes");
 // routes import
 
 
@@ -145,6 +149,7 @@ app.use(morgan("tiny"));
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/customers", customerRoutes);
+app.use("/api/v1/loyalty", loyaltyRoutes);
 app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/menu-items", menuItemRoutes);
@@ -168,6 +173,10 @@ app.use("/api/v1/order-status-display", orderStatusDisplayRoutes);
 app.use("/api/v1/devices", deviceRoutes);
 app.use("/api/v1/kitchen-stations", kitchenStationRoutes);
 app.use("/api/v1/telegram", telegramRoutes);
+app.use("/api/v1/vendors", vendorRoutes);
+app.use("/api/v1/suppliers", vendorRoutes);
+app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
+app.use("/api/v1/promotions", promotionsRoutes);
 // routes
 
 app.get("/", (req, res)=>{

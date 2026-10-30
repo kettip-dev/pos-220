@@ -25,8 +25,11 @@ const SOLAR_ICON_CANDIDATES = {
   IconArrowLeft: ["arrow-left-bold-duotone", "round-arrow-left-bold-duotone"],
   IconArrowRight: ["arrow-right-bold-duotone", "round-arrow-right-bold-duotone"],
   IconArrowUpRight: ["arrow-right-up-bold-duotone", "round-arrow-right-up-bold-duotone"],
+  IconArrowBackUp: ["undo-left-round-bold-duotone", "restart-bold-duotone", "undo-left-bold-duotone"],
   IconArrowsMaximize: ["maximize-square-bold-duotone", "full-screen-bold-duotone"],
   IconArrowsMinimize: ["minimize-square-bold-duotone", "quit-full-screen-bold-duotone"],
+  IconMaximize: ["full-screen-bold-duotone", "maximize-bold-duotone"],
+  IconMinimize: ["quit-full-screen-bold-duotone", "minimize-bold-duotone"],
   IconArrowsRandom: ["shuffle-bold-duotone", "transfer-horizontal-bold-duotone"],
   IconBan: ["forbidden-circle-bold-duotone", "close-circle-bold-duotone"],
   IconBell: ["bell-bold-duotone", "bell-bing-bold-duotone"],
@@ -37,6 +40,7 @@ const SOLAR_ICON_CANDIDATES = {
   IconBox: ["box-bold-duotone", "box-minimalistic-bold-duotone"],
   IconBoxSeam: ["box-bold-duotone", "delivery-bold-duotone"],
   IconBrandPaypal: ["card-send-bold-duotone", "wallet-money-bold-duotone", "card-bold-duotone"],
+  IconBrandTelegram: ["plain-bold-duotone", "plain-2-bold-duotone", "chat-round-dots-bold-duotone"],
   IconBrandWhatsapp: ["chat-round-dots-bold-duotone", "phone-calling-rounded-bold-duotone"],
   IconBuilding: ["buildings-2-bold-duotone", "buildings-bold-duotone"],
   IconBuildingBank: ["bank-bold-duotone", "buildings-3-bold-duotone", "safe-square-bold-duotone"],
@@ -80,6 +84,9 @@ const SOLAR_ICON_CANDIDATES = {
   IconClockHour4: ["clock-circle-bold-duotone", "history-bold-duotone"],
   IconCloudDown: ["cloud-download-bold-duotone"],
   IconCloudUpload: ["cloud-upload-bold-duotone"],
+  IconCoffee: ["cup-hot-bold-duotone", "cup-bold-duotone"],
+  IconCoin: ["dollar-minimalistic-bold-duotone", "wad-of-money-bold-duotone"],
+  IconColumns: ["widget-4-bold-duotone", "widget-2-bold-duotone"],
   IconCommand: ["command-bold-duotone", "keyboard-bold-duotone"],
   IconCopy: ["copy-bold-duotone", "layers-minimalistic-bold-duotone"],
   IconCopyMinus: ["minus-square-bold-duotone", "copy-bold-duotone"],
@@ -106,6 +113,7 @@ const SOLAR_ICON_CANDIDATES = {
   IconEyeOff: ["eye-closed-bold-duotone"],
   IconFileInvoice: ["bill-list-bold-duotone", "bill-check-bold-duotone", "bill-bold-duotone"],
   IconFileSpreadsheet: ["document-text-bold-duotone", "file-text-bold-duotone"],
+  IconFileText: ["file-text-bold-duotone", "document-text-bold-duotone", "document-2-bold-duotone"],
   IconFileTypeCsv: ["file-download-bold-duotone", "file-text-bold-duotone"],
   IconFilter: ["filter-bold-duotone", "sort-bold-duotone"],
   IconFilterFilled: ["filter-bold-duotone"],
@@ -163,6 +171,7 @@ const SOLAR_ICON_CANDIDATES = {
   IconPencil: ["pen-bold-duotone", "pen-new-square-bold-duotone"],
   IconPhone: ["phone-calling-rounded-bold-duotone", "phone-bold-duotone"],
   IconPhoto: ["gallery-bold-duotone", "gallery-wide-bold-duotone"],
+  IconPlayerPlay: ["play-bold-duotone", "play-circle-bold-duotone"],
   IconPlus: ["add-circle-bold-duotone", "add-square-bold-duotone"],
   IconPremiumRights: ["crown-bold-duotone", "medal-star-bold-duotone"],
   IconPrinter: ["printer-bold-duotone", "printer-minimalistic-bold-duotone"],
@@ -183,7 +192,9 @@ const SOLAR_ICON_CANDIDATES = {
   IconSettings: ["settings-bold-duotone", "settings-minimalistic-bold-duotone"],
   IconSettings2: ["settings-bold-duotone", "tuning-2-bold-duotone"],
   IconShare: ["share-bold-duotone", "share-circle-bold-duotone"],
+  IconShield: ["shield-bold-duotone", "shield-check-bold-duotone"],
   IconShieldCheck: ["shield-check-bold-duotone", "shield-user-bold-duotone"],
+  IconShieldLock: ["shield-keyhole-bold-duotone", "shield-bold-duotone"],
   IconShoppingBag: ["bag-4-bold-duotone", "bag-smile-bold-duotone", "bag-bold-duotone"],
   IconShoppingCart: ["cart-large-2-bold-duotone", "cart-smile-bold-duotone", "cart-3-bold-duotone"],
   IconShoppingCartX: ["cart-cross-bold-duotone", "cart-large-2-bold-duotone"],
@@ -300,6 +311,14 @@ function solarDuotoneTablerPlugin() {
         return virtualModuleId;
       }
       return null;
+    },
+    handleHotUpdate({ server, file }) {
+      if (/\.(js|jsx|ts|tsx)$/.test(file)) {
+        const mod = server.moduleGraph.getModuleById(virtualModuleId);
+        if (mod) {
+          server.moduleGraph.invalidateModule(mod);
+        }
+      }
     },
     load(id) {
       if (id !== virtualModuleId) return null;

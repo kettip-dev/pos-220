@@ -101,14 +101,20 @@ export async function payAndCompleteKitchenOrder(
     selectedPaymentType,
     discountType,
     discountValue,
-    discountTotal
+    discountTotal,
+    appliedPromotions = null,
+    promotionDiscountTotal = 0,
+    loyaltyPointsRedeemed = 0,
+    customerId = null
 ) {
     try {
         const response = await ApiClient.post(`/orders/complete-and-pay-order`, {
             orderIds,
             subTotal, taxTotal, serviceChargeTotal, total,
             selectedPaymentType,
-            discountType, discountValue, discountTotal
+            discountType, discountValue, discountTotal,
+            appliedPromotions, promotionDiscountTotal,
+            loyaltyPointsRedeemed, customerId
         });
         return response;
     } catch (error) {

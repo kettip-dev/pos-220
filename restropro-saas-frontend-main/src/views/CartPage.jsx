@@ -14,6 +14,12 @@ import {
   IconUser,
   IconPhone,
   IconArmchair,
+  IconTag,
+  IconSparkles,
+  IconFlame,
+  IconTicket,
+  IconCheck,
+  IconGift,
 } from "@tabler/icons-react";
 import {
   createOrderFromQrMenu,
@@ -34,6 +40,7 @@ import { validatePhone } from "../utils/phoneValidator";
 import { SocketContext } from "../contexts/SocketContext";
 import { initSocket } from "../utils/socket";
 import { useTranslation } from "react-i18next";
+import { evaluateCartPromotions } from "../helpers/promotionEvaluator";
 
 const CartPage = () => {
   const { t } = useTranslation();
@@ -86,6 +93,12 @@ const CartPage = () => {
   const [showPhoneFields, setShowPhoneFields] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
+  // Promotions & Discounts state
+  const [promotions, setPromotions] = useState([]);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [showCouponInput, setShowCouponInput] = useState(false);
+
   // Notes modal state
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
   const [editingNoteText, setEditingNoteText] = useState("");
@@ -121,6 +134,9 @@ const CartPage = () => {
         setCurrency(resolvedCurrency);
         setServiceCharge(data?.serviceCharge ?? null);
         setPublicTables(data?.publicTables || []);
+        if (Array.isArray(data?.promotions)) {
+          setPromotions(data.promotions);
+        }
 
         if (data?.storeTable) {
           setStoreTable(data.storeTable);
@@ -153,6 +169,33 @@ const CartPage = () => {
       isMounted = false;
     };
   }, [qrcode, urlTableParam]);
+
+  // Client-side pure promotion evaluation
+  const promoEvaluation = useMemo(() => {
+    return evaluateCartPromotions({
+      promotions: promotions || [],
+      cartItems: cartItems || [],
+      diningOption: "dinein",
+      enteredCode: couponCode,
+      now: new Date(),
+    });
+  }, [promotions, cartItems, couponCode]);
+
+  const promotionDiscountTotal = promoEvaluation?.totalPromotionDiscount || 0;
+  const appliedPromotions = promoEvaluation?.appliedPromotions || [];
+  const eligiblePromotions = promoEvaluation?.eligiblePromotions || [];
+  const itemDiscounts = promoEvaluation?.itemDiscounts || {};
+
+  // Find next potential unlockable promotion (Toast-style upsell)
+  const unlockablePromo = eligiblePromotions.find((promo) => {
+    const minSpend = Number(promo.min_order_amount) || 0;
+    const rawSub = promoEvaluation?.rawSubtotal || 0;
+    return minSpend > 0 && rawSub < minSpend;
+  });
+
+  const shortfall = unlockablePromo
+    ? Number(unlockablePromo.min_order_amount) - (promoEvaluation?.rawSubtotal || 0)
+    : 0;
 
   const orderSummary = useMemo(() => {
     let itemsTotal = 0;
@@ -187,8 +230,10 @@ const CartPage = () => {
       payableTotal += calculatedServiceCharge;
     }
 
+    payableTotal = Math.max(0, payableTotal - (promotionDiscountTotal || 0));
+
     return { itemsTotal, taxTotal, serviceChargeTotal, payableTotal };
-  }, [cartItems, serviceCharge]);
+  }, [cartItems, serviceCharge, promotionDiscountTotal]);
 
   const { itemsTotal, taxTotal, serviceChargeTotal, payableTotal } = orderSummary;
 
@@ -368,6 +413,8 @@ const CartPage = () => {
           itemsTotal,
           taxTotal,
           serviceChargeTotal,
+          promotionDiscountTotal: promotionDiscountTotal || 0,
+          appliedPromotions: appliedPromotions || [],
           payableTotal,
           placedAt: new Date().toISOString(),
         });
@@ -556,12 +603,40 @@ const CartPage = () => {
           )}
         </div>
 
+        {/* Dynamic Upsell / Unlock Progress Banner */}
+        {cartItems.length > 0 && unlockablePromo && shortfall > 0 && (
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border border-amber-300 dark:border-amber-700/60 shadow-2xs">
+            <div className="flex items-center justify-between text-xs font-bold mb-1">
+              <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                <IconFlame size={16} className="text-orange-500 animate-pulse" />
+                <span>Special Deal Within Reach</span>
+              </div>
+              <span className="font-mono text-amber-700 dark:text-amber-300">
+                {currency}{itemsTotal.toFixed(2)} / {currency}{Number(unlockablePromo.min_order_amount).toFixed(2)}
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 dark:text-slate-200">
+              Add <strong className="text-amber-600 dark:text-amber-400 font-mono font-black">{currency}{shortfall.toFixed(2)}</strong> more to unlock{" "}
+              <strong>{unlockablePromo.title}</strong>!
+            </p>
+            <div className="w-full bg-slate-200 dark:bg-zinc-700 h-2 rounded-full overflow-hidden mt-2">
+              <div
+                className="bg-gradient-to-r from-amber-500 to-orange-500 h-full transition-all duration-300 rounded-full"
+                style={{
+                  width: `${Math.min(100, Math.max(8, (itemsTotal / Number(unlockablePromo.min_order_amount)) * 100))}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Cart Items List */}
         {cartItems.length > 0 ? (
           <div className="space-y-3">
             {cartItems.map((item, i) => {
               const { title, price, quantity, image, notes, variant, addons } = item;
               const imageURL = getImageURL(image);
+              const discountInfo = itemDiscounts[item.id];
 
               return (
                 <div
@@ -578,9 +653,16 @@ const CartPage = () => {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-2">
-                        {title}
-                      </h4>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white line-clamp-2">
+                          {title}
+                        </h4>
+                        {discountInfo && (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center gap-1">
+                            <IconSparkles size={11} /> PROMO
+                          </span>
+                        )}
+                      </div>
 
                       {variant?.title && (
                         <span className="inline-block mt-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300">
@@ -594,10 +676,17 @@ const CartPage = () => {
                         </p>
                       )}
 
-                      <p className="text-sm font-extrabold text-slate-900 dark:text-white mt-1.5">
-                        {currency}
-                        {(Number(price) * Number(quantity)).toFixed(2)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          {currency}
+                          {(Number(price) * Number(quantity)).toFixed(2)}
+                        </p>
+                        {discountInfo && (
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                            (-{currency}{Number(discountInfo.discount_amount).toFixed(2)})
+                          </span>
+                        )}
+                      </div>
 
                       {notes && (
                         <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 italic">
@@ -680,6 +769,105 @@ const CartPage = () => {
           </div>
         )}
 
+        {/* Promotions & Coupons Card for QR Guests */}
+        {cartItems.length > 0 && (
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <IconTicket size={18} />
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                    {t("cart.coupons_and_offers", "Promotions & Offers")}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    {couponCode ? `Applied: ${couponCode}` : "Apply discount voucher or enjoy specials"}
+                  </p>
+                </div>
+              </div>
+
+              {couponCode ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCouponCode("");
+                    setCouponInput("");
+                    toast.success("Coupon removed");
+                  }}
+                  className="min-h-[36px] px-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 text-xs font-bold hover:bg-red-100 transition active:scale-95 flex items-center gap-1 border border-red-200 dark:border-red-800"
+                >
+                  <IconTrash size={14} /> Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCouponInput(!showCouponInput)}
+                  className="min-h-[36px] px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-xs font-bold hover:bg-emerald-100 transition active:scale-95 flex items-center gap-1 border border-emerald-200 dark:border-emerald-800"
+                >
+                  <IconTag size={14} /> {showCouponInput ? "Hide" : "Have a code?"}
+                </button>
+              )}
+            </div>
+
+            {/* Expandable coupon input */}
+            {showCouponInput && !couponCode && (
+              <div className="pt-2 flex items-center gap-2 animate-fadeIn">
+                <input
+                  type="text"
+                  placeholder="e.g. SAVE20"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const clean = couponInput.trim().toUpperCase();
+                      if (clean) {
+                        setCouponCode(clean);
+                        setShowCouponInput(false);
+                        toast.success(`Coupon "${clean}" applied!`);
+                      }
+                    }
+                  }}
+                  className="flex-1 min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-xs font-mono uppercase font-bold focus:outline-emerald-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const clean = couponInput.trim().toUpperCase();
+                    if (!clean) {
+                      toast.error("Please enter a voucher code");
+                      return;
+                    }
+                    setCouponCode(clean);
+                    setShowCouponInput(false);
+                    toast.success(`Coupon "${clean}" applied!`);
+                  }}
+                  className="min-h-[44px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition active:scale-95 flex items-center gap-1"
+                >
+                  <IconCheck size={16} /> Apply
+                </button>
+              </div>
+            )}
+
+            {/* Applied promotion breakdown */}
+            {appliedPromotions.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
+                {appliedPromotions.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-300">
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <IconSparkles size={14} />
+                      {p.title}
+                    </span>
+                    <span className="font-mono font-black">
+                      -{currency}{Number(p.discount_amount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Order Summary Card */}
         {cartItems.length > 0 && (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4 shadow-2xs space-y-2.5">
@@ -694,6 +882,19 @@ const CartPage = () => {
                   {itemsTotal.toFixed(2)}
                 </span>
               </div>
+
+              {promotionDiscountTotal > 0 && (
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
+                  <span className="flex items-center gap-1">
+                    <IconSparkles size={14} />
+                    {t("cart.promotions_discount", "Promotions & Offers")}
+                  </span>
+                  <span className="font-mono">
+                    -{currency}{promotionDiscountTotal.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
               <div className="flex justify-between text-slate-600 dark:text-slate-300">
                 <span>{t("cart.tax_total", "Tax")}</span>
                 <span className="font-semibold">

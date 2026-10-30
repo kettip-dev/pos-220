@@ -267,7 +267,7 @@ exports.getInvoiceOrders = async (req, res) => {
         message: req.__("no_records_found"),
       });
     }
-    const { sub_total, tax_total, discount_total, discount_type, discount_value, service_charge_total, total, status, voided_at, voided_by, void_reason } = invoiceData;
+    const { sub_total, tax_total, discount_total, discount_type, discount_value, service_charge_total, applied_promotions, promotion_discount_total, total, status, voided_at, voided_by, void_reason } = invoiceData;
 
     const formattedOrders = kitchenOrders.map(({ business_tenant_id, ...order }) => {
       // business_tenant_id is fetched for the ownership lookup above but is an
@@ -316,6 +316,8 @@ exports.getInvoiceOrders = async (req, res) => {
       discountType: discount_type,
       discountValue: discount_value,
       discountTotal: discount_total,
+      applied_promotions: applied_promotions,
+      promotion_discount_total: promotion_discount_total,
       total: total,
       // Identifies the owning business on the detail view. Only added when
       // consolidating, so the single-business response is unchanged.

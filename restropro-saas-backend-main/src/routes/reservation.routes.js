@@ -11,6 +11,7 @@ const { SCOPES } = require("../config/user.config");
 const {
   addReservation,
   updateReservation,
+  updateReservationStatus,
   cancelReservation,
   deleteReservation,
   searchReservation,
@@ -37,6 +38,15 @@ router.post(
   authorize([SCOPES.RESERVATIONS, SCOPES.MANAGE_RESERVATIONS]),
   requiresSingleBusiness,
   updateReservation
+);
+router.post(
+  "/status/:id",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.RESERVATIONS, SCOPES.MANAGE_RESERVATIONS]),
+  requiresSingleBusiness,
+  updateReservationStatus
 );
 router.post(
   "/cancel/:id",

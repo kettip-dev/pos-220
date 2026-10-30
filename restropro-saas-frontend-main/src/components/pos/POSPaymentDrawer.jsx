@@ -13,11 +13,15 @@ import {
   IconCreditCard,
   IconBuildingStore,
   IconArmchair,
-  IconUser
+  IconUser,
+  IconAward,
+  IconSparkles,
+  IconGift
 } from '@tabler/icons-react';
 import { PAYMENT_ICONS } from '../../config/payment_icons';
 import { clsx } from 'clsx';
 import { iconStroke } from '../../config/config';
+import { useCustomerLoyalty, useLoyaltySettings } from '../../controllers/loyalty.controller';
 
 export default function POSPaymentDrawer({
   isOpen,
@@ -30,6 +34,8 @@ export default function POSPaymentDrawer({
   taxTotal = 0,
   serviceChargeTotal = 0,
   discountAmount = 0,
+  promotionDiscountTotal = 0,
+  appliedPromotions = [],
   discountType = 'fixed',
   discountValue = 0,
   onDiscountChange,
@@ -70,9 +76,35 @@ export default function POSPaymentDrawer({
   const rate = (Number(currentRate) > 0) ? Number(currentRate) : 4100;
   const safePayable = Number(payableTotal) || 0;
 
-  // Symmetrical Total calculations
-  const totalKHR = isBaseKHR ? safePayable : safePayable * rate;
-  const totalUSD = isBaseKHR ? (rate > 0 ? safePayable / rate : safePayable) : safePayable;
+  // Loyalty Rewards Integration
+  const custPhone = customerType === 'CUSTOMER' && customer?.phone ? customer.phone : null;
+  const { loyalty: customerLoyalty } = useCustomerLoyalty(custPhone);
+  const { data: loyaltySettings } = useLoyaltySettings();
+
+  const isLoyaltyEnabled = loyaltySettings?.is_enabled !== false;
+  const customerPoints = Number(customerLoyalty?.points_balance !== undefined ? customerLoyalty.points_balance : (customer?.points_balance || 0));
+  const membershipTier = customerLoyalty?.membership_tier || customer?.membership_tier || 'Standard';
+  const dollarValuePerPoint = Number(loyaltySettings?.dollar_value_per_point || 0.01);
+  const minPointsToRedeem = Number(loyaltySettings?.min_points_to_redeem || 10);
+  const pointsPerDollar = Number(loyaltySettings?.points_per_dollar_spent || 1.0);
+
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+
+  // Max points allowed by order subtotal
+  const pointValueInLocalCurrency = isBaseKHR && rate > 0 ? dollarValuePerPoint * rate : dollarValuePerPoint;
+  const maxPointsAllowedByTotal = Math.floor(safePayable / (pointValueInLocalCurrency || 0.01));
+  const maxRedeemablePoints = Math.max(0, Math.min(customerPoints, maxPointsAllowedByTotal));
+
+  // Actual discount from points
+  const rawLoyaltyDiscountUSD = pointsToRedeem * dollarValuePerPoint;
+  const loyaltyDiscountAmount = isBaseKHR ? rawLoyaltyDiscountUSD * rate : rawLoyaltyDiscountUSD;
+  const effectivePayable = Math.max(0, safePayable - loyaltyDiscountAmount);
+
+  // Symmetrical Total calculations (accounting for loyalty point discount)
+  const totalKHR = isBaseKHR ? effectivePayable : effectivePayable * rate;
+  const totalUSD = isBaseKHR ? (rate > 0 ? effectivePayable / rate : effectivePayable) : effectivePayable;
+
+  const projectedPointsEarned = Math.floor((isBaseKHR && rate > 0 ? effectivePayable / rate : effectivePayable) * pointsPerDollar);
 
   // Dual Tender input state: Cashier can enter USD, KHR, or both
   const [activeTenderCurrency, setActiveTenderCurrency] = useState(isBaseKHR ? 'KHR' : 'USD');
@@ -89,8 +121,9 @@ export default function POSPaymentDrawer({
       setTenderedKHR('');
       setReferenceCode('');
       setIsEditingRate(false);
+      setPointsToRedeem(0);
     }
-  }, [isOpen, payableTotal]);
+  }, [isOpen, payableTotal, custPhone]);
 
   // Payment method classification
   const paymentList = Array.isArray(paymentTypes) ? paymentTypes : [];
@@ -217,6 +250,9 @@ export default function POSPaymentDrawer({
       exchangeRate: currentRate,
       isBaseKHR,
       referenceCode: referenceCode.trim() || undefined,
+      loyaltyPointsRedeemed: pointsToRedeem,
+      loyaltyDiscountAmount: Number(loyaltyDiscountAmount.toFixed(2)),
+      loyaltyPointsEarned: projectedPointsEarned,
     };
     if (onPayAndComplete) {
       onPayAndComplete(tenderData);
@@ -234,6 +270,9 @@ export default function POSPaymentDrawer({
     currentRate,
     isBaseKHR,
     referenceCode,
+    pointsToRedeem,
+    loyaltyDiscountAmount,
+    projectedPointsEarned,
     onPayAndComplete
   ]);
 
@@ -430,6 +469,18 @@ export default function POSPaymentDrawer({
                         <span>-{currency}{Number(discountAmount).toFixed(2)}</span>
                       </div>
                     )}
+                    {Number(promotionDiscountTotal) > 0 && (
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span>{t('pos.promotions', 'Promotions')}</span>
+                        <span>-{currency}{Number(promotionDiscountTotal).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {loyaltyDiscountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span>⭐ {t('pos.loyalty_points', 'Loyalty Reward')} ({pointsToRedeem} pts)</span>
+                        <span>-{currency}{Number(loyaltyDiscountAmount).toFixed(2)}</span>
+                      </div>
+                    )}
                     {Number(taxTotal) > 0 && (
                       <div className="flex justify-between">
                         <span>{t('pos.tax_total', 'Tax Total')}</span>
@@ -463,6 +514,117 @@ export default function POSPaymentDrawer({
                   </div>
                 )}
               </div>
+
+              {/* Customer Loyalty & Rewards Section */}
+              {custPhone && isLoyaltyEnabled && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="p-1 rounded-lg bg-amber-500 text-white">
+                        <IconAward size={16} stroke={2.2} />
+                      </span>
+                      <div>
+                        <span className="text-xs font-black tracking-tight text-amber-900 dark:text-amber-200">
+                          {t('pos.customer_loyalty', 'Customer Loyalty & Rewards')}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-amber-800 dark:text-amber-300">
+                          <span className="font-bold">{customerPoints} pts</span>
+                          <span>≈</span>
+                          <span className="font-semibold">{currency}{(customerPoints * dollarValuePerPoint).toFixed(2)}</span>
+                          <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 text-[10px] font-black uppercase">
+                            {membershipTier}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {pointsToRedeem > 0 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-xs font-black font-mono animate-in fade-in">
+                        -{currency}{loyaltyDiscountAmount.toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-amber-800 dark:text-amber-400 font-medium font-mono">
+                        +{projectedPointsEarned} pts
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Points Action Buttons */}
+                  {customerPoints < minPointsToRedeem ? (
+                    <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 italic">
+                      {t('pos.min_points_notice', `Minimum ${minPointsToRedeem} points needed to redeem. This order will earn +${projectedPointsEarned} points!`)}
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setPointsToRedeem(0)}
+                          className={clsx(
+                            "min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer border",
+                            pointsToRedeem === 0
+                              ? "bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900"
+                              : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                          )}
+                        >
+                          {t('pos.no_redemption', 'No Points')}
+                        </button>
+
+                        {maxRedeemablePoints >= 50 && (
+                          <button
+                            type="button"
+                            onClick={() => setPointsToRedeem(50)}
+                            className={clsx(
+                              "min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer border font-mono",
+                              pointsToRedeem === 50
+                                ? "bg-amber-600 text-white border-amber-600"
+                                : "bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50"
+                            )}
+                          >
+                            50 pts ({currency}{(50 * dollarValuePerPoint).toFixed(2)})
+                          </button>
+                        )}
+
+                        {maxRedeemablePoints >= 100 && (
+                          <button
+                            type="button"
+                            onClick={() => setPointsToRedeem(100)}
+                            className={clsx(
+                              "min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer border font-mono",
+                              pointsToRedeem === 100
+                                ? "bg-amber-600 text-white border-amber-600"
+                                : "bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50"
+                            )}
+                          >
+                            100 pts ({currency}{(100 * dollarValuePerPoint).toFixed(2)})
+                          </button>
+                        )}
+
+                        {maxRedeemablePoints > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPointsToRedeem(maxRedeemablePoints)}
+                            className={clsx(
+                              "min-h-[42px] px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer border font-mono",
+                              pointsToRedeem === maxRedeemablePoints
+                                ? "bg-amber-600 text-white border-amber-600"
+                                : "bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/50 hover:bg-amber-50"
+                            )}
+                          >
+                            {t('pos.redeem_max', 'Use Max')} ({maxRedeemablePoints} pts)
+                          </button>
+                        )}
+                      </div>
+
+                      {pointsToRedeem > 0 && (
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                          ✓ {t('pos.points_applied_notice', `Deducting ${pointsToRedeem} points (${currency}${loyaltyDiscountAmount.toFixed(2)}). Customer will have ${customerPoints - pointsToRedeem + projectedPointsEarned} pts after completion.`)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Card 2: Payment Method Selector */}
               <div className="space-y-1.5">

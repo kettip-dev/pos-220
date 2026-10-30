@@ -1187,7 +1187,7 @@ exports.getPurchaseOrdersDB = async (type, from, to, tenantId) => {
 
     const sql = `
         SELECT id, tenant_id, created_at, fullfilled_at, vendor_id, vendor_name, contact_person, tax_id_no, address, created_by, notes, status
-        FROM rasoirasta.inventory_purchase_orders po
+        FROM inventory_purchase_orders po
         WHERE ${filter} AND tenant_id = ?
         ORDER BY po.created_at DESC
         `;

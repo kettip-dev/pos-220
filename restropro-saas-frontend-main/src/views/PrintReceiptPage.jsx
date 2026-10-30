@@ -23,6 +23,8 @@ export default function PrintReceiptPage() {
     discountType,
     discountValue,
     discountAmount = 0,
+    appliedPromotions = [],
+    promotionDiscountTotal = 0,
     taxTotal = 0,
     serviceChargeTotal = 0,
     payableTotal = 0,
@@ -32,6 +34,9 @@ export default function PrintReceiptPage() {
     billingTag,
     currency = "$",
     dualTenderInfo = null,
+    loyaltyPointsRedeemed = 0,
+    loyaltyDiscountAmount = 0,
+    loyaltyPointsEarned = 0,
   } = receiptDetails;
 
   const {
@@ -145,6 +150,12 @@ export default function PrintReceiptPage() {
           <p className="font-mono">-{currency}{Number(discountAmount).toFixed(2)}</p>
         </div>
       )}
+      {Number(loyaltyDiscountAmount || 0) > 0 && (
+        <div className="flex justify-between text-xs py-0.5 font-semibold text-emerald-800">
+          <p>⭐ Loyalty ({loyaltyPointsRedeemed} pts):</p>
+          <p className="font-mono">-{currency}{Number(loyaltyDiscountAmount).toFixed(2)}</p>
+        </div>
+      )}
       {Number(taxTotal || 0) > 0 && (
         <div className="flex justify-between text-xs py-0.5">
           <p>{t("print_receipt.tax")}: </p>
@@ -202,6 +213,18 @@ export default function PrintReceiptPage() {
                   : `៛${Math.round(Number(dualTenderInfo.changeTotalKHR)).toLocaleString()}`}
               </p>
             </div>
+          )}
+        </div>
+      )}
+
+      {customer && (Number(loyaltyPointsEarned || 0) > 0 || Number(loyaltyPointsRedeemed || 0) > 0) && (
+        <div className="border-t border-dashed mt-2 pt-2 text-xs text-center space-y-0.5">
+          <p className="font-bold uppercase tracking-wider text-[10px] text-gray-600">⭐ Customer Rewards ⭐</p>
+          {Number(loyaltyPointsEarned || 0) > 0 && (
+            <p className="font-mono">Points Earned: <span className="font-bold">+{loyaltyPointsEarned} pts</span></p>
+          )}
+          {Number(loyaltyPointsRedeemed || 0) > 0 && (
+            <p className="font-mono">Points Redeemed: <span className="font-bold">-{loyaltyPointsRedeemed} pts</span></p>
           )}
         </div>
       )}

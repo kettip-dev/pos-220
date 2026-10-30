@@ -938,7 +938,19 @@ export default function CustomersPage() {
                         compactDensity ? "py-1.5" : "py-2.5"
                       )}
                     >
-                      <span>{name}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{name}</span>
+                        {customer.membership_tier && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                            {customer.membership_tier}
+                          </span>
+                        )}
+                        {Number(customer.points_balance || 0) > 0 && (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                            {customer.points_balance} pts
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Account Type (Phone) Cell with BAL badge */}

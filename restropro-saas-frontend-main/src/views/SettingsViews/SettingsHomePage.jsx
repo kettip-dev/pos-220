@@ -11,6 +11,8 @@ import {
   IconPrinter,
   IconReceiptTax,
   IconUsers,
+  IconTag,
+  IconAward,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import Page from "../../components/Page";
@@ -101,6 +103,26 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/tax-setup",
       category: "Finance & Tax",
       icon: <IconReceiptTax stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "promotions-marketing",
+      title: t("settings.promotions_marketing_title", "Promotions & Marketing"),
+      description: t(
+        "settings.promotions_marketing_desc",
+        "Manage happy hours, discount coupons, BOGO deals, and automatic order/item discounts."
+      ),
+      path: "/dashboard/promotions",
+      category: t("settings.category_marketing", "Marketing & Discounts"),
+      icon: <IconTag stroke={iconStroke} className="w-6 h-6 text-emerald-600" />,
+    },
+    {
+      id: "loyalty-rewards",
+      title: "Loyalty & Rewards",
+      description:
+        "Configure points earning rules, cash redemption conversion rate, minimum point thresholds, and member tiers.",
+      path: "/dashboard/settings/loyalty",
+      category: "Marketing & Discounts",
+      icon: <IconAward stroke={iconStroke} className="w-6 h-6 text-amber-500" />,
     },
     {
       id: "payment-types",

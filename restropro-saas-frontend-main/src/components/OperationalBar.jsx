@@ -15,7 +15,6 @@ import {
   IconSettings,
 } from "@tabler/icons-react";
 import AppBarDropdown from "./AppBarDropdown";
-import QuickNewMenu from "./QuickNewMenu";
 import { showSearchModal } from "./SearchModal";
 import clsx from "clsx";
 
@@ -82,29 +81,12 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
   }
 
   return (
-    <aside className="w-[68px] shrink-0 h-screen bg-white dark:bg-[#0B1522] border-r border-[#E3E5E8] dark:border-slate-800/90 flex flex-col items-center justify-between py-2.5 select-none z-50">
-      {/* Top Pinned Brand Logo & + Create Button (outside overflow-y-auto so flyout menu is never clipped) */}
-      <div className="w-full flex flex-col items-center gap-1 shrink-0 z-50">
-        {/* QBO Green Circular Brand Logo */}
-        <Link
-          to="/dashboard/home"
-          title={t("navbar.dashboard", "Back to Home")}
-          className="w-9 h-9 rounded-full bg-[#2CA01C] hover:bg-[#248417] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 mb-1 shrink-0"
-        >
-          <IconBuildingStore size={19} stroke={2.3} />
-        </Link>
-
-        {/* + Create Circular Button */}
-        <div className="w-full px-1 shrink-0">
-          <QuickNewMenu qboRail={true} />
-        </div>
-      </div>
-
+    <aside className="w-[68px] shrink-0 h-screen bg-white dark:bg-[#0B1522] border-r border-[#E3E5E8] dark:border-slate-800/90 flex flex-col items-center justify-between py-2 select-none z-50">
       {/* Center Scrollable Rail Items */}
-      <div className="w-full flex flex-col items-center gap-1 overflow-y-auto no-scrollbar flex-1 mt-0.5">
+      <div className="w-full flex flex-col items-center gap-1 overflow-y-auto no-scrollbar flex-1">
 
         {/* Home (Backoffice) Link */}
-        <div className="w-full px-1 mt-0.5">
+        <div className="w-full px-1">
           <Link
             to="/dashboard/home"
             title={t("navbar.home", "Home")}

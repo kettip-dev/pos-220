@@ -441,24 +441,24 @@ export default function OrderCard({
             type="button"
             onClick={() => onPayAndComplete && onPayAndComplete(order_ids, orderGroup)}
             className={clsx(
-              "flex-1 rounded-xl bg-[#2CA01C] hover:bg-[#248217] text-white font-bold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer",
+              "flex-1 rounded-xl bg-[#2CA01C] hover:bg-[#248217] text-white font-bold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap",
               isCompact ? "h-9 min-h-[36px] px-2.5 text-[11px]" : "h-11 min-h-[42px] px-3.5 text-xs"
             )}
           >
-            <IconCash size={isCompact ? 16 : 18} stroke={iconStroke} />
-            <span>{t("orders.pay_complete", "Pay & Settle")}</span>
+            <IconCash size={isCompact ? 16 : 18} stroke={iconStroke} className="shrink-0" />
+            <span className="truncate">{t("orders.pay_complete", "Pay & Settle")}</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => onCompleteOrder && onCompleteOrder(order_ids)}
             className={clsx(
-              "flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer",
+              "flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap",
               isCompact ? "h-9 min-h-[36px] px-2.5 text-[11px]" : "h-11 min-h-[42px] px-3.5 text-xs"
             )}
           >
-            <IconCheck size={isCompact ? 16 : 18} stroke={iconStroke} />
-            <span>{t("orders.complete", "Complete Order")}</span>
+            <IconCheck size={isCompact ? 16 : 18} stroke={iconStroke} className="shrink-0" />
+            <span className="truncate">{t("orders.complete", "Complete Order")}</span>
           </button>
         )}
       </div>

@@ -20,7 +20,6 @@ import {
   IconChevronDown,
   IconArrowBarToLeft,
   IconArrowBarToRight,
-  IconSearch,
   IconHelp,
   IconMenu2,
   IconX,
@@ -30,6 +29,7 @@ import {
   IconLayoutGrid,
   IconPin,
   IconPencil,
+  IconTag,
 } from "@tabler/icons-react";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { SCOPES, PLAN_FEATURES, hasFullBusinessAccess } from "../config/scopes";
@@ -37,7 +37,6 @@ import { REPORT_CATEGORIES } from "../config/reportCatalog";
 import BusinessSwitcher from "./BusinessSwitcher";
 import AppBarDropdown from "./AppBarDropdown";
 import QuickNewMenu from "./QuickNewMenu";
-import { showSearchModal } from "./SearchModal";
 
 const PINNED_STORAGE_KEY = "restro_qbo_pinned_apps_v3";
 const BOOKMARKS_STORAGE_KEY = "restro_qbo_bookmarks_v3";
@@ -81,6 +80,26 @@ export function useQBOAccess() {
 export function getQBOAppCategories(t) {
   return [
     {
+      id: "dashboard",
+      shortLabel: t("navbar.dashboard", "Dashboard"),
+      label: t("navbar.dashboard", "Dashboard"),
+      Icon: IconHome,
+      badgeBg: "bg-transparent text-gray-700 dark:text-slate-300",
+      badgeIcon: <IconHome size={18} stroke={1.8} />,
+      railIcon: <IconHome size={20} stroke={1.8} />,
+      defaultPath: "/dashboard/home",
+      scopes: [],
+      features: [],
+      items: [
+        {
+          label: t("navbar.dashboard_overview", "Dashboard Overview"),
+          path: "/dashboard/home",
+          scopes: [],
+          features: [],
+        },
+      ],
+    },
+    {
       id: "orders",
       shortLabel: t("navbar.orders", "Orders"),
       label: t("navbar.orders", "Orders"),
@@ -115,6 +134,26 @@ export function getQBOAppCategories(t) {
           path: "/dashboard/audit-logs",
           scopes: [SCOPES.VIEW_INVOICE_AUDIT_LOG],
           features: [PLAN_FEATURES.INVOICES],
+        },
+      ],
+    },
+    {
+      id: "promotions",
+      shortLabel: t("navbar.promotions_short", "Deals"),
+      label: t("navbar.promotions", "Promotions & Deals"),
+      Icon: IconTag,
+      badgeBg: "bg-transparent text-gray-700 dark:text-slate-300",
+      badgeIcon: <IconTag size={18} stroke={1.8} />,
+      railIcon: <IconTag size={20} stroke={1.8} />,
+      defaultPath: "/dashboard/promotions",
+      scopes: [SCOPES.SETTINGS, SCOPES.POS, SCOPES.ORDERS],
+      features: [PLAN_FEATURES.SETTINGS, PLAN_FEATURES.POS],
+      items: [
+        {
+          label: t("navbar.promotions_list", "Campaigns & Coupons"),
+          path: "/dashboard/promotions",
+          scopes: [SCOPES.SETTINGS, SCOPES.POS],
+          features: [PLAN_FEATURES.SETTINGS, PLAN_FEATURES.POS],
         },
       ],
     },
@@ -158,19 +197,19 @@ export function getQBOAppCategories(t) {
       badgeBg: "bg-transparent text-gray-700 dark:text-slate-300",
       badgeIcon: <IconTruck size={18} stroke={1.8} />,
       railIcon: <IconTruck size={20} stroke={1.8} />,
-      defaultPath: "/dashboard/inventory?tab=vendors",
+      defaultPath: "/dashboard/suppliers",
       scopes: [SCOPES.INVENTORY],
       features: [PLAN_FEATURES.INVENTORY],
       items: [
         {
           label: t("navbar.vendors_directory", "Suppliers Directory"),
-          path: "/dashboard/inventory?tab=vendors",
+          path: "/dashboard/suppliers",
           scopes: [SCOPES.INVENTORY],
           features: [PLAN_FEATURES.INVENTORY],
         },
         {
           label: t("navbar.purchase_orders", "Purchase Orders"),
-          path: "/dashboard/inventory?tab=purchase-orders",
+          path: "/dashboard/purchase-orders",
           scopes: [SCOPES.INVENTORY],
           features: [PLAN_FEATURES.INVENTORY],
         },
@@ -281,6 +320,12 @@ export function getQBOAppCategories(t) {
         {
           label: t("navbar.categories", "Categories Setup"),
           path: "/dashboard/settings/menu-items/categories",
+          scopes: [SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.SETTINGS],
+        },
+        {
+          label: t("navbar.promotions", "Promotions & Discounts"),
+          path: "/dashboard/promotions",
           scopes: [SCOPES.SETTINGS],
           features: [PLAN_FEATURES.SETTINGS],
         },
@@ -512,6 +557,7 @@ export default function QBONavigation({ children }) {
 
   const isSubItemActive = (item) => {
     if (location.pathname === item.path) return true;
+    if (item.path === "/dashboard/home" && location.pathname === "/dashboard") return true;
     if (item.path !== "/dashboard" && item.path !== "/dashboard/home" && location.pathname.startsWith(item.path + "/")) {
       return true;
     }
@@ -526,10 +572,6 @@ export default function QBONavigation({ children }) {
   const activeReportCategory = searchParams.get("category") || "All";
 
   // Handlers for rail clicks
-  const handleRailHomeClick = () => {
-    navigate("/dashboard/home");
-  };
-
   const handleRailBookmarksClick = () => {
     updateSubPanelMode(subPanelMode === "bookmarks" ? "all_apps" : "bookmarks");
   };
@@ -601,7 +643,7 @@ export default function QBONavigation({ children }) {
               </span>
               <span
                 className={clsx(
-                  "text-[11px] leading-tight truncate max-w-[64px] mt-0.5 transition-colors",
+                  "text-[11px] leading-tight truncate max-w-[64px] block text-center mt-0.5 transition-colors",
                   subPanelMode === "bookmarks"
                     ? "font-bold text-gray-900 dark:text-white"
                     : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
@@ -611,65 +653,34 @@ export default function QBONavigation({ children }) {
               </span>
             </button>
 
-            {/* Home */}
-            <button
-              type="button"
-              onClick={handleRailHomeClick}
-              className="group relative w-full flex flex-col items-center py-2 cursor-pointer focus:outline-none"
-            >
-              {isHomeRoute && subPanelMode === null && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
-              )}
-              <span
-                className={clsx(
-                  "w-10 h-7 flex items-center justify-center transition-colors",
-                  isHomeRoute && subPanelMode === null
-                    ? "text-[#2CA01C] dark:text-[#2CA01C]"
-                    : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                )}
-              >
-                <IconHome size={20} stroke={isHomeRoute && subPanelMode === null ? 2.2 : 1.8} />
-              </span>
-              <span
-                className={clsx(
-                  "text-[11px] leading-tight truncate max-w-[64px] mt-0.5 transition-colors",
-                  isHomeRoute && subPanelMode === null
-                    ? "font-bold text-gray-900 dark:text-white"
-                    : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                )}
-              >
-                {t("navbar.home", "Home")}
-              </span>
-            </button>
-
             {/* All apps */}
             <button
               type="button"
               onClick={handleRailAllAppsClick}
               className="group relative w-full flex flex-col items-center py-2 cursor-pointer focus:outline-none"
             >
-              {subPanelMode === "all_apps" && !activeCategoryForRoute && (
+              {subPanelMode === "all_apps" && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
               )}
               <span
                 className={clsx(
                   "w-10 h-7 flex items-center justify-center transition-colors",
-                  subPanelMode === "all_apps" && !activeCategoryForRoute
+                  subPanelMode === "all_apps"
                     ? "text-[#2CA01C] dark:text-[#2CA01C]"
                     : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
                 )}
               >
-                <IconGridDots size={20} stroke={subPanelMode === "all_apps" && !activeCategoryForRoute ? 2.2 : 1.8} />
+                <IconGridDots size={20} stroke={subPanelMode === "all_apps" ? 2.2 : 1.8} />
               </span>
               <span
                 className={clsx(
-                  "text-[11px] leading-tight truncate max-w-[64px] mt-0.5 transition-colors",
-                  subPanelMode === "all_apps" && !activeCategoryForRoute
+                  "text-[11px] leading-tight truncate max-w-[64px] block text-center mt-0.5 transition-colors",
+                  subPanelMode === "all_apps"
                     ? "font-bold text-gray-900 dark:text-white"
                     : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
                 )}
               >
-                {t("navbar.all_apps", "All apps")}
+                {t("navbar.all_apps", "Apps")}
               </span>
             </button>
           </div>
@@ -720,7 +731,7 @@ export default function QBONavigation({ children }) {
                       </span>
                       <span
                         className={clsx(
-                          "text-[11px] leading-tight truncate max-w-[64px] mt-0.5 transition-colors",
+                          "text-[11px] leading-tight truncate max-w-[64px] block text-center mt-0.5 transition-colors",
                           isCatActive
                             ? "font-bold text-gray-900 dark:text-white"
                             : "font-medium text-gray-600 dark:text-slate-400 group-hover/btn:text-gray-900 dark:group-hover/btn:text-white"
@@ -1100,7 +1111,17 @@ export default function QBONavigation({ children }) {
                         )}
                       >
                         <Link to={bm.path} className="flex-1 truncate">
-                          {bm.label}
+                          {(() => {
+                            const matchedCat = categories.find(
+                              (c) =>
+                                c.items?.some((it) => it.path === bm.path) ||
+                                c.defaultPath === bm.path
+                            );
+                            const matchedItem = matchedCat?.items?.find(
+                              (it) => it.path === bm.path
+                            );
+                            return matchedItem?.label || matchedCat?.label || bm.label;
+                          })()}
                         </Link>
                         <button
                           type="button"
@@ -1149,23 +1170,6 @@ export default function QBONavigation({ children }) {
 
             {/* Business Name / Switcher */}
             <BusinessSwitcher variant="qbo" />
-          </div>
-
-          {/* Center-Left: Wide Global Search Input */}
-          <div className="flex-1 max-w-xl mx-2">
-            <button
-              type="button"
-              onClick={showSearchModal}
-              className="w-full h-9 px-3.5 rounded-lg bg-[#F4F5F8] hover:bg-[#E9EBF0] dark:bg-slate-800/90 dark:hover:bg-slate-800 border border-transparent focus:border-gray-300 flex items-center gap-2.5 text-left text-xs text-gray-500 dark:text-slate-400 transition cursor-pointer"
-            >
-              <IconSearch size={15} stroke={2} className="text-gray-500 dark:text-slate-400 shrink-0" />
-              <span className="truncate flex-1">
-                {t("navbar.search_placeholder", "Navigate. Find transactions, contacts, help, reports, and more.")}
-              </span>
-              <kbd className="hidden sm:inline-block text-[10px] font-semibold text-gray-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-gray-200 dark:border-slate-700">
-                ⌘K
-              </kbd>
-            </button>
           </div>
 
           {/* Right: Quick Tables & POS Launch Pills & Utility Icons */}

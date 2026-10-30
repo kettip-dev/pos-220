@@ -65,3 +65,14 @@ export async function updateReservation(id, date, tableId, status, notes, people
     throw error;
   }
 }
+
+export async function updateReservationStatus(id, status) {
+  try {
+    const response = await ApiClient.post(`/reservations/status/${id}`, {
+      status
+    });
+    return response;
+  } catch (error) {
+    throw error;
+  }
+}

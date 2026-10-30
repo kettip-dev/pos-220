@@ -28,6 +28,7 @@ import TableAssignmentsPage from "./views/SettingsViews/TableAssignmentsPage";
 import MenuItemsSettingsPage from "./views/SettingsViews/MenuItemsSettingsPage";
 import TaxSetupPage from "./views/SettingsViews/TaxSetupPage";
 import PaymentTypesPage from "./views/SettingsViews/PaymentTypesPage";
+import LoyaltySettingsPage from "./views/SettingsViews/LoyaltySettingsPage";
 import DevicesPage from "./views/SettingsViews/DevicesPage";
 import ContactSupport from "./views/SettingsViews/ContactSupportPage";
 import CategoriesPage from "./views/SettingsViews/CategoriesPage";
@@ -38,6 +39,7 @@ import PrintReceiptPage from "./views/PrintReceiptPage";
 import PrintTokenPage from "./views/PrintTokenPage";
 import NoAccessPage from "./views/NoAccessPage";
 import ProfilePage from "./views/ProfilePage";
+import PromotionsPage from "./views/PromotionsPage";
 import { SCOPES } from "./config/scopes";
 import ScopeProtectedRoute from "./helpers/ScopeProtectedRoute";
 import RequiresSingleBusiness from "./components/RequiresSingleBusiness";
@@ -68,6 +70,8 @@ import LanguagePage from "./views/LanguagePage";
 import InventoryPage from "./views/InventoryPage";
 import InventoryLogsPage from "./views/InventoryLogsPage";
 import InventoryDashboardPage from "./views/InventoryDashboard";
+import SuppliersPage from "./views/SuppliersPage";
+import PurchaseOrdersPage from "./views/PurchaseOrdersPage";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import MyToaster from "./components/MyToaster";
 import SuperAdminPlansPage from "./views/SuperAdmin/SuperAdminPlansPage";
@@ -271,6 +275,14 @@ export default function App() {
               }
             />
             <Route
+              path="promotions"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.SETTINGS, SCOPES.POS, SCOPES.ORDERS]}>
+                  <PromotionsPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
               path="inventory"
               element={
                 <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
@@ -291,6 +303,22 @@ export default function App() {
               element={
                 <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
                   <InventoryLogsPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="suppliers"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
+                  <SuppliersPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="purchase-orders"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
+                  <PurchaseOrdersPage />
                 </ScopeProtectedRoute>
               }
             />
@@ -357,6 +385,7 @@ export default function App() {
               />
               <Route path="tax-setup" element={<RequiresSingleBusiness><TaxSetupPage /></RequiresSingleBusiness>} />
               <Route path="payment-types" element={<RequiresSingleBusiness><PaymentTypesPage /></RequiresSingleBusiness>} />
+              <Route path="loyalty" element={<RequiresSingleBusiness><LoyaltySettingsPage /></RequiresSingleBusiness>} />
             </Route>
           </Route>
           {/* app routes */}

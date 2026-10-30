@@ -590,6 +590,8 @@ export default function InvoicesPage() {
           discountType,
           discountValue,
           discountTotal,
+          applied_promotions,
+          promotion_discount_total,
           total,
           orders: ordersArr,
         } = res.data;
@@ -651,6 +653,8 @@ export default function InvoicesPage() {
           discountType: discountType,
           discountValue: discountValue,
           discountAmount: discountTotal || 0,
+          appliedPromotions: typeof applied_promotions === "string" ? JSON.parse(applied_promotions) : applied_promotions,
+          promotionDiscountTotal: promotion_discount_total || 0,
           taxTotal: taxTotal,
           serviceChargeTotal: serviceChargeTotal,
           payableTotal: total,

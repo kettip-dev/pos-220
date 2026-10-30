@@ -552,6 +552,7 @@ export default function OrdersPage() {
 
     try {
       setPaymentDrawerState((prev) => ({ ...prev, isSubmitting: true }));
+      const loyaltyPointsRedeemed = tenderData?.loyaltyPointsRedeemed || 0;
       const res = await payAndCompleteKitchenOrder(
         orderIds,
         subtotal,
@@ -561,7 +562,11 @@ export default function OrdersPage() {
         selectedPaymentType,
         discountType,
         discountValue,
-        discountTotal
+        discountTotal,
+        null,
+        0,
+        loyaltyPointsRedeemed,
+        orderGroup?.customer_id || orderGroup?.orders?.[0]?.customer_id || null
       );
 
       if (res.status === 200) {
@@ -621,6 +626,9 @@ export default function OrdersPage() {
             discountType,
             discountValue,
             discountAmount: discountTotal || 0,
+            loyaltyPointsRedeemed: tenderData?.loyaltyPointsRedeemed || 0,
+            loyaltyDiscountAmount: tenderData?.loyaltyDiscountAmount || 0,
+            loyaltyPointsEarned: tenderData?.loyaltyPointsEarned || 0,
             paymentType:
               paymentTypes.find((p) => p.id === selectedPaymentType)?.title || "Cash",
             tenderedAmount:
@@ -823,29 +831,41 @@ export default function OrdersPage() {
   return (
     <Page>
       {/* ── Top Bar: Title, TV Display Menu, Refresh & Live Socket Pulse ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200/80 dark:border-zinc-800">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-[#2CA01C]/10 text-[#2CA01C] flex items-center justify-center border border-[#2CA01C]/20 shrink-0 shadow-2xs">
-            <IconReceipt size={24} stroke={iconStroke} />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#2CA01C]/15 via-[#2CA01C]/10 to-[#2CA01C]/5 text-[#2CA01C] flex items-center justify-center border border-[#2CA01C]/25 shrink-0 shadow-xs">
+            <IconReceipt size={22} stroke={iconStroke} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
                 {t("orders.title")}
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#2CA01C]/15 text-[#2CA01C] border border-[#2CA01C]/30">
+              <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-2 rounded-full text-xs font-black bg-[#2CA01C]/15 text-[#2CA01C] border border-[#2CA01C]/30 leading-none">
                 {summaryMetrics.openOrdersCount}
               </span>
-              {/* Live Socket Sync Pulse */}
-              <span
-                className={clsx(
-                  "w-2 h-2 rounded-full",
-                  isSocketConnected ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-zinc-600"
-                )}
-                title={isSocketConnected ? "Live Socket Sync Active" : "Socket Connecting..."}
-              />
+              {/* Live Socket Sync Pill */}
+              <div
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 text-[11px] font-bold text-slate-600 dark:text-zinc-300 select-none"
+                title={isSocketConnected ? t("orders.socket_connected", "Live Socket Sync Active") : t("orders.socket_connecting", "Connecting...")}
+              >
+                <span className="relative flex h-2 w-2">
+                  {isSocketConnected && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  )}
+                  <span
+                    className={clsx(
+                      "relative inline-flex rounded-full h-2 w-2",
+                      isSocketConnected ? "bg-emerald-500" : "bg-slate-300 dark:bg-zinc-600"
+                    )}
+                  />
+                </span>
+                <span className="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-zinc-400">
+                  {isSocketConnected ? "Live" : "Offline"}
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-normal">
               {t("orders.subtitle")}
             </p>
           </div>
@@ -858,16 +878,22 @@ export default function OrdersPage() {
             <button
               type="button"
               onClick={() => setShowOrderDisplayMenu((prev) => !prev)}
-              className="min-h-[42px] flex items-center gap-2 rounded-xl transition active:scale-95 px-3.5 py-2 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-750 font-bold text-xs sm:text-sm cursor-pointer shadow-2xs"
+              className="min-h-[42px] flex items-center gap-2 rounded-xl transition-all active:scale-95 px-3.5 py-2 bg-white dark:bg-zinc-850 text-slate-700 dark:text-zinc-200 border border-slate-200/90 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:border-slate-300 dark:hover:border-zinc-600 font-bold text-xs sm:text-sm cursor-pointer shadow-xs"
             >
-              <IconDeviceTv size={18} stroke={iconStroke} className="text-[#2CA01C]" />
+              <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#2CA01C] shrink-0">
+                <IconDeviceTv size={15} stroke={iconStroke} />
+              </div>
               <span>{t("orders.order_display")}</span>
-              <IconChevronDown size={15} stroke={iconStroke} />
+              <IconChevronDown
+                size={14}
+                stroke={iconStroke}
+                className={clsx("transition-transform duration-200 text-slate-400", showOrderDisplayMenu && "rotate-180")}
+              />
             </button>
 
             {showOrderDisplayMenu && (
               <div
-                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 p-1.5 flex flex-col gap-1"
+                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-slate-200/90 dark:border-zinc-800 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-black/50 z-50 p-1.5 flex flex-col gap-1 ring-1 ring-black/5"
                 onMouseLeave={() => setShowOrderDisplayMenu(false)}
               >
                 <button
@@ -937,82 +963,88 @@ export default function OrdersPage() {
           <button
             type="button"
             onClick={refreshOrders}
-            className="min-h-[42px] flex items-center gap-1.5 rounded-xl text-slate-700 dark:text-zinc-200 transition active:scale-95 px-3.5 py-2 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700 text-xs sm:text-sm font-bold shadow-2xs cursor-pointer"
+            disabled={state.isLoading}
+            title={t("orders.refresh", "Refresh")}
+            className="min-h-[42px] flex items-center gap-2 rounded-xl text-slate-700 dark:text-zinc-200 transition-all active:scale-95 px-3.5 py-2 bg-white dark:bg-zinc-850 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:border-slate-300 dark:hover:border-zinc-600 border border-slate-200/90 dark:border-zinc-700 text-xs sm:text-sm font-bold shadow-xs cursor-pointer disabled:opacity-60"
           >
-            <IconRefresh size={17} stroke={iconStroke} />
+            <IconRefresh
+              size={16}
+              stroke={iconStroke}
+              className={clsx(state.isLoading && "animate-spin text-[#2CA01C]")}
+            />
             <span>{t("orders.refresh")}</span>
           </button>
         </div>
       </div>
 
-      {/* ── Live Stat Metric Ribbon (QuickBooks / Toast POS Standard) ── */}
+      {/* ── Live Stat Metric Ribbon (QuickBooks / Toast POS Standard - Compact) ── */}
       {kitchenOrders?.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {/* Metric 1: Total Active Orders */}
-          <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 shadow-2xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+          <div className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-xs flex items-center justify-between transition-all hover:border-slate-300 dark:hover:border-zinc-700">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block leading-tight">
                 {t("orders.active_orders_metric", "Active Orders")}
               </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums">
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tabular-nums leading-none">
                   {summaryMetrics.openOrdersCount}
                 </span>
-                <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">
                   ({summaryMetrics.dineInCount} {t("orders.filter_dinein", "Dine-in")}, {summaryMetrics.takeawayCount + summaryMetrics.deliveryCount} {t("pos.takeaway", "Takeaway")})
                 </span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300">
-              <IconArmchair size={20} stroke={iconStroke} />
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500 dark:text-zinc-400 shrink-0 ml-2">
+              <IconArmchair size={17} stroke={iconStroke} />
             </div>
           </div>
 
           {/* Metric 2: Unpaid Balance Pending Settlement */}
-          <div className="p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/40 via-white to-white dark:from-amber-950/20 dark:via-zinc-900 dark:to-zinc-900 shadow-2xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+          <div className="px-3.5 py-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/60 to-white dark:from-amber-950/20 dark:to-zinc-900 shadow-xs flex items-center justify-between transition-all hover:border-amber-300 dark:hover:border-amber-800">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block leading-tight">
                 {t("orders.unpaid_balance_metric", "Unpaid Balance")}
               </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-300 tabular-nums">
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-base sm:text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums leading-none">
                   {currency}
                   {summaryMetrics.unpaidTotal.toLocaleString(undefined, {
                     minimumFractionDigits: summaryMetrics.unpaidTotal % 1 === 0 ? 0 : 2,
                     maximumFractionDigits: 2,
                   })}
                 </span>
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                <span className="text-[11px] font-semibold text-amber-600/90 dark:text-amber-400/90 truncate">
                   • {summaryMetrics.unpaidCount} {t("orders.unpaid_status", "Unpaid")}
                 </span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center">
-              <IconCash size={20} stroke={iconStroke} />
+            <div className="w-8 h-8 rounded-lg bg-amber-100/80 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center shrink-0 ml-2">
+              <IconCash size={17} stroke={iconStroke} />
             </div>
           </div>
 
           {/* Metric 3: Paid & Active in Kitchen */}
-          <div className="p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-r from-emerald-50/40 via-white to-white dark:from-emerald-950/20 dark:via-zinc-900 dark:to-zinc-900 shadow-2xs flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+          <div className="px-3.5 py-2.5 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 bg-gradient-to-r from-emerald-50/60 to-white dark:from-emerald-950/20 dark:to-zinc-900 shadow-xs flex items-center justify-between transition-all hover:border-emerald-300 dark:hover:border-emerald-800">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block leading-tight">
                 {t("orders.paid_ready_metric", "Paid & In Kitchen")}
               </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 tabular-nums">
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums leading-none">
                   {currency}
                   {summaryMetrics.paidTotal.toLocaleString(undefined, {
                     minimumFractionDigits: summaryMetrics.paidTotal % 1 === 0 ? 0 : 2,
                     maximumFractionDigits: 2,
                   })}
                 </span>
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="text-[11px] font-semibold text-emerald-600/90 dark:text-emerald-400/90 truncate">
                   • {summaryMetrics.paidCount} {t("orders.paid_status", "Paid")}
                 </span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center">
-              <IconCheck size={20} stroke={iconStroke} />
+            <div className="w-8 h-8 rounded-lg bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center shrink-0 ml-2">
+              <IconCheck size={17} stroke={iconStroke} />
             </div>
           </div>
         </div>
@@ -1020,7 +1052,7 @@ export default function OrdersPage() {
 
       {/* ── Segmented Toolbar: View Mode Switcher + Dining/Payment Filters + Search ── */}
       {kitchenOrders?.length > 0 && (
-        <div className="mt-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="mt-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Left: View Mode Toggle & Filter Pills */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
             {/* View Mode Switcher (Group by Table ↔ Individual Tickets) */}
@@ -1273,6 +1305,8 @@ export default function OrdersPage() {
         onPayAndComplete={handleConfirmPayAndComplete}
         isProcessing={paymentDrawerState.isSubmitting}
         cartItems={paymentDrawerState.cartItems}
+        customer={paymentDrawerState.orderGroup?.customer_id ? { phone: paymentDrawerState.orderGroup.customer_id, name: paymentDrawerState.orderGroup.customer_name } : null}
+        customerType={paymentDrawerState.orderGroup?.customer_id ? "CUSTOMER" : "WALKIN"}
         tableTitle={
           paymentDrawerState.orderGroup?.table_title ||
           paymentDrawerState.orderGroup?.orders?.[0]?.delivery_type?.toUpperCase() ||

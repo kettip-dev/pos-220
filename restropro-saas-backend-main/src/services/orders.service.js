@@ -1,6 +1,7 @@
 const { CONFIG } = require("../config");
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { rotateTablePinsByOrderIdsDB } = require("./settings.service");
+const { processLoyaltyOnCheckoutTx } = require("./loyalty.service");
 
 exports.getOrdersDB = async (tenantId) => {
   const conn = await getMySqlPromiseConnection();
@@ -222,6 +223,23 @@ exports.getInvoiceIdFromOrderIdsDB = async (orderIds, tenantId) => {
   }
 };
 
+exports.getCustomerPhoneFromOrderIdsDB = async (orderIds, tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const ids = Array.isArray(orderIds) ? orderIds : [orderIds];
+    const [rows] = await conn.query(
+      `SELECT customer_id FROM orders WHERE id IN (?) AND tenant_id = ? AND customer_id IS NOT NULL LIMIT 1`,
+      [ids, tenantId]
+    );
+    return rows[0]?.customer_id || null;
+  } catch (error) {
+    console.error(error);
+    return null;
+  } finally {
+    conn.release();
+  }
+};
+
 exports.getEncryptedInvoiceIdDB = async (invoiceId, tenantId) => {
   const conn = await getMySqlPromiseConnection();
   try {
@@ -420,7 +438,7 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
 }
 };
 
-exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username = null, discountType = null, discountValue = 0, discountTotal = null) => {
+exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username = null, discountType = null, discountValue = 0, discountTotal = null, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerPhone = null, orderId = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
@@ -437,6 +455,7 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
     const sub = Number(subtotal || 0);
     const tax = Number(taxTotal || 0);
     const service = Number(serviceChargeTotal || 0);
+    const promoDiscount = Number(promotionDiscountTotal || 0);
 
     if (discountType === 'fixed') {
       calcDiscountTotal = Math.min(Math.max(dVal, 0), sub);
@@ -451,18 +470,63 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       discountType = null;
     }
 
-    // Verify and recalculate total = subtotal + taxTotal + serviceChargeTotal - discountTotal
-    const expectedTotal = Math.max(0, sub + tax + service - calcDiscountTotal);
+    // Verify and recalculate total = subtotal + taxTotal + serviceChargeTotal - discountTotal - promoDiscount
+    const allDiscounts = calcDiscountTotal + promoDiscount;
+    const expectedTotal = Math.max(0, sub + tax + service - allDiscounts);
     const verifiedTotal = Number(expectedTotal.toFixed(2));
+
+    // Process Loyalty Points (earn & redeem)
+    let pointsRedeemed = 0;
+    let loyaltyDiscount = 0;
+    let pointsEarned = 0;
+
+    if (customerPhone) {
+      const loyaltyRes = await processLoyaltyOnCheckoutTx(conn, {
+        tenantId,
+        customerPhone,
+        invoiceId,
+        orderId,
+        payableTotal: verifiedTotal,
+        requestedPointsRedeemed: loyaltyPointsRedeemed,
+        userId: username,
+      });
+      pointsRedeemed = loyaltyRes.pointsRedeemed;
+      loyaltyDiscount = loyaltyRes.loyaltyDiscount;
+      pointsEarned = loyaltyRes.pointsEarned;
+    }
+
+    const finalPayableTotal = Math.max(0, Number((verifiedTotal - loyaltyDiscount).toFixed(2)));
+
+    const cleanAppliedPromos = appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0
+      ? JSON.stringify(appliedPromotions)
+      : null;
 
     const sql = `
     INSERT INTO invoices
-    (id, sub_total, tax_total, service_charge_total, discount_type, discount_value, discount_total, total, created_at, payment_type_id, tenant_id, created_by)
+    (id, sub_total, tax_total, service_charge_total, discount_type, discount_value, discount_total, applied_promotions, promotion_discount_total, loyalty_points_redeemed, loyalty_discount_amount, loyalty_points_earned, total, created_at, payment_type_id, tenant_id, created_by)
     VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await conn.query(sql, [invoiceId, sub, tax, service, discountType || null, dVal, calcDiscountTotal, verifiedTotal, date, selectedPaymentType, tenantId, username]);
+    await conn.query(sql, [
+      invoiceId,
+      sub,
+      tax,
+      service,
+      discountType || null,
+      dVal,
+      calcDiscountTotal,
+      cleanAppliedPromos,
+      promoDiscount,
+      pointsRedeemed,
+      loyaltyDiscount,
+      pointsEarned,
+      finalPayableTotal,
+      date,
+      selectedPaymentType,
+      tenantId,
+      username
+    ]);
 
     await conn.query("INSERT INTO invoice_sequences ( sequence_no, tenant_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no);", [invoiceId, tenantId]);
 

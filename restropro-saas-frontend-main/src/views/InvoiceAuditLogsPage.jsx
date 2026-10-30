@@ -182,103 +182,104 @@ export default function InvoiceAuditLogsPage() {
 
       {!isLoading && !error && data && data.auditLogs.length > 0 && (
         <>
-          <div className="overflow-x-auto w-full mt-6">
-            <table className="table table-sm table-zebra border w-full border-restro-border-green">
+          <div className="w-full overflow-x-auto border-t border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b] mt-4">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr>
-                  <th>{t('auditLogs.column_date_time')}</th>
-                  {isConsolidated && <th>{t("business_switcher.business", "Business")}</th>}
-                  <th>{t('auditLogs.column_invoice_number')}</th>
-                  <th>{t('auditLogs.column_action')}</th>
-                  <th>{t('auditLogs.column_performed_by')}</th>
-                  <th>{t('auditLogs.column_reason')}</th>
-                  <th>{t('auditLogs.column_previous_status')}</th>
-                  <th>{t('auditLogs.column_new_status')}</th>
+                <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
+                  <th className="py-3 px-3">{t('auditLogs.column_date_time')}</th>
+                  {isConsolidated && <th className="py-3 px-3">{t("business_switcher.business", "Business")}</th>}
+                  <th className="py-3 px-3">{t('auditLogs.column_invoice_number')}</th>
+                  <th className="py-3 px-3 text-center">{t('auditLogs.column_action')}</th>
+                  <th className="py-3 px-3">{t('auditLogs.column_performed_by')}</th>
+                  <th className="py-3 px-3 max-w-xs">{t('auditLogs.column_reason')}</th>
+                  <th className="py-3 px-3 text-center">{t('auditLogs.column_previous_status')}</th>
+                  <th className="py-3 px-3 text-center">{t('auditLogs.column_new_status')}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
                 {data.auditLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{new Intl.DateTimeFormat('en', { dateStyle: "medium", timeStyle: "short" }).format(new Date(log.created_at))}</td>
+                  <tr
+                    key={log.id}
+                    className="hover:bg-slate-50/70 dark:hover:bg-neutral-800/40 transition text-xs sm:text-[13px]"
+                  >
+                    <td className="py-3 px-3 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                      {new Intl.DateTimeFormat('en', { dateStyle: "medium", timeStyle: "short" }).format(new Date(log.created_at))}
+                    </td>
                     {isConsolidated && (
-                      <td>
-                        <span className="rounded-[42px] bg-restro-gray px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                      <td className="py-3 px-3">
+                        <span className="rounded-full bg-slate-100 dark:bg-neutral-800 px-2.5 py-0.5 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap border border-slate-200 dark:border-neutral-700">
                           {log.business}
                         </span>
                       </td>
                     )}
-                    <td>{log.invoice_number}</td>
-                    <td>
-                      <span className="badge badge-error text-white text-xs">
+                    <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+                      #{log.invoice_number}
+                    </td>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border bg-[#fee2e2] text-[#991b1b] dark:bg-rose-950/70 dark:text-rose-400 border-[#fecaca] dark:border-rose-800">
                         {t('auditLogs.action_void')}
                       </span>
                     </td>
-                    <td>{log.performed_by_name || log.performed_by || t('auditLogs.unknown_user')}</td>
-                    <td className="max-w-xs truncate" title={log.reason}>{log.reason}</td>
-                    <td>{log.previous_status}</td>
-                    <td>{log.new_status}</td>
+                    <td className="py-3 px-3 text-slate-700 dark:text-slate-300">
+                      {log.performed_by_name || log.performed_by || t('auditLogs.unknown_user')}
+                    </td>
+                    <td className="py-3 px-3 max-w-xs truncate text-slate-600 dark:text-slate-400" title={log.reason}>
+                      {log.reason}
+                    </td>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border bg-[#dcfce7] text-[#15803d] dark:bg-emerald-950/70 dark:text-emerald-400 border-[#bbf7d0] dark:border-emerald-800">
+                        {log.previous_status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border bg-[#fee2e2] text-[#991b1b] dark:bg-rose-950/70 dark:text-rose-400 border-[#fecaca] dark:border-rose-800">
+                        {log.new_status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* pagination */}
-          <div className="flex justify-between items-center mt-8">
-            <p className="text-sm text-gray-500">
+          {/* ── Bottom Pagination Bar ── */}
+          <div className="flex items-center justify-between py-3 text-xs text-slate-600 dark:text-neutral-400">
+            <div className="text-slate-500">
               {t('auditLogs.showing_for', { total: data.totalAuditLogs })}
-            </p>
-            <div className="join">
+            </div>
+
+            <div className="flex items-center gap-3">
               <button
-                onClick={btnPaginationFirstPage}
-                className={clsx("join-item btn btn-sm", {
-                  "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== 1,
-                  "bg-white text-gray-800": theme !== "black" && state.page !== 1,
-                  "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === 1,
-                  "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === 1,
-                })}
-              >
-                <IconChevronsLeft stroke={iconStroke} />
-              </button>
-              <button
+                type="button"
+                disabled={state.page <= 1}
                 onClick={btnPaginationPreviousPage}
-                className={clsx("join-item btn btn-sm", {
-                  "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== 1,
-                  "bg-white text-gray-800": theme !== "black" && state.page !== 1,
-                  "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === 1,
-                  "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === 1,
-                })}
+                className={clsx(
+                  "flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition",
+                  state.page <= 1 && "opacity-40 cursor-not-allowed hover:text-slate-600"
+                )}
               >
-                <IconChevronLeft stroke={iconStroke} />
+                <IconChevronLeft size={14} stroke={iconStroke} />
+                <span>Previous</span>
               </button>
-              <button className="join-item btn btn-sm bg-white text-gray-800 dark:bg-restro-bg-card-dark-mode dark:text-gray-200">
-                {t('auditLogs.page_of', { page: data.currentPage, totalPages: data.totalPages })}
-              </button>
+
+              <span className="tabular-nums">
+                Page {data.currentPage} of {data.totalPages}
+              </span>
+
               <button
+                type="button"
+                disabled={state.page >= data.totalPages}
                 onClick={btnPaginationNextPage}
-                className={clsx("join-item btn btn-sm", {
-                  "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== data.totalPages,
-                  "bg-white text-gray-800": theme !== "black" && state.page !== data.totalPages,
-                  "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === data.totalPages,
-                  "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === data.totalPages,
-                })}
+                className={clsx(
+                  "flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition",
+                  state.page >= data.totalPages && "opacity-40 cursor-not-allowed hover:text-slate-600"
+                )}
               >
-                <IconChevronRight stroke={iconStroke} />
-              </button>
-              <button
-                onClick={btnPaginationLastPage}
-                className={clsx("join-item btn btn-sm", {
-                  "bg-restro-bg-card-dark-mode text-gray-200": theme === "black" && state.page !== data.totalPages,
-                  "bg-white text-gray-800": theme !== "black" && state.page !== data.totalPages,
-                  "bg-restro-bg-card-dark-mode text-gray-400 cursor-not-allowed": theme === "black" && state.page === data.totalPages,
-                  "bg-gray-100 text-gray-400 cursor-not-allowed": theme !== "black" && state.page === data.totalPages,
-                })}
-              >
-                <IconChevronsRight stroke={iconStroke} />
+                <span>Next</span>
+                <IconChevronRight size={14} stroke={iconStroke} />
               </button>
             </div>
           </div>
-          {/* pagination */}
         </>
       )}
 

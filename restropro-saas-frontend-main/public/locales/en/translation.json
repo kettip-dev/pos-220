@@ -333,7 +333,245 @@
     "loading_reports": "កំពុងផ្ទុកទិន្នន័យរបាយការណ៍...",
     "standard_reports": "Standard reports",
     "favourites": "Favourites",
-    "report_categories": "Report categories"
+    "report_categories": "Report categories",
+    "search_placeholder": "Type report name here",
+    "send_eod_telegram": "Send EOD to Telegram",
+    "sending": "Sending...",
+    "filtered_by": "Filtered by:",
+    "show_all_reports": "Show all reports",
+    "add_to_favourites": "Add to Favourites",
+    "remove_from_favourites": "Remove from Favourites",
+    "open_report": "Open Report",
+    "no_reports_found": "No reports found",
+    "try_adjusting_search": "Try adjusting your search or category filter.",
+    "categories": {
+      "business_overview_and_sales": "Business overview & Sales",
+      "sales": "Sales",
+      "payments": "Payments",
+      "menu": "Menu",
+      "customers": "Customers",
+      "operations": "Operations",
+      "inventory": "Inventory",
+      "accounting": "Accounting",
+      "reservations": "Reservations",
+      "feedback": "Feedback"
+    },
+    "catalog": {
+      "sales-summary": {
+        "title": "Sales Summary",
+        "desc": "Revenue, net sales, taxes, service charge, discount, orders, AOV, customers, top items, and payment split."
+      },
+      "gross-sales": {
+        "title": "Gross Sales",
+        "desc": "Total item sales before taxes, service charges, refunds, voids, and discounts."
+      },
+      "net-sales": {
+        "title": "Net Sales",
+        "desc": "Sales after discounts and voids, separated by tax, service charge, and payment total."
+      },
+      "sales-by-hour": {
+        "title": "Sales by Hour",
+        "desc": "Hourly sales trend to understand rush windows and quiet periods."
+      },
+      "sales-by-day": {
+        "title": "Sales by Day",
+        "desc": "Daily sales totals, order counts, average ticket, and customer count."
+      },
+      "sales-by-month": {
+        "title": "Sales by Month",
+        "desc": "Monthly revenue trend for owner-level business review."
+      },
+      "sales-by-order-type": {
+        "title": "Sales by Order Type",
+        "desc": "Dine-in, takeaway, delivery, QR ordering, and other delivery type performance."
+      },
+      "sales-by-table": {
+        "title": "Sales by Table",
+        "desc": "Revenue, orders, and average ticket grouped by dining table and floor."
+      },
+      "invoice-detail": {
+        "title": "Invoice Detail",
+        "desc": "Line-by-line invoice totals with payment method, tax, service charge, and customer."
+      },
+      "voids-cancellations": {
+        "title": "Voids & Cancellations",
+        "desc": "Cancelled orders and cancelled items with quantities and lost sales value."
+      },
+      "average-order-value": {
+        "title": "Average Order Value",
+        "desc": "Average ticket size trend across selected periods and service types."
+      },
+      "payment-summary": {
+        "title": "Payment Summary",
+        "desc": "Payments grouped by cash, card, wallet, online, and custom payment types."
+      },
+      "cash-report": {
+        "title": "Cash Report",
+        "desc": "Cash collections, cash invoices, and cash share of total payments."
+      },
+      "card-report": {
+        "title": "Card Report",
+        "desc": "Card payment volume and transaction count by date and invoice."
+      },
+      "unpaid-orders": {
+        "title": "Unpaid Orders",
+        "desc": "Orders with pending payment status for follow-up and closing checks."
+      },
+      "payment-type-mix": {
+        "title": "Payment Type Mix",
+        "desc": "Share of revenue by payment method with trend and comparison support."
+      },
+      "top-selling-items": {
+        "title": "Top Selling Items",
+        "desc": "Most sold menu items by quantity, revenue, category, and date range."
+      },
+      "low-selling-items": {
+        "title": "Low Selling Items",
+        "desc": "Items with low movement so owners can simplify the menu."
+      },
+      "item-sales": {
+        "title": "Item Sales",
+        "desc": "Detailed item revenue, quantity sold, net price, tax, and category."
+      },
+      "category-sales": {
+        "title": "Category Sales",
+        "desc": "Food, beverage, dessert, and custom category sales performance."
+      },
+      "variant-sales": {
+        "title": "Variant Sales",
+        "desc": "Size, preparation, and variant-level sales performance."
+      },
+      "addon-sales": {
+        "title": "Addon Sales",
+        "desc": "Revenue and quantity from paid addons and modifiers."
+      },
+      "menu-price-audit": {
+        "title": "Menu Price Audit",
+        "desc": "Current item, variant, addon, net price, and tax setup for menu review."
+      },
+      "customer-summary": {
+        "title": "Customer Summary",
+        "desc": "Total, new, returning, member, and guest customer performance."
+      },
+      "new-customers": {
+        "title": "New Customers",
+        "desc": "Customers created during the selected period with contact details."
+      },
+      "returning-customers": {
+        "title": "Returning Customers",
+        "desc": "Customers who placed orders in the selected period."
+      },
+      "top-customers": {
+        "title": "Top Customers",
+        "desc": "Best customers by spend, visits, and average ticket."
+      },
+      "customer-birthdays": {
+        "title": "Customer Birthdays",
+        "desc": "Upcoming birthdays for campaigns and loyalty outreach."
+      },
+      "member-customers": {
+        "title": "Member Customers",
+        "desc": "Membership list and member sales contribution."
+      },
+      "order-status": {
+        "title": "Order Status",
+        "desc": "Created, completed, cancelled, paid, and pending order movement."
+      },
+      "kitchen-performance": {
+        "title": "Kitchen Performance",
+        "desc": "Prepared, completed, cancelled, and delivered item status volume."
+      },
+      "token-report": {
+        "title": "Token Report",
+        "desc": "Token sequence and order flow for counter service and food trucks."
+      },
+      "qr-order-report": {
+        "title": "QR Order Report",
+        "desc": "QR order volume, status, table, and customer mix."
+      },
+      "table-turnover": {
+        "title": "Table Turnover",
+        "desc": "Orders and sales by table to identify high-use dining areas."
+      },
+      "staff-created-orders": {
+        "title": "Staff Created Orders",
+        "desc": "Order and invoice activity by staff where user tracking is available."
+      },
+      "inventory-summary": {
+        "title": "Inventory Summary",
+        "desc": "Current stock, units, thresholds, and stock status."
+      },
+      "low-stock": {
+        "title": "Low Stock",
+        "desc": "Ingredients and items below minimum threshold."
+      },
+      "stock-movements": {
+        "title": "Stock Movements",
+        "desc": "IN, OUT, and WASTAGE logs with before and after quantities."
+      },
+      "wastage": {
+        "title": "Wastage",
+        "desc": "Wastage quantity by ingredient, date, note, and staff."
+      },
+      "recipe-usage": {
+        "title": "Recipe Usage",
+        "desc": "Ingredient usage estimate from item recipes, variants, and addons."
+      },
+      "stock-reorder": {
+        "title": "Reorder List",
+        "desc": "Suggested restock list based on current stock and minimum thresholds."
+      },
+      "tax-summary": {
+        "title": "Tax Summary",
+        "desc": "Tax collected by period with inclusive and exclusive tax setup."
+      },
+      "tax-by-item": {
+        "title": "Tax by Item",
+        "desc": "Tax setup and taxable sales grouped by menu item."
+      },
+      "service-charge": {
+        "title": "Service Charge",
+        "desc": "Service charge total and share of revenue."
+      },
+      "discount-summary": {
+        "title": "Discount Summary",
+        "desc": "Total discounts given, fixed vs percentage split, discounted order count, and invoice discount audit log."
+      },
+      "daily-close": {
+        "title": "Daily Close",
+        "desc": "End-of-day sales, payment, taxes, service charge, and unpaid order snapshot."
+      },
+      "invoice-register": {
+        "title": "Invoice Register",
+        "desc": "Chronological invoice ledger for accounting review."
+      },
+      "reservation-summary": {
+        "title": "Reservation Summary",
+        "desc": "Reservations by status, people count, date, and table."
+      },
+      "upcoming-reservations": {
+        "title": "Upcoming Reservations",
+        "desc": "Future bookings with customer, table, people count, and notes."
+      },
+      "reservation-no-show": {
+        "title": "Reservation No-Show",
+        "desc": "Booked reservations that did not convert into table activity where available."
+      },
+      "feedback-summary": {
+        "title": "Feedback Summary",
+        "desc": "Average rating, food, service, staff, ambiance, and recommendation scores."
+      },
+      "negative-feedback": {
+        "title": "Negative Feedback",
+        "desc": "Low-rated feedback and remarks for service recovery."
+      },
+      "recommendation-score": {
+        "title": "Recommendation Score",
+        "desc": "Recommend rating trend and distribution by period."
+      }
+    },
+    "back_to_reports": "Back to Reports",
+    "send_to_telegram": "Send to Telegram"
   },
   "qr_menu": {
     "loading_message": "Please wait...",
@@ -462,6 +700,8 @@
     "tax_total": "Tax Total",
     "service_charge_total": "Service Charge Total",
     "payable_total": "Payable Total",
+    "coupons_and_offers": "Promotions & Offers",
+    "promotions_discount": "Promotions & Offers",
     "print_receipt_option": "Print Receipt?",
     "pay_complete_order_button": "Pay & Complete Order",
     "collect_feedback_title": "Collect Feedback",
@@ -909,6 +1149,8 @@
     "tax_total": "Tax Total",
     "service_charge_total": "Service Charge Total",
     "payable_total": "Payable Total",
+    "coupons_and_offers": "Promotions & Offers",
+    "promotions_discount": "Promotions & Offers",
     "name_required": "Name is Required.",
     "valid_phone_error": "Enter a valid phone number.",
     "please_wait": "Please wait...",
@@ -977,6 +1219,9 @@
     "customers": "Customer Directory",
     "inventory": "Inventory",
     "invoices": "Invoices & Receipts",
+    "promotions": "Promotions & Deals",
+    "promotions_short": "Deals",
+    "promotions_list": "Campaigns & Coupons",
     "back_office": "Back Office",
     "feedbacks": "Customer Feedback",
     "users": "Staff & Users",
@@ -1038,7 +1283,7 @@
     "unpin_from_rail": "Unpin from rail",
     "pin_to_rail": "Pin to rail",
     "bookmarks": "Bookmarks",
-    "all_apps": "All apps",
+    "all_apps": "Apps",
     "pinned": "PINNED",
     "reports_and_analytics": "REPORTS & ANALYTICS",
     "bookmarks_upper": "BOOKMARKS",
@@ -1102,6 +1347,9 @@
     "invoices": "វិក្កយបត្រជាវ"
   },
   "settings": {
+    "promotions_marketing_title": "Promotions & Marketing",
+    "promotions_marketing_desc": "Manage happy hours, discount coupons, BOGO deals, and automatic order/item discounts.",
+    "category_marketing": "Marketing & Discounts",
     "details": "Details",
     "print_settings": "Print Settings",
     "telegram_notifications": "Telegram Notifications",
@@ -1963,6 +2211,8 @@
     "service_charge_total": "Service Charge Total",
     "discount_total": "Discount Total",
     "payable_total": "Payable Total",
+    "coupons_and_offers": "Promotions & Offers",
+    "promotions_discount": "Promotions & Offers",
     "collect_payment_send_to_kitchen": "Collect Payment & Send order to Kitchen",
     "order_sent_to_kitchen": "Order sent to Kitchen!",
     "order_id": "Order ID",
@@ -2554,7 +2804,7 @@
       "refresh": "Refresh Page",
       "login_again": "Login Again"
     },
-    "button": "ផ្ទុកឡើងវិញឥឡូវនេះ"
+    "button": "Refresh Now"
   },
   "business_switcher": {
     "current_business": "Current Business",
@@ -2774,5 +3024,170 @@
     "rooftop": "Rooftop",
     "vip": "VIP Room",
     "ground_floor": "Ground Floor"
+  },
+  "suppliers": {
+    "subtitle": "Manage restaurant ingredient vendors, payment terms, contact details & restock orders.",
+    "btn_add": "Add Supplier",
+    "btn_add_first": "Add First Supplier",
+    "stat_total": "Total Suppliers",
+    "stat_active": "Active Accounts",
+    "stat_orders": "Restock Orders",
+    "stat_spend": "Fulfilled Spend",
+    "search_placeholder": "Search supplier name, phone, telegram...",
+    "no_suppliers": "No suppliers registered yet",
+    "no_suppliers_desc": "Add your vegetable, meat, seafood, and beverage suppliers to track restocks.",
+    "no_results": "No matching suppliers found",
+    "no_results_desc": "Try adjusting your search keywords.",
+    "col_supplier": "Supplier",
+    "col_contact": "Direct Contact",
+    "col_location": "Location",
+    "col_payment": "Terms & Bank",
+    "col_orders": "Orders / Spend",
+    "view_details": "View Restock History",
+    "modal_add_title": "New Supplier Registration",
+    "modal_edit_title": "Edit Supplier Profile",
+    "form_name": "Supplier / Company Name",
+    "form_contact_person": "Contact Person",
+    "form_phone": "Primary Phone",
+    "form_telegram": "Telegram Username / Link",
+    "form_email": "Email Address",
+    "form_address": "Street Address & City",
+    "form_payment_terms": "Payment Terms",
+    "form_bank_details": "Bank Account Info (ABA / Acleda)",
+    "form_notes": "Internal Notes",
+    "save_changes": "Save Changes",
+    "register_supplier": "Register Supplier",
+    "confirm_delete_title": "Delete Supplier?",
+    "confirm_delete_desc": "Are you sure you want to delete '{{name}}'? This action cannot be undone.",
+    "drawer_subtitle": "Supplier File",
+    "contact_person": "Contact Person",
+    "email": "Email",
+    "payment_terms": "Payment Terms",
+    "bank_info": "Bank Details",
+    "tax_id": "Tax / VAT ID",
+    "recent_orders": "Recent Restock Orders",
+    "no_recent_orders": "No purchase orders created for this supplier yet.",
+    "create_po": "Create Restock PO",
+    "name_required": "Supplier name is required.",
+    "added_success": "Supplier added successfully.",
+    "updated_success": "Supplier updated successfully.",
+    "deleted_success": "Supplier deleted successfully.",
+    "delete_failed": "Failed to delete supplier.",
+    "error_generic": "An error occurred.",
+    "no_data_export": "No suppliers to export."
+  },
+  "purchase_orders": {
+    "subtitle": "Create restock orders to suppliers, receive deliveries, and automatically replenish inventory.",
+    "btn_create": "New Purchase Order",
+    "search_placeholder": "Search PO number, supplier, notes...",
+    "total_records": "Total: {{total}} orders",
+    "status_pending": "Pending Delivery",
+    "status_received": "Received / Restocked",
+    "status_cancelled": "Cancelled",
+    "no_orders": "No purchase orders found",
+    "no_orders_desc": "Create a purchase order to request new ingredients and restock supplies from your vendors.",
+    "col_supplier": "Supplier",
+    "col_items": "Items",
+    "col_date": "Date",
+    "col_amount": "Total Amount",
+    "btn_receive": "Receive Goods",
+    "view_po": "View / Print Invoice",
+    "create_title": "Create Purchase Order to Supplier",
+    "form_select_supplier": "Select Supplier from Directory",
+    "form_supplier_name": "Supplier Name",
+    "form_items": "Restock Items & Ingredients",
+    "add_line_item": "Add Item Line",
+    "form_notes": "Notes / Instructions for Supplier",
+    "submit_order": "Create & Send PO",
+    "fulfill_modal_title": "Confirm Goods Receipt",
+    "fulfill_modal_desc": "Receiving PO #{{id}} from {{vendor}} will automatically add all item quantities to your live restaurant stock and record an IN inventory log.",
+    "btn_confirm_receive": "Confirm & Restock Stock",
+    "vendor_required": "Please select or enter a supplier name.",
+    "item_required": "Please add at least one item to the purchase order.",
+    "created_success": "Purchase Order created successfully!",
+    "create_failed": "Failed to create order.",
+    "received_success": "Goods received! Inventory quantities have been automatically restocked.",
+    "fulfill_failed": "Failed to receive order.",
+    "confirm_cancel": "Are you sure you want to cancel this order?",
+    "cancelled_success": "Purchase order cancelled."
+  },
+  "promotions": {
+    "page_title": "Promotions & Marketing Deals",
+    "page_subtitle": "Manage coupons, happy hours, BOGO specials, and automatic cart discounts",
+    "create_button": "Create Promotion",
+    "active_campaigns": "Active Deals",
+    "total_redemptions": "Times Redeemed",
+    "discounts_given": "Total Discounts Given",
+    "happy_hours": "Engine Mode",
+    "live_sync": "Live Auto-Routing",
+    "search_placeholder": "Search campaigns, codes...",
+    "no_promotions_found": "No promotions created yet",
+    "no_promotions_desc": "Set up automatic happy hours, promo coupons, or BOGO deals to drive repeat customer visits.",
+    "create_first_deal": "Create Your First Deal",
+    "activated": "Promotion activated",
+    "deactivated": "Promotion deactivated",
+    "deleted": "Promotion deleted successfully",
+    "created": "Promotion created successfully",
+    "updated": "Promotion updated successfully",
+    "title_required": "Please enter a promotion title",
+    "code_copied": "Coupon code copied to clipboard!",
+    "delete_title": "Delete Promotion",
+    "delete_confirm": "Are you sure you want to delete this promotion? This action cannot be undone.",
+    "view_cards": "Cards",
+    "view_table": "Table",
+    "th_status": "Status",
+    "th_campaign": "Promotion Campaign",
+    "th_trigger": "Trigger / Code",
+    "th_benefit": "Benefit",
+    "th_conditions": "Rules & Schedule",
+    "th_redemptions": "Redemptions",
+    "th_actions": "Actions",
+    "status_active": "Active",
+    "status_inactive": "Inactive",
+    "auto_applied": "Auto-Applied",
+    "auto": "Auto",
+    "no_restrictions": "No restrictions",
+    "unlimited": "unlimited",
+    "benefit": "Benefit",
+    "used": "Used:",
+    "filter_all": "All",
+    "happy_hour": "Happy Hour",
+    "ongoing": "Ongoing",
+    "to": "to",
+    "min_spend": "Min spend",
+    "min": "Min",
+    "cap": "Cap",
+    "times": "times",
+    "edit_deal": "Edit Deal",
+    "delete_deal": "Delete Deal",
+    "type_order_percentage": "Order %",
+    "type_order_fixed": "Order Fixed $",
+    "type_item_percentage": "Item %",
+    "type_item_fixed": "Item Fixed $",
+    "type_bogo": "BOGO",
+    "quick_presets": "Quick Presets (1-Click Fill)",
+    "step_1": "1. Info & Code",
+    "step_2": "2. Benefit & Rules",
+    "step_3": "3. Scope & Channels",
+    "step_4": "4. Schedule & Limits",
+    "edit_promo_title": "Edit Promotion Campaign",
+    "create_promo_title": "Promotion Campaign Builder",
+    "trigger_mode": "Trigger Mode",
+    "trigger_auto_desc": "Automatically applies to qualifying cart",
+    "trigger_code_desc": "Requires cashier or customer to enter coupon code",
+    "off": "Off",
+    "free": "Free",
+    "buy": "Buy",
+    "get": "Get",
+    "showing": "Showing",
+    "of": "of",
+    "entries": "entries",
+    "previous": "Previous",
+    "next": "Next",
+    "print_table": "Print table",
+    "export_excel": "Export to Excel",
+    "table_settings": "Table settings",
+    "export_selected": "Export Selected",
+    "deselect_all": "Deselect All"
   }
 }

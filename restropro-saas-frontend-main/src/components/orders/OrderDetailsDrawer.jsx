@@ -446,26 +446,27 @@ export default function OrderDetailsDrawer({
           {/* ── Footer Touch Action Controls (min-h-[42px]) ── */}
           <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 space-y-2.5">
             <div className="flex items-center gap-2">
-              {/* Print Receipt Button */}
+              {/* Print Receipt Button (Icon Only) */}
               <button
                 type="button"
                 onClick={() => onPrintReceipt && onPrintReceipt(order_ids, tokens, table_id)}
-                className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center gap-1.5 text-xs font-semibold transition active:scale-95"
+                title={t("orders.print_receipt", "Print Receipt")}
+                aria-label={t("orders.print_receipt", "Print Receipt")}
+                className="h-[42px] w-[42px] min-h-[42px] min-w-[42px] shrink-0 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
               >
-                <IconPrinter size={17} stroke={iconStroke} />
-                <span className="hidden sm:inline">{t("orders.print_receipt")}</span>
+                <IconPrinter size={18} stroke={iconStroke} />
               </button>
 
-              {/* Feedback Button (if enabled) */}
+              {/* Feedback Button (if enabled - Icon Only) */}
               {storeSettings?.is_feedback_enabled && (
                 <button
                   type="button"
                   onClick={() => onCollectFeedback && onCollectFeedback(order_ids)}
-                  className="min-h-[42px] px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center gap-1 text-xs font-semibold transition active:scale-95"
-                  title={t("orders.collect_feedback")}
+                  title={t("orders.collect_feedback", "Collect Feedback")}
+                  aria-label={t("orders.collect_feedback", "Collect Feedback")}
+                  className="h-[42px] w-[42px] min-h-[42px] min-w-[42px] shrink-0 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center transition active:scale-95 cursor-pointer shadow-2xs"
                 >
-                  <IconStars size={17} stroke={iconStroke} className="text-amber-500" />
-                  <span className="hidden sm:inline">{t("orders.collect_feedback")}</span>
+                  <IconStars size={18} stroke={iconStroke} className="text-amber-500" />
                 </button>
               )}
 
@@ -473,10 +474,11 @@ export default function OrderDetailsDrawer({
               <button
                 type="button"
                 onClick={() => onCancelOrder && onCancelOrder(order_ids)}
-                className="min-h-[42px] px-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1 text-xs font-semibold transition active:scale-95"
+                title={t("orders.cancel", "Cancel Order")}
+                className="h-[42px] min-h-[42px] px-3.5 shrink-0 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap transition active:scale-95 cursor-pointer shadow-2xs"
               >
                 <IconX size={16} stroke={iconStroke} />
-                <span>{t("orders.cancel")}</span>
+                <span>{t("orders.cancel", "Cancel")}</span>
               </button>
 
               {/* Primary Action Button: Pay & Settle vs Complete Order */}
@@ -484,19 +486,19 @@ export default function OrderDetailsDrawer({
                 <button
                   type="button"
                   onClick={() => onPayAndComplete && onPayAndComplete(order_ids, orderGroup)}
-                  className="min-h-[42px] flex-1 rounded-xl bg-[#2CA01C] hover:bg-[#248217] text-white font-bold text-xs sm:text-sm px-4 flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
+                  className="h-[42px] min-h-[42px] flex-1 rounded-xl bg-[#2CA01C] hover:bg-[#248217] text-white font-bold text-xs sm:text-sm px-4 flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  <IconCash size={19} stroke={iconStroke} />
-                  <span>{t("orders.pay_complete", "Pay & Settle")}</span>
+                  <IconCash size={19} stroke={iconStroke} className="shrink-0" />
+                  <span className="truncate">{t("orders.pay_complete", "Pay & Settle")}</span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => onCompleteOrder && onCompleteOrder(order_ids)}
-                  className="min-h-[42px] flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm px-4 flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
+                  className="h-[42px] min-h-[42px] flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm px-4 flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  <IconCheck size={19} stroke={iconStroke} />
-                  <span>{t("orders.complete", "Complete Order")}</span>
+                  <IconCheck size={19} stroke={iconStroke} className="shrink-0" />
+                  <span className="truncate">{t("orders.complete", "Complete Order")}</span>
                 </button>
               )}
             </div>

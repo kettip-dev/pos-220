@@ -1,5 +1,5 @@
 const { nanoid } = require("nanoid");
-const { addReservationDB, updateReservationDB, cancelReservationDB, deleteReservationDB, searchReservationsDB, getReservationsDB, getReservationSummaryDB, getReservationsByBusinessDB } = require("../services/reservation.service");
+const { addReservationDB, updateReservationDB, updateReservationStatusDB, cancelReservationDB, deleteReservationDB, searchReservationsDB, getReservationsDB, getReservationSummaryDB, getReservationsByBusinessDB } = require("../services/reservation.service");
 const { getStoreTablesDB } = require("../services/settings.service")
 
 /**
@@ -48,14 +48,14 @@ exports.initReservation = async (req, res) => {
 
         const [storeTables, summary, byBusiness] = await Promise.all([
             getStoreTablesDB(tenantId),
-            // Two extra queries, and only when consolidating.
-            isConsolidated ? getReservationSummaryDB(scope) : Promise.resolve(null),
+            getReservationSummaryDB(scope),
             isConsolidated ? getReservationsByBusinessDB(scope) : Promise.resolve([]),
         ]);
 
         if (!isConsolidated) {
             return res.status(200).json({
-                storeTables
+                storeTables,
+                summary
             });
         }
 
@@ -156,6 +156,34 @@ exports.updateReservation = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: req.__("something_went_wrong_try_later") // Translate message
+        });
+    }
+};
+
+exports.updateReservationStatus = async (req, res) => {
+    try {
+        const tenantId = req.user.tenant_id;
+        const reservationId = req.params.id;
+        const status = req.body.status;
+
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: "Status is required",
+            });
+        }
+
+        await updateReservationStatusDB(reservationId, status, tenantId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Reservation status updated successfully",
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: req.__("something_went_wrong_try_later")
         });
     }
 };

@@ -1,4 +1,4 @@
-const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB } = require("../services/orders.service");
+const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, getCustomerPhoneFromOrderIdsDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB } = require("../services/orders.service");
 const {
   getPaymentTypesDB,
   getPrintSettingDB,
@@ -331,7 +331,7 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const { orderIds, subTotal, taxTotal, serviceChargeTotal, total, selectedPaymentType, discountType, discountValue, discountTotal } = req.body
+    const { orderIds, subTotal, taxTotal, serviceChargeTotal, total, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerId } = req.body;
 
     if(!orderIds || orderIds?.length == 0) {
       return res.status(400).json({
@@ -340,11 +340,16 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
       });
     }
 
+    let custPhone = customerId?.phone || (typeof customerId === 'string' ? customerId : null);
+    if (!custPhone) {
+      custPhone = await getCustomerPhoneFromOrderIdsDB(orderIds, tenantId);
+    }
+
     const now = new Date();
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
     // get invoice id
-    const invoiceId = await createInvoiceDB(subTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null);
+    const invoiceId = await createInvoiceDB(subTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, orderIds[0] || null);
 
     await completeOrdersAndSaveInvoiceIdDB(orderIds, invoiceId, tenantId);
 

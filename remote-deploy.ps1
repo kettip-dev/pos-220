@@ -64,13 +64,17 @@ if ($Action -eq "deploy") {
     )
 
     $tempArchive = Join-Path $env:TEMP "restro-deploy-$((Get-Date).Ticks).tar.gz"
+    $remoteTempArchive = "/tmp/restro-deploy.tar.gz"
     try {
         Write-Info "Creating temporary transfer archive..."
         & tar -czf $tempArchive @tarExclude -C $ScriptDir .
 
-        Write-Info "Streaming archive over SSH to remote host..."
-        Get-Content $tempArchive -Raw -Encoding Byte -ReadCount 0 | ssh $SSH_TARGET "tar -xzf - -C $RemoteDir"
-        Write-Success "Files transferred successfully."
+        Write-Info "Transferring archive via SCP to remote host..."
+        & scp $tempArchive "${SSH_TARGET}:${remoteTempArchive}"
+
+        Write-Info "Extracting archive on remote host..."
+        ssh $SSH_TARGET "tar -xzf $remoteTempArchive -C $RemoteDir && rm -f $remoteTempArchive"
+        Write-Success "Files transferred and extracted successfully."
     } finally {
         if (Test-Path $tempArchive) {
             Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue

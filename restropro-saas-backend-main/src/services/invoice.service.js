@@ -1,5 +1,6 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db")
 const { tenantFilter } = require("../utils/tenant_scope")
+const { reverseLoyaltyForVoidInvoiceTx } = require("./loyalty.service")
 
 
 /**
@@ -38,6 +39,11 @@ exports.getInvoicesDB = async (type, from, to, scope) => {
             i.discount_type,
             i.discount_value,
             i.discount_total,
+            i.applied_promotions,
+            i.promotion_discount_total,
+            i.loyalty_points_redeemed,
+            i.loyalty_discount_amount,
+            i.loyalty_points_earned,
             i.total,
             i.status,
             i.voided_at,
@@ -145,6 +151,8 @@ exports.searchInvoicesDB = async (search, scope) => {
       i.discount_type,
       i.discount_value,
       i.discount_total,
+      i.applied_promotions,
+      i.promotion_discount_total,
       i.total,
       i.status,
       i.voided_at,
@@ -353,6 +361,11 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
               i.discount_type,
               i.discount_value,
               i.discount_total,
+              i.applied_promotions,
+              i.promotion_discount_total,
+              i.loyalty_points_redeemed,
+              i.loyalty_discount_amount,
+              i.loyalty_points_earned,
               i.total,
               i.payment_type_id,
               i.status,
@@ -413,6 +426,14 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username) => {
        VALUES (?, ?, ?, 'VOID', ?, ?, ?, 'VOID')`,
       [tenantId, invoiceId, invoiceId, username, reason, invoice.status]
     );
+
+    // Reverse any earned or redeemed loyalty points for this invoice
+    await reverseLoyaltyForVoidInvoiceTx(conn, {
+      invoiceId,
+      tenantId,
+      userId: username,
+      reason
+    });
 
     await conn.commit();
 

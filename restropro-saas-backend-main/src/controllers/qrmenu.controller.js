@@ -15,6 +15,7 @@ const {
 const { approveQROrderDB } = require("../services/pos.service");
 const { getSuperAdminImageStorageConfigDB } = require("../services/image_storage.service");
 const { createServiceRequestDB, getServiceRequestByIdDB } = require("../services/waiter.service");
+const { getActivePromotions } = require("../services/promotions.service");
 
 const QR_CALL_REASONS = ["water", "bill", "order_more", "cutlery", "condiments", "napkins", "clean_table", "complaint", "captain", "other"];
 
@@ -33,13 +34,14 @@ exports.getQRMenuInit = async (req, res) => {
       });
     }
 
-    const [categories, storeSettings, storeTable, publicTables, serviceCharge, storageConfig] = await Promise.all([
+    const [categories, storeSettings, storeTable, publicTables, serviceCharge, storageConfig, promotions] = await Promise.all([
       getCategoriesDB(tenantId),
       getStoreSettingDB(tenantId),
       getStoreTableByEncryptedIdDB(tenantId, tableId),
       getPublicStoreTablesDB(tenantId),
       getServiceChargeDB(tenantId),
       getSuperAdminImageStorageConfigDB(),
+      getActivePromotions(tenantId),
     ]);
 
     const [menuItems, addons, variants, recipeItems] = await Promise.all([
@@ -93,6 +95,7 @@ exports.getQRMenuInit = async (req, res) => {
       verifiedSessionToken,
       activeSessionSummary,
       serviceCharge,
+      promotions: promotions || [],
       imageStorageConfig,
     });
   } catch (error) {

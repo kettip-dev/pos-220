@@ -90,6 +90,8 @@ export function buildReceiptEscPos(receiptDetails) {
     discountType,
     discountValue,
     discountAmount = 0,
+    appliedPromotions = [],
+    promotionDiscountTotal = 0,
     taxTotal = 0,
     serviceChargeTotal = 0,
     payableTotal = 0,
@@ -98,6 +100,9 @@ export function buildReceiptEscPos(receiptDetails) {
     paymentMethod,
     currency = "$",
     dualTenderInfo = null,
+    loyaltyPointsRedeemed = 0,
+    loyaltyDiscountAmount = 0,
+    loyaltyPointsEarned = 0,
   } = receiptDetails;
 
   const width = (printSettings.page_format == 58 || printSettings.pageFormat == 58) ? 32 : DEFAULT_LINE_WIDTH;
@@ -201,6 +206,18 @@ export function buildReceiptEscPos(receiptDetails) {
     out += formatTwoColumns(discLabel, `-${currency}${Number(discountAmount).toFixed(2)}`, width) + "\n";
   }
 
+  if (Array.isArray(appliedPromotions) && appliedPromotions.length > 0) {
+    appliedPromotions.forEach(p => {
+      const pLabel = p.promo_code ? `Promo (${p.promo_code}):` : `Promo: ${(p.title || 'Deal').substring(0, 16)}:`;
+      out += formatTwoColumns(pLabel, `-${currency}${Number(p.discount_amount || 0).toFixed(2)}`, width) + "\n";
+    });
+  }
+
+  if (loyaltyDiscountAmount > 0) {
+    const lLabel = loyaltyPointsRedeemed > 0 ? `Loyalty (${loyaltyPointsRedeemed} pts):` : "Loyalty Reward:";
+    out += formatTwoColumns(lLabel, `-${currency}${Number(loyaltyDiscountAmount).toFixed(2)}`, width) + "\n";
+  }
+
   if (taxTotal > 0) {
     out += formatTwoColumns("Tax:", `${currency}${Number(taxTotal).toFixed(2)}`, width) + "\n";
   }
@@ -252,6 +269,19 @@ export function buildReceiptEscPos(receiptDetails) {
       } else {
         out += formatTwoColumns("Change:", `KHR ${Math.round(Number(dualTenderInfo.changeTotalKHR)).toLocaleString()}`, width) + "\n";
       }
+    }
+  }
+
+  // Customer Loyalty Rewards Summary
+  if (customer && (loyaltyPointsEarned > 0 || loyaltyPointsRedeemed > 0)) {
+    out += formatDivider("-", width) + "\n";
+    out += ESCPOS.ALIGN_CENTER;
+    out += "--- CUSTOMER REWARDS ---\n";
+    if (loyaltyPointsEarned > 0) {
+      out += formatTwoColumns("Points Earned Today:", `+${loyaltyPointsEarned} pts`, width) + "\n";
+    }
+    if (loyaltyPointsRedeemed > 0) {
+      out += formatTwoColumns("Points Redeemed:", `-${loyaltyPointsRedeemed} pts`, width) + "\n";
     }
   }
 

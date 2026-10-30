@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import Page from "../components/Page";
 import { SelectBusinessEmptyState } from "../components/RequiresSingleBusiness";
 import { isBusinessRequiredError } from "../helpers/BusinessScope";
@@ -127,40 +128,44 @@ const DEFAULT_FAV_REPORTS = [
 ];
 
 function QBOReportRow({ report, isFav, onToggleFav, onOpen }) {
+  const { t } = useTranslation();
+  const title = t(`reports.catalog.${report.id}.title`, report.title);
+  const description = t(`reports.catalog.${report.id}.description`, report.description);
+
   return (
     <div
       onClick={() => onOpen(report)}
-      className="group flex items-center justify-between border-b border-gray-200/80 dark:border-slate-800 py-3 px-2.5 hover:bg-[#F4F5F8] dark:hover:bg-slate-800/60 transition-colors cursor-pointer rounded-sm"
+      className="group flex items-center justify-between border-b border-gray-200/80 dark:border-slate-800 py-1.5 px-2 hover:bg-[#F4F5F8] dark:hover:bg-slate-800/60 transition-colors cursor-pointer rounded-xs"
     >
       <div className="flex items-center gap-1.5 min-w-0 pr-2">
-        <span className="text-[13px] text-gray-700 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white truncate">
-          {report.title}
+        <span className="text-[13px] font-medium text-gray-700 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white truncate">
+          {title}
         </span>
-        {report.description && (
+        {description && (
           <span
-            title={report.description}
+            title={description}
             onClick={(e) => e.stopPropagation()}
             className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <IconHelpCircle size={15} stroke={1.8} />
+            <IconHelpCircle size={14} stroke={1.8} />
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggleFav(report.id);
           }}
-          title={isFav ? "Remove from Favourites" : "Add to Favourites"}
+          title={isFav ? t("reports.remove_from_favourites", "Remove from Favourites") : t("reports.add_to_favourites", "Add to Favourites")}
           className="p-1 rounded hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
         >
           {isFav ? (
-            <IconStarFilled size={16} className="text-[#008489] dark:text-emerald-400" />
+            <IconStarFilled size={15} className="text-[#008489] dark:text-emerald-400" />
           ) : (
-            <IconStar size={16} stroke={1.8} className="text-gray-500 dark:text-slate-400 hover:text-[#008489]" />
+            <IconStar size={15} stroke={1.8} className="text-gray-400 dark:text-slate-500 hover:text-[#008489]" />
           )}
         </button>
 
@@ -170,10 +175,10 @@ function QBOReportRow({ report, isFav, onToggleFav, onOpen }) {
             e.stopPropagation();
             onOpen(report);
           }}
-          title="Open Report"
-          className="p-1 rounded text-gray-500 hover:text-gray-800 dark:text-slate-400 dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
+          title={t("reports.open_report", "Open Report")}
+          className="p-1 rounded text-gray-400 hover:text-gray-800 dark:text-slate-500 dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
         >
-          <IconDotsVertical size={15} stroke={2} />
+          <IconDotsVertical size={14} stroke={2} />
         </button>
       </div>
     </div>
@@ -181,11 +186,18 @@ function QBOReportRow({ report, isFav, onToggleFav, onOpen }) {
 }
 
 function ReportsIndex() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const category = searchParams.get("category") || "All";
   const normalizedQuery = query.trim().toLowerCase();
+
+  const getCategoryLabel = (cat) => {
+    if (cat === "Favourites") return t("reports.favourites", "Favourites");
+    if (cat === "Sales") return t("reports.categories.business_overview_and_sales", "Business overview & Sales");
+    return t(`reports.categories.${cat.toLowerCase()}`, cat);
+  };
 
   const [favReportIds, setFavReportIds] = useState(() => {
     try {
@@ -241,17 +253,22 @@ function ReportsIndex() {
     return REPORT_CATALOG.filter((report) => {
       if (!favReportIds.includes(report.id)) return false;
       if (!normalizedQuery) return true;
+      const translatedTitle = t(`reports.catalog.${report.id}.title`, report.title);
+      const translatedDesc = t(`reports.catalog.${report.id}.description`, report.description);
       const searchable = [
         report.title,
+        translatedTitle,
         report.category,
+        getCategoryLabel(report.category),
         report.description,
+        translatedDesc,
         ...(report.keywords || []),
       ]
         .join(" ")
         .toLowerCase();
       return searchable.includes(normalizedQuery);
     });
-  }, [favReportIds, normalizedQuery]);
+  }, [favReportIds, normalizedQuery, t]);
 
   const groupedReports = useMemo(() => {
     if (category === "Favourites") return [];
@@ -261,10 +278,15 @@ function ReportsIndex() {
         if (category !== "All" && report.category !== category) return false;
         if (!normalizedQuery) return true;
 
+        const translatedTitle = t(`reports.catalog.${report.id}.title`, report.title);
+        const translatedDesc = t(`reports.catalog.${report.id}.description`, report.description);
         const searchable = [
           report.title,
+          translatedTitle,
           report.category,
+          getCategoryLabel(report.category),
           report.description,
+          translatedDesc,
           report.priority,
           ...(report.keywords || []),
         ]
@@ -276,20 +298,20 @@ function ReportsIndex() {
 
       return { category: categoryName, reports };
     }).filter((group) => group.reports.length > 0);
-  }, [category, normalizedQuery]);
+  }, [category, normalizedQuery, t]);
 
   return (
-    <Page className="min-h-[calc(100vh-56px)] bg-white dark:bg-[#08101D] px-4 sm:px-8 py-6">
+    <Page className="min-h-[calc(100vh-56px)] bg-white dark:bg-[#08101D] px-4 sm:px-6 py-4">
       <div className="mx-auto max-w-5xl">
-        {/* Top QBO Search & Filter Bar (matching Screenshots 2 & 3) */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        {/* Top QBO Search & Filter Bar */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-1 max-w-md">
             <div className="relative flex-1 flex items-center rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-[#008489] focus-within:ring-1 focus-within:ring-[#008489] transition">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="h-9 w-full bg-transparent px-3 text-xs sm:text-sm text-gray-800 dark:text-slate-100 placeholder-gray-400 outline-none"
-                placeholder="Type report name here"
+                placeholder={t("reports.search_placeholder", "Type report name here")}
               />
               <span className="h-9 px-2.5 border-l border-gray-200 dark:border-slate-800 flex items-center justify-center text-gray-500">
                 <IconChevronDown size={15} />
@@ -306,50 +328,50 @@ function ReportsIndex() {
               title="Send End-of-Day Summary to Telegram"
             >
               <IconBrandTelegram size={16} stroke={iconStroke} />
-              <span>{isSendingTelegram ? "Sending..." : "Send EOD to Telegram"}</span>
+              <span>{isSendingTelegram ? t("reports.sending", "Sending...") : t("reports.send_eod_telegram", "Send EOD to Telegram")}</span>
             </button>
           </div>
 
           {category !== "All" && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">
-                Filtered by:{" "}
-                <strong className="text-gray-900 dark:text-white">{category}</strong>
+                {t("reports.filtered_by", "Filtered by:")}{" "}
+                <strong className="text-gray-900 dark:text-white">{getCategoryLabel(category)}</strong>
               </span>
               <button
                 type="button"
                 onClick={() => setCategoryFilter("All")}
                 className="text-xs font-semibold text-[#0077C5] hover:underline cursor-pointer"
               >
-                Show all reports
+                {t("reports.show_all_reports", "Show all reports")}
               </button>
             </div>
           )}
         </div>
 
         {/* Collapsible QBO Report Cards */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* 1. Favourites Card */}
           {(category === "All" || category === "Favourites") &&
             favouriteReports.length > 0 && (
-              <section className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-2xs">
+              <section className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3.5 sm:p-4 shadow-2xs">
                 <button
                   type="button"
                   onClick={() => toggleSection("Favourites")}
                   className="flex items-center gap-2 text-left cursor-pointer focus:outline-none"
                 >
                   {collapsedSections["Favourites"] ? (
-                    <IconChevronRight size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                    <IconChevronRight size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
                   ) : (
-                    <IconChevronDown size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                    <IconChevronDown size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
                   )}
-                  <h2 className="text-base font-bold text-gray-800 dark:text-white">
-                    Favourites
+                  <h2 className="text-[15px] font-bold text-gray-800 dark:text-white">
+                    {getCategoryLabel("Favourites")}
                   </h2>
                 </button>
 
                 {!collapsedSections["Favourites"] && (
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-10">
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
                     {favouriteReports.map((report) => (
                       <QBOReportRow
                         key={report.id}
@@ -370,7 +392,7 @@ function ReportsIndex() {
             return (
               <section
                 key={group.category}
-                className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-2xs"
+                className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3.5 sm:p-4 shadow-2xs"
               >
                 <button
                   type="button"
@@ -378,19 +400,17 @@ function ReportsIndex() {
                   className="flex items-center gap-2 text-left cursor-pointer focus:outline-none"
                 >
                   {isCollapsed ? (
-                    <IconChevronRight size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                    <IconChevronRight size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
                   ) : (
-                    <IconChevronDown size={18} stroke={2} className="text-gray-700 dark:text-slate-300" />
+                    <IconChevronDown size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
                   )}
-                  <h2 className="text-base font-bold text-gray-800 dark:text-white">
-                    {group.category === "Sales"
-                      ? "Business overview & Sales"
-                      : group.category}
+                  <h2 className="text-[15px] font-bold text-gray-800 dark:text-white">
+                    {getCategoryLabel(group.category)}
                   </h2>
                 </button>
 
                 {!isCollapsed && (
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-x-10">
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
                     {group.reports.map((report) => (
                       <QBOReportRow
                         key={report.id}
@@ -409,13 +429,13 @@ function ReportsIndex() {
 
         {groupedReports.length === 0 &&
           (category !== "Favourites" || favouriteReports.length === 0) && (
-            <div className="mt-8 flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 py-16 text-center">
-              <IconSearch className="mb-3 text-gray-400" size={40} stroke={iconStroke} />
+            <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 py-12 text-center">
+              <IconSearch className="mb-3 text-gray-400" size={36} stroke={iconStroke} />
               <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                No reports found
+                {t("reports.no_reports_found", "No reports found")}
               </h3>
               <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                Try adjusting your search or category filter.
+                {t("reports.try_adjusting_search", "Try adjusting your search or category filter.")}
               </p>
               <button
                 onClick={() => {
@@ -424,7 +444,7 @@ function ReportsIndex() {
                 }}
                 className="mt-4 rounded-lg bg-[#2CA01C] px-4 py-2 text-xs font-bold text-white hover:bg-[#248417] cursor-pointer"
               >
-                Show all reports
+                {t("reports.show_all_reports", "Show all reports")}
               </button>
             </div>
           )}
@@ -450,34 +470,34 @@ function SummaryGrid({ summary, currency }) {
 
 function DataTable({ table, currency }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-restro-border-green bg-background shadow-sm">
-      <div className="border-b border-restro-border-green bg-restro-bg-gray/30 px-5 py-4">
-        <h2 className="font-bold text-foreground">{table.title}</h2>
+    <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b] shadow-2xs">
+      <div className="border-b border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-800/50 px-5 py-3.5">
+        <h2 className="font-semibold text-slate-900 dark:text-white text-sm tracking-tight">{table.title}</h2>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-background">
-            <tr className="border-b border-restro-border-green text-restro-text">
+        <table className="w-full text-left border-collapse text-xs sm:text-[13px]">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
               {(table.columns || []).map((column) => (
-                <th key={column.key} className={`whitespace-nowrap px-5 py-3 font-semibold ${column.type === "money" || column.type === "number" || column.type === "quantity" ? "text-right" : ""}`}>
+                <th key={column.key} className={`whitespace-nowrap px-4 py-3 font-semibold ${column.type === "money" || column.type === "number" || column.type === "quantity" ? "text-right" : ""}`}>
                   {column.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-restro-border-green">
+          <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
             {(table.rows || []).length === 0 && (
               <tr>
-                <td colSpan={(table.columns || []).length || 1} className="py-12 text-center text-restro-text">
+                <td colSpan={(table.columns || []).length || 1} className="py-12 text-center text-slate-400 dark:text-neutral-500">
                   No data available for this period.
                 </td>
               </tr>
             )}
             {(table.rows || []).map((row, rowIndex) => (
-              <tr key={row.id || row.invoice_id || row.order_item_id || rowIndex} className="transition-colors hover:bg-restro-bg-gray/30">
+              <tr key={row.id || row.invoice_id || row.order_item_id || rowIndex} className="transition-colors hover:bg-slate-50/70 dark:hover:bg-neutral-800/40">
                 {(table.columns || []).map((column) => (
-                  <td key={column.key} className={`whitespace-nowrap px-5 py-3 ${column.type === "money" || column.type === "number" || column.type === "quantity" ? "text-right tabular-nums" : ""}`}>
+                  <td key={column.key} className={`whitespace-nowrap px-4 py-3 ${column.type === "money" || column.type === "number" || column.type === "quantity" ? "text-right tabular-nums font-medium text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}`}>
                     {formatReportValue(row[column.key], column.type, currency)}
                   </td>
                 ))}
@@ -605,6 +625,7 @@ function PlannedReport({ report }) {
 }
 
 function ReportDetail({ report }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const ReportPageComponent = getReportPageComponent(report.id);
   const [filterState, setFilterState] = useState({ filter: "today", fromDate: null, toDate: null });
@@ -616,6 +637,12 @@ function ReportDetail({ report }) {
     from: filterState.fromDate,
     to: filterState.toDate,
   });
+
+  const getCategoryLabel = (cat) => {
+    if (cat === "Favourites") return t("reports.favourites", "Favourites");
+    if (cat === "Sales") return t("reports.categories.business_overview_and_sales", "Business overview & Sales");
+    return t(`reports.categories.${cat.toLowerCase()}`, cat);
+  };
 
   const handleSendTelegramEod = async () => {
     try {
@@ -650,11 +677,13 @@ function ReportDetail({ report }) {
     }
   };
 
+  const translatedTitle = t(`reports.catalog.${report.id}.title`, report.title);
+
   return (
     <Page className="bg-restro-bg-gray/20 px-4 py-8">
       <div className="mx-auto max-w-7xl">
         <button type="button" onClick={() => navigate("/dashboard/reports")} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-restro-text transition hover:text-foreground">
-          <IconArrowLeft size={18} stroke={iconStroke} /> Back to Reports
+          <IconArrowLeft size={18} stroke={iconStroke} /> {t("reports.back_to_reports", "Back to Reports")}
         </button>
 
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -663,10 +692,12 @@ function ReportDetail({ report }) {
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-restro-green-10 text-restro-green">
                 <report.icon size={18} stroke={iconStroke} />
               </span>
-              <p className="text-sm font-bold uppercase tracking-wider text-restro-green">{report.category}</p>
+              <p className="text-sm font-bold uppercase tracking-wider text-restro-green">{getCategoryLabel(report.category)}</p>
             </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{report.title}</h1>
-            <p className="mt-2 text-restro-text">Showing data for <span className="font-semibold text-foreground">{filterLabel}</span></p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{translatedTitle}</h1>
+            <p className="mt-2 text-restro-text">
+              {t("reports.showing_data_for", { filter: filterLabel })}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -678,7 +709,7 @@ function ReportDetail({ report }) {
               title="Send Summary to Telegram"
             >
               <IconBrandTelegram size={18} stroke={iconStroke} />
-              <span>{isSendingTelegram ? "Sending..." : "Send to Telegram"}</span>
+              <span>{isSendingTelegram ? t("reports.sending", "Sending...") : t("reports.send_to_telegram", "Send to Telegram")}</span>
             </button>
             <ExportMenu isExporting={isExporting} data={data} onExport={exportReport} />
           </div>

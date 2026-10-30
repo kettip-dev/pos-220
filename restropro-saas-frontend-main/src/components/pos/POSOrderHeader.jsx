@@ -52,32 +52,32 @@ export default function POSOrderHeader({
   ];
 
   return (
-    <header className="w-full bg-white dark:bg-[#0D1829] border-b border-[#E3E5E8] dark:border-slate-800 px-2.5 sm:px-3.5 py-2 select-none shrink-0">
-      <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none py-0.5 touch-pan-x">
+    <header className="w-full bg-white dark:bg-[#0D1829] border-b border-[#E3E5E8] dark:border-slate-800 px-2 sm:px-3 py-1.5 select-none shrink-0">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 touch-pan-x">
         
-        {/* Left Segment: Navigation Trigger (When Collapsed), Dining Mode Tabs & Table / Guests */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Left Segment: Navigation Trigger, Dining Mode Tabs & Table / Guests */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
           {/* Collapsed Operational Navigation Trigger Button */}
           {isNavCollapsed && onToggleNav && (
             <button
               type="button"
               onClick={onToggleNav}
-              className="min-h-[42px] px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 hover:bg-[#F4F5F8] dark:hover:bg-slate-800 text-gray-800 dark:text-slate-100 border border-[#D4D7DC] dark:border-slate-700 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-2xs touch-manipulation cursor-pointer select-none shrink-0"
+              className="min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-[#F4F5F8] dark:hover:bg-slate-800 text-gray-800 dark:text-slate-100 border border-[#D4D7DC] dark:border-slate-700 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-2xs touch-manipulation cursor-pointer select-none shrink-0"
               title={t('navbar.expand_nav', 'Open Navigation')}
             >
               <div className="w-5 h-5 rounded-full bg-[#2CA01C] flex items-center justify-center text-white shrink-0 shadow-2xs">
                 <IconBuildingStore size={12} stroke={2.2} />
               </div>
-              <span className="hidden sm:inline font-bold text-[11px]">
+              <span className="hidden lg:inline font-bold text-[11px]">
                 {t('navbar.nav', 'Nav')}
               </span>
               <IconChevronDown size={14} stroke={2} className="text-gray-500" />
             </button>
           )}
 
-          {/* QBO Style Dining Type Pill Selector */}
-          <div className="flex items-center p-1 rounded-full bg-[#F4F5F8] dark:bg-slate-800/80 border border-[#E3E5E8] dark:border-slate-700 shrink-0 gap-1">
+          {/* QBO Style Dining Type Pill Selector - Adaptive on Tablet */}
+          <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-[#F4F5F8] dark:bg-slate-800/80 border border-[#E3E5E8] dark:border-slate-700 shrink-0 gap-0.5 sm:gap-1">
             {diningOptions.map(({ key, label, icon: IconComponent, badgeBg }) => {
               const isActive = selectedDiningOption === key;
               return (
@@ -86,17 +86,23 @@ export default function POSOrderHeader({
                   type="button"
                   onClick={() => onSelectDiningOption(key)}
                   className={clsx(
-                    "min-h-[36px] pl-1.5 pr-3 py-1 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 touch-manipulation cursor-pointer select-none shrink-0",
+                    "min-h-[38px] py-1 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 touch-manipulation cursor-pointer select-none shrink-0",
                     isActive 
-                      ? "bg-[#0D233A] text-white shadow-xs font-bold" 
-                      : "text-gray-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700"
+                      ? "bg-[#0D233A] text-white shadow-xs font-bold pl-1.5 pr-2.5 sm:pr-3" 
+                      : "text-gray-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 px-1.5 xl:pr-3"
                   )}
                   aria-pressed={isActive}
+                  title={label}
                 >
-                  <span className={clsx("w-5 h-5 rounded-full flex items-center justify-center text-white shrink-0", badgeBg)}>
-                    <IconComponent size={12} stroke={2.2} />
+                  <span className={clsx("w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0", badgeBg)}>
+                    <IconComponent size={13} stroke={2.2} />
                   </span>
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className={clsx(
+                    "text-xs truncate",
+                    isActive ? "inline" : "hidden xl:inline"
+                  )}>
+                    {label}
+                  </span>
                 </button>
               );
             })}
@@ -104,13 +110,13 @@ export default function POSOrderHeader({
 
           {/* Dine-In Context: Table & Guest Covers */}
           {selectedDiningOption === 'dinein' && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* Table Picker Pill */}
               <button
                 type="button"
                 onClick={onOpenTablePicker}
                 className={clsx(
-                  "min-h-[42px] px-3 py-1.5 rounded-xl border transition active:scale-95 flex items-center gap-2 touch-manipulation cursor-pointer shadow-2xs select-none shrink-0",
+                  "min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl border transition active:scale-95 flex items-center gap-1.5 sm:gap-2 touch-manipulation cursor-pointer shadow-2xs select-none shrink-0",
                   currentSelectedTable
                     ? "bg-[#F4F5F8] dark:bg-slate-800 border-[#0D233A] dark:border-emerald-500 text-gray-900 dark:text-white font-bold"
                     : "bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 text-gray-700 dark:text-slate-200 hover:bg-[#F4F5F8] dark:hover:bg-slate-800"
@@ -118,7 +124,7 @@ export default function POSOrderHeader({
                 title={t('pos.select_table', 'Select Table')}
               >
                 <IconArmchair2 size={17} className={currentSelectedTable ? "text-[#008489]" : "text-gray-400"} stroke={iconStroke} />
-                <div className="text-left leading-tight min-w-0 max-w-[85px] sm:max-w-[120px] md:max-w-[150px]">
+                <div className="text-left leading-tight min-w-0 max-w-[75px] sm:max-w-[105px] md:max-w-[130px]">
                   <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-none">
                     {t('pos.table', 'Table')}
                   </p>
@@ -128,16 +134,16 @@ export default function POSOrderHeader({
                       : t('pos.select_table', 'Select Table')}
                   </p>
                 </div>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 font-semibold hidden md:inline">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 font-semibold hidden xl:inline">
                   {currentSelectedTable ? t('pos.change', 'Change') : t('tables.floor_plan', 'Floor')}
                 </span>
               </button>
 
               {/* Guest Covers Stepper */}
-              <div className="hidden sm:flex items-center min-h-[42px] px-2.5 rounded-xl bg-white dark:bg-slate-900 border border-[#D4D7DC] dark:border-slate-700 gap-1 text-xs select-none shrink-0 shadow-2xs">
-                <span className="text-gray-500 dark:text-slate-400 flex items-center gap-1 pr-1 font-semibold text-[11px]">
+              <div className="hidden sm:flex items-center min-h-[42px] px-2 sm:px-2.5 rounded-xl bg-white dark:bg-slate-900 border border-[#D4D7DC] dark:border-slate-700 gap-1 text-xs select-none shrink-0 shadow-2xs">
+                <span className="text-gray-500 dark:text-slate-400 flex items-center gap-1 font-semibold text-[11px]" title={t('pos.covers', 'Guests')}>
                   <IconUsers size={14} stroke={iconStroke} />
-                  <span className="hidden lg:inline">{t('pos.covers', 'Guests')}:</span>
+                  <span className="hidden xl:inline">{t('pos.covers', 'Guests')}:</span>
                 </span>
                 <button
                   type="button"
@@ -147,7 +153,7 @@ export default function POSOrderHeader({
                 >
                   -
                 </button>
-                <span className="font-bold text-gray-900 dark:text-white px-1.5 text-center min-w-[18px]">{guestCount}</span>
+                <span className="font-bold text-gray-900 dark:text-white px-1 text-center min-w-[16px]">{guestCount}</span>
                 <button
                   type="button"
                   onClick={() => onUpdateGuestCount && onUpdateGuestCount(guestCount + 1)}
@@ -182,7 +188,7 @@ export default function POSOrderHeader({
                   }
                 }}
                 className={clsx(
-                  "flex items-center min-h-[42px] px-3 py-1.5 rounded-xl border cursor-pointer transition active:scale-95 shadow-2xs gap-2 select-none shrink-0 touch-manipulation",
+                  "flex items-center min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl border cursor-pointer transition active:scale-95 shadow-2xs gap-1.5 sm:gap-2 select-none shrink-0 touch-manipulation",
                   isAttached
                     ? "bg-[#00A699]/10 dark:bg-[#00A699]/15 border-[#00A699] text-gray-900 dark:text-white"
                     : isDeliveryNeedsCustomer
@@ -207,7 +213,7 @@ export default function POSOrderHeader({
                     <IconUser size={13} stroke={2.2} />
                   )}
                 </div>
-                <div className="text-left leading-tight min-w-0 max-w-[90px] sm:max-w-[130px] md:max-w-[165px]">
+                <div className="text-left leading-tight min-w-0 max-w-[80px] sm:max-w-[105px] md:max-w-[130px]">
                   <p
                     className={clsx(
                       "text-[10px] uppercase font-bold tracking-wider leading-none truncate",
@@ -254,12 +260,12 @@ export default function POSOrderHeader({
           })()}
         </div>
 
-        {/* Center / Right Segment: QBO Search & Register Controls */}
-        <div className="flex items-center gap-2 shrink-0 justify-end ml-auto">
+        {/* Center / Right Segment: Responsive Search & Register Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 justify-end ml-auto">
           
-          {/* QBO Style Gray Search Input */}
-          <div className="relative w-36 sm:w-48 md:w-56 lg:w-64 shrink-0">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+          {/* Responsive Menu Search Input */}
+          <div className="relative min-w-[100px] sm:min-w-[130px] max-w-[200px] xl:max-w-[240px] flex-1">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
               <IconSearch size={15} stroke={2} />
             </span>
             <input
@@ -268,7 +274,7 @@ export default function POSOrderHeader({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={t('pos.search_items_placeholder', 'Search menu items...')}
-              className="w-full pl-9 pr-9 py-1.5 min-h-[42px] rounded-lg text-xs font-medium border border-transparent focus:border-[#008489] bg-[#F4F5F8] hover:bg-[#ECEEF1] dark:bg-slate-800 text-gray-800 dark:text-slate-100 placeholder-gray-500 outline-none transition"
+              className="w-full pl-8 pr-7 py-1.5 min-h-[42px] rounded-xl text-xs font-medium border border-transparent focus:border-[#008489] bg-[#F4F5F8] hover:bg-[#ECEEF1] dark:bg-slate-800 text-gray-800 dark:text-slate-100 placeholder-gray-500 outline-none transition"
             />
             {searchQuery ? (
               <button
@@ -279,25 +285,24 @@ export default function POSOrderHeader({
                 <IconX size={13} stroke={iconStroke} />
               </button>
             ) : (
-              <span className="hidden md:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-[10px] font-mono font-bold text-gray-400 border border-gray-200 dark:border-slate-700 pointer-events-none">
+              <span className="hidden xl:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-[10px] font-mono font-bold text-gray-400 border border-gray-200 dark:border-slate-700 pointer-events-none">
                 /
               </span>
             )}
           </div>
 
-          {/* Quick Register Actions (QBO Bordered Pill Toolbar) */}
+          {/* Quick Register Actions (QBO Bordered Pill Toolbar - Icon Only) */}
           <div className="flex items-center p-0.5 rounded-xl bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 shrink-0 gap-0.5">
             {/* Drafts Drawer Trigger */}
             <button
               type="button"
               onClick={onOpenDrafts}
-              className="relative min-h-[40px] px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none shrink-0"
+              className="relative w-10 h-10 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 transition-all active:scale-95 flex items-center justify-center touch-manipulation cursor-pointer select-none shrink-0"
               title={t('pos.drafts_list', 'Held Orders & Drafts')}
             >
-              <IconNotes size={16} stroke={iconStroke} />
-              <span className="hidden xl:inline">{t('pos.drafts', 'Drafts')}</span>
+              <IconNotes size={18} stroke={iconStroke} />
               {draftsCount > 0 && (
-                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs">
                   {draftsCount}
                 </span>
               )}
@@ -307,13 +312,12 @@ export default function POSOrderHeader({
             <button
               type="button"
               onClick={onOpenQrOrders}
-              className="relative min-h-[40px] px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none shrink-0"
+              className="relative w-10 h-10 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 transition-all active:scale-95 flex items-center justify-center touch-manipulation cursor-pointer select-none shrink-0"
               title={t('pos.qr_menu_orders', 'QR Menu Orders')}
             >
-              <IconQrcode size={16} stroke={iconStroke} />
-              <span className="hidden xl:inline">QR</span>
+              <IconQrcode size={18} stroke={iconStroke} />
               {qrOrdersCount > 0 && (
-                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#E11D48] text-white text-[10px] font-black flex items-center justify-center animate-pulse shadow-2xs">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#E11D48] text-white text-[10px] font-black flex items-center justify-center animate-pulse shadow-xs">
                   {qrOrdersCount}
                 </span>
               )}
@@ -324,11 +328,10 @@ export default function POSOrderHeader({
               <button
                 type="button"
                 onClick={onDualScreenClick}
-                className="min-h-[40px] px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation cursor-pointer select-none shrink-0"
+                className="w-10 h-10 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 transition-all active:scale-95 flex items-center justify-center touch-manipulation cursor-pointer select-none shrink-0"
                 title={t('pos.dual_screen', 'Customer Dual Screen Display')}
               >
-                <IconScreenShare size={16} stroke={iconStroke} />
-                <span className="hidden 2xl:inline">{t('pos.dual_screen', 'Display')}</span>
+                <IconScreenShare size={18} stroke={iconStroke} />
               </button>
             )}
           </div>
@@ -337,11 +340,11 @@ export default function POSOrderHeader({
           <button
             type="button"
             onClick={onInitNewOrder}
-            className="min-h-[42px] px-3.5 sm:px-4 py-1.5 rounded-lg bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-2xs touch-manipulation cursor-pointer select-none shrink-0"
+            className="min-h-[42px] px-3 sm:px-3.5 py-1.5 rounded-xl bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-2xs touch-manipulation cursor-pointer select-none shrink-0"
             title={t('pos.new_order', 'New Ticket')}
           >
             <IconPlus size={16} stroke={2.5} />
-            <span className="hidden sm:inline">{t('pos.new_order', 'New')}</span>
+            <span className="hidden md:inline">{t('pos.new_order', 'New')}</span>
           </button>
 
         </div>
