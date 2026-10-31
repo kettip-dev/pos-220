@@ -32,6 +32,8 @@ import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { SCOPES, PLAN_FEATURES, hasFullBusinessAccess } from "../config/scopes";
 import BusinessSwitcher from "./BusinessSwitcher";
 import AppBarDropdown from "./AppBarDropdown";
+import { useStoreSettings } from "../controllers/settings.controller";
+import { getImageURL } from "../helpers/ImageHelper";
 import QuickNewMenu from "./QuickNewMenu";
 import { showSearchModal } from "./SearchModal";
 import clsx from "clsx";
@@ -39,6 +41,10 @@ import clsx from "clsx";
 export default function TopNavbar() {
   const { t } = useTranslation();
   const location = useLocation();
+
+  const { data: storeSettingsData } = useStoreSettings();
+  const storeLogo = storeSettingsData?.storeImage;
+  const storeName = storeSettingsData?.storeName;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const user = getUserDetailsInLocalStorage();
   const { role: userRole, scope, planFeautures } = user || {};
@@ -294,11 +300,15 @@ export default function TopNavbar() {
           to="/dashboard/home"
           className="flex items-center gap-2.5 group cursor-pointer"
         >
-          <div className="w-8 h-8 rounded-lg bg-[#2CA01C] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition">
-            <IconBuildingStore size={19} stroke={2.2} />
+          <div className="w-8 h-8 rounded-lg bg-[#2CA01C] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition overflow-hidden">
+            {storeLogo ? (
+              <img src={getImageURL(storeLogo)} alt={storeName || "Store Logo"} className="w-full h-full object-cover" />
+            ) : (
+              <IconBuildingStore size={19} stroke={2.2} />
+            )}
           </div>
           <span className="font-bold text-sm tracking-wide text-white hidden sm:inline">
-            RestroPRO
+            {storeName || "RestroPRO"}
           </span>
         </Link>
 

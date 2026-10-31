@@ -6,6 +6,7 @@ import {
   IconFriends,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
+import { useTranslation } from "react-i18next";
 
 export default function ReservationKPIHeader({
   summary,
@@ -13,6 +14,8 @@ export default function ReservationKPIHeader({
   activeStatusFilter,
   onStatusFilterChange,
 }) {
+  const { t } = useTranslation();
+
   const totalCount = reservations.length;
   const seatedCount = reservations.filter((r) => r.status === "seated").length;
   const bookedCount = reservations.filter((r) => r.status === "booked").length;
@@ -21,36 +24,36 @@ export default function ReservationKPIHeader({
   const stats = [
     {
       id: "all",
-      label: "Total Bookings",
+      label: t("reservations.kpi.total_bookings") || "Total Bookings",
       value: summary?.today ?? totalCount,
-      subtext: "Selected",
+      subtext: t("reservations.kpi.selected") || "Selected",
       icon: IconCalendarEvent,
       color: "text-blue-500",
       bg: "bg-blue-500/10",
     },
     {
       id: "seated",
-      label: "Currently Seated",
+      label: t("reservations.kpi.currently_seated") || "Currently Seated",
       value: seatedCount,
-      subtext: "Dining",
+      subtext: t("reservations.kpi.dining") || "Dining",
       icon: IconUserCheck,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
     },
     {
       id: "booked",
-      label: "Upcoming / Booked",
+      label: t("reservations.kpi.upcoming_booked") || "Upcoming / Booked",
       value: bookedCount,
-      subtext: "Confirmed",
+      subtext: t("reservations.kpi.confirmed") || "Confirmed",
       icon: IconClock,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
     },
     {
       id: "guests",
-      label: "Total Guests",
+      label: t("reservations.kpi.total_guests") || "Total Guests",
       value: totalGuests,
-      subtext: "Expected",
+      subtext: t("reservations.kpi.expected") || "Expected",
       icon: IconFriends,
       color: "text-purple-500",
       bg: "bg-purple-500/10",

@@ -169,11 +169,11 @@ export default function CategoriesPage() {
               to="/dashboard/settings/menu-items"
               className="text-sm text-gray-500 hover:text-restro-green transition"
             >
-              ← Menu Items
+              ← {t("menu_items.title", "Menu Items")}
             </Link>
           </div>
           <h3 className="text-2xl font-bold text-restro-text">{t("categories.title")}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">{categoryList.length} categories</p>
+          <p className="text-sm text-gray-500 mt-0.5">{categoryList.length} {t("menu_items.categories_count", "categories")}</p>
         </div>
         <button
           id="btn-add-category"
@@ -240,7 +240,7 @@ export default function CategoriesPage() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {/* Item count badge */}
                   <span className="text-[10px] font-semibold bg-restro-gray text-restro-text px-2 py-0.5 rounded-full border border-restro-border-green">
-                    {count} items
+                    {count} {t("tables.items", "items")}
                   </span>
                   {/* Visibility badge */}
                   <span
@@ -251,7 +251,7 @@ export default function CategoriesPage() {
                         : "bg-gray-200 dark:bg-gray-700 text-gray-500"
                     )}
                   >
-                    {is_enabled ? "Visible" : "Hidden"}
+                    {is_enabled ? t("menu_items.active", "Visible") : t("menu_items.hidden", "Hidden")}
                   </span>
                   {/* Station badge */}
                   {kitchen_station_name && (

@@ -17,10 +17,16 @@ import {
 import AppBarDropdown from "./AppBarDropdown";
 import { showSearchModal } from "./SearchModal";
 import clsx from "clsx";
+import { useStoreSettings } from "../controllers/settings.controller";
+import { getImageURL } from "../helpers/ImageHelper";
 
 export default function OperationalBar({ isCollapsed = false, onToggleCollapse }) {
   const { t } = useTranslation();
   const location = useLocation();
+
+  const { data: storeSettingsData } = useStoreSettings();
+  const storeLogo = storeSettingsData?.storeImage;
+  const storeName = storeSettingsData?.storeName;
 
   const operationalNavTabs = [
     {
@@ -72,8 +78,12 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
         title={t("navbar.expand_nav", "Open Left Navigation")}
         className="fixed left-0 bottom-4 z-50 h-10 pl-1.5 pr-2.5 rounded-r-full bg-[#0D233A] hover:bg-[#16385c] text-white border border-l-0 border-white/20 shadow-lg flex items-center gap-1.5 transition active:scale-95 cursor-pointer select-none"
       >
-        <span className="w-6 h-6 rounded-full bg-[#2CA01C] flex items-center justify-center text-white shrink-0">
-          <IconBuildingStore size={14} stroke={2.2} />
+        <span className="w-6 h-6 rounded-full bg-[#2CA01C] flex items-center justify-center text-white shrink-0 overflow-hidden ring-1 ring-white/20">
+          {storeLogo ? (
+            <img src={getImageURL(storeLogo)} alt="Store Logo" className="w-full h-full object-cover" />
+          ) : (
+            <IconBuildingStore size={14} stroke={2.2} />
+          )}
         </span>
         <IconArrowBarToRight size={15} stroke={2.2} className="text-white" />
       </button>
@@ -85,18 +95,30 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
       {/* Center Scrollable Rail Items */}
       <div className="w-full flex flex-col items-center gap-1 overflow-y-auto no-scrollbar flex-1">
 
-        {/* Home (Backoffice) Link */}
+        {/* Home (Backoffice) Link with Store Logo */}
         <div className="w-full px-1">
           <Link
             to="/dashboard/home"
-            title={t("navbar.home", "Home")}
+            title={storeName || t("navbar.home", "Home")}
             className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
           >
-            <span className="w-10 h-7 flex items-center justify-center text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-              <IconHome size={20} stroke={1.8} />
+            <span className="w-8 h-8 rounded-full bg-[#2CA01C] flex items-center justify-center text-white overflow-hidden shadow-2xs ring-1 ring-black/5 dark:ring-white/10 group-hover:scale-105 transition-transform">
+              {storeLogo ? (
+                <img
+                  src={getImageURL(storeLogo)}
+                  alt={storeName || "Store Logo"}
+                  className="w-full h-full object-cover"
+                />
+              ) : storeName ? (
+                <span className="font-bold text-[11px] uppercase tracking-tight select-none">
+                  {storeName.trim().slice(0, 2)}
+                </span>
+              ) : (
+                <IconHome size={18} stroke={1.8} />
+              )}
             </span>
             <span className="text-[10px] font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white leading-tight truncate max-w-[60px] transition-colors">
-              {t("navbar.home", "Home")}
+              {storeName ? storeName.trim().slice(0, 8) : t("navbar.home", "Home")}
             </span>
           </Link>
         </div>

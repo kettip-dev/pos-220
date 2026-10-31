@@ -38,6 +38,8 @@ import { REPORT_CATEGORIES } from "../config/reportCatalog";
 import BusinessSwitcher from "./BusinessSwitcher";
 import AppBarDropdown from "./AppBarDropdown";
 import QuickNewMenu from "./QuickNewMenu";
+import { useStoreSettings } from "../controllers/settings.controller";
+import { getImageURL } from "../helpers/ImageHelper";
 
 const PINNED_STORAGE_KEY = "restro_qbo_pinned_apps_v3";
 const BOOKMARKS_STORAGE_KEY = "restro_qbo_bookmarks_v3";
@@ -416,6 +418,10 @@ export default function QBONavigation({ children }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const { data: storeSettingsData } = useStoreSettings();
+  const storeLogo = storeSettingsData?.storeImage;
+  const storeName = storeSettingsData?.storeName;
+
   const { hasAccess } = useQBOAccess();
   const user = getUserDetailsInLocalStorage();
 
@@ -602,16 +608,28 @@ export default function QBONavigation({ children }) {
       <aside className="hidden md:flex flex-col items-center w-[74px] shrink-0 bg-white dark:bg-[#0B1522] border-r border-[#E3E5E8] dark:border-slate-800/90 h-screen sticky top-0 z-50 select-none py-3 justify-between">
         {/* Top: Logo & + Create */}
         <div className="w-full flex flex-col items-center shrink-0">
-          {/* Circular Green Monogram Logo */}
+          {/* Circular Store Logo / Monogram */}
           <Link
             to="/dashboard/home"
-            title="RestroPRO Home"
-            className="w-10 h-10 rounded-full bg-[#2CA01C] hover:bg-[#258717] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 mb-2.5 shrink-0"
+            title={storeName || "RestroPRO Home"}
+            className="w-10 h-10 rounded-full bg-[#2CA01C] hover:bg-[#258717] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 mb-2.5 shrink-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10"
           >
-            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-              <path d="M13 9a6 6 0 0 0-6 6v8h3v-8a3 3 0 1 1 6 0v8h3v-8a6 6 0 0 0-6-6z" fill="white" />
-              <path d="M19 23a6 6 0 0 0 6-6V9h-3v8a3 3 0 1 1-6 0V9h-3v8a6 6 0 0 0 6 6z" fill="white" />
-            </svg>
+            {storeLogo ? (
+              <img
+                src={getImageURL(storeLogo)}
+                alt={storeName || "Store Logo"}
+                className="w-full h-full object-cover"
+              />
+            ) : storeName ? (
+              <span className="font-bold text-xs uppercase tracking-tight select-none">
+                {storeName.trim().slice(0, 2)}
+              </span>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                <path d="M13 9a6 6 0 0 0-6 6v8h3v-8a3 3 0 1 1 6 0v8h3v-8a6 6 0 0 0-6-6z" fill="white" />
+                <path d="M19 23a6 6 0 0 0 6-6V9h-3v8a3 3 0 1 1-6 0V9h-3v8a6 6 0 0 0 6 6z" fill="white" />
+              </svg>
+            )}
           </Link>
 
           {/* + Create Button */}
@@ -1208,8 +1226,33 @@ export default function QBONavigation({ children }) {
         {mobileDrawerOpen && (
           <div className="fixed inset-0 top-14 bg-white dark:bg-[#0D1829] z-50 overflow-y-auto p-4 md:hidden animate-in slide-in-from-left-2 duration-150">
             <div className="space-y-4 pb-16">
-              <div className="flex items-center justify-between gap-2">
-                <QuickNewMenu compact={false} />
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-gray-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-[#2CA01C] flex items-center justify-center text-white shadow-xs overflow-hidden shrink-0 ring-1 ring-black/5 dark:ring-white/10">
+                    {storeLogo ? (
+                      <img
+                        src={getImageURL(storeLogo)}
+                        alt={storeName || "Store Logo"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : storeName ? (
+                      <span className="font-bold text-xs uppercase tracking-tight select-none">
+                        {storeName.trim().slice(0, 2)}
+                      </span>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                        <path d="M13 9a6 6 0 0 0-6 6v8h3v-8a3 3 0 1 1 6 0v8h3v-8a6 6 0 0 0-6-6z" fill="white" />
+                        <path d="M19 23a6 6 0 0 0 6-6V9h-3v8a3 3 0 1 1-6 0V9h-3v8a6 6 0 0 0 6 6z" fill="white" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                      {storeName || "RestroPRO"}
+                    </h3>
+                  </div>
+                </div>
+                <QuickNewMenu compact={true} />
               </div>
 
               <div className="grid grid-cols-2 gap-2">

@@ -662,9 +662,9 @@ export default function MenuItemsSettingsPage() {
             {t("menu_items.title")}
           </h3>
           <p className="text-sm text-gray-500 mt-0.5">
-            Manage your catalog, pricing, kitchen routing, and modifiers across{" "}
+            {t("menu_items.subtitle_across_categories", "Manage your catalog, pricing, kitchen routing, and modifiers across")}{" "}
             <span className="font-semibold text-restro-text">
-              {categories?.length || 0} categories
+              {categories?.length || 0} {t("menu_items.categories_count", "categories")}
             </span>
           </p>
         </div>
@@ -673,14 +673,14 @@ export default function MenuItemsSettingsPage() {
           <button
             id="btn-add-menu-item"
             onClick={openAddDrawer}
-            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-md px-4 py-2.5 text-sm whitespace-nowrap shrink-0 flex items-center gap-2 text-white bg-restro-green hover:bg-restro-green-button-hover font-semibold shadow-sm"
+            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-md px-4 py-2.5 text-sm whitespace-nowrap shrink-0 flex items-center gap-2 text-white bg-restro-green hover:bg-restro-green-button-hover font-semibold shadow-sm cursor-pointer"
           >
             <IconPlus size={18} stroke={iconStroke} /> {t("menu_items.new")}
           </button>
 
           <Link
             to="categories"
-            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-sm px-3.5 py-2 text-sm whitespace-nowrap shrink-0 flex items-center gap-1.5 text-restro-text bg-restro-gray hover:bg-restro-button-hover font-medium"
+            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-sm px-3.5 py-2 text-sm whitespace-nowrap shrink-0 flex items-center gap-1.5 text-restro-text bg-restro-gray hover:bg-restro-button-hover font-medium cursor-pointer"
           >
             <IconCategory2 size={18} stroke={iconStroke} />{" "}
             {t("menu_items.categories")}
@@ -688,15 +688,15 @@ export default function MenuItemsSettingsPage() {
 
           <button
             onClick={() => setIsImportModalOpen(true)}
-            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-sm px-3.5 py-2 text-sm whitespace-nowrap shrink-0 flex items-center gap-1.5 text-restro-text bg-restro-gray hover:bg-restro-button-hover font-medium"
+            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-sm px-3.5 py-2 text-sm whitespace-nowrap shrink-0 flex items-center gap-1.5 text-restro-text bg-restro-gray hover:bg-restro-button-hover font-medium cursor-pointer"
           >
-            <IconUpload size={18} stroke={iconStroke} /> Import
+            <IconUpload size={18} stroke={iconStroke} /> {t("menu_items.import", "Import")}
           </button>
 
           <button
             onClick={async () => {
               try {
-                toast.loading("Exporting...");
+                toast.loading(t("common.loading", "Exporting..."));
                 const response = await exportMenuItems();
                 const blob = new Blob([response.data], { type: "text/csv" });
                 const url = window.URL.createObjectURL(blob);
@@ -706,15 +706,15 @@ export default function MenuItemsSettingsPage() {
                 a.click();
                 window.URL.revokeObjectURL(url);
                 toast.dismiss();
-                toast.success("Exported successfully!");
+                toast.success(t("common.success", "Exported successfully!"));
               } catch (err) {
                 toast.dismiss();
-                toast.error("Export failed.");
+                toast.error(t("common.error", "Export failed."));
               }
             }}
-            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-sm px-3.5 py-2 text-sm whitespace-nowrap shrink-0 flex items-center gap-1.5 text-restro-text bg-restro-gray hover:bg-restro-button-hover font-medium"
+            className="min-h-[44px] rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-sm px-3.5 py-2 text-sm whitespace-nowrap shrink-0 flex items-center gap-1.5 text-restro-text bg-restro-gray hover:bg-restro-button-hover font-medium cursor-pointer"
           >
-            <IconDownload size={18} stroke={iconStroke} /> Export
+            <IconDownload size={18} stroke={iconStroke} /> {t("menu_items.export", "Export")}
           </button>
         </div>
       </div>
@@ -728,14 +728,14 @@ export default function MenuItemsSettingsPage() {
             setMissingPhotoOnly(false);
           }}
           className={clsx(
-            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95",
+            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95 cursor-pointer",
             statusFilter === "all" && !missingPhotoOnly
               ? "bg-restro-green/10 border-restro-green ring-1 ring-restro-green/40"
               : "bg-white dark:bg-[#202020] border-restro-border-green hover:border-restro-green/40"
           )}
         >
           <div>
-            <p className="text-xs font-medium text-gray-500">Total Menu Items</p>
+            <p className="text-xs font-medium text-gray-500">{t("menu_items.total_items", "Total Menu Items")}</p>
             <p className="text-xl font-bold text-restro-text mt-0.5">{stats.total}</p>
           </div>
           <span className="w-10 h-10 rounded-xl bg-restro-gray flex items-center justify-center text-restro-text">
@@ -749,14 +749,14 @@ export default function MenuItemsSettingsPage() {
             setStatusFilter(statusFilter === "active" ? "all" : "active");
           }}
           className={clsx(
-            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95",
+            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95 cursor-pointer",
             statusFilter === "active"
               ? "bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500/40"
               : "bg-white dark:bg-[#202020] border-restro-border-green hover:border-emerald-500/40"
           )}
         >
           <div>
-            <p className="text-xs font-medium text-gray-500">Active on POS</p>
+            <p className="text-xs font-medium text-gray-500">{t("menu_items.active_on_pos", "Active on POS")}</p>
             <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
               {stats.active}
             </p>
@@ -772,14 +772,14 @@ export default function MenuItemsSettingsPage() {
             setStatusFilter(statusFilter === "hidden" ? "all" : "hidden");
           }}
           className={clsx(
-            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95",
+            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95 cursor-pointer",
             statusFilter === "hidden"
               ? "bg-amber-500/10 border-amber-500 ring-1 ring-amber-500/40"
               : "bg-white dark:bg-[#202020] border-restro-border-green hover:border-amber-500/40"
           )}
         >
           <div>
-            <p className="text-xs font-medium text-gray-500">Hidden / 86&apos;d</p>
+            <p className="text-xs font-medium text-gray-500">{t("menu_items.hidden_or_86", "Hidden / 86'd")}</p>
             <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
               {stats.hidden}
             </p>
@@ -793,14 +793,14 @@ export default function MenuItemsSettingsPage() {
           type="button"
           onClick={() => setMissingPhotoOnly((prev) => !prev)}
           className={clsx(
-            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95",
+            "min-h-[56px] rounded-2xl border p-3.5 flex items-center justify-between text-left transition-all active:scale-95 cursor-pointer",
             missingPhotoOnly
               ? "bg-purple-500/10 border-purple-500 ring-1 ring-purple-500/40"
               : "bg-white dark:bg-[#202020] border-restro-border-green hover:border-purple-500/40"
           )}
         >
           <div>
-            <p className="text-xs font-medium text-gray-500">Missing Photo</p>
+            <p className="text-xs font-medium text-gray-500">{t("menu_items.missing_photo", "Missing Photo")}</p>
             <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-0.5">
               {stats.missingPhoto}
             </p>
@@ -822,7 +822,7 @@ export default function MenuItemsSettingsPage() {
           />
           <input
             type="text"
-            placeholder="Search items by name, description, or category..."
+            placeholder={t("menu_items.search_placeholder", "Search items by name, description, or category...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="min-h-[42px] pl-10 pr-10 py-2 w-full text-sm rounded-xl border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green placeholder-gray-400"
@@ -830,8 +830,8 @@ export default function MenuItemsSettingsPage() {
           {search && (
             <button
               onClick={() => setSearch("")}
-              title="Clear search"
-              className="w-8 h-8 rounded-lg flex items-center justify-center absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition active:scale-95"
+              title={t("menu_items.reset", "Clear search")}
+              className="w-8 h-8 rounded-lg flex items-center justify-center absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition active:scale-95 cursor-pointer"
             >
               <IconX size={16} />
             </button>
@@ -843,16 +843,16 @@ export default function MenuItemsSettingsPage() {
           {/* Status segmented control */}
           <div className="flex items-center bg-restro-gray rounded-xl p-1 border border-restro-border-green min-h-[42px]">
             {[
-              { id: "all", label: "All" },
-              { id: "active", label: "Active" },
-              { id: "hidden", label: "Hidden" },
+              { id: "all", label: t("menu_items.status_all", "All") },
+              { id: "active", label: t("menu_items.status_active", "Active") },
+              { id: "hidden", label: t("menu_items.status_hidden", "Hidden") },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setStatusFilter(tab.id)}
                 className={clsx(
-                  "min-h-[34px] px-3 rounded-lg text-xs font-semibold transition active:scale-95",
+                  "min-h-[34px] px-3 rounded-lg text-xs font-semibold transition active:scale-95 cursor-pointer",
                   statusFilter === tab.id
                     ? "bg-restro-green text-white shadow-sm"
                     : "text-restro-text hover:bg-restro-button-hover"
@@ -866,19 +866,19 @@ export default function MenuItemsSettingsPage() {
           {/* Kitchen Station Filter */}
           <div className="relative">
             <select
-              aria-label="Filter by Kitchen Station"
+              aria-label={t("menu_items.all_kitchen_stations", "Filter by Kitchen Station")}
               value={stationFilter}
               onChange={(e) => setStationFilter(e.target.value)}
-              className="min-h-[42px] text-xs font-medium rounded-xl px-3.5 py-2 border border-restro-border-green dark:bg-black bg-restro-gray text-restro-text focus:outline-restro-border-green"
+              className="min-h-[42px] text-xs font-medium rounded-xl px-3.5 py-2 border border-restro-border-green dark:bg-black bg-restro-gray text-restro-text focus:outline-restro-border-green cursor-pointer"
             >
-              <option value="all">All Kitchen Stations</option>
-              <option value="override">Station Overrides Only</option>
-              <option value="unassigned">Default / Unassigned Station</option>
+              <option value="all">{t("menu_items.all_kitchen_stations", "All Kitchen Stations")}</option>
+              <option value="override">{t("menu_items.station_overrides_only", "Station Overrides Only")}</option>
+              <option value="unassigned">{t("menu_items.unassigned_station", "Default / Unassigned Station")}</option>
               {stations
                 ?.filter((s) => s.is_enabled)
                 ?.map((st) => (
                   <option key={st.id} value={String(st.id)}>
-                    Station: {st.name}
+                    {t("menu_items.station_prefix", "Station: {{name}}", { name: st.name })}
                   </option>
                 ))}
             </select>
@@ -892,16 +892,16 @@ export default function MenuItemsSettingsPage() {
               className="absolute left-3 text-gray-400 pointer-events-none"
             />
             <select
-              aria-label="Sort menu items"
+              aria-label={t("menu_items.sort_category", "Sort menu items")}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="min-h-[42px] pl-8 pr-3.5 py-2 text-xs font-medium rounded-xl border border-restro-border-green dark:bg-black bg-restro-gray text-restro-text focus:outline-restro-border-green"
+              className="min-h-[42px] pl-8 pr-3.5 py-2 text-xs font-medium rounded-xl border border-restro-border-green dark:bg-black bg-restro-gray text-restro-text focus:outline-restro-border-green cursor-pointer"
             >
-              <option value="name_asc">Sort: Name (A → Z)</option>
-              <option value="name_desc">Sort: Name (Z → A)</option>
-              <option value="price_asc">Sort: Price (Low → High)</option>
-              <option value="price_desc">Sort: Price (High → Low)</option>
-              <option value="category">Sort: Category</option>
+              <option value="name_asc">{t("menu_items.sort_name_asc", "Sort: Name (A → Z)")}</option>
+              <option value="name_desc">{t("menu_items.sort_name_desc", "Sort: Name (Z → A)")}</option>
+              <option value="price_asc">{t("menu_items.sort_price_asc", "Sort: Price (Low → High)")}</option>
+              <option value="price_desc">{t("menu_items.sort_price_desc", "Sort: Price (High → Low)")}</option>
+              <option value="category">{t("menu_items.sort_category", "Sort: Category")}</option>
             </select>
           </div>
 
@@ -911,7 +911,7 @@ export default function MenuItemsSettingsPage() {
               type="button"
               onClick={toggleSelectAllFiltered}
               className={clsx(
-                "min-h-[42px] px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition active:scale-95",
+                "min-h-[42px] px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer",
                 allFilteredSelected
                   ? "bg-restro-green/15 border-restro-green text-restro-green"
                   : "bg-restro-gray border-restro-border-green text-restro-text hover:bg-restro-button-hover"
@@ -922,7 +922,7 @@ export default function MenuItemsSettingsPage() {
               ) : (
                 <IconSquare size={16} stroke={iconStroke} />
               )}
-              <span>{allFilteredSelected ? "Deselect All" : "Select All"}</span>
+              <span>{allFilteredSelected ? t("menu_items.deselect_all", "Deselect All") : t("menu_items.select_all", "Select All")}</span>
             </button>
           )}
 
@@ -931,9 +931,9 @@ export default function MenuItemsSettingsPage() {
             <button
               type="button"
               onClick={resetFilters}
-              className="min-h-[42px] px-3 rounded-xl border border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 hover:bg-red-100"
+              className="min-h-[42px] px-3 rounded-xl border border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 hover:bg-red-100 cursor-pointer"
             >
-              <IconFilterOff size={15} stroke={iconStroke} /> Reset
+              <IconFilterOff size={15} stroke={iconStroke} /> {t("menu_items.reset", "Reset")}
             </button>
           )}
 
@@ -941,10 +941,10 @@ export default function MenuItemsSettingsPage() {
           <div className="flex items-center bg-restro-gray rounded-xl p-1 border border-restro-border-green min-h-[42px] ml-auto">
             <button
               type="button"
-              title="Visual Card Grid View"
+              title={t("menu_items.grid_view", "Visual Card Grid View")}
               onClick={() => setViewMode("grid")}
               className={clsx(
-                "w-9 h-[34px] rounded-lg flex items-center justify-center transition active:scale-95",
+                "w-9 h-[34px] rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer",
                 viewMode === "grid"
                   ? "bg-restro-green text-white shadow-sm"
                   : "text-restro-text hover:bg-restro-button-hover"
@@ -954,10 +954,10 @@ export default function MenuItemsSettingsPage() {
             </button>
             <button
               type="button"
-              title="High-Density Table View"
+              title={t("menu_items.table_view", "High-Density Table View")}
               onClick={() => setViewMode("table")}
               className={clsx(
-                "w-9 h-[34px] rounded-lg flex items-center justify-center transition active:scale-95",
+                "w-9 h-[34px] rounded-lg flex items-center justify-center transition active:scale-95 cursor-pointer",
                 viewMode === "table"
                   ? "bg-restro-green text-white shadow-sm"
                   : "text-restro-text hover:bg-restro-button-hover"
@@ -981,7 +981,7 @@ export default function MenuItemsSettingsPage() {
               : "text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover"
           )}
         >
-          <span>All Categories</span>
+          <span>{t("menu_items.all_categories", "All Categories")}</span>
           <span
             className={clsx(
               "px-1.5 py-0.5 rounded-full text-[10px]",
@@ -1034,7 +1034,7 @@ export default function MenuItemsSettingsPage() {
                 : "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/50 hover:bg-amber-100"
             )}
           >
-            <span>Uncategorized</span>
+            <span>{t("menu_items.uncategorized", "Uncategorized")}</span>
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-black/10 dark:bg-white/10">
               {categoryItemCounts.uncategorized}
             </span>
@@ -1049,21 +1049,21 @@ export default function MenuItemsSettingsPage() {
             <IconCarrot size={32} stroke={iconStroke} />
           </div>
           <p className="text-base font-bold text-restro-text mb-1">
-            No menu items match your view
+            {t("menu_items.no_items_match", "No menu items match your view")}
           </p>
           <p className="text-sm text-gray-500 max-w-md mb-5">
             {hasActiveFilters
-              ? "Try adjusting your search query, category pill, or status/station filters."
-              : "Add your first menu item or import a CSV catalog to get started."}
+              ? t("menu_items.no_items_hint_filtered", "Try adjusting your search query, category pill, or status/station filters.")
+              : t("menu_items.no_items_hint_empty", "Add your first menu item or import a CSV catalog to get started.")}
           </p>
           <div className="flex items-center gap-3">
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={resetFilters}
-                className="min-h-[42px] px-4 py-2 rounded-xl border border-restro-border-green bg-white dark:bg-[#252525] text-sm font-semibold text-restro-text hover:bg-restro-button-hover transition active:scale-95"
+                className="min-h-[42px] px-4 py-2 rounded-xl border border-restro-border-green bg-white dark:bg-[#252525] text-sm font-semibold text-restro-text hover:bg-restro-button-hover transition active:scale-95 cursor-pointer"
               >
-                Reset All Filters
+                {t("menu_items.reset_all_filters", "Reset All Filters")}
               </button>
             )}
             <button
@@ -1125,7 +1125,7 @@ export default function MenuItemsSettingsPage() {
                     <div className="flex flex-col items-center justify-center text-gray-400 gap-1.5">
                       <IconCarrot size={34} stroke={iconStroke} />
                       <span className="text-[11px] font-medium text-gray-400">
-                        No photo
+                        {t("menu_items.no_photo", "No photo")}
                       </span>
                     </div>
                   )}
@@ -1133,13 +1133,13 @@ export default function MenuItemsSettingsPage() {
                   {/* Multi-select checkbox (top-left) */}
                   <button
                     type="button"
-                    title={isSelected ? "Deselect item" : "Select item"}
+                    title={isSelected ? t("menu_items.deselect_all", "Deselect item") : t("menu_items.select_all", "Select item")}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleSelectItem(id);
                     }}
                     className={clsx(
-                      "w-9 h-9 rounded-xl flex items-center justify-center absolute top-2.5 left-2.5 z-10 transition active:scale-95 backdrop-blur-md border",
+                      "w-9 h-9 rounded-xl flex items-center justify-center absolute top-2.5 left-2.5 z-10 transition active:scale-95 backdrop-blur-md border cursor-pointer",
                       isSelected
                         ? "bg-restro-green text-white border-restro-green shadow-md"
                         : "bg-black/45 hover:bg-black/65 text-white border-white/25"
@@ -1155,13 +1155,13 @@ export default function MenuItemsSettingsPage() {
                   {/* Quick Toggle Active / Hidden pill (top-right) */}
                   <button
                     type="button"
-                    title={is_enabled ? "Click to hide from POS" : "Click to activate on POS"}
+                    title={is_enabled ? t("menu_items.click_to_hide", "Click to hide from POS") : t("menu_items.click_to_activate", "Click to activate on POS")}
                     onClick={(e) => {
                       e.stopPropagation();
                       btnChangeItemVisibilty(id, !is_enabled);
                     }}
                     className={clsx(
-                      "min-h-[30px] px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border flex items-center gap-1 absolute top-2.5 right-2.5 z-10 transition active:scale-95 shadow-sm",
+                      "min-h-[30px] px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border flex items-center gap-1 absolute top-2.5 right-2.5 z-10 transition active:scale-95 shadow-sm cursor-pointer",
                       is_enabled
                         ? "bg-emerald-500/95 hover:bg-emerald-600 text-white border-emerald-300/40"
                         : "bg-gray-700/90 hover:bg-gray-800 text-gray-200 border-gray-500/40"
@@ -1170,12 +1170,12 @@ export default function MenuItemsSettingsPage() {
                     {is_enabled ? (
                       <>
                         <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                        Active
+                        {t("menu_items.active", "Active")}
                       </>
                     ) : (
                       <>
                         <IconEyeOff size={12} stroke={2} />
-                        Hidden
+                        {t("menu_items.hidden", "Hidden")}
                       </>
                     )}
                   </button>
@@ -1183,15 +1183,15 @@ export default function MenuItemsSettingsPage() {
                   {/* Category overlay strip */}
                   <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-gradient-to-t from-black/75 via-black/45 to-transparent flex items-center justify-between gap-2">
                     <span className="text-[11px] text-white font-semibold truncate">
-                      {category_title || "Uncategorized"}
+                      {category_title || t("menu_items.uncategorized", "Uncategorized")}
                     </span>
                     {effective_kitchen_station_name && (
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 bg-black/65 text-white border border-white/15 shrink-0"
                         title={
                           kitchen_station_id
-                            ? `Station Override: ${effective_kitchen_station_name}`
-                            : `Category Station: ${effective_kitchen_station_name}`
+                            ? `${t("menu_items.override", "Station Override")}: ${effective_kitchen_station_name}`
+                            : `${t("menu_items.col_station", "Category Station")}: ${effective_kitchen_station_name}`
                         }
                       >
                         <span
@@ -1226,7 +1226,7 @@ export default function MenuItemsSettingsPage() {
                     </p>
                   ) : (
                     <p className="text-xs text-gray-400/70 italic mt-1">
-                      No description
+                      {t("menu_items.no_description", "No description")}
                     </p>
                   )}
 
@@ -1234,12 +1234,12 @@ export default function MenuItemsSettingsPage() {
                   <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
                     {variants?.length > 0 && (
                       <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-blue-500/20">
-                        {variants.length} Variant{variants.length > 1 ? "s" : ""}
+                        {variants.length} {variants.length > 1 ? t("menu_items.variant_other", "Variants") : t("menu_items.variant_one", "Variant")}
                       </span>
                     )}
                     {addons?.length > 0 && (
                       <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-purple-500/20">
-                        {addons.length} Addon{addons.length > 1 ? "s" : ""}
+                        {addons.length} {addons.length > 1 ? t("menu_items.addon_other", "Addons") : t("menu_items.addon_one", "Addon")}
                       </span>
                     )}
                     {tax_title && (
@@ -1257,7 +1257,7 @@ export default function MenuItemsSettingsPage() {
                       </span>
                       {net_price ? (
                         <span className="block text-[10px] text-gray-400">
-                          Net: {formatPrice(net_price)}
+                          {t("menu_items.net_prefix", "Net: ")}{formatPrice(net_price)}
                         </span>
                       ) : null}
                     </div>
@@ -1268,36 +1268,36 @@ export default function MenuItemsSettingsPage() {
                     >
                       <button
                         type="button"
-                        title="Quick Edit in Drawer"
+                        title={t("menu_items.quick_edit", "Quick Edit in Drawer")}
                         onClick={() => openQuickEditDrawer(menuItem)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text bg-restro-gray/70 hover:bg-restro-button-hover border border-transparent hover:border-restro-border-green"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text bg-restro-gray/70 hover:bg-restro-button-hover border border-transparent hover:border-restro-border-green cursor-pointer"
                       >
                         <IconAdjustmentsHorizontal size={17} stroke={iconStroke} />
                       </button>
 
                       <button
                         type="button"
-                        title="Duplicate Item"
+                        title={t("menu_items.duplicate_item", "Duplicate Item")}
                         onClick={() => handleDuplicateItem(menuItem)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text bg-restro-gray/70 hover:bg-restro-button-hover border border-transparent hover:border-restro-border-green"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text bg-restro-gray/70 hover:bg-restro-button-hover border border-transparent hover:border-restro-border-green cursor-pointer"
                       >
                         <IconCopy size={16} stroke={iconStroke} />
                       </button>
 
                       <button
                         type="button"
-                        title="Open Full Details (Variants, Addons, Recipe)"
+                        title={t("menu_items.full_details", "Open Full Details (Variants, Addons, Recipe)")}
                         onClick={() => btnShowUpdate(id)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text bg-restro-gray/70 hover:bg-restro-button-hover border border-transparent hover:border-restro-border-green"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text bg-restro-gray/70 hover:bg-restro-button-hover border border-transparent hover:border-restro-border-green cursor-pointer"
                       >
                         <IconPencil size={16} stroke={iconStroke} />
                       </button>
 
                       <button
                         type="button"
-                        title="Delete Item"
+                        title={t("menu_items.delete_item", "Delete Item")}
                         onClick={() => btnDelete(id, title)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                       >
                         <IconTrash size={16} stroke={iconStroke} />
                       </button>
@@ -1323,13 +1323,13 @@ export default function MenuItemsSettingsPage() {
                     className="w-4 h-4 rounded border-slate-300 dark:border-neutral-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                   />
                 </th>
-                <th className="py-3 px-3">Menu item</th>
-                <th className="py-3 px-3">Category</th>
-                <th className="py-3 px-3">Kitchen station</th>
-                <th className="py-3 px-3">Modifiers</th>
-                <th className="py-3 px-3">Price / Tax</th>
-                <th className="py-3 px-3">POS status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-3">{t("menu_items.col_item", "Menu item")}</th>
+                <th className="py-3 px-3">{t("menu_items.col_category", "Category")}</th>
+                <th className="py-3 px-3">{t("menu_items.col_station", "Kitchen station")}</th>
+                <th className="py-3 px-3">{t("menu_items.col_modifiers", "Modifiers")}</th>
+                <th className="py-3 px-3">{t("menu_items.col_price_tax", "Price / Tax")}</th>
+                <th className="py-3 px-3">{t("menu_items.col_status", "POS status")}</th>
+                <th className="py-3 px-4 text-right">{t("menu_items.col_actions", "Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
@@ -1419,7 +1419,7 @@ export default function MenuItemsSettingsPage() {
                           </span>
                         ) : (
                           <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            Uncategorized
+                            {t("menu_items.uncategorized", "Uncategorized")}
                           </span>
                         )}
                       </td>
@@ -1446,13 +1446,13 @@ export default function MenuItemsSettingsPage() {
                             <span>{effective_kitchen_station_name}</span>
                             {kitchen_station_id && (
                               <span className="text-[10px] opacity-80 font-normal">
-                                (Override)
+                                ({t("menu_items.override", "Override")})
                               </span>
                             )}
                           </span>
                         ) : (
                           <span className="text-xs text-gray-400">
-                            Default Kitchen
+                            {t("menu_items.default_kitchen", "Default Kitchen")}
                           </span>
                         )}
                       </td>
@@ -1462,12 +1462,12 @@ export default function MenuItemsSettingsPage() {
                         <div className="flex items-center gap-1.5">
                           {variants?.length > 0 && (
                             <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-semibold px-2 py-0.5 rounded-full">
-                              {variants.length} Var
+                              {variants.length} {variants.length > 1 ? t("menu_items.variant_other", "Var") : t("menu_items.variant_one", "Var")}
                             </span>
                           )}
                           {addons?.length > 0 && (
                             <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-semibold px-2 py-0.5 rounded-full">
-                              {addons.length} Addon
+                              {addons.length} {addons.length > 1 ? t("menu_items.addon_other", "Addon") : t("menu_items.addon_one", "Addon")}
                             </span>
                           )}
                           {(!variants || variants.length === 0) &&
@@ -1483,7 +1483,7 @@ export default function MenuItemsSettingsPage() {
                           {formatPrice(price)}
                         </div>
                         <div className="text-[11px] text-gray-400">
-                          {net_price ? `Net ${formatPrice(net_price)}` : ""}
+                          {net_price ? `${t("menu_items.net_prefix", "Net: ")}${formatPrice(net_price)}` : ""}
                           {net_price && tax_title ? " • " : ""}
                           {tax_title ? `${tax_title} (${tax_rate}%)` : ""}
                         </div>
@@ -1498,13 +1498,13 @@ export default function MenuItemsSettingsPage() {
                           type="button"
                           onClick={() => btnChangeItemVisibilty(id, !is_enabled)}
                           className={clsx(
-                            "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border transition active:scale-95",
+                            "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border transition active:scale-95 cursor-pointer",
                             is_enabled
                               ? "bg-[#dcfce7] text-[#15803d] dark:bg-emerald-950/70 dark:text-emerald-400 border-[#bbf7d0] dark:border-emerald-800"
                               : "bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-neutral-400 border-slate-200 dark:border-neutral-700"
                           )}
                         >
-                          {is_enabled ? "Active" : "Hidden"}
+                          {is_enabled ? t("menu_items.active", "Active") : t("menu_items.hidden", "Hidden")}
                         </button>
                       </td>
 
@@ -1516,9 +1516,9 @@ export default function MenuItemsSettingsPage() {
                         <div className="inline-flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            title="Quick Edit in Drawer"
+                            title={t("menu_items.quick_edit", "Quick Edit in Drawer")}
                             onClick={() => openQuickEditDrawer(menuItem)}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover cursor-pointer"
                           >
                             <IconAdjustmentsHorizontal
                               size={17}
@@ -1527,25 +1527,25 @@ export default function MenuItemsSettingsPage() {
                           </button>
                           <button
                             type="button"
-                            title="Duplicate Item"
+                            title={t("menu_items.duplicate_item", "Duplicate Item")}
                             onClick={() => handleDuplicateItem(menuItem)}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover cursor-pointer"
                           >
                             <IconCopy size={17} stroke={iconStroke} />
                           </button>
                           <button
                             type="button"
-                            title="Open Full Details"
+                            title={t("menu_items.full_details", "Open Full Details")}
                             onClick={() => btnShowUpdate(id)}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover cursor-pointer"
                           >
                             <IconPencil size={17} stroke={iconStroke} />
                           </button>
                           <button
                             type="button"
-                            title="Delete Item"
+                            title={t("menu_items.delete_item", "Delete Item")}
                             onClick={() => btnDelete(id, title)}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
                           >
                             <IconTrash size={17} stroke={iconStroke} />
                           </button>
@@ -1564,14 +1564,14 @@ export default function MenuItemsSettingsPage() {
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 w-[95%] max-w-4xl rounded-2xl bg-gray-900/95 dark:bg-[#141414]/95 text-white backdrop-blur-md border border-white/15 shadow-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="px-3 py-1 rounded-xl bg-restro-green text-white text-xs font-extrabold">
-              {selectedIds.length} Selected
+              {t("menu_items.bulk_selected", "{{count}} Selected", { count: selectedIds.length })}
             </span>
             <button
               type="button"
               onClick={() => setSelectedIds([])}
-              className="text-xs text-gray-300 hover:text-white underline transition"
+              className="text-xs text-gray-300 hover:text-white underline transition cursor-pointer"
             >
-              Clear selection
+              {t("menu_items.clear_selection", "Clear selection")}
             </button>
           </div>
 
@@ -1580,33 +1580,33 @@ export default function MenuItemsSettingsPage() {
               type="button"
               disabled={isBulkProcessing}
               onClick={() => handleBulkVisibility(true)}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             >
-              <IconEye size={15} stroke={iconStroke} /> Activate
+              <IconEye size={15} stroke={iconStroke} /> {t("menu_items.bulk_activate", "Activate")}
             </button>
 
             <button
               type="button"
               disabled={isBulkProcessing}
               onClick={() => handleBulkVisibility(false)}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             >
-              <IconEyeOff size={15} stroke={iconStroke} /> Hide
+              <IconEyeOff size={15} stroke={iconStroke} /> {t("menu_items.bulk_hide", "Hide")}
             </button>
 
             {/* Bulk Assign Category */}
             <select
-              aria-label="Bulk Assign Category"
+              aria-label={t("menu_items.bulk_move_category", "Bulk Assign Category")}
               disabled={isBulkProcessing}
               value={bulkCategoryTarget}
               onChange={(e) => handleBulkAssignCategory(e.target.value)}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/15 focus:outline-none"
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/15 focus:outline-none cursor-pointer"
             >
               <option value="" className="text-black">
-                Move to Category...
+                {t("menu_items.bulk_move_category", "Move to Category...")}
               </option>
               <option value="none" className="text-black">
-                Remove Category (Uncategorized)
+                {t("menu_items.bulk_remove_category", "Remove Category (Uncategorized)")}
               </option>
               {categories?.map((cat) => (
                 <option key={cat.id} value={cat.id} className="text-black">
@@ -1617,17 +1617,17 @@ export default function MenuItemsSettingsPage() {
 
             {/* Bulk Assign Kitchen Station */}
             <select
-              aria-label="Bulk Assign Kitchen Station"
+              aria-label={t("menu_items.bulk_assign_station", "Bulk Assign Kitchen Station")}
               disabled={isBulkProcessing}
               value={bulkStationTarget}
               onChange={(e) => handleBulkAssignStation(e.target.value)}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/15 focus:outline-none"
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/15 focus:outline-none cursor-pointer"
             >
               <option value="" className="text-black">
-                Assign Station...
+                {t("menu_items.bulk_assign_station", "Assign Station...")}
               </option>
               <option value="default" className="text-black">
-                Category Default (Auto-route)
+                {t("menu_items.bulk_station_default", "Category Default (Auto-route)")}
               </option>
               {stations
                 ?.filter((s) => s.is_enabled)
@@ -1642,9 +1642,9 @@ export default function MenuItemsSettingsPage() {
               type="button"
               disabled={isBulkProcessing}
               onClick={() => setIsBulkDeleteModalOpen(true)}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             >
-              <IconTrash size={15} stroke={iconStroke} /> Delete
+              <IconTrash size={15} stroke={iconStroke} /> {t("common.delete", "Delete")}
             </button>
           </div>
         </div>
@@ -1670,16 +1670,16 @@ export default function MenuItemsSettingsPage() {
         <div className="flex items-center justify-between px-6 py-4 border-b border-restro-border-green shrink-0">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-restro-green">
-              {editingItem ? "Quick Edit Menu Item" : "Create Menu Item"}
+              {editingItem ? t("menu_items.quick_edit_item", "Quick Edit Menu Item") : t("menu_items.create_item", "Create Menu Item")}
             </span>
             <h3 className="text-lg font-bold text-restro-text">
-              {editingItem ? editingItem.title : "Add New Item"}
+              {editingItem ? editingItem.title : t("menu_items.add_new_item", "Add New Item")}
             </h3>
           </div>
           <button
             type="button"
             onClick={() => setIsDrawerOpen(false)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition active:scale-95"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-restro-text hover:bg-restro-button-hover transition active:scale-95 cursor-pointer"
           >
             <IconX size={20} stroke={iconStroke} />
           </button>
@@ -1701,11 +1701,11 @@ export default function MenuItemsSettingsPage() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-restro-text mb-1">Item Photo</p>
+              <p className="text-xs font-bold text-restro-text mb-1">{t("menu_items.item_photo", "Item Photo")}</p>
               <div className="flex flex-wrap items-center gap-2">
                 <label className="min-h-[38px] px-3 py-1.5 rounded-xl bg-restro-green text-white text-xs font-semibold cursor-pointer hover:bg-restro-green-button-hover transition active:scale-95 inline-flex items-center gap-1.5">
                   <IconUpload size={14} stroke={iconStroke} />
-                  <span>{stagedPhotoPreview ? "Change Photo" : "Upload Photo"}</span>
+                  <span>{stagedPhotoPreview ? t("menu_items.change_photo", "Change Photo") : t("menu_items.upload_photo", "Upload Photo")}</span>
                   <input
                     ref={drawerFileInputRef}
                     type="file"
@@ -1718,14 +1718,14 @@ export default function MenuItemsSettingsPage() {
                   <button
                     type="button"
                     onClick={handleRemoveDrawerPhoto}
-                    className="min-h-[38px] px-3 py-1.5 rounded-xl border border-red-300 dark:border-red-800/50 text-red-500 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 transition active:scale-95 inline-flex items-center gap-1"
+                    className="min-h-[38px] px-3 py-1.5 rounded-xl border border-red-300 dark:border-red-800/50 text-red-500 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 transition active:scale-95 inline-flex items-center gap-1 cursor-pointer"
                   >
-                    <IconTrash size={14} stroke={iconStroke} /> Remove
+                    <IconTrash size={14} stroke={iconStroke} /> {t("menu_items.remove_photo", "Remove")}
                   </button>
                 )}
               </div>
               <p className="text-[11px] text-gray-400 mt-1">
-                Auto-compressed for fast POS loading.
+                {t("menu_items.photo_compression_hint", "Auto-compressed for fast POS loading.")}
               </p>
             </div>
           </div>
@@ -1734,17 +1734,17 @@ export default function MenuItemsSettingsPage() {
           <div className="flex items-center justify-between p-3.5 rounded-2xl border border-restro-border-green bg-restro-gray/30">
             <div>
               <p className="text-sm font-semibold text-restro-text">
-                Available on POS & QR Menu
+                {t("menu_items.available_on_pos", "Available on POS & QR Menu")}
               </p>
               <p className="text-xs text-gray-500">
-                Toggle off to temporarily hide (86) this item
+                {t("menu_items.toggle_hide_hint", "Toggle off to temporarily hide (86) this item")}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setFormIsEnabled((prev) => !prev)}
               className={clsx(
-                "min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 border",
+                "min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 border cursor-pointer",
                 formIsEnabled
                   ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
                   : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700"
@@ -1752,11 +1752,11 @@ export default function MenuItemsSettingsPage() {
             >
               {formIsEnabled ? (
                 <>
-                  <IconEye size={16} stroke={iconStroke} /> Active
+                  <IconEye size={16} stroke={iconStroke} /> {t("menu_items.active", "Active")}
                 </>
               ) : (
                 <>
-                  <IconEyeOff size={16} stroke={iconStroke} /> Hidden
+                  <IconEyeOff size={16} stroke={iconStroke} /> {t("menu_items.hidden", "Hidden")}
                 </>
               )}
             </button>
@@ -1869,14 +1869,14 @@ export default function MenuItemsSettingsPage() {
           <div>
             <label className="mb-1.5 block text-gray-500 text-xs font-bold uppercase tracking-wide flex items-center gap-1.5">
               <IconChefHat size={15} stroke={iconStroke} />
-              Kitchen Station Routing
+              {t("menu_items.station_routing", "Kitchen Station Routing")}
             </label>
             <select
               value={formKitchenStationId}
               onChange={(e) => setFormKitchenStationId(e.target.value)}
-              className="min-h-[44px] text-sm w-full rounded-xl px-3.5 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green"
+              className="min-h-[44px] text-sm w-full rounded-xl px-3.5 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green cursor-pointer"
             >
-              <option value="">Category Default (Auto-routes by category)</option>
+              <option value="">{t("menu_items.station_category_default", "Category Default (Auto-routes by category)")}</option>
               {stations
                 ?.filter((s) => s.is_enabled)
                 ?.map((station) => (
@@ -1886,8 +1886,7 @@ export default function MenuItemsSettingsPage() {
                 ))}
             </select>
             <p className="text-[11px] text-gray-400 mt-1">
-              Override prep station routing for this specific item, or leave as
-              Category Default.
+              {t("menu_items.station_routing_hint", "Override prep station routing for this specific item, or leave as Category Default.")}
             </p>
           </div>
         </div>
@@ -1899,7 +1898,7 @@ export default function MenuItemsSettingsPage() {
               type="button"
               disabled={isSavingDrawer}
               onClick={() => setIsDrawerOpen(false)}
-              className="min-h-[46px] px-4 py-2.5 rounded-xl border border-restro-border-green text-sm font-semibold text-restro-text bg-restro-gray hover:bg-restro-button-hover transition active:scale-95"
+              className="min-h-[46px] px-4 py-2.5 rounded-xl border border-restro-border-green text-sm font-semibold text-restro-text bg-restro-gray hover:bg-restro-button-hover transition active:scale-95 cursor-pointer"
             >
               {t("menu_items.close")}
             </button>
@@ -1907,9 +1906,9 @@ export default function MenuItemsSettingsPage() {
               type="button"
               disabled={isSavingDrawer}
               onClick={() => handleSaveDrawer(false)}
-              className="min-h-[46px] flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-bold text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95 shadow-sm"
+              className="min-h-[46px] flex-1 rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-bold text-white bg-restro-green hover:bg-restro-green-button-hover transition active:scale-95 shadow-sm cursor-pointer"
             >
-              {editingItem ? "Save Changes" : t("menu_items.save")}
+              {editingItem ? t("menu_items.save_changes", "Save Changes") : t("menu_items.save")}
             </button>
           </div>
 
@@ -1917,12 +1916,12 @@ export default function MenuItemsSettingsPage() {
             type="button"
             disabled={isSavingDrawer}
             onClick={() => handleSaveDrawer(true)}
-            className="min-h-[42px] w-full rounded-xl border border-restro-green/40 bg-restro-green/10 hover:bg-restro-green/20 text-restro-green text-xs font-bold px-4 py-2 flex items-center justify-center gap-1.5 transition active:scale-95"
+            className="min-h-[42px] w-full rounded-xl border border-restro-green/40 bg-restro-green/10 hover:bg-restro-green/20 text-restro-green text-xs font-bold px-4 py-2 flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
           >
             <span>
               {editingItem
-                ? "Save & Manage Variants, Addons & Recipes"
-                : "Save & Configure Variants / Addons"}
+                ? t("menu_items.save_and_manage_full", "Save & Manage Variants, Addons & Recipes")
+                : t("menu_items.save_and_configure_full", "Save & Configure Variants / Addons")}
             </span>
             <IconExternalLink size={15} stroke={iconStroke} />
           </button>
@@ -1941,7 +1940,7 @@ export default function MenuItemsSettingsPage() {
         isOpen={Boolean(deleteItemData)}
         onClose={() => setDeleteItemData(null)}
         onConfirm={confirmDelete}
-        title="Delete Menu Item?"
+        title={t("menu_items.delete_modal_title", "Delete Menu Item?")}
         description={
           deleteItemData
             ? `Are you sure you want to delete "${deleteItemData.title}"? ${t(
@@ -1950,7 +1949,7 @@ export default function MenuItemsSettingsPage() {
             : t("menu_items.process_irreversible")
         }
         cancelText={t("menu_items.close") || "Cancel"}
-        confirmText="Delete Item"
+        confirmText={t("menu_items.delete_item", "Delete Item")}
       />
 
       {/* Bulk Delete Confirmation Modal */}
@@ -1958,10 +1957,10 @@ export default function MenuItemsSettingsPage() {
         isOpen={isBulkDeleteModalOpen}
         onClose={() => setIsBulkDeleteModalOpen(false)}
         onConfirm={handleBulkDeleteConfirm}
-        title={`Delete ${selectedIds.length} Selected Items?`}
-        description={`You are about to permanently delete ${selectedIds.length} menu items. This action cannot be undone.`}
+        title={t("menu_items.bulk_delete_title", "Delete {{count}} Selected Items?", { count: selectedIds.length })}
+        description={t("menu_items.bulk_delete_desc", "You are about to permanently delete {{count}} menu items. This action cannot be undone.", { count: selectedIds.length })}
         cancelText={t("menu_items.close") || "Cancel"}
-        confirmText={`Delete ${selectedIds.length} Items`}
+        confirmText={t("menu_items.delete_item", "Delete Item")}
       />
     </Page>
   );

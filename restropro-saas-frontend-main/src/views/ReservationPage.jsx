@@ -58,7 +58,7 @@ export default function ReservationPage() {
     { key: "last_7days", value: t("reservations.filters.last_7days") || "Last 7 Days" },
     { key: "this_month", value: t("reservations.filters.this_month") || "This Month" },
     { key: "last_month", value: t("reservations.filters.last_month") || "Last Month" },
-    { key: "all", value: "All Bookings" },
+    { key: "all", value: t("reservations.filters.all") || "All Bookings" },
     { key: "custom", value: t("reservations.filters.custom") || "Custom Range" },
   ];
 
@@ -270,7 +270,7 @@ export default function ReservationPage() {
                 <span>
                   {["this_month", "last_month", "all", "custom"].includes(state.filter)
                     ? filters.find((f) => f.key === state.filter)?.value
-                    : "More"}
+                    : (t("reservations.filters.more") || "More")}
                 </span>
               </button>
               <ul
@@ -331,7 +331,7 @@ export default function ReservationPage() {
           <div className="flex items-center rounded-xl border border-gray-200 bg-gray-50/80 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
             <button
               onClick={() => setState((prev) => ({ ...prev, viewMode: "timeline" }))}
-              title="Timeline View"
+              title={t("reservations.views.timeline") || "Timeline View"}
               className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
                 state.viewMode === "timeline"
                   ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
@@ -339,12 +339,12 @@ export default function ReservationPage() {
               }`}
             >
               <IconClockPlay size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">Timeline</span>
+              <span className="hidden xl:inline">{t("reservations.views.timeline") || "Timeline"}</span>
             </button>
 
             <button
               onClick={() => setState((prev) => ({ ...prev, viewMode: "kanban" }))}
-              title="Kanban Board View"
+              title={t("reservations.views.kanban") || "Kanban Board View"}
               className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
                 state.viewMode === "kanban"
                   ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
@@ -352,12 +352,12 @@ export default function ReservationPage() {
               }`}
             >
               <IconLayoutKanban size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">Kanban</span>
+              <span className="hidden xl:inline">{t("reservations.views.kanban") || "Kanban"}</span>
             </button>
 
             <button
               onClick={() => setState((prev) => ({ ...prev, viewMode: "calendar" }))}
-              title="Calendar View"
+              title={t("reservations.views.calendar") || "Calendar View"}
               className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
                 state.viewMode === "calendar"
                   ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
@@ -365,12 +365,12 @@ export default function ReservationPage() {
               }`}
             >
               <IconCalendar size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">Calendar</span>
+              <span className="hidden xl:inline">{t("reservations.views.calendar") || "Calendar"}</span>
             </button>
 
             <button
               onClick={() => setState((prev) => ({ ...prev, viewMode: "table" }))}
-              title="Table List View"
+              title={t("reservations.views.table") || "Table List View"}
               className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
                 state.viewMode === "table"
                   ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
@@ -378,12 +378,12 @@ export default function ReservationPage() {
               }`}
             >
               <IconTable size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">Table</span>
+              <span className="hidden xl:inline">{t("reservations.views.table") || "Table"}</span>
             </button>
 
             <button
               onClick={() => setState((prev) => ({ ...prev, viewMode: "cards" }))}
-              title="Card Grid View"
+              title={t("reservations.views.cards") || "Card Grid View"}
               className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
                 state.viewMode === "cards"
                   ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
@@ -391,7 +391,7 @@ export default function ReservationPage() {
               }`}
             >
               <IconLayoutGrid size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">Cards</span>
+              <span className="hidden xl:inline">{t("reservations.views.cards") || "Cards"}</span>
             </button>
           </div>
 
@@ -420,13 +420,15 @@ export default function ReservationPage() {
       {state.search && (
         <div className="flex items-center justify-between rounded-xl bg-blue-500/10 px-3.5 py-1.5 text-xs text-blue-700 dark:text-blue-300 flex-shrink-0">
           <span>
-            Search results for: <strong>"{state.search}"</strong> ({filteredReservations.length} found)
+            {t("reservations.search_results_for", { search: state.search, count: filteredReservations.length }) || (
+              <>Search results for: <strong>"{state.search}"</strong> ({filteredReservations.length} found)</>
+            )}
           </span>
           <button
             onClick={btnClearSearch}
             className="font-bold underline hover:text-blue-900"
           >
-            Clear Search
+            {t("reservations.clear_search") || "Clear Search"}
           </button>
         </div>
       )}
@@ -436,7 +438,9 @@ export default function ReservationPage() {
         {isLoadingReservations ? (
           <div className="flex h-64 flex-col items-center justify-center gap-2">
             <div className="h-7 w-7 animate-spin rounded-full border-3 border-restro-green border-t-transparent" />
-            <p className="text-xs font-semibold text-gray-500">Loading reservations...</p>
+            <p className="text-xs font-semibold text-gray-500">
+              {t("reservations.loading_reservations") || "Loading reservations..."}
+            </p>
           </div>
         ) : filteredReservations.length === 0 && state.viewMode !== "calendar" ? (
           <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
@@ -452,7 +456,7 @@ export default function ReservationPage() {
                 className="mt-3 flex h-8 items-center gap-1 rounded-xl bg-restro-green px-3 py-1 text-xs font-bold text-white shadow-xs transition active:scale-95 hover:bg-restro-green-button-hover"
               >
                 <IconPlus size={15} stroke={iconStroke} />
-                <span>Book First Reservation</span>
+                <span>{t("reservations.book_first") || "Book First Reservation"}</span>
               </button>
             )}
           </div>
@@ -559,7 +563,7 @@ export default function ReservationPage() {
         onClose={() => setDeleteReservationId(null)}
         onConfirm={btnConfirmDelete}
         title={t("reservations.delete_confirm") || "Delete Reservation?"}
-        message="This action will permanently remove the reservation record."
+        message={t("reservations.delete_message") || "This action will permanently remove the reservation record."}
       />
 
       {/* Add Customer Modal shortcut */}
@@ -575,11 +579,13 @@ export default function ReservationPage() {
       <dialog id="custom-date-modal" className="modal modal-bottom sm:modal-middle">
         <div className="modal-box rounded-2xl border border-gray-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <IconFilter size={18} stroke={iconStroke} /> Custom Date Filter
+            <IconFilter size={18} stroke={iconStroke} /> {t("reservations.custom_date_filter") || "Custom Date Filter"}
           </h3>
           <div className="my-4 grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-500">From Date</label>
+              <label className="mb-1 block text-xs font-semibold text-gray-500">
+                {t("reservations.from_date") || "From Date"}
+              </label>
               <input
                 ref={fromDateRef}
                 type="date"
@@ -588,7 +594,9 @@ export default function ReservationPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-500">To Date</label>
+              <label className="mb-1 block text-xs font-semibold text-gray-500">
+                {t("reservations.to_date") || "To Date"}
+              </label>
               <input
                 ref={toDateRef}
                 type="date"
@@ -603,7 +611,7 @@ export default function ReservationPage() {
               onClick={() => document.getElementById("custom-date-modal")?.close()}
               className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 dark:border-zinc-700 dark:text-gray-300"
             >
-              Cancel
+              {t("reservations.cancel") || "Cancel"}
             </button>
             <button
               type="button"
@@ -624,7 +632,7 @@ export default function ReservationPage() {
               }}
               className="rounded-xl bg-restro-green px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-restro-green-button-hover"
             >
-              Apply Range
+              {t("reservations.apply_range") || "Apply Range"}
             </button>
           </div>
         </div>
