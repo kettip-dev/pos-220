@@ -48,6 +48,33 @@ exports.signInDB = async (username, password) => {
     const user = result[0];
 
     if (!user) {
+      // Check if username/email is a superadmin
+      const [superAdminRows] = await conn.query(
+        "SELECT email, password, name FROM superadmins WHERE email = ? LIMIT 1",
+        [username]
+      );
+      const superAdmin = superAdminRows[0];
+      if (superAdmin) {
+        const passwordMatch = await bcrypt.compare(password, superAdmin.password);
+        if (passwordMatch) {
+          const ALL_FEATURES = [
+            "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
+            "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
+            "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU"
+          ];
+          return {
+            username: superAdmin.email,
+            email: superAdmin.email,
+            name: superAdmin.name,
+            role: "superadmin",
+            is_active: 1,
+            features: JSON.stringify(ALL_FEATURES),
+            plan_title: "Super Admin",
+            scope: null,
+            tenant_id: null,
+          };
+        }
+      }
       return null;
     }
 

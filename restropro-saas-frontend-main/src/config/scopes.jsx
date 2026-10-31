@@ -45,6 +45,7 @@ export const PLAN_FEATURES = {
 export const ROLES = {
     ADMIN: "admin",
     USER: "user",
+    SUPERADMIN: "superadmin",
     // Business Group Owner (Phase 2): manages every business in their business
     // group through one login. Stored in the same users table as other roles.
     GROUP_OWNER: "group_owner"
@@ -55,9 +56,8 @@ export const ROLES = {
  *
  * A Business Admin has full access to their own business. A Business Group Owner
  * has no per-user `scope` string at all — their access derives from the business
- * group — so scope-based checks must not be applied to them either. Their real
- * limit is the read/write permission level, which the BACKEND enforces on every
- * request; this helper only drives what the UI offers.
+ * group — so scope-based checks must not be applied to them either. Super Admin
+ * has universal platform and dashboard access.
  */
 export const hasFullBusinessAccess = (role) =>
-    role === ROLES.ADMIN || role === ROLES.GROUP_OWNER;
+    role === ROLES.ADMIN || role === ROLES.GROUP_OWNER || role === ROLES.SUPERADMIN || role === "superadmin";
