@@ -49,7 +49,6 @@ const DEFAULT_PINNED_IDS = ["orders", "inventory", "customers", "settings"];
 const DEFAULT_BOOKMARKS = [
   { label: "POS Register", path: "/dashboard/pos" },
   { label: "Floor Plan & Tables", path: "/dashboard/tables" },
-  { label: "Live Orders", path: "/dashboard/orders" },
   { label: "Invoices & Receipts", path: "/dashboard/invoices" },
   { label: "Reports & Analytics", path: "/dashboard/reports" },
 ];
@@ -110,22 +109,13 @@ export function getQBOAppCategories(t) {
       badgeBg: "bg-transparent text-gray-700 dark:text-slate-300",
       badgeIcon: <IconToolsKitchen3 size={18} stroke={1.8} />,
       railIcon: <IconToolsKitchen3 size={20} stroke={1.8} />,
-      defaultPath: "/dashboard/orders",
+      defaultPath: "/dashboard/invoices",
       scopes: [
-        SCOPES.POS,
-        SCOPES.ORDERS,
-        SCOPES.ORDER_STATUS,
         SCOPES.INVOICES,
         SCOPES.VIEW_INVOICE_AUDIT_LOG,
       ],
-      features: [PLAN_FEATURES.POS, PLAN_FEATURES.INVOICES],
+      features: [PLAN_FEATURES.INVOICES],
       items: [
-        {
-          label: t("navbar.orders_live", "Live Orders"),
-          path: "/dashboard/orders",
-          scopes: [SCOPES.POS, SCOPES.ORDERS, SCOPES.ORDER_STATUS],
-          features: [PLAN_FEATURES.POS],
-        },
         {
           label: t("navbar.invoices", "Invoices & Receipts"),
           path: "/dashboard/invoices",

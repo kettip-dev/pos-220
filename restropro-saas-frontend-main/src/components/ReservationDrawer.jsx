@@ -331,7 +331,7 @@ export default function ReservationDrawer({
                 onChange={(e) => setTableId(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition focus:border-restro-border-green focus:bg-white dark:border-zinc-800 dark:bg-zinc-850 dark:text-white dark:focus:border-restro-border-green"
               >
-                <option value="">-- No Table (Unassigned) --</option>
+                <option value="">{t("reservations.no_table_assigned") || "-- No Table (Unassigned) --"}</option>
                 {storeTables.map((tbl) => (
                   <option key={tbl.id} value={tbl.id}>
                     {tbl.table_title} ({tbl.floor || "Main"}) — Cap: {tbl.seating_capacity || 4}
@@ -373,7 +373,7 @@ export default function ReservationDrawer({
                         : `border-gray-200 bg-restro-gray text-restro-text dark:border-zinc-700 ${s.color}`
                     }`}
                   >
-                    {s.label}
+                    {t(`reservations.status_${s.key}`) || s.label}
                   </button>
                 ))}
               </div>
@@ -382,13 +382,13 @@ export default function ReservationDrawer({
             {/* Special Operational / Dietary Notes */}
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
-                {t("reservations.notes") || "Special Requests & Notes"}
+                {t("reservations.special_notes") || t("reservations.notes") || "Special Requests & Notes"}
               </label>
               <textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Dietary allergies, high chair, birthday, window preference..."
+                placeholder={t("reservations.notes_placeholder") || "Dietary allergies, high chair, birthday, window preference..."}
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm text-gray-900 outline-none transition focus:border-restro-border-green focus:bg-white dark:border-zinc-800 dark:bg-zinc-850 dark:text-white dark:focus:border-restro-border-green"
               />
             </div>
@@ -408,7 +408,7 @@ export default function ReservationDrawer({
                 className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-restro-green px-6 py-2 text-sm font-bold text-white shadow-md transition active:scale-95 hover:bg-restro-green-button-hover disabled:opacity-50"
               >
                 {isSubmitting
-                  ? "Saving..."
+                  ? (t("reservations.saving") || "Saving...")
                   : isEditMode
                   ? t("reservations.update_reservation") || "Update"
                   : t("reservations.save") || "Save Reservation"}

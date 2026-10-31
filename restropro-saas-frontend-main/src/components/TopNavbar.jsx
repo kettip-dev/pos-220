@@ -72,13 +72,6 @@ export default function TopNavbar() {
       icon: <IconToolsKitchen3 size={17} stroke={iconStroke} className="text-amber-500" />,
       items: [
         {
-          label: t("navbar.orders_live", "Live Orders"),
-          path: "/dashboard/orders",
-          icon: <IconToolsKitchen3 size={17} stroke={iconStroke} className="text-amber-500" />,
-          scopes: [SCOPES.POS, SCOPES.ORDERS],
-          features: [PLAN_FEATURES.POS],
-        },
-        {
           label: t("navbar.invoices", "Invoices & Receipts"),
           path: "/dashboard/invoices",
           icon: <IconFileInvoice size={17} stroke={iconStroke} className="text-indigo-500" />,

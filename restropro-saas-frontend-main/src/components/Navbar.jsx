@@ -57,28 +57,13 @@ export const getNavGroups = (t) => [
     type: "group",
     text: t("navbar.orders", "Orders"),
     icon: <IconToolsKitchen3 stroke={iconStroke} />,
-    defaultPath: "/dashboard/orders",
+    defaultPath: "/dashboard/invoices",
     scopes: [
-      SCOPES.POS,
-      SCOPES.ORDERS,
-      SCOPES.ORDER_STATUS,
-      SCOPES.ORDER_STATUS_DISPLAY,
       SCOPES.INVOICES,
       SCOPES.VIEW_INVOICE_AUDIT_LOG,
     ],
-    features: [PLAN_FEATURES.POS, PLAN_FEATURES.INVOICES],
+    features: [PLAN_FEATURES.INVOICES],
     items: [
-      {
-        text: t("navbar.orders_live", "Live Orders"),
-        path: "/dashboard/orders",
-        scopes: [
-          SCOPES.POS,
-          SCOPES.ORDERS,
-          SCOPES.ORDER_STATUS,
-          SCOPES.ORDER_STATUS_DISPLAY,
-        ],
-        features: [PLAN_FEATURES.POS],
-      },
       {
         text: t("navbar.invoices", "Invoices & Receipts"),
         path: "/dashboard/invoices",

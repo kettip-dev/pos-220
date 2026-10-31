@@ -225,12 +225,6 @@ export default function ReservationCard({
             <IconTrash size={14} stroke={iconStroke} />
           </button>
         </div>
-            title="Delete Reservation"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-400 transition active:scale-95 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-          >
-            <IconTrash size={14} stroke={iconStroke} />
-          </button>
-        </div>
       </div>
     </div>
   );
