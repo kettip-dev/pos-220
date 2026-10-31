@@ -28,7 +28,12 @@ router.post(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.MANAGE_CUSTOMERS]),
+  authorize([
+    SCOPES.CUSTOMERS,
+    SCOPES.MANAGE_CUSTOMERS,
+    SCOPES.POS,
+    SCOPES.RESERVATIONS,
+  ]),
   requiresSingleBusiness,
   addCustomer
 );
@@ -38,7 +43,7 @@ router.get(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS]),
+  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.POS]),
   getCustomers
 );
 
@@ -66,7 +71,12 @@ router.get(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS]),
+  authorize([
+    SCOPES.CUSTOMERS,
+    SCOPES.VIEW_CUSTOMERS,
+    SCOPES.POS,
+    SCOPES.RESERVATIONS,
+  ]),
   requiresSingleBusiness,
   getCustomer
 );
@@ -75,7 +85,12 @@ router.get(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS]),
+  authorize([
+    SCOPES.CUSTOMERS,
+    SCOPES.VIEW_CUSTOMERS,
+    SCOPES.POS,
+    SCOPES.RESERVATIONS,
+  ]),
   searchCustomer
 );
 
@@ -84,7 +99,7 @@ router.post(
   isLoggedIn,
   isAuthenticated,
   isSubscriptionActive,
-  authorize([SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS]),
+  authorize([SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS, SCOPES.POS]),
   requiresSingleBusiness,
   updateCustomer
 );

@@ -4,12 +4,12 @@ exports.addCustomer = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
 
-        const phone = req.body.phone;
-        const name = req.body.name;
-        const email = req.body.email;
-        const birthDate = req.body.birthDate;
-        const gender = req.body.gender;
-        const isMember = req.body.isMember;
+        const phone = req.body.phone?.toString()?.trim();
+        const name = req.body.name?.toString()?.trim();
+        const email = req.body.email ? req.body.email.toString().trim() : null;
+        const birthDate = req.body.birthDate || null;
+        const gender = req.body.gender || null;
+        const isMember = req.body.isMember ? 1 : 0;
 
         if(!(phone && name)) {
             return res.status(400).json({
@@ -158,11 +158,11 @@ exports.updateCustomer = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
 
-        const phone = req.params.id;
-        const name = req.body.name;
-        const email = req.body.email;
-        const birthDate = req.body.birthDate;
-        const gender = req.body.gender;
+        const phone = req.params.id?.toString()?.trim();
+        const name = req.body.name?.toString()?.trim();
+        const email = req.body.email ? req.body.email.toString().trim() : null;
+        const birthDate = req.body.birthDate || null;
+        const gender = req.body.gender || null;
 
         if(!(phone && name)) {
             return res.status(400).json({
