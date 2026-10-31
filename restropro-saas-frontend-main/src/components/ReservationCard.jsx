@@ -71,6 +71,7 @@ export default function ReservationCard({
     bg: "bg-gray-500/10 text-gray-600 border-gray-500/20",
     dot: "bg-gray-400",
   };
+  const statusLabel = t(`reservations.status_${currentStatus}`) || statusCfg.label;
 
   return (
     <div
@@ -97,7 +98,7 @@ export default function ReservationCard({
           className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${statusCfg.bg}`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
-          {statusCfg.label}
+          {statusLabel}
         </span>
       </div>
 
@@ -125,7 +126,7 @@ export default function ReservationCard({
             {notes && (
               <div className="tooltip tooltip-bottom" data-tip={notes}>
                 <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400 cursor-pointer">
-                  <IconInfoSquareRounded size={12} stroke={iconStroke} /> Note
+                  <IconInfoSquareRounded size={12} stroke={iconStroke} /> {t("reservations.notes") || "Note"}
                 </span>
               </div>
             )}
@@ -148,7 +149,7 @@ export default function ReservationCard({
               className="flex h-7 items-center gap-1 rounded-lg bg-emerald-600 px-2 text-[11px] font-bold text-white shadow-xs transition active:scale-95 hover:bg-emerald-700"
             >
               <IconUserCheck size={13} stroke={iconStroke} />
-              <span>Seat</span>
+              <span>{t("reservations.action_seat") || "Seat"}</span>
             </button>
           )}
 
@@ -158,7 +159,7 @@ export default function ReservationCard({
               className="flex h-7 items-center gap-1 rounded-lg bg-blue-600 px-2 text-[11px] font-bold text-white shadow-xs transition active:scale-95 hover:bg-blue-700"
             >
               <IconCheck size={13} stroke={iconStroke} />
-              <span>Finish</span>
+              <span>{t("reservations.action_finish") || "Finish"}</span>
             </button>
           )}
 
@@ -168,7 +169,7 @@ export default function ReservationCard({
                 tabIndex={0}
                 className="flex h-7 items-center rounded-lg border border-gray-200 bg-restro-gray px-1.5 text-[10px] font-semibold text-gray-600 transition active:scale-95 hover:bg-gray-200 dark:border-zinc-700 dark:text-gray-300"
               >
-                Status
+                {t("reservations.status") || "Status"}
               </button>
               <ul
                 tabIndex={0}
@@ -176,30 +177,30 @@ export default function ReservationCard({
               >
                 {currentStatus !== "booked" && (
                   <li>
-                    <button onClick={() => onStatusChange("booked")}>Mark Booked</button>
+                    <button onClick={() => onStatusChange("booked")}>{t("reservations.mark_booked") || "Mark Booked"}</button>
                   </li>
                 )}
                 {currentStatus !== "seated" && (
                   <li>
-                    <button onClick={() => onStatusChange("seated")}>Mark Seated</button>
+                    <button onClick={() => onStatusChange("seated")}>{t("reservations.mark_seated") || "Mark Seated"}</button>
                   </li>
                 )}
                 {currentStatus !== "completed" && (
                   <li>
-                    <button onClick={() => onStatusChange("completed")}>Mark Completed</button>
+                    <button onClick={() => onStatusChange("completed")}>{t("reservations.mark_completed") || "Mark Completed"}</button>
                   </li>
                 )}
                 {currentStatus !== "no_show" && (
                   <li>
                     <button onClick={() => onStatusChange("no_show")} className="text-purple-600">
-                      No-Show
+                      {t("reservations.status_no_show") || "No-Show"}
                     </button>
                   </li>
                 )}
                 {currentStatus !== "cancelled" && (
                   <li>
                     <button onClick={() => onStatusChange("cancelled")} className="text-rose-600">
-                      Cancel
+                      {t("reservations.action_cancel") || "Cancel"}
                     </button>
                   </li>
                 )}
@@ -211,13 +212,19 @@ export default function ReservationCard({
         <div className="flex items-center gap-0.5">
           <button
             onClick={btnUpdate}
-            title="Edit Reservation"
+            title={t("reservations.edit_reservation") || "Edit Reservation"}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition active:scale-95 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
           >
             <IconPencil size={14} stroke={iconStroke} />
           </button>
           <button
             onClick={btnDelete}
+            title={t("reservations.delete_confirm") || "Delete Reservation"}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-400 transition active:scale-95 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+          >
+            <IconTrash size={14} stroke={iconStroke} />
+          </button>
+        </div>
             title="Delete Reservation"
             className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-400 transition active:scale-95 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
           >

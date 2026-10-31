@@ -2,6 +2,7 @@ import React from "react";
 import ReservationCard from "./ReservationCard";
 import { IconClock, IconCalendarEvent } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
+import { useTranslation } from "react-i18next";
 
 export default function ReservationTimelineView({
   reservations = [],
@@ -9,11 +10,15 @@ export default function ReservationTimelineView({
   onDelete,
   onStatusChange,
 }) {
+  const { t } = useTranslation();
+
   if (!reservations || reservations.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
         <IconCalendarEvent size={36} stroke={iconStroke} className="text-gray-300 dark:text-zinc-700 mb-2" />
-        <p className="text-xs font-semibold text-gray-500">No reservations found in timeline</p>
+        <p className="text-xs font-semibold text-gray-500">
+          {t("reservations.timeline.no_reservations") || "No reservations found in timeline"}
+        </p>
       </div>
     );
   }

@@ -7,6 +7,7 @@ import {
   IconCalendarX,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
+import { useTranslation } from "react-i18next";
 
 export default function ReservationKanbanView({
   reservations = [],
@@ -14,24 +15,26 @@ export default function ReservationKanbanView({
   onDelete,
   onStatusChange,
 }) {
+  const { t } = useTranslation();
+
   const columns = [
     {
       id: "booked",
-      title: "Booked / Confirmed",
+      title: t("reservations.kanban.booked") || "Booked / Confirmed",
       icon: IconCalendarClock,
       badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
       items: reservations.filter((r) => (r.status || "booked").toLowerCase() === "booked"),
     },
     {
       id: "seated",
-      title: "Seated (Dining)",
+      title: t("reservations.kanban.seated") || "Seated (Dining)",
       icon: IconUserCheck,
       badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
       items: reservations.filter((r) => (r.status || "").toLowerCase() === "seated"),
     },
     {
       id: "completed",
-      title: "Completed",
+      title: t("reservations.kanban.completed") || "Completed",
       icon: IconCheck,
       badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20",
       items: reservations.filter(
@@ -42,7 +45,7 @@ export default function ReservationKanbanView({
     },
     {
       id: "inactive",
-      title: "Cancelled / No-Show",
+      title: t("reservations.kanban.inactive") || "Cancelled / No-Show",
       icon: IconCalendarX,
       badgeColor: "bg-rose-500/10 text-rose-600 border-rose-500/20",
       items: reservations.filter((r) => {
@@ -80,7 +83,7 @@ export default function ReservationKanbanView({
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
               {col.items.length === 0 ? (
                 <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400 dark:border-zinc-800">
-                  No reservations
+                  {t("reservations.kanban.empty") || "No reservations"}
                 </div>
               ) : (
                 col.items.map((r) => {

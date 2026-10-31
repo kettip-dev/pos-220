@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { STATUS_CONFIG } from "./ReservationCard";
+import { useTranslation } from "react-i18next";
 
 export default function ReservationCalendarView({
   reservations = [],
@@ -20,6 +21,7 @@ export default function ReservationCalendarView({
   onAddNewOnDate,
   onStatusChange,
 }) {
+  const { t } = useTranslation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayReservations, setSelectedDayReservations] = useState(null);
   const [selectedDayLabel, setSelectedDayLabel] = useState("");
@@ -118,7 +120,7 @@ export default function ReservationCalendarView({
               {monthName} {year}
             </h3>
             <span className="text-[11px] text-gray-400">
-              {reservations.length} total bookings loaded
+              {reservations.length} {t("reservations.calendar_view.total_loaded") || "total bookings loaded"}
             </span>
           </div>
         </div>
@@ -128,7 +130,7 @@ export default function ReservationCalendarView({
             onClick={goToToday}
             className="h-8 rounded-lg border border-gray-200 bg-restro-gray px-2.5 text-xs font-semibold text-gray-700 transition active:scale-95 hover:bg-gray-200 dark:border-zinc-700 dark:text-gray-200"
           >
-            Today
+            {t("reservations.calendar_view.today") || "Today"}
           </button>
           <button
             onClick={prevMonth}

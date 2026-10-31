@@ -25,7 +25,9 @@ export default function ReservationTableView({
   if (!reservations || reservations.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
-        <p className="text-sm font-semibold text-gray-500">No reservations found in list</p>
+        <p className="text-sm font-semibold text-gray-500">
+          {t("reservations.table_view.no_records") || "No reservations found in list"}
+        </p>
       </div>
     );
   }
@@ -35,13 +37,13 @@ export default function ReservationTableView({
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
-            <th className="py-3 px-4">Reservation</th>
-            <th className="py-3 px-3">Guest</th>
-            <th className="py-3 px-3">Guests</th>
-            <th className="py-3 px-3">Table</th>
-            <th className="py-3 px-3">Notes</th>
-            <th className="py-3 px-3 text-center">Status</th>
-            <th className="py-3 px-4 text-right">Actions</th>
+            <th className="py-3 px-4">{t("reservations.table_view.reservation") || "Reservation"}</th>
+            <th className="py-3 px-3">{t("reservations.table_view.guest") || "Guest"}</th>
+            <th className="py-3 px-3">{t("reservations.table_view.guests") || "Guests"}</th>
+            <th className="py-3 px-3">{t("reservations.table_view.table") || "Table"}</th>
+            <th className="py-3 px-3">{t("reservations.table_view.notes") || "Notes"}</th>
+            <th className="py-3 px-3 text-center">{t("reservations.table_view.status") || "Status"}</th>
+            <th className="py-3 px-4 text-right">{t("reservations.table_view.actions") || "Actions"}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
@@ -117,7 +119,7 @@ export default function ReservationTableView({
                       {r.floor && <span className="opacity-60">({r.floor})</span>}
                     </div>
                   ) : (
-                    <span className="text-xs text-slate-400">Unassigned</span>
+                    <span className="text-xs text-slate-400">{t("reservations.unassigned") || "Unassigned"}</span>
                   )}
                 </td>
 
@@ -148,7 +150,7 @@ export default function ReservationTableView({
                         "bg-[#fef3c7] text-[#b45309] dark:bg-amber-950/70 dark:text-amber-400 border-[#fde68a] dark:border-amber-800"
                     )}
                   >
-                    {currentStatus}
+                    {t(`reservations.status_${currentStatus}`) || currentStatus}
                   </span>
                 </td>
 
@@ -159,10 +161,10 @@ export default function ReservationTableView({
                       <button
                         onClick={() => onStatusChange(r.id, "seated")}
                         className="min-h-[28px] px-2.5 rounded-md bg-[#107c41] hover:bg-[#0c6634] text-xs font-semibold text-white shadow-2xs transition active:scale-95 flex items-center gap-1"
-                        title="Seat Guest"
+                        title={t("reservations.action_seat") || "Seat Guest"}
                       >
                         <IconUserCheck size={13} stroke={iconStroke} />
-                        <span>Seat</span>
+                        <span>{t("reservations.action_seat") || "Seat"}</span>
                       </button>
                     )}
 
@@ -170,17 +172,17 @@ export default function ReservationTableView({
                       <button
                         onClick={() => onStatusChange(r.id, "completed")}
                         className="min-h-[28px] px-2.5 rounded-md bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-2xs transition active:scale-95 flex items-center gap-1"
-                        title="Finish Dining"
+                        title={t("reservations.action_finish") || "Finish Dining"}
                       >
                         <IconCheck size={13} stroke={iconStroke} />
-                        <span>Finish</span>
+                        <span>{t("reservations.action_finish") || "Finish"}</span>
                       </button>
                     )}
 
                     <button
                       onClick={() => onUpdate(r)}
                       className="w-8 h-8 rounded-md text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 flex items-center justify-center"
-                      title="Edit"
+                      title={t("reservations.edit_reservation") || "Edit"}
                     >
                       <IconPencil size={15} stroke={iconStroke} />
                     </button>
@@ -188,7 +190,7 @@ export default function ReservationTableView({
                     <button
                       onClick={() => onDelete(r.id)}
                       className="w-8 h-8 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition active:scale-95 flex items-center justify-center"
-                      title="Delete"
+                      title={t("reservations.delete_confirm") || "Delete"}
                     >
                       <IconTrash size={15} stroke={iconStroke} />
                     </button>
