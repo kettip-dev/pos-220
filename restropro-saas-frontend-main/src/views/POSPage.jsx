@@ -2572,37 +2572,37 @@ export default function POSPage() {
 
           {/* QBO Style Ticket Header Bar */}
           <div className="w-full px-3.5 py-2.5 border-b border-[#E3E5E8] dark:border-slate-800 flex items-center justify-between bg-[#F4F5F8] dark:bg-slate-800/80 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-slate-100 flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-slate-100 flex items-center gap-1.5 shrink-0">
                 <IconReceipt size={16} className="text-[#008489]" stroke={iconStroke} />
                 <span>{t('pos.order_ticket', 'Order Ticket')}</span>
               </span>
-              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#0D233A] text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#0D233A] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                 {cartItemsCount}
               </span>
               {isPrepaidOnly && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 animate-in fade-in select-none">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 animate-in fade-in select-none whitespace-nowrap shrink-0">
                   {t('pos.prepaid_badge', 'Prepaid Mode')}
                 </span>
               )}
               {isPostpaidOnly && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 animate-in fade-in select-none">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 animate-in fade-in select-none whitespace-nowrap shrink-0">
                   {t('pos.postpaid_badge', 'Postpaid Mode')}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               {/* Consolidate Duplicate Lines (only shown if identical separate lines exist) */}
               {hasDuplicateLines && (
                 <button 
                   type="button"
                   onClick={handleConsolidateCartLines}
-                  className="text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition active:scale-95 flex items-center gap-1 cursor-pointer animate-in fade-in"
+                  className="h-8 w-8 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition active:scale-95 flex items-center justify-center cursor-pointer animate-in fade-in"
                   title={t('pos.merge_lines_tooltip', 'Merge duplicate item lines into single rows')}
+                  aria-label={t('pos.merge_lines', 'Merge duplicate lines')}
                 >
-                  <IconLayersIntersect size={13} stroke={iconStroke} />
-                  <span>{t('pos.merge_lines', 'Merge')}</span>
+                  <IconLayersIntersect size={15} stroke={iconStroke} />
                 </button>
               )}
 
@@ -2611,15 +2611,15 @@ export default function POSPage() {
                 type="button"
                 onClick={toggleAddSameLine}
                 className={clsx(
-                  "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition active:scale-95 flex items-center gap-1 cursor-pointer",
+                  "h-8 px-2 rounded-full border transition active:scale-95 flex items-center gap-1.5 cursor-pointer",
                   isAddSameLine 
                     ? "bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 border-[#D4D7DC] dark:border-slate-700 shadow-2xs" 
                     : "bg-transparent text-gray-500 hover:text-gray-800 border-gray-200 dark:border-slate-700"
                 )}
                 title={isAddSameLine ? t('pos.add_same_line_enabled_tooltip', 'Same Line: ON (identical items combine quantity)') : t('pos.add_same_line_disabled_tooltip', 'Same Line: OFF (creates separate line for each tap)')}
+                aria-label={isAddSameLine ? t('pos.add_same_line_enabled_tooltip', 'Same Line: ON') : t('pos.add_same_line_disabled_tooltip', 'Same Line: OFF')}
               >
-                <IconLayersIntersect size={13} stroke={iconStroke} className={isAddSameLine ? "text-[#008489]" : "text-gray-400"} />
-                <span className="hidden sm:inline">{t('pos.same_line', 'Same Line')}</span>
+                <IconLayersIntersect size={15} stroke={iconStroke} className={isAddSameLine ? "text-[#008489]" : "text-gray-400"} />
                 <span className={clsx(
                   "w-1.5 h-1.5 rounded-full shrink-0",
                   isAddSameLine ? "bg-[#2CA01C]" : "bg-gray-300 dark:bg-gray-600"
@@ -2630,11 +2630,11 @@ export default function POSPage() {
                 <button 
                   type="button"
                   onClick={btnClearCart}
-                  className="text-[11px] font-bold px-2 py-1 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-500/10 transition active:scale-95 flex items-center gap-1 cursor-pointer"
-                  title="Clear ticket"
+                  className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-500/10 transition active:scale-95 flex items-center justify-center cursor-pointer"
+                  title={t('pos.clear_all', 'Clear ticket')}
+                  aria-label={t('pos.clear_all', 'Clear ticket')}
                 >
-                  <IconTrash size={13} stroke={iconStroke} />
-                  <span>{t('pos.clear_all', 'Clear')}</span>
+                  <IconTrash size={16} stroke={iconStroke} />
                 </button>
               )}
             </div>
