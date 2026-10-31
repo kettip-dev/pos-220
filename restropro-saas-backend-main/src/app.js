@@ -42,6 +42,7 @@ const telegramRoutes = require("./routes/telegram.routes");
 const vendorRoutes = require("./routes/vendor.routes");
 const purchaseOrderRoutes = require("./routes/purchase_order.routes");
 const promotionsRoutes = require("./routes/promotions.routes");
+const profileRoutes = require("./routes/profile.routes");
 // routes import
 
 
@@ -177,6 +178,7 @@ app.use("/api/v1/vendors", vendorRoutes);
 app.use("/api/v1/suppliers", vendorRoutes);
 app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 app.use("/api/v1/promotions", promotionsRoutes);
+app.use("/api/v1/profile", profileRoutes);
 // routes
 
 app.get("/", (req, res)=>{

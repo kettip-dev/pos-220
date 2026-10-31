@@ -1,10 +1,11 @@
-import { Fragment } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { Menu, Transition } from "@headlessui/react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 import AvatarImg from "../assets/avatar.svg";
+import { getImageURL } from "../helpers/ImageHelper";
 import {
   IconChevronDown,
   IconDevices,
@@ -25,8 +26,24 @@ import clsx from "clsx";
 export default function AppBarDropdown({ isCollapsed = false, className = "", align = "right", direction = "down" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const user = getUserDetailsInLocalStorage();
+  const [user, setUser] = useState(() => getUserDetailsInLocalStorage() || {});
   const { theme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    const handleUserUpdate = (e) => {
+      if (e.detail) {
+        setUser(e.detail);
+      } else {
+        setUser(getUserDetailsInLocalStorage() || {});
+      }
+    };
+    window.addEventListener("user-details-updated", handleUserUpdate);
+    return () => {
+      window.removeEventListener("user-details-updated", handleUserUpdate);
+    };
+  }, []);
+
+  const avatarSrc = user?.photo ? getImageURL(user.photo) : AvatarImg;
 
   const isDropUp = direction === "up" || align === "left";
   const placementClasses = isDropUp
@@ -75,9 +92,12 @@ export default function AppBarDropdown({ isCollapsed = false, className = "", al
         >
           <div className="flex items-center gap-2.5 overflow-hidden text-left">
             <img
-              src={AvatarImg}
+              src={avatarSrc}
               alt="avatar"
-              className="w-10 h-10 rounded-full shrink-0 border border-white/20 p-0.5 bg-white/10"
+              onError={(e) => {
+                e.currentTarget.src = AvatarImg;
+              }}
+              className="w-10 h-10 rounded-full shrink-0 border border-white/20 p-0.5 bg-white/10 object-cover"
             />
             {!isCollapsed && (
               <div className="truncate">

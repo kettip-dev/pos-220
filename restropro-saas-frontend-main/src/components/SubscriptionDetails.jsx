@@ -8,7 +8,9 @@ import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import { getManageSubscriptionLink, getPaystackManageSubscriptionLink } from "../controllers/plans.controller";
 
-export default function SubscriptionDetails() {
+import clsx from "clsx";
+
+export default function SubscriptionDetails({ className = "" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { error, isLoading, data } = useSubscriptionDetails();
@@ -114,7 +116,7 @@ export default function SubscriptionDetails() {
   };
 
   return (
-    <div className="w-full md:w-96 rounded-3xl border border-restro-border-green px-4 py-3">
+    <div className={clsx("w-full rounded-3xl border border-restro-border-green px-5 py-4 bg-white dark:bg-zinc-900", className)}>
       <div className="flex items-center gap-2">
         <div className="w-10 h-10 flex items-center justify-center rounded-2xl bg-restro-green text-white">
           <IconCreditCard stroke={iconStroke} />
