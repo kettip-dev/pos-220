@@ -17,7 +17,7 @@ import {
   IconAlertCircle,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
-import { formatElapsedOrderTime } from "../tables/BindoTableNode";
+import { formatElapsedOrderTime, parseOrderDate } from "../../helpers/DateHelper";
 import clsx from "clsx";
 
 export default function OrderCard({
@@ -59,7 +59,11 @@ export default function OrderCard({
   const earliestDate = orders.reduce((minDate, o) => {
     if (!o.date) return minDate;
     if (!minDate) return o.date;
-    return new Date(o.date) < new Date(minDate) ? o.date : minDate;
+    const parsedO = parseOrderDate(o.date);
+    const parsedMin = parseOrderDate(minDate);
+    if (!parsedO) return minDate;
+    if (!parsedMin) return o.date;
+    return parsedO < parsedMin ? o.date : minDate;
   }, null);
   const elapsed = earliestDate ? formatElapsedOrderTime(earliestDate) : null;
 

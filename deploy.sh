@@ -180,9 +180,11 @@ deploy() {
     echo -e "\n${CLR_GREEN}${CLR_BOLD}==================================================================${CLR_RESET}"
     echo -e "${CLR_GREEN}${CLR_BOLD}         Restro PRO Deployment Successfully Completed!            ${CLR_RESET}"
     echo -e "${CLR_GREEN}${CLR_BOLD}==================================================================${CLR_RESET}"
+    CURRENT_HOST=$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "127.0.0.1")
+    PRIMARY_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
     echo -e "${CLR_BOLD}Web POS Domain:${CLR_RESET}   http://pos.allkh.app:${PORT}/ (or http://pos.allkh.app/ if proxied)"
-    echo -e "${CLR_BOLD}Direct IP URL:${CLR_RESET}    http://10.36.200.125:${PORT}/"
-    echo -e "${CLR_BOLD}Health Endpoint:${CLR_RESET}  http://10.36.200.125:${PORT}/api/v1/health"
+    echo -e "${CLR_BOLD}Direct Host/IP:${CLR_RESET}   http://${CURRENT_HOST}:${PORT}/ (http://${PRIMARY_IP}:${PORT}/)"
+    echo -e "${CLR_BOLD}Health Endpoint:${CLR_RESET}  http://127.0.0.1:${PORT}/api/v1/health"
     echo -e "${CLR_BOLD}Superadmin Login:${CLR_RESET} admin@example.com / Admin@123456"
     echo -e "${CLR_CYAN}------------------------------------------------------------------${CLR_RESET}"
     echo -e "Useful Commands:"

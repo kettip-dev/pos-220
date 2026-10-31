@@ -26,6 +26,7 @@ import {
   IconLayoutSidebar,
 } from "@tabler/icons-react";
 import moment from "moment";
+import { formatRelativeTime } from "../../helpers/DateHelper";
 import toast from "react-hot-toast";
 import { rotateStoreTablePin } from "../../controllers/settings.controller";
 import { approveQROrder, cancelQROrder, getQROrders } from "../../controllers/pos.controller";
@@ -170,7 +171,7 @@ export default function BindoActionDrawer({
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-              Table QR PIN
+              {t("tables.table_qr_pin", "Table QR PIN")}
             </p>
             <p className="font-mono text-base font-black tracking-widest text-slate-900 dark:text-white">
               {selectedTable?.table_pin || "----"}
@@ -183,11 +184,11 @@ export default function BindoActionDrawer({
             type="button"
             disabled={isRotatingPin}
             onClick={handleRotatePin}
-            title="Reset 4-Digit Table PIN"
+            title={t("tables.reset_pin_tooltip", "Reset 4-Digit Table PIN")}
             className="min-h-[38px] px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 text-xs font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
           >
             <IconRefresh size={13} className={isRotatingPin ? "animate-spin" : ""} />
-            <span>Reset</span>
+            <span>{t("tables.reset", "Reset")}</span>
           </button>
 
           {storeSettings?.uniqueQRCode && (
@@ -200,11 +201,11 @@ export default function BindoActionDrawer({
                   table: selectedTable,
                 })
               }
-              title="Print QR + PIN Slip for Guests"
+              title={t("tables.print_slip_tooltip", "Print QR + PIN Slip for Guests")}
               className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
             >
               <IconPrinter size={13} />
-              <span>Slip</span>
+              <span>{t("tables.slip", "Slip")}</span>
             </button>
           )}
         </div>
@@ -250,7 +251,7 @@ export default function BindoActionDrawer({
         <div className="flex items-center justify-between">
           <span className="text-xs font-extrabold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
             <IconQrcode size={15} />
-            <span>Pending QR Orders ({tableQrOrders.length})</span>
+            <span>{t("tables.pending_qr_orders", "Pending QR Orders")} ({tableQrOrders.length})</span>
           </span>
         </div>
 
@@ -265,7 +266,7 @@ export default function BindoActionDrawer({
                   QR #{qrOrd.id} • {qrOrd.customer_name || "Guest"}
                 </span>
                 <span className="text-slate-400">
-                  {qrOrd.date ? moment(qrOrd.date).fromNow() : "Just now"}
+                  {qrOrd.date ? formatRelativeTime(qrOrd.date, t("pos.just_now", "Just now")) : t("pos.just_now", "Just now")}
                 </span>
               </div>
               <div className="text-xs space-y-1">
@@ -290,7 +291,7 @@ export default function BindoActionDrawer({
                   className="min-h-[38px] rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer"
                 >
                   <IconCheck size={14} />
-                  <span>Approve → KDS</span>
+                  <span>{t("tables.approve_kds", "Approve → KDS")}</span>
                 </button>
                 <button
                   type="button"
@@ -299,7 +300,7 @@ export default function BindoActionDrawer({
                   className="min-h-[38px] rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-900/60 text-xs font-bold flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer"
                 >
                   <IconX size={14} />
-                  <span>Reject</span>
+                  <span>{t("common.reject", "Reject")}</span>
                 </button>
               </div>
             </div>
@@ -437,7 +438,7 @@ export default function BindoActionDrawer({
             >
               {isTwoColumn ? <IconLayoutSidebar size={15} /> : <IconLayoutColumns size={15} />}
               <span className="hidden sm:inline text-[11px]">
-                {isTwoColumn ? "1 Col" : "2 Cols"}
+                {isTwoColumn ? t("tables.col_1", "1 Col") : t("tables.col_2", "2 Cols")}
               </span>
             </button>
           )}
@@ -499,7 +500,7 @@ export default function BindoActionDrawer({
                     {selectedTable.active_order_date && (
                       <span className="text-[10px] text-slate-400 flex items-center gap-1 shrink-0">
                         <IconClock size={12} />
-                        {moment(selectedTable.active_order_date).fromNow()}
+                        {formatRelativeTime(selectedTable.active_order_date, t("pos.just_now", "Just now"))}
                       </span>
                     )}
                   </div>
@@ -607,7 +608,7 @@ export default function BindoActionDrawer({
                           <span className="truncate">{t("tables.settle_bill", "Pay / Settle Bill")}</span>
                         </span>
                         <span className="text-[11px] font-semibold bg-sky-700 px-2 py-0.5 rounded-lg opacity-90 shrink-0">
-                          Pay Now
+                          {t("tables.pay_now", "Pay Now")}
                         </span>
                       </button>
                     </div>
@@ -695,7 +696,7 @@ export default function BindoActionDrawer({
                     {selectedTable.active_order_date && (
                       <span className="text-[11px] text-slate-400 flex items-center gap-1">
                         <IconClock size={13} />
-                        {moment(selectedTable.active_order_date).fromNow()}
+                        {formatRelativeTime(selectedTable.active_order_date, t("pos.just_now", "Just now"))}
                       </span>
                     )}
                   </div>
@@ -810,7 +811,7 @@ export default function BindoActionDrawer({
                       {t("tables.settle_bill", "Pay / Settle Bill")}
                     </span>
                     <span className="text-xs font-semibold bg-sky-700 px-2 py-0.5 rounded-lg opacity-90">
-                      Pay Now
+                      {t("tables.pay_now", "Pay Now")}
                     </span>
                   </button>
                 </div>

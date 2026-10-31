@@ -14,10 +14,23 @@ const { ensureSupplierManagementSchema } = require("../utils/supplierManagementM
 const { ensurePromotionSchema } = require("../utils/promotionMigration");
 const { ensureLoyaltyProgramSchema } = require("../utils/loyaltyMigration");
 
-const pool = 
-mySqlPromise.createPool(`${CONFIG.DATABASE_URL}?ssl={"rejectUnauthorized":false}&multipleStatements=true&dateStrings=false&waitForConnections=true&connectionLimit=99&enableKeepAlive=true&keepAliveInitialDelay=10000`);
+const dbBaseUrl = CONFIG.DATABASE_URL || "";
+const hasParams = dbBaseUrl.includes("?");
+const tzParam = dbBaseUrl.includes("timezone=") ? "" : `${hasParams ? "&" : "?"}timezone=%2B07:00`;
+const fullDbUrl = `${dbBaseUrl}${tzParam}${dbBaseUrl.includes("?") || tzParam ? "&" : "?"}ssl={"rejectUnauthorized":false}&multipleStatements=true&dateStrings=false&waitForConnections=true&connectionLimit=99&enableKeepAlive=true&keepAliveInitialDelay=10000`;
 
-console.log(`DB Pool Created.`);
+const pool = mySqlPromise.createPool(fullDbUrl);
+
+// Automatically align session timezone to Cambodia (UTC+7) for every new connection
+pool.on("connection", (connection) => {
+  connection.query("SET time_zone = '+07:00'", (err) => {
+    if (err) {
+      console.error("[MySQL Pool] Error setting session time_zone to +07:00:", err.message);
+    }
+  });
+});
+
+console.log(`DB Pool Created with Cambodia Timezone (+07:00).`);
 
 ensureTableFloorSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring table floor schema:", err);
@@ -69,7 +82,12 @@ ensureLoyaltyProgramSchema(pool).catch((err) => {
 
 exports.getMySqlPromiseConnection = async () => {
   try {
-    return await pool.getConnection();
+    const conn = await pool.getConnection();
+    // Guarantee dateStrings remains false across all pooled queries
+    if (conn.config) {
+      conn.config.dateStrings = false;
+    }
+    return conn;
   } catch (error) {
     console.error("Pool Connection Error: =======>");
     console.error(error);

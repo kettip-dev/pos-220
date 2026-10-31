@@ -17,7 +17,8 @@ This skill provides complete operational runbooks for rebuilding the local devel
 | Environment | Compose File | Ingress / Port | Target Host | URL |
 |---|---|---|---|---|
 | **Local Dev** | `docker-compose.yml` | Frontend: `5173`<br>Backend: `3000`<br>MySQL: `3306`<br>Redis: `6380` | Localhost | `http://localhost:5173` |
-| **Production** | `docker-compose.prod.yml` | Ingress: `4001`<br>(Nginx reverse proxying to backend) | `10.36.200.125`<br>(Path: `/opt/restro-pos`) | Domain: `http://pos.allkh.app`<br>Direct IP: `http://10.36.200.125:4001` |
+| **Production (Primary)** | `docker-compose.prod.yml` | Ingress: `4001`<br>(Nginx reverse proxying to backend) | `10.36.200.125`<br>(Path: `/opt/restro-pos`) | Domain: `http://pos.allkh.app`<br>Direct IP: `http://10.36.200.125:4001` |
+| **Production (Second Server)** | `docker-compose.prod.yml` | Ingress: `4001`<br>(Nginx reverse proxying to backend) | `rocky.tail5d006f.ts.net`<br>(Path: `/opt/restro-pos`) | Tailscale: `http://rocky.tail5d006f.ts.net:4001`<br>Direct IP: `http://100.117.113.19:4001` |
 
 ---
 
@@ -96,16 +97,22 @@ Run from the root directory on Windows (PowerShell) or Linux (Bash):
 
 #### PowerShell (Windows):
 ```powershell
+# Deploy to Primary Server (10.36.200.125):
 .\remote-deploy.ps1
-```
-*Explicit action syntax:*
-```powershell
-.\remote-deploy.ps1 -Action deploy
+
+# Deploy to Second Server (rocky.tail5d006f.ts.net):
+.\deploy-second-server.ps1
+# or: .\remote-deploy.ps1 -Target second
 ```
 
 #### Bash (Linux/macOS):
 ```bash
+# Deploy to Primary Server (10.36.200.125):
 ./remote-deploy.sh deploy
+
+# Deploy to Second Server (rocky.tail5d006f.ts.net):
+./deploy-second-server.sh
+# or: ./remote-deploy.sh second
 ```
 
 #### What the 1-Click Deployment Script Does Automatically:

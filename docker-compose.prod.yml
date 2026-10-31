@@ -30,8 +30,9 @@ services:
       dockerfile: Dockerfile
     container_name: restropro_db
     restart: always
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+07:00
     environment:
+      TZ: Asia/Phnom_Penh
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: ${DB_NAME:-restropro_saas}
       MYSQL_USER: ${DB_USER:-restro}
@@ -44,8 +45,8 @@ services:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 30
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -64,6 +65,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      TZ: Asia/Phnom_Penh
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: mysql://${DB_USER:-restro}:${DB_PASSWORD:-restropass}@db:3306/${DB_NAME:-restropro_saas}
@@ -78,7 +80,7 @@ services:
       # HTTP deployment requires secure=false so browsers don't drop cookies
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PASSWORD_SALT: ${PASSWORD_SALT:-10}
-      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-https://pos.allkh.app,http://pos.allkh.app,https://pos.allkh.app:4001,http://pos.allkh.app:4001,http://10.36.200.125:4001,http://10.36.200.125}
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-https://pos.allkh.app,http://pos.allkh.app,https://pos.allkh.app:4001,http://pos.allkh.app:4001,http://10.36.200.125:4001,http://10.36.200.125,http://rocky.tail5d006f.ts.net:4001,http://rocky.tail5d006f.ts.net,http://100.117.113.19:4001,http://100.117.113.19}
       FRONTEND_DOMAIN_COOKIE: ${FRONTEND_DOMAIN_COOKIE:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-uiflow}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-cb78b647f4d0c4ff64163317440ff83bc14edd17bd92e100aff4a492f1911c0c}

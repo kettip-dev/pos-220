@@ -4,7 +4,6 @@ const { tenantFilter } = require("../utils/tenant_scope");
 exports.addReservationDB = async (customerId, date, tableId, status, notes, peopleCount, uniqueCode, tenantId) => {
     const conn = await getMySqlPromiseConnection();
     try {
-        conn.config.dateStrings = true;
         const sql = `
         INSERT INTO reservations 
         (customer_id, date, table_id, status, notes, people_count, unique_code, tenant_id)
@@ -34,7 +33,6 @@ exports.addReservationDB = async (customerId, date, tableId, status, notes, peop
 exports.updateReservationDB = async (reservationId, date, tableId, status, notes, peopleCount, tenantId) => {
     const conn = await getMySqlPromiseConnection();
     try {
-        conn.config.dateStrings = true;
         const sql = `
         UPDATE reservations
         SET
@@ -167,7 +165,6 @@ exports.searchReservationsDB = async (search, scope, businessTenantIds = []) => 
         ORDER BY r.date ASC
         LIMIT 50;
         `;
-        conn.config.dateStrings = true;
         const [results] = await conn.query(sql, [...tenantParams, ...matchParams]);
 
         return results;
@@ -194,8 +191,6 @@ exports.getReservationsDB = async (type, from, to, scope) => {
         WHERE ${filter}
         ORDER BY r.date ASC
         `;
-
-        conn.config.dateStrings=true;
 
         const [results] = await conn.query(sql, params);
 

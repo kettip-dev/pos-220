@@ -1,10 +1,8 @@
-import React, { Fragment } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
-import { Menu, Transition } from "@headlessui/react";
 import {
   IconRefresh,
   IconList,
-  IconDots,
   IconPlus,
   IconLayoutGrid,
   IconUsers,
@@ -192,6 +190,30 @@ export default function BindoBottomBar({
 
       {/* Right: Quick Tool Buttons */}
       <div className="flex items-center gap-1 md:gap-1.5 shrink-0 pl-2 md:pl-3 border-l border-slate-200 dark:border-zinc-700/80">
+        {/* Add Table button */}
+        {onAddTable && (
+          <button
+            type="button"
+            onClick={onAddTable}
+            title={t("tables.create_new_table", "Create New Table")}
+            className="flex items-center gap-1.5 h-[42px] px-2.5 md:px-3 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer active:scale-95"
+          >
+            <IconPlus size={16} />
+            <span className="hidden md:inline">{t("tables.add_table", "Add Table")}</span>
+          </button>
+        )}
+
+        {/* List All Tables button — directly lists all tables in card view */}
+        <button
+          type="button"
+          onClick={onOpenAllTables}
+          title={t("tables.list_all_tables", "List All Tables (Card View)")}
+          className="flex items-center gap-1.5 h-[42px] px-2.5 md:px-3 rounded-xl text-xs font-bold text-[#0284c7] dark:text-[#38bdf8] bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-800/60 transition cursor-pointer active:scale-95"
+        >
+          <IconLayoutGrid size={16} />
+          <span className="hidden md:inline">{t("tables.all_tables", "All Tables")}</span>
+        </button>
+
         {/* Refresh button — labeled on md+ */}
         <button
           type="button"
@@ -223,112 +245,6 @@ export default function BindoBottomBar({
           <IconList size={16} />
           <span className="hidden md:inline">{t("tables.sidebar", "Sidebar")}</span>
         </button>
-
-        {/* Dropdown Menu */}
-        <Menu as="div" className="relative inline-block text-left">
-          <div>
-            <Menu.Button
-              title={t("common.options", "Options")}
-              className="flex items-center justify-center h-[42px] w-[42px] rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200/80 dark:border-transparent transition cursor-pointer focus:outline-none active:scale-95"
-            >
-              <IconDots size={18} />
-            </Menu.Button>
-          </div>
-
-          <Transition
-            as={Fragment}
-            enter="transition ease-out duration-100"
-            enterFrom="transform opacity-0 scale-95"
-            enterTo="transform opacity-100 scale-100"
-            leave="transition ease-in duration-75"
-            leaveFrom="transform opacity-100 scale-100"
-            leaveTo="transform opacity-0 scale-95"
-          >
-            <Menu.Items className="absolute bottom-full right-0 mb-2 w-64 origin-bottom-right rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 shadow-2xl ring-1 ring-black/5 focus:outline-none p-1.5 z-50 divide-y divide-slate-100 dark:divide-zinc-800 text-left">
-              <div className="py-1">
-                <Menu.Item>
-                  {({ active }) => (
-                    <button
-                      type="button"
-                      onClick={onAddTable}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                        active
-                          ? "bg-emerald-600 text-white"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                        <IconPlus size={16} />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold leading-tight">
-                          {t("tables.create_new_table", "Create New Table")}
-                        </p>
-                        <p className="text-[10px] opacity-70 font-normal mt-0.5">
-                          {t("tables.add_table_hint", "Add a new table to this floor")}
-                        </p>
-                      </div>
-                    </button>
-                  )}
-                </Menu.Item>
-
-                <Menu.Item>
-                  {({ active }) => (
-                    <button
-                      type="button"
-                      onClick={onOpenAllTables}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer mt-1 ${
-                        active
-                          ? "bg-[#0ea5e9] text-white"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                        <IconLayoutGrid size={16} />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold leading-tight">
-                          {t(
-                            "tables.list_all_tables",
-                            "List All Tables (Card View)"
-                          )}
-                        </p>
-                        <p className="text-[10px] opacity-70 font-normal mt-0.5">
-                          {t(
-                            "tables.cards_view_hint",
-                            "View all tables with live status & orders"
-                          )}
-                        </p>
-                      </div>
-                    </button>
-                  )}
-                </Menu.Item>
-              </div>
-
-              <div className="py-1">
-                <Menu.Item>
-                  {({ active }) => (
-                    <button
-                      type="button"
-                      onClick={onRefresh}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                        active
-                          ? "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white"
-                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800/60"
-                      }`}
-                    >
-                      <IconRefresh
-                        size={15}
-                        className={isRefreshing ? "animate-spin text-cyan-500" : ""}
-                      />
-                      <span>{t("common.refresh", "Refresh Live Status")}</span>
-                    </button>
-                  )}
-                </Menu.Item>
-              </div>
-            </Menu.Items>
-          </Transition>
-        </Menu>
       </div>
     </footer>
   );

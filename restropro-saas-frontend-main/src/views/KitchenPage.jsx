@@ -48,16 +48,15 @@ import { toast } from "react-hot-toast";
 import { SocketContext } from "../contexts/SocketContext";
 import { initSocket } from "../utils/socket";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
+import { parseOrderDate } from "../helpers/DateHelper";
 import clsx from "clsx";
 
 // Helpers for live elapsed timers
 const getElapsedSeconds = (orderDate, nowMs) => {
   if (!orderDate) return 0;
-  const parsed = new Date(
-    typeof orderDate === "string" ? orderDate.replace(" ", "T") : orderDate
-  ).getTime();
-  if (isNaN(parsed)) return 0;
-  return Math.max(0, Math.floor((nowMs - parsed) / 1000));
+  const parsed = parseOrderDate(orderDate);
+  if (!parsed || isNaN(parsed.getTime())) return 0;
+  return Math.max(0, Math.floor((nowMs - parsed.getTime()) / 1000));
 };
 
 const formatElapsedTime = (totalSeconds) => {

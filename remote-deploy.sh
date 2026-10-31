@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Restro PRO - Remote 1-Click Deployment Script (Bash)
-# Target: root@10.36.200.125:/opt/restro-pos
+# Targets:
+#   - Primary: root@10.36.200.125:/opt/restro-pos
+#   - Second:  root@rocky.tail5d006f.ts.net:/opt/restro-pos
 # Ingress Port: 4001
 # ==============================================================================
 
@@ -10,7 +12,14 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-REMOTE_HOST="${1:-10.36.200.125}"
+REMOTE_INPUT="${1:-10.36.200.125}"
+if [[ "$REMOTE_INPUT" =~ ^(second|rocky|2)$ ]]; then
+    REMOTE_HOST="rocky.tail5d006f.ts.net"
+elif [[ "$REMOTE_INPUT" =~ ^(primary|1)$ ]]; then
+    REMOTE_HOST="10.36.200.125"
+else
+    REMOTE_HOST="$REMOTE_INPUT"
+fi
 REMOTE_USER="${2:-root}"
 REMOTE_DIR="${3:-/opt/restro-pos}"
 ACTION="${4:-deploy}"

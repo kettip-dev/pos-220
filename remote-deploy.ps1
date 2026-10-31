@@ -1,16 +1,25 @@
 # ==============================================================================
 # Restro PRO - Remote 1-Click Deployment Script (PowerShell)
-# Target: root@10.36.200.125:/opt/restro-pos
+# Targets:
+#   - Primary: root@10.36.200.125:/opt/restro-pos
+#   - Second:  root@rocky.tail5d006f.ts.net:/opt/restro-pos
 # Ingress Port: 4001
 # ==============================================================================
 
 [CmdletBinding()]
 param (
+    [string]$Target = "",
     [string]$RemoteHost = "10.36.200.125",
     [string]$RemoteUser = "root",
     [string]$RemoteDir = "/opt/restro-pos",
     [string]$Action = "deploy"
 )
+
+if ($Target -match "^(second|rocky|2)$") {
+    $RemoteHost = "rocky.tail5d006f.ts.net"
+} elseif ($Target -match "^(primary|1)$") {
+    $RemoteHost = "10.36.200.125"
+}
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -59,6 +68,7 @@ if ($Action -eq "deploy") {
         '--exclude=*/tmp/*',
         '--exclude=backups',
         '--exclude=*.log',
+        '--exclude=*.zip',
         '--exclude=.gemini',
         '--exclude=.system_generated'
     )
@@ -70,10 +80,10 @@ if ($Action -eq "deploy") {
         & tar -czf $tempArchive @tarExclude -C $ScriptDir .
 
         Write-Info "Transferring archive via SCP to remote host..."
-        & scp $tempArchive "${SSH_TARGET}:${remoteTempArchive}"
+        & scp -o StrictHostKeyChecking=no $tempArchive "${SSH_TARGET}:${remoteTempArchive}"
 
         Write-Info "Extracting archive on remote host..."
-        ssh $SSH_TARGET "tar -xzf $remoteTempArchive -C $RemoteDir && rm -f $remoteTempArchive"
+        ssh -o StrictHostKeyChecking=no $SSH_TARGET "tar -xzf $remoteTempArchive -C $RemoteDir && rm -f $remoteTempArchive"
         Write-Success "Files transferred and extracted successfully."
     } finally {
         if (Test-Path $tempArchive) {

@@ -1,5 +1,7 @@
 import React, { memo, useState, useEffect } from "react";
 import { IconRotate, IconTrash, IconPencil, IconQrcode, IconClock } from "@tabler/icons-react";
+import { formatElapsedOrderTime } from "../../helpers/DateHelper";
+export { formatElapsedOrderTime };
 
 // Bindo Labs Color Palette configuration (Light table surfaces with status-colored borders & accents)
 export const BINDO_STATUS_CONFIG = {
@@ -161,25 +163,6 @@ export function getTableBindoStatus(table) {
   }
 
   return "seated";
-}
-
-export function formatElapsedOrderTime(orderDateStr) {
-  if (!orderDateStr) return null;
-  const parsed = new Date(orderDateStr);
-  if (Number.isNaN(parsed.getTime())) return null;
-  const diffMs = Math.max(0, Date.now() - parsed.getTime());
-  const totalMins = Math.floor(diffMs / 60000);
-
-  if (totalMins < 1) return "<1m";
-  if (totalMins < 60) return `${totalMins}m`;
-  const hours = Math.floor(totalMins / 60);
-  const mins = totalMins % 60;
-  if (hours < 24) {
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  }
-  const days = Math.floor(hours / 24);
-  const remHours = hours % 24;
-  return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
 }
 
 function renderChairs(shape, capacity, chairClass) {

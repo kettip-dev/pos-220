@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { clsx } from 'clsx';
 import { iconStroke } from '../../config/config';
+import { parseOrderDate } from '../../helpers/DateHelper';
 
 export default function POSQROrdersDrawer({
   isOpen,
@@ -81,11 +82,12 @@ export default function POSQROrdersDrawer({
 
   const getElapsedInfo = (dateStr) => {
     if (!dateStr) return { label: t('pos.just_now', 'Just now'), tone: 'fresh' };
-    const created = new Date(dateStr).getTime();
-    if (isNaN(created)) return { label: t('pos.just_now', 'Just now'), tone: 'fresh' };
+    const parsed = parseOrderDate(dateStr);
+    if (!parsed) return { label: t('pos.just_now', 'Just now'), tone: 'fresh' };
+    const created = parsed.getTime();
 
     const diffMins = Math.max(0, Math.floor((Date.now() - created) / 60000));
-    const timeFormatted = new Date(created).toLocaleTimeString([], {
+    const timeFormatted = parsed.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     });

@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
+import { formatRelativeTime } from "../../helpers/DateHelper";
 import {
   IconArmchair2,
   IconUser,
@@ -119,7 +120,7 @@ export default function TableDetailsModal({
                     <IconClock size={16} /> {t("orders.seated_time", "Seated Since")}
                   </span>
                   <span className="text-xs text-gray-600 dark:text-gray-300">
-                    {moment(table.active_order_date).fromNow()}
+                    {formatRelativeTime(table.active_order_date, t("pos.just_now", "Just now"))}
                   </span>
                 </div>
               )}

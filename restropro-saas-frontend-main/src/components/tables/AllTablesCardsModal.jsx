@@ -287,7 +287,7 @@ export default function AllTablesCardsModal({
                               {t("orders.order", "Order")} #{table.active_order_id}
                             </span>
                             <span className="font-black text-sm text-[#0ea5e9]">
-                              {currency}{Number(table.active_order_total || 0).toFixed(2)}
+                              {currency}{Number(table.active_order_total || table.order_total || 0).toFixed(2)}
                             </span>
                           </div>
 
