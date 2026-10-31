@@ -76,6 +76,14 @@ exports.ensureTableFloorSchema = async (pool) => {
         `);
         console.log("Migration: Added cashier_rotation to store_floor_layouts");
       }
+
+      if (!existingCols.includes("merged_pairs")) {
+        await conn.query(`
+          ALTER TABLE store_floor_layouts 
+            ADD COLUMN merged_pairs JSON DEFAULT NULL
+        `);
+        console.log("Migration: Added merged_pairs to store_floor_layouts");
+      }
     } finally {
       conn.release();
     }

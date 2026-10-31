@@ -1,4 +1,4 @@
-const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, getCustomerPhoneFromOrderIdsDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB, createSplitSubInvoicesDB, getOrderSubInvoicesDB, settleSubInvoiceDB, cancelSplitPlanDB } = require("../services/orders.service");
+const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, getCustomerPhoneFromOrderIdsDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB, createSplitSubInvoicesDB, getOrderSubInvoicesDB, settleSubInvoiceDB, cancelSplitPlanDB, mergeTablesDB, unlinkTablesDB } = require("../services/orders.service");
 const {
   getPaymentTypesDB,
   getPrintSettingDB,
@@ -680,6 +680,85 @@ exports.cancelSplitPlan = async (req, res) => {
     });
   } catch (error) {
     console.error("cancelSplitPlan error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.mergeTables = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const username = req.user.username;
+    const { sourceTableId, destinationTableId, floor } = req.body;
+
+    if (!sourceTableId || !destinationTableId) {
+      return res.status(400).json({
+        success: false,
+        message: "sourceTableId and destinationTableId are required",
+      });
+    }
+
+    const result = await mergeTablesDB(sourceTableId, destinationTableId, floor, tenantId, username);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", {
+        action: "tables_merged",
+        sourceTableId,
+        destinationTableId,
+        masterOrderId: result.masterOrderId,
+      });
+      if (result.masterOrderId) {
+        io.to(String(tenantId)).emit("order_update", { orderId: result.masterOrderId });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: req.__("tables.merge_updated") || "Tables merged successfully!",
+      data: result,
+    });
+  } catch (error) {
+    console.error("mergeTables controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.unlinkTables = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { tableAId, tableBId, floor } = req.body;
+
+    if (!tableAId || !tableBId) {
+      return res.status(400).json({
+        success: false,
+        message: "tableAId and tableBId are required",
+      });
+    }
+
+    const result = await unlinkTablesDB(tableAId, tableBId, floor, tenantId);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", {
+        action: "tables_unlinked",
+        tableAId,
+        tableBId,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Tables unlinked successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("unlinkTables controller error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || req.__("something_went_wrong_try_later"),

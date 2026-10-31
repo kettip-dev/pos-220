@@ -1,5 +1,5 @@
 import React, { memo, useState, useEffect } from "react";
-import { IconRotate, IconTrash, IconPencil, IconQrcode, IconClock } from "@tabler/icons-react";
+import { IconRotate, IconTrash, IconPencil, IconQrcode, IconClock, IconLink } from "@tabler/icons-react";
 import { formatElapsedOrderTime } from "../../helpers/DateHelper";
 export { formatElapsedOrderTime };
 
@@ -452,6 +452,9 @@ const BindoTableNode = memo(function BindoTableNode({
             {table.table_title}
           </span>
           <div className="flex items-center justify-center gap-1 mt-0.5">
+            {(table.is_linked_secondary || table.is_linked_master) && (
+              <IconLink size={10} className="shrink-0 text-[#0ea5e9] dark:text-sky-400" />
+            )}
             {statusKey !== "available" && status.statusDot && (
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.statusDot}`} />
             )}

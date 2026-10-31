@@ -220,3 +220,29 @@ export async function cancelSplitPlan(orderId) {
     }
 }
 
+export async function mergeTables(sourceTableId, destinationTableId, floor) {
+    try {
+        const response = await ApiClient.post(`/orders/merge-tables`, {
+            sourceTableId,
+            destinationTableId,
+            floor,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function unlinkTables(tableAId, tableBId, floor) {
+    try {
+        const response = await ApiClient.post(`/orders/unlink-tables`, {
+            tableAId,
+            tableBId,
+            floor,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+

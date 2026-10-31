@@ -667,7 +667,7 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
         const [tables] = await conn.query(sql, [CONFIG.ENCRYPTION_KEY, tenantId, tenantId]);
 
         const [layouts] = await conn.query(
-            `SELECT floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, cashier_rotation FROM store_floor_layouts WHERE tenant_id = ?`,
+            `SELECT floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, cashier_rotation, merged_pairs FROM store_floor_layouts WHERE tenant_id = ?`,
             [tenantId]
         );
 
@@ -680,14 +680,55 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
                     parsedWalls = null;
                 }
             }
+            let parsedMergedPairs = [];
+            if (l.merged_pairs) {
+                try {
+                    parsedMergedPairs = typeof l.merged_pairs === "string" ? JSON.parse(l.merged_pairs) : l.merged_pairs;
+                } catch {
+                    parsedMergedPairs = [];
+                }
+            }
             return {
                 ...l,
                 walls: parsedWalls,
+                merged_pairs: Array.isArray(parsedMergedPairs) ? parsedMergedPairs : [],
             };
         });
 
+        // Decorate tables with linked table information and shared master active orders
+        const tablesWithMergeInfo = tables.map((t) => ({ ...t }));
+        for (const layout of parsedLayouts) {
+            if (!layout.merged_pairs || !layout.merged_pairs.length) continue;
+            for (const [masterId, secondaryId] of layout.merged_pairs) {
+                const master = tablesWithMergeInfo.find((t) => String(t.id) === String(masterId));
+                const secondary = tablesWithMergeInfo.find((t) => String(t.id) === String(secondaryId));
+                if (master && secondary) {
+                    master.is_linked_master = true;
+                    master.linked_table_id = secondary.id;
+                    master.linked_table_title = secondary.table_title;
+
+                    secondary.is_linked_secondary = true;
+                    secondary.linked_table_id = master.id;
+                    secondary.linked_table_title = master.table_title;
+
+                    // If master has an active order and secondary doesn't, secondary inherits master's active order info
+                    if (master.active_order_id && !secondary.active_order_id) {
+                        secondary.active_order_id = master.active_order_id;
+                        secondary.active_order_token = master.active_order_token;
+                        secondary.active_order_total = master.active_order_total;
+                        secondary.active_order_date = master.active_order_date;
+                        secondary.order_items_count = master.order_items_count;
+                        secondary.active_order_status = master.active_order_status;
+                        secondary.active_order_guests = master.active_order_guests;
+                        secondary.customer_name = master.customer_name;
+                        secondary.customer_phone = master.customer_phone;
+                    }
+                }
+            }
+        }
+
         return {
-            tables,
+            tables: tablesWithMergeInfo,
             layouts: parsedLayouts
         };
     } catch (error) {
@@ -728,10 +769,13 @@ exports.saveTableLayoutPositionsDB = async (tenantId, floor, tables = [], floorS
             const walls = floorSettings.walls !== undefined && floorSettings.walls !== null
                 ? (typeof floorSettings.walls === "string" ? floorSettings.walls : JSON.stringify(floorSettings.walls))
                 : null;
+            const mergedPairs = floorSettings.merged_pairs !== undefined && floorSettings.merged_pairs !== null
+                ? (typeof floorSettings.merged_pairs === "string" ? floorSettings.merged_pairs : JSON.stringify(floorSettings.merged_pairs))
+                : null;
 
             await conn.query(
-                `INSERT INTO store_floor_layouts (tenant_id, floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, cashier_rotation, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `INSERT INTO store_floor_layouts (tenant_id, floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, cashier_rotation, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, merged_pairs)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE 
                     show_cashier = VALUES(show_cashier),
                     cashier_x = VALUES(cashier_x),
@@ -742,8 +786,9 @@ exports.saveTableLayoutPositionsDB = async (tenantId, floor, tables = [], floorS
                     floor_plan_image = VALUES(floor_plan_image),
                     floor_plan_opacity = VALUES(floor_plan_opacity),
                     floor_plan_fit = VALUES(floor_plan_fit),
-                    walls = VALUES(walls)`,
-                [tenantId, floor, showCashier, cashierX, cashierY, cashierW, cashierH, cashierRotation, floorPlanImage, floorPlanOpacity, floorPlanFit, walls]
+                    walls = VALUES(walls),
+                    merged_pairs = COALESCE(VALUES(merged_pairs), merged_pairs)`,
+                [tenantId, floor, showCashier, cashierX, cashierY, cashierW, cashierH, cashierRotation, floorPlanImage, floorPlanOpacity, floorPlanFit, walls, mergedPairs]
             );
         }
 

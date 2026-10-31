@@ -146,6 +146,48 @@ exports.updateOrderItemStatusDB = async (orderItemId, status, tenantId) => {
 }
 };
 
+const autoUnlinkTablesByOrderIdsDB = async (tenantId, orderIds, conn) => {
+  try {
+    if (!orderIds || !orderIds.length) return;
+    const cleanIds = orderIds.map((id) => Number(id)).filter(Boolean);
+    if (!cleanIds.length) return;
+    const orderIdsText = cleanIds.join(",");
+
+    const [tableRows] = await conn.query(
+      `SELECT DISTINCT table_id FROM orders WHERE id IN (${orderIdsText}) AND tenant_id = ? AND table_id IS NOT NULL`,
+      [tenantId]
+    );
+    if (!tableRows.length) return;
+    const tableIds = tableRows.map((r) => String(r.table_id));
+
+    const [layouts] = await conn.query(
+      `SELECT id, floor, merged_pairs FROM store_floor_layouts WHERE tenant_id = ? AND merged_pairs IS NOT NULL`,
+      [tenantId]
+    );
+
+    for (const layout of layouts) {
+      if (!layout.merged_pairs) continue;
+      let pairs = [];
+      try {
+        pairs = typeof layout.merged_pairs === "string" ? JSON.parse(layout.merged_pairs) : layout.merged_pairs;
+      } catch {
+        pairs = [];
+      }
+      if (!Array.isArray(pairs) || !pairs.length) continue;
+
+      const updated = pairs.filter(([a, b]) => !tableIds.includes(String(a)) && !tableIds.includes(String(b)));
+      if (updated.length !== pairs.length) {
+        await conn.query(
+          `UPDATE store_floor_layouts SET merged_pairs = ? WHERE id = ? AND tenant_id = ?`,
+          [JSON.stringify(updated), layout.id, tenantId]
+        );
+      }
+    }
+  } catch (err) {
+    console.error("autoUnlinkTablesByOrderIdsDB error:", err);
+  }
+};
+
 exports.cancelOrderDB = async (orderIds, tenantId) => {
   const conn = await getMySqlPromiseConnection();
   try {
@@ -159,6 +201,8 @@ exports.cancelOrderDB = async (orderIds, tenantId) => {
       `UPDATE order_items SET status = 'cancelled' WHERE order_id IN (${orderIdsText}) AND tenant_id = ?;`,
       [tenantId]
     );
+
+    await autoUnlinkTablesByOrderIdsDB(tenantId, orderIds, conn);
 
     return;
   } catch (error) {
@@ -184,6 +228,7 @@ exports.completeOrderDB = async (orderIds, tenantId) => {
 
     await conn.query(sql, [tenantId]);
     await rotateTablePinsByOrderIdsDB(tenantId, orderIds);
+    await autoUnlinkTablesByOrderIdsDB(tenantId, orderIds, conn);
 
     return;
   } catch (error) {
@@ -556,6 +601,7 @@ exports.completeOrdersAndSaveInvoiceIdDB = async (orderIds, invoiceId, tenantId)
 
     await conn.query(sql, [invoiceId, tenantId]);
     await rotateTablePinsByOrderIdsDB(tenantId, orderIds);
+    await autoUnlinkTablesByOrderIdsDB(tenantId, orderIds, conn);
 
     return;
   } catch (error) {
@@ -1142,6 +1188,180 @@ exports.cancelSplitPlanDB = async (tenantId, orderId) => {
   } catch (error) {
     await conn.rollback();
     console.error("cancelSplitPlanDB error:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Merge two tables: transfers all order items from sourceTable to destinationTable,
+ * links them in store_floor_layouts merged_pairs, and marks source order cancelled.
+ */
+exports.mergeTablesDB = async (sourceTableId, destinationTableId, floor, tenantId, username = null) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [tables] = await conn.query(
+      `SELECT id, table_title, floor FROM store_tables WHERE id IN (?, ?) AND tenant_id = ?`,
+      [sourceTableId, destinationTableId, tenantId]
+    );
+    if (tables.length < 2) {
+      throw new Error("One or both tables not found");
+    }
+
+    const sourceTable = tables.find((t) => String(t.id) === String(sourceTableId));
+    const destTable = tables.find((t) => String(t.id) === String(destinationTableId));
+
+    const [sourceOrders] = await conn.query(
+      `SELECT * FROM orders WHERE table_id = ? AND tenant_id = ? AND status NOT IN ('completed', 'cancelled') ORDER BY id DESC LIMIT 1`,
+      [sourceTableId, tenantId]
+    );
+    const [destOrders] = await conn.query(
+      `SELECT * FROM orders WHERE table_id = ? AND tenant_id = ? AND status NOT IN ('completed', 'cancelled') ORDER BY id DESC LIMIT 1`,
+      [destinationTableId, tenantId]
+    );
+
+    let masterOrderId = null;
+    let mergedItemsCount = 0;
+
+    if (sourceOrders.length > 0 && destOrders.length > 0) {
+      const sourceOrder = sourceOrders[0];
+      const destOrder = destOrders[0];
+      masterOrderId = destOrder.id;
+
+      const [items] = await conn.query(
+        `SELECT id FROM order_items WHERE order_id = ? AND tenant_id = ? AND status NOT IN ('cancelled')`,
+        [sourceOrder.id, tenantId]
+      );
+      mergedItemsCount = items.length;
+
+      if (items.length > 0) {
+        await conn.query(
+          `UPDATE order_items SET order_id = ? WHERE order_id = ? AND tenant_id = ?`,
+          [destOrder.id, sourceOrder.id, tenantId]
+        );
+      }
+
+      await conn.query(
+        `UPDATE orders SET status = 'cancelled' WHERE id = ? AND tenant_id = ?`,
+        [sourceOrder.id, tenantId]
+      );
+    } else if (sourceOrders.length > 0 && destOrders.length === 0) {
+      const sourceOrder = sourceOrders[0];
+      await conn.query(
+        `UPDATE orders SET table_id = ? WHERE id = ? AND tenant_id = ?`,
+        [destinationTableId, sourceOrder.id, tenantId]
+      );
+      masterOrderId = sourceOrder.id;
+    } else if (destOrders.length > 0) {
+      masterOrderId = destOrders[0].id;
+    }
+
+    const targetFloor = floor || destTable.floor || sourceTable.floor;
+    const [layoutRows] = await conn.query(
+      `SELECT id, merged_pairs FROM store_floor_layouts WHERE tenant_id = ? AND floor = ? LIMIT 1`,
+      [tenantId, targetFloor]
+    );
+
+    let pairs = [];
+    if (layoutRows.length > 0 && layoutRows[0].merged_pairs) {
+      try {
+        pairs = typeof layoutRows[0].merged_pairs === "string"
+          ? JSON.parse(layoutRows[0].merged_pairs)
+          : layoutRows[0].merged_pairs;
+      } catch {
+        pairs = [];
+      }
+    }
+
+    const pairExists = pairs.some(
+      ([a, b]) =>
+        (String(a) === String(destinationTableId) && String(b) === String(sourceTableId)) ||
+        (String(a) === String(sourceTableId) && String(b) === String(destinationTableId))
+    );
+
+    if (!pairExists) {
+      pairs.push([destinationTableId, sourceTableId]);
+      if (layoutRows.length > 0) {
+        await conn.query(
+          `UPDATE store_floor_layouts SET merged_pairs = ? WHERE id = ? AND tenant_id = ?`,
+          [JSON.stringify(pairs), layoutRows[0].id, tenantId]
+        );
+      } else {
+        await conn.query(
+          `INSERT INTO store_floor_layouts (tenant_id, floor, merged_pairs) VALUES (?, ?, ?)`,
+          [tenantId, targetFloor, JSON.stringify(pairs)]
+        );
+      }
+    }
+
+    await conn.commit();
+    return {
+      success: true,
+      masterOrderId,
+      mergedItemsCount,
+      sourceTableTitle: sourceTable.table_title,
+      destinationTableTitle: destTable.table_title,
+      mergedPairs: pairs,
+    };
+  } catch (error) {
+    await conn.rollback();
+    console.error("mergeTablesDB error:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Unlink two tables: removes them from store_floor_layouts merged_pairs.
+ */
+exports.unlinkTablesDB = async (tableAId, tableBId, floor, tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [layoutRows] = await conn.query(
+      `SELECT id, merged_pairs FROM store_floor_layouts WHERE tenant_id = ? AND floor = ? LIMIT 1`,
+      [tenantId, floor]
+    );
+
+    let pairs = [];
+    if (layoutRows.length > 0 && layoutRows[0].merged_pairs) {
+      try {
+        pairs = typeof layoutRows[0].merged_pairs === "string"
+          ? JSON.parse(layoutRows[0].merged_pairs)
+          : layoutRows[0].merged_pairs;
+      } catch {
+        pairs = [];
+      }
+    }
+
+    const updated = pairs.filter(
+      ([a, b]) =>
+        !(
+          (String(a) === String(tableAId) && String(b) === String(tableBId)) ||
+          (String(a) === String(tableBId) && String(b) === String(tableAId))
+        )
+    );
+
+    if (layoutRows.length > 0) {
+      await conn.query(
+        `UPDATE store_floor_layouts SET merged_pairs = ? WHERE id = ? AND tenant_id = ?`,
+        [JSON.stringify(updated), layoutRows[0].id, tenantId]
+      );
+    }
+
+    await conn.commit();
+    return {
+      success: true,
+      mergedPairs: updated,
+    };
+  } catch (error) {
+    await conn.rollback();
+    console.error("unlinkTablesDB error:", error);
     throw error;
   } finally {
     conn.release();

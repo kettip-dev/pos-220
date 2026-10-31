@@ -390,15 +390,27 @@ export default function BindoActionDrawer({
                   : t("tables.table_actions", "Table Actions")}
               </h3>
               {selectedTable && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                    isOccupied
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-                      : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-                  }`}
-                >
-                  {isOccupied ? t("tables.occupied", "Occupied") : t("tables.available", "Available")}
-                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isOccupied
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    }`}
+                  >
+                    {isOccupied ? t("tables.occupied", "Occupied") : t("tables.available", "Available")}
+                  </span>
+                  {(selectedTable.is_linked_secondary || selectedTable.is_linked_master) && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 flex items-center gap-1">
+                      <IconLink size={11} />
+                      <span className="truncate max-w-[110px]">
+                        {selectedTable.is_linked_secondary
+                          ? formatTableTitle(selectedTable.linked_table_title, t("tables.table", "Table"))
+                          : formatTableTitle(selectedTable.linked_table_title, t("tables.table", "Table"))}
+                      </span>
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <p className="text-[11px] text-slate-400 truncate">
@@ -504,6 +516,22 @@ export default function BindoActionDrawer({
                       </span>
                     )}
                   </div>
+
+                  {(selectedTable.is_linked_secondary || selectedTable.is_linked_master) && (
+                    <div className="px-3.5 py-1.5 bg-sky-50 dark:bg-sky-950/40 border-b border-sky-100 dark:border-sky-900/40 flex items-center justify-between text-[11px] font-bold text-sky-800 dark:text-sky-300 shrink-0">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <IconLink size={13} className="shrink-0 text-[#0ea5e9]" />
+                        <span>
+                          {selectedTable.is_linked_secondary
+                            ? t("tables.linked_to_master", "Linked to {{table}} (Master)", { table: selectedTable.linked_table_title })
+                            : t("tables.linked_group", "Linked Group: {{table}}", { table: selectedTable.linked_table_title })}
+                        </span>
+                      </div>
+                      <span className="text-[9.5px] uppercase tracking-wider bg-sky-200/70 dark:bg-sky-900 px-1.5 py-0.5 rounded font-extrabold">
+                        {t("tables.shared_tab", "Shared Tab")}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Scrollable Order Items List - Fills full vertical height */}
                   <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-1.5">

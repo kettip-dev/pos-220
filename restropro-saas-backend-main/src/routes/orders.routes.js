@@ -24,6 +24,8 @@ const {
   getOrderSubInvoices,
   settleSubInvoice,
   cancelSplitPlan,
+  mergeTables,
+  unlinkTables,
 } = require("../controllers/orders.controller");
 
 const router = Router();
@@ -232,6 +234,30 @@ router.post(
     SCOPES.ORDERS,
   ]),
   cancelSplitPlan
+);
+
+router.post(
+  "/merge-tables",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  mergeTables
+);
+
+router.post(
+  "/unlink-tables",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  unlinkTables
 );
 
 module.exports = router;

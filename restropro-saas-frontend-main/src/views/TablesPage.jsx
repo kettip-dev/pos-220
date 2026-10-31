@@ -22,6 +22,8 @@ import {
   getCompleteOrderPaymentSummary,
   updateKitchenOrderItemStatus,
   updateOrderCustomer,
+  mergeTables,
+  unlinkTables,
 } from "../controllers/orders.controller";
 import FloorPlanCanvas from "../components/tables/FloorPlanCanvas";
 import TableDetailsModal from "../components/tables/TableDetailsModal";
@@ -32,6 +34,7 @@ import TableCustomerModal from "../components/tables/TableCustomerModal";
 import MoveTableModal from "../components/tables/MoveTableModal";
 import MoveItemModal from "../components/tables/MoveItemModal";
 import SplitCheckModal from "../components/tables/SplitCheckModal";
+import MergeTableModal from "../components/tables/MergeTableModal";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
@@ -121,6 +124,8 @@ export default function TablesPage() {
 
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [mergeSourceId, setMergeSourceId] = useState(null);
+  const [mergeModalData, setMergeModalData] = useState(null); // { isOpen: bool, mode: "merge_orders"|"link_empty"|"unlink", sourceTable, targetTable }
+  const [isMergingSubmitting, setIsMergingSubmitting] = useState(false);
 
   // Modals state
   const [activeDetailsTable, setActiveDetailsTable] = useState(null);
@@ -143,15 +148,20 @@ export default function TablesPage() {
   const [isSplitCheckModalOpen, setIsSplitCheckModalOpen] = useState(false);
   const [splitCheckTable, setSplitCheckTable] = useState(null);
 
-  // Sync state when floor changes
+  // Sync state when floor or layouts change
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`bindo_merged_pairs_${currentFloor}`);
-      setMergedPairs(saved ? JSON.parse(saved) : []);
-    } catch {
-      setMergedPairs([]);
+    const currentLayout = rawLayouts.find((l) => normalizeFloor(l.floor) === normalizeFloor(currentFloor));
+    if (currentLayout && Array.isArray(currentLayout.merged_pairs)) {
+      setMergedPairs(currentLayout.merged_pairs);
+    } else {
+      try {
+        const saved = localStorage.getItem(`bindo_merged_pairs_${currentFloor}`);
+        setMergedPairs(saved ? JSON.parse(saved) : []);
+      } catch {
+        setMergedPairs([]);
+      }
     }
-  }, [currentFloor]);
+  }, [rawLayouts, currentFloor]);
 
   const normalizeFloor = (f) => {
     if (f === null || f === undefined) return "";
@@ -260,6 +270,57 @@ export default function TablesPage() {
     return tablesOnFloor.filter((t) => Boolean(t.active_order_id));
   }, [tablesOnFloor]);
 
+  // Execute backend table merge
+  const executeMergeTables = async (secondaryTable, masterTable) => {
+    try {
+      setIsMergingSubmitting(true);
+      await mergeTables(secondaryTable.id, masterTable.id, currentFloor);
+      toast.success(t("tables.merge_updated", "Tables merged successfully!"));
+      setMergeModalData(null);
+      await mutate();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || t("common.error", "Failed to merge tables"));
+    } finally {
+      setIsMergingSubmitting(false);
+    }
+  };
+
+  // Execute backend table unlink
+  const executeUnlinkTables = async (tableA, tableB) => {
+    try {
+      setIsMergingSubmitting(true);
+      await unlinkTables(tableA.id, tableB.id, currentFloor);
+      toast.success(t("tables.unlink_updated", "Tables unlinked successfully!"));
+      setMergeModalData(null);
+      await mutate();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || t("common.error", "Failed to unlink tables"));
+    } finally {
+      setIsMergingSubmitting(false);
+    }
+  };
+
+  // Handle splitting items back when unlinking
+  const handleSplitItemsBack = async (masterTable, secondaryTable) => {
+    try {
+      setMergeModalData(null);
+      setMoveItemSource(masterTable);
+      if (masterTable?.active_order_id) {
+        setIsLoadingOrderSummary(true);
+        const res = await getCompleteOrderPaymentSummary([masterTable.active_order_id]);
+        if (res?.data) setActiveOrderSummary(res.data);
+      }
+      setIsMoveItemModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("common.error", "Failed to open move item modal"));
+    } finally {
+      setIsLoadingOrderSummary(false);
+    }
+  };
+
   // Table click handler
   const handleTableClick = useCallback(
     (table) => {
@@ -267,35 +328,56 @@ export default function TablesPage() {
         if (!mergeSourceId) {
           setMergeSourceId(table.id);
           toast(t("tables.merge_select_second", "Select a second table to link/merge"), { icon: "" });
-        } else if (mergeSourceId === table.id) {
+        } else if (String(mergeSourceId) === String(table.id)) {
           setMergeSourceId(null);
         } else {
-          // Toggle connection between mergeSourceId and table.id
-          setMergedPairs((prev) => {
-            const pairExists = prev.some(
-              ([a, b]) =>
-                (String(a) === String(mergeSourceId) && String(b) === String(table.id)) ||
-                (String(a) === String(table.id) && String(b) === String(mergeSourceId))
-            );
-            const updated = pairExists
-              ? prev.filter(
-                  ([a, b]) =>
-                    !(
-                      (String(a) === String(mergeSourceId) && String(b) === String(table.id)) ||
-                      (String(a) === String(table.id) && String(b) === String(mergeSourceId))
-                    )
-                )
-              : [...prev, [mergeSourceId, table.id]];
+          const source = tablesOnFloor.find((t) => String(t.id) === String(mergeSourceId));
+          const target = table;
+          if (!source || !target) {
+            setMergeSourceId(null);
+            return;
+          }
 
-            try {
-              localStorage.setItem(`bindo_merged_pairs_${currentFloor}`, JSON.stringify(updated));
-            } catch (err) {
-              console.error(err);
-            }
-            return updated;
-          });
+          const isAlreadyLinked = mergedPairs.some(
+            ([a, b]) =>
+              (String(a) === String(source.id) && String(b) === String(target.id)) ||
+              (String(a) === String(target.id) && String(b) === String(source.id))
+          );
 
-          toast.success(t("tables.merge_updated", "Tables merged successfully!"));
+          if (isAlreadyLinked) {
+            // Unlink confirmation
+            setMergeModalData({
+              isOpen: true,
+              mode: "unlink",
+              sourceTable: source,
+              targetTable: target,
+            });
+            setMergeSourceId(null);
+            return;
+          }
+
+          const hasSourceOrder = Boolean(source.active_order_id);
+          const hasTargetOrder = Boolean(target.active_order_id);
+
+          if (hasSourceOrder && hasTargetOrder) {
+            setMergeModalData({
+              isOpen: true,
+              mode: "merge_orders",
+              sourceTable: source,
+              targetTable: target,
+            });
+          } else if (hasSourceOrder || hasTargetOrder) {
+            setMergeModalData({
+              isOpen: true,
+              mode: "link_empty",
+              sourceTable: hasSourceOrder ? source : target,
+              targetTable: hasSourceOrder ? target : source,
+            });
+          } else {
+            // Both empty: merge and link directly
+            executeMergeTables(source, target);
+          }
+
           setMergeSourceId(null);
         }
         return;
@@ -311,7 +393,7 @@ export default function TablesPage() {
       setSelectedTableId(table.id);
       setIsDrawerOpen(true);
     },
-    [isMergeMode, mergeSourceId, currentFloor, isEditMode, t]
+    [isMergeMode, mergeSourceId, tablesOnFloor, mergedPairs, currentFloor, isEditMode, t]
   );
 
   // Edit Mode Actions
@@ -1001,6 +1083,21 @@ export default function TablesPage() {
             setPayTable(tbl);
             setIsPayModalOpen(true);
           }}
+        />
+      )}
+      {/* 10. Table Merge & Link Confirmation Modal */}
+      {mergeModalData?.isOpen && (
+        <MergeTableModal
+          isOpen={mergeModalData.isOpen}
+          mode={mergeModalData.mode}
+          sourceTable={mergeModalData.sourceTable}
+          targetTable={mergeModalData.targetTable}
+          currency={currency}
+          isSubmitting={isMergingSubmitting}
+          onClose={() => setMergeModalData(null)}
+          onConfirmMerge={executeMergeTables}
+          onConfirmUnlink={executeUnlinkTables}
+          onOpenSplitCheck={handleSplitItemsBack}
         />
       )}
     </Page>
