@@ -99,6 +99,20 @@ export default function InventoryLogsPage() {
     return () => window.removeEventListener("click", handleClickOutside);
   }, [tableSettings.showGearMenu]);
 
+  const movementCounts = useMemo(() => {
+    const counts = { all: 0, IN: 0, OUT: 0, WASTAGE: 0 };
+    if (Array.isArray(data)) {
+      counts.all = data.length;
+      data.forEach((item) => {
+        const type = String(item.type || "").toUpperCase();
+        if (counts[type] !== undefined) {
+          counts[type] += 1;
+        }
+      });
+    }
+    return counts;
+  }, [data]);
+
   const filteredLogs = useMemo(() => {
     let list = data || [];
     if (selectedMovementType !== "all") {
@@ -237,101 +251,118 @@ export default function InventoryLogsPage() {
 
   return (
     <Page>
-      <div className="breadcrumbs text-sm mb-1">
+      <div className="breadcrumbs text-xs text-slate-500 mb-2">
         <ul>
           <li>
-            <Link to="/dashboard/inventory">{t("inventory.breadcrumbs_inventory")}</Link>
+            <Link to="/dashboard/inventory" className="hover:text-emerald-600 transition">
+              {t("inventory.breadcrumbs_inventory")}
+            </Link>
           </li>
-          <li>{t("inventory.breadcrumbs_movements")}</li>
+          <li className="font-semibold text-slate-700 dark:text-slate-300">
+            {t("inventory.breadcrumbs_movements")}
+          </li>
         </ul>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center gap-2">
-        <h3 className="text-2xl flex-1">{t("inventory.page_title")}</h3>
-        <div className="relative md:w-80">
-          <IconSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="search"
-            className="input input-sm input-bordered focus:outline-none focus:ring-1 focus-within:ring-gray-200 transition pl-8 pr-2 w-full rounded-lg text-gray-500 py-4 h-8"
-            placeholder={t("inventory.search_placeholder")}
-            value={state.search}
-            onChange={(e) => {
-              setState({
-                ...state,
-                search: e.target.value,
-              });
-            }}
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {t("inventory.page_title")}
+          </h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-neutral-400">
+            {t("inventory.showing_data_for")}{" "}
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+              {filters.find((f) => f.key == state.filter)?.value}
+            </span>
+          </p>
         </div>
-        <button
-          onClick={() => document.getElementById("filter-dialog").showModal()}
-          className='btn btn-sm transition active:scale-95 hover:shadow-lg px-4 py-1 border bg-restro-gray hover:bg-restro-button-hover rounded-lg'>
-          <IconFilter stroke={iconStroke} /> {t("inventory.filters_button")}
-        </button>
-        <button
-          onClick={handleExportData}
-          className='btn btn-sm transitiontransition active:scale-95 hover:shadow-lg px-4 py-1 border bg-restro-bg-gray hover:bg-restro-button-hover rounded-lg w-fit`'>
-          <IconDownload stroke={iconStroke} size={20} />
-        </button>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => document.getElementById("filter-dialog").showModal()}
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center gap-1.5 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-neutral-700 shadow-xs"
+          >
+            <IconFilter stroke={iconStroke} size={18} />
+            <span>{t("inventory.filters_button")}</span>
+          </button>
+          <button
+            onClick={handleExportData}
+            title={t("inventory.export_excel", "Export")}
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-neutral-700 shadow-xs"
+          >
+            <IconDownload stroke={iconStroke} size={18} />
+          </button>
+        </div>
       </div>
 
-      <h3 className="mt-1 text-gray-500 text-base">
-        {t("inventory.showing_data_for")} {filters.find((f) => f.key == state.filter).value}
-      </h3>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 text-restro-text">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-4">
         {[
           {
             label: t("inventory.stock_movements_all"),
-            icon: <IconArrowsRandom stroke={1.5} className="text-gray-600" />,
+            icon: <IconArrowsRandom stroke={1.5} className="text-slate-600 dark:text-slate-300" />,
             type: "all",
-            border: "border-l-gray-400",
-            countColor: "text-gray-600",
+            count: movementCounts.all,
+            border: "border-l-slate-400 dark:border-l-slate-500",
+            countColor: "text-slate-800 dark:text-slate-100",
+            activeRing: "ring-2 ring-slate-400/60 dark:ring-slate-500/60",
           },
           {
             label: t("inventory.stock_movements_in"),
-            icon: <IconCircleArrowDownLeft stroke={1.5} className="text-green-600" />,
+            icon: <IconCircleArrowDownLeft stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />,
             type: "IN",
-            border: "border-l-restro-green",
-            countColor: "text-restro-green",
+            count: movementCounts.IN,
+            border: "border-l-emerald-500",
+            countColor: "text-emerald-600 dark:text-emerald-400",
+            activeRing: "ring-2 ring-emerald-500/60",
           },
           {
             label: t("inventory.stock_movements_out"),
-            icon: <IconCircleArrowUpRight stroke={1.5} className="text-yellow-600" />,
+            icon: <IconCircleArrowUpRight stroke={1.5} className="text-blue-500 dark:text-blue-400" />,
             type: "OUT",
-            border: "border-l-yellow-600",
-            countColor: "text-yellow-600",
+            count: movementCounts.OUT,
+            border: "border-l-blue-500",
+            countColor: "text-blue-600 dark:text-blue-400",
+            activeRing: "ring-2 ring-blue-500/60",
           },
           {
             label: t("inventory.stock_movements_wastage"),
-            icon: <IconLibraryMinus stroke={1.5} className="text-red-600" />,
+            icon: <IconLibraryMinus stroke={1.5} className="text-rose-500 dark:text-rose-400" />,
             type: "WASTAGE",
-            border: "border-l-red-600",
-            countColor: "text-red-100",
+            count: movementCounts.WASTAGE,
+            border: "border-l-rose-500",
+            countColor: "text-rose-600 dark:text-rose-400",
+            activeRing: "ring-2 ring-rose-500/60",
           },
-        ].map(({ label, icon, type, border, countColor }) => {
+        ].map(({ label, icon, type, count, border, countColor, activeRing }) => {
           const isSelected = selectedMovementType === type;
           return (
             <div
               key={type}
-              onClick={() => setSelectedMovementType(type)}
+              onClick={() => {
+                setSelectedMovementType(type);
+                setTableSettings((p) => ({ ...p, currentPage: 1 }));
+              }}
               className={clsx(
-                "cursor-pointer flex items-center gap-4 px-4 py-4 rounded-xl border border-l-8 transition-all duration-200",
-                countColor,
+                "cursor-pointer flex items-center gap-3.5 px-4 py-3.5 rounded-xl border border-l-[6px] transition-all duration-200 active:scale-[0.98] select-none shadow-xs",
                 border,
                 isSelected
-                  ? theme === "black"
-                    ? "bg-restro-card-bg text-white border-restro-border-dark-mode"
-                    : "bg-gray-100 text-gray-900 border-restro-green-light"
-                  : theme === "black"
-                    ? "text-white border-restro-border-dark-mode"
-                    : "text-gray-700 border-restro-green-light"
-
+                  ? clsx(
+                      "bg-emerald-50/50 dark:bg-neutral-850 border-emerald-400 dark:border-emerald-600",
+                      activeRing
+                    )
+                  : "bg-white dark:bg-[#18181b] border-slate-200/80 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700"
               )}
             >
-              <div className='p-3 rounded-lg shadow-inner bg-restro-bg-gray'>{icon}</div>
-              <div>
-                <div className="text-sm font-medium text-gray-600">{label}</div>
+              <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-neutral-800">
+                {icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
+                  {label}
+                </div>
+                <div className={clsx("text-xl font-bold tracking-tight tabular-nums", countColor)}>
+                  {count}
+                </div>
               </div>
             </div>
           );
@@ -342,9 +373,9 @@ export default function InventoryLogsPage() {
       {selectedLogs.size > 0 && (
         <div className="mb-3 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>
-              {selectedLogs.size} log{selectedLogs.size > 1 ? "s" : ""} selected
+              {selectedLogs.size} {t("inventory.logs_selected", "logs selected")}
             </span>
           </div>
 
@@ -352,23 +383,23 @@ export default function InventoryLogsPage() {
             <button
               type="button"
               onClick={handleExportToExcel}
-              className="px-3 py-1.5 rounded-md bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-neutral-700 transition active:scale-95"
+              className="px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-neutral-700 transition active:scale-95 shadow-xs"
             >
-              Export Selected
+              {t("inventory.export_selected", "Export Selected")}
             </button>
             <button
               type="button"
               onClick={() => setSelectedLogs(new Set())}
-              className="px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/60 dark:hover:bg-neutral-800 transition"
+              className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/60 dark:hover:bg-neutral-800 transition"
             >
-              Deselect All
+              {t("inventory.deselect_all", "Deselect All")}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Filter & Action Bar Directly Above Table (QuickBooks Style - Matching First Image) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 mt-4">
+      {/* ── Filter & Action Bar Directly Above Table (QuickBooks Style) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 mt-5">
         {/* Left Side: Filter by name or number + Movement Dropdown */}
         <div className="flex items-center gap-2 flex-1 max-w-xl">
           {/* Search Input Box */}
@@ -383,8 +414,8 @@ export default function InventoryLogsPage() {
                 setState((p) => ({ ...p, search: e.target.value }));
                 setTableSettings((p) => ({ ...p, currentPage: 1 }));
               }}
-              placeholder="Filter by name or number"
-              className="w-full min-h-[38px] pl-9 pr-8 py-1.5 text-xs sm:text-[13px] rounded-md border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 transition"
+              placeholder={t("inventory.filter_by_name_or_code", "Filter by name or code...")}
+              className="w-full min-h-[42px] pl-9 pr-8 py-2 text-xs sm:text-[13px] rounded-xl border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-500 transition shadow-xs"
             />
             {state.search && (
               <button
@@ -393,9 +424,9 @@ export default function InventoryLogsPage() {
                   setState((p) => ({ ...p, search: "" }));
                   setTableSettings((p) => ({ ...p, currentPage: 1 }));
                 }}
-                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
-                <IconX size={14} stroke={iconStroke} />
+                <IconX size={16} stroke={iconStroke} />
               </button>
             )}
           </div>
@@ -408,12 +439,12 @@ export default function InventoryLogsPage() {
                 setSelectedMovementType(e.target.value);
                 setTableSettings((p) => ({ ...p, currentPage: 1 }));
               }}
-              className="min-h-[38px] px-3 pr-8 py-1.5 text-xs sm:text-[13px] font-normal rounded-md border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 appearance-none focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+              className="min-h-[42px] px-3.5 pr-8 py-2 text-xs sm:text-[13px] font-medium rounded-xl border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-500 cursor-pointer shadow-xs"
             >
-              <option value="all">All Movements</option>
-              <option value="IN">IN</option>
-              <option value="OUT">OUT</option>
-              <option value="WASTAGE">WASTAGE</option>
+              <option value="all">{t("inventory.all_movements", "All Movements")}</option>
+              <option value="IN">{t("inventory.stock_movements_in", "Stock In")}</option>
+              <option value="OUT">{t("inventory.stock_movements_out", "Stock Out")}</option>
+              <option value="WASTAGE">{t("inventory.stock_movements_wastage", "Wastage")}</option>
             </select>
             <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-500">
               <IconChevronDown size={14} stroke={iconStroke} />
@@ -424,25 +455,25 @@ export default function InventoryLogsPage() {
         {/* Right Side: Print, Export, Gear, and Pagination */}
         <div className="flex items-center gap-3 self-end sm:self-auto">
           {/* Action Icons */}
-          <div className="flex items-center gap-1 border-r border-slate-200 dark:border-neutral-700 pr-3">
+          <div className="flex items-center gap-1.5 border-r border-slate-200 dark:border-neutral-700 pr-3">
             {/* Print Table */}
             <button
               type="button"
               onClick={handlePrintTable}
-              title="Print table"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95"
+              title={t("inventory.print_table", "Print table")}
+              className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 border border-slate-200 dark:border-neutral-700/60"
             >
-              <IconPrinter size={16} stroke={iconStroke} />
+              <IconPrinter size={17} stroke={iconStroke} />
             </button>
 
             {/* Export Excel */}
             <button
               type="button"
               onClick={handleExportToExcel}
-              title="Export to Excel"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95"
+              title={t("inventory.export_excel", "Export to Excel")}
+              className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 border border-slate-200 dark:border-neutral-700/60"
             >
-              <IconDownload size={16} stroke={iconStroke} />
+              <IconDownload size={17} stroke={iconStroke} />
             </button>
 
             {/* Settings Gear Popover */}
@@ -455,31 +486,31 @@ export default function InventoryLogsPage() {
                     showGearMenu: !p.showGearMenu,
                   }))
                 }
-                title="Table settings"
+                title={t("inventory.table_settings", "Table settings")}
                 className={clsx(
-                  "w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95",
-                  tableSettings.showGearMenu && "bg-slate-200 dark:bg-neutral-800 text-slate-900"
+                  "min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 border border-slate-200 dark:border-neutral-700/60",
+                  tableSettings.showGearMenu && "bg-slate-200 dark:bg-neutral-800 text-slate-900 border-slate-300"
                 )}
               >
-                <IconSettings size={16} stroke={iconStroke} />
+                <IconSettings size={17} stroke={iconStroke} />
               </button>
 
               {tableSettings.showGearMenu && (
-                <div className="absolute right-0 top-9 w-60 p-3 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl border border-slate-200 dark:border-neutral-700 text-xs z-[100] animate-in fade-in duration-100">
+                <div className="absolute right-0 top-11 w-64 p-3.5 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl border border-slate-200 dark:border-neutral-700 text-xs z-[100] animate-in fade-in duration-100">
                   <div className="font-bold text-slate-900 dark:text-white pb-2 mb-2 border-b border-slate-100 dark:border-neutral-800">
-                    Columns
+                    {t("inventory.columns", "Columns")}
                   </div>
-                  <div className="space-y-1.5 mb-3">
+                  <div className="space-y-2 mb-3">
                     {[
-                      { key: "quantity", label: "Quantity" },
-                      { key: "movement", label: "Movement" },
-                      { key: "dateTime", label: "Date & Time" },
-                      { key: "remarks", label: "Remarks" },
-                      { key: "updatedBy", label: "Updated By" },
+                      { key: "quantity", label: t("inventory.form_add_stock_qty_label", "Quantity") },
+                      { key: "movement", label: t("inventory.table_header_movement", "Movement") },
+                      { key: "dateTime", label: t("inventory.table_header_date_time", "Date & Time") },
+                      { key: "remarks", label: t("inventory.table_header_remarks", "Remarks") },
+                      { key: "updatedBy", label: t("inventory.table_header_updated_by", "Updated By") },
                     ].map((col) => (
                       <label
                         key={col.key}
-                        className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                        className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                       >
                         <input
                           type="checkbox"
@@ -493,7 +524,7 @@ export default function InventoryLogsPage() {
                               },
                             }))
                           }
-                          className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                         />
                         <span>{col.label}</span>
                       </label>
@@ -501,9 +532,9 @@ export default function InventoryLogsPage() {
                   </div>
 
                   <div className="font-bold text-slate-900 dark:text-white pb-1 mb-2 border-b border-slate-100 dark:border-neutral-800">
-                    Display
+                    {t("inventory.display", "Display")}
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-300 mb-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 dark:text-slate-300 mb-3">
                     <input
                       type="checkbox"
                       checked={tableSettings.compactDensity}
@@ -513,13 +544,13 @@ export default function InventoryLogsPage() {
                           compactDensity: e.target.checked,
                         }))
                       }
-                      className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span>Compact rows</span>
+                    <span>{t("inventory.compact_rows", "Compact rows")}</span>
                   </label>
 
                   <div className="font-bold text-slate-900 dark:text-white pb-1 mb-1 border-b border-slate-100 dark:border-neutral-800">
-                    Rows per page
+                    {t("inventory.rows_per_page", "Rows per page")}
                   </div>
                   <select
                     value={tableSettings.pageSize}
@@ -530,7 +561,7 @@ export default function InventoryLogsPage() {
                         currentPage: 1,
                       }))
                     }
-                    className="w-full px-2 py-1 text-xs rounded border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-200"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-200"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -543,7 +574,7 @@ export default function InventoryLogsPage() {
           </div>
 
           {/* Pagination Text: < Previous  1 - 10 of 42  Next > */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400">
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400 select-none">
             <button
               type="button"
               disabled={currentPage <= 1}
@@ -554,17 +585,17 @@ export default function InventoryLogsPage() {
                 }))
               }
               className={clsx(
-                "flex items-center gap-0.5 hover:text-slate-900 dark:hover:text-white transition",
-                currentPage <= 1 && "opacity-40 cursor-not-allowed hover:text-slate-600"
+                "min-h-[36px] px-2.5 rounded-lg flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-700 dark:text-slate-300 transition active:scale-95",
+                currentPage <= 1 && "opacity-40 cursor-not-allowed hover:bg-transparent"
               )}
             >
-              <IconChevronLeft size={14} stroke={iconStroke} />
-              <span>Previous</span>
+              <IconChevronLeft size={16} stroke={iconStroke} />
+              <span>{t("inventory.previous", "Previous")}</span>
             </button>
 
-            <span className="font-medium text-slate-800 dark:text-slate-200 tabular-nums">
+            <span className="font-medium text-slate-800 dark:text-slate-200 tabular-nums px-1">
               {totalItems > 0 ? `${startIndex + 1} - ${endIndex}` : "0 - 0"}
-              <span className="text-slate-400 font-normal"> of {totalItems}</span>
+              <span className="text-slate-400 font-normal"> {t("inventory.of", "of")} {totalItems}</span>
             </span>
 
             <button
@@ -577,12 +608,12 @@ export default function InventoryLogsPage() {
                 }))
               }
               className={clsx(
-                "flex items-center gap-0.5 hover:text-slate-900 dark:hover:text-white transition",
-                currentPage >= totalPages && "opacity-40 cursor-not-allowed hover:text-slate-600"
+                "min-h-[36px] px-2.5 rounded-lg flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-700 dark:text-slate-300 transition active:scale-95",
+                currentPage >= totalPages && "opacity-40 cursor-not-allowed hover:bg-transparent"
               )}
             >
-              <span>Next</span>
-              <IconChevronRight size={14} stroke={iconStroke} />
+              <span>{t("inventory.next", "Next")}</span>
+              <IconChevronRight size={16} stroke={iconStroke} />
             </button>
           </div>
         </div>

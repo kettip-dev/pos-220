@@ -414,107 +414,113 @@ export default function InventoryPage() {
 
   return (
     <Page>
-      <div className="flex flex-wrap gap-4 flex-col md:flex-row items-center justify-between">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <h3 className="text-2xl">{t('inventory.title')}</h3>
-          <Link
-            to="dashboard"
-            className='rounded-lg border-none b shadow-none transition active:scale-95 text-restro-text px-2 py-1 flex items-center gap-1 bg-restro-bg-gray hover:bg-restro-button-hover'
-          >
-            <IconCategory2 stroke={iconStroke} size={18} /> {t('inventory.dashboard')}
-          </Link>
+      <div className="flex flex-wrap gap-4 flex-col sm:flex-row items-start sm:items-center justify-between pb-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {t('inventory.title')}
+          </h1>
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+            {totalItems} {t('inventory.items_selected', 'items')}
+          </span>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center gap-2">
-          <div className="flex items-center justify-between">
-            <div className="relative md:w-80">
-              <IconSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="search"
-                className="input input-sm input-bordered focus:outline-none focus:ring-1 focus-within:ring-gray-200 transition pl-8 pr-2 w-full rounded-lg text-gray-500 py-4 h-8"
-                placeholder={t('inventory.search_placeholder')}
-                value={state.search}
-                onChange={(e) => {
-                  setState({
-                    ...state,
-                    search: e.target.value,
-                  });
-                }}
-              />
-            </div>
-            <div></div>
-          </div>
-          <button onClick={()=>{
-              document.getElementById('modal-add-inventory-item').showModal();
-          }}  className = "text-sm rounded-lg border transition active:scale-95 hover:shadow-lg px-2 py-1 flex items-center gap-1 text-restro-text bg-restro-gray border-restro-border-green hover:bg-restro-button-hover">
-            <IconPlus size={18} stroke={iconStroke}/>
-            {t('inventory.add_stock_item')}
-          </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            to="dashboard"
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition active:scale-95 flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-neutral-700"
+          >
+            <IconCategory2 stroke={iconStroke} size={18} />
+            <span>{t('inventory.dashboard')}</span>
+          </Link>
+
           <Link
             to="stock-movements"
-            className='rounded-lg border-none b shadow-none transition active:scale-95 text-restro-text px-2 py-1 flex items-center gap-1 bg-restro-bg-gray hover:bg-restro-button-hover'
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition active:scale-95 flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-neutral-700"
           >
-            <IconLogs stroke={iconStroke} size={18} /> {t('inventory.stock_movements')}
+            <IconLogs stroke={iconStroke} size={18} />
+            <span>{t('inventory.stock_movements')}</span>
           </Link>
+
+          <button
+            onClick={() => {
+              document.getElementById('modal-add-inventory-item').showModal();
+            }}
+            className="min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/30"
+          >
+            <IconPlus size={18} stroke={iconStroke} />
+            <span>{t('inventory.add_stock_item')}</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-4">
         {[
           {
             label: t('inventory.status_all'),
-            icon: <IconBox stroke={1.5} className="text-gray-600" />,
+            icon: <IconBox stroke={1.5} className="text-slate-600 dark:text-slate-300" />,
             status: "all",
             count: state.inventory?.length || 0,
-            border: "border-l-gray-400",
-            countColor: "text-gray-600",
+            border: "border-l-slate-400 dark:border-l-slate-500",
+            countColor: "text-slate-800 dark:text-slate-100",
+            activeRing: "ring-2 ring-slate-400/60 dark:ring-slate-500/60",
           },
           {
             label: t('inventory.status_in'),
-            icon: <IconCarrot stroke={1.5} className="text-green-600" />,
+            icon: <IconCarrot stroke={1.5} className="text-emerald-600 dark:text-emerald-400" />,
             status: "in",
-            count: state.statusCounts?.in,
-            border: "border-l-restro-green",
-            countColor: "text-restro-green",
+            count: state.statusCounts?.in || 0,
+            border: "border-l-emerald-500",
+            countColor: "text-emerald-600 dark:text-emerald-400",
+            activeRing: "ring-2 ring-emerald-500/60",
           },
           {
             label: t('inventory.status_low'),
-            icon: <IconAlertTriangle stroke={1.5} className="text-yellow-600" />,
+            icon: <IconAlertTriangle stroke={1.5} className="text-amber-500 dark:text-amber-400" />,
             status: "low",
-            count: state.statusCounts?.low,
-            border: "border-l-yellow-600",
-            countColor: "text-yellow-600",
+            count: state.statusCounts?.low || 0,
+            border: "border-l-amber-500",
+            countColor: "text-amber-600 dark:text-amber-400",
+            activeRing: "ring-2 ring-amber-500/60",
           },
           {
             label: t('inventory.status_out'),
-            icon: <IconCircleMinus stroke={1.5} className="text-red-600"/>,
+            icon: <IconCircleMinus stroke={1.5} className="text-rose-500 dark:text-rose-400" />,
             status: "out",
-            count: state.statusCounts?.out,
-            border: "border-l-red-600",
-            countColor: "text-red-600",
+            count: state.statusCounts?.out || 0,
+            border: "border-l-rose-500",
+            countColor: "text-rose-600 dark:text-rose-400",
+            activeRing: "ring-2 ring-rose-500/60",
           },
-        ].map(({ label, icon, status, count, border, countColor }) => {
+        ].map(({ label, icon, status, count, border, countColor, activeRing }) => {
           const isSelected = selectedStatus === status;
           return (
             <div
               key={status}
-              onClick={() => setSelectedStatus(status)}
+              onClick={() => {
+                setSelectedStatus(status);
+                setTableSettings((p) => ({ ...p, currentPage: 1 }));
+              }}
               className={clsx(
-                "cursor-pointer flex items-center gap-4 px-4 py-4 rounded-xl border border-l-8 transition-all duration-200",
+                "cursor-pointer flex items-center gap-3.5 px-4 py-3.5 rounded-xl border border-l-[6px] transition-all duration-200 active:scale-[0.98] select-none shadow-xs",
                 border,
                 isSelected
-                  ? theme === 'black'
-                    ? "bg-restro-card-iconbg/80 border-restro-border-dark-mode"
-                    : "border-restro-green-light bg-gray-50"
-                  : theme === 'black'
-                    ? " border-restro-border-dark-mode"
-                    : "border-restro-green-light"
+                  ? clsx(
+                      "bg-emerald-50/50 dark:bg-neutral-850 border-emerald-400 dark:border-emerald-600",
+                      activeRing
+                    )
+                  : "bg-white dark:bg-[#18181b] border-slate-200/80 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700"
               )}
             >
-              <div className='p-3 rounded-lg  shadow-inner bg-restro-card-bg'>{icon}</div>
-              <div>
-                <div className={`text-sm font-medium ${theme === 'black' ? 'text-white' : 'text-gray-600'} `}>{label}</div>
-                <div className={`text-lg font-bold ${countColor}`}>{count}</div>
+              <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-neutral-800">
+                {icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
+                  {label}
+                </div>
+                <div className={clsx("text-xl font-bold tracking-tight tabular-nums", countColor)}>
+                  {count}
+                </div>
               </div>
             </div>
           );
@@ -525,9 +531,9 @@ export default function InventoryPage() {
       {selectedInventory.size > 0 && (
         <div className="mb-3 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>
-              {selectedInventory.size} item{selectedInventory.size > 1 ? "s" : ""} selected
+              {selectedInventory.size} {t('inventory.items_selected', 'items selected')}
             </span>
           </div>
 
@@ -535,23 +541,23 @@ export default function InventoryPage() {
             <button
               type="button"
               onClick={handleExportToExcel}
-              className="px-3 py-1.5 rounded-md bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-neutral-700 transition active:scale-95"
+              className="px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-neutral-700 transition active:scale-95 shadow-xs"
             >
-              Export Selected
+              {t('inventory.export_selected', 'Export Selected')}
             </button>
             <button
               type="button"
               onClick={() => setSelectedInventory(new Set())}
-              className="px-3 py-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/60 dark:hover:bg-neutral-800 transition"
+              className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium hover:bg-slate-200/60 dark:hover:bg-neutral-800 transition"
             >
-              Deselect All
+              {t('inventory.deselect_all', 'Deselect All')}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Filter & Action Bar Directly Above Table (QuickBooks Style - Matching First Image) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 mt-4">
+      {/* ── Filter & Action Bar Directly Above Table (QuickBooks Style) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 mt-5">
         {/* Left Side: Filter by name or number + Status Dropdown */}
         <div className="flex items-center gap-2 flex-1 max-w-xl">
           {/* Search Input Box */}
@@ -566,8 +572,8 @@ export default function InventoryPage() {
                 setState((p) => ({ ...p, search: e.target.value }));
                 setTableSettings((p) => ({ ...p, currentPage: 1 }));
               }}
-              placeholder="Filter by name or number"
-              className="w-full min-h-[38px] pl-9 pr-8 py-1.5 text-xs sm:text-[13px] rounded-md border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 transition"
+              placeholder={t('inventory.filter_by_name_or_code', 'Filter by name or code...')}
+              className="w-full min-h-[42px] pl-9 pr-8 py-2 text-xs sm:text-[13px] rounded-xl border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-500 transition shadow-xs"
             />
             {state.search && (
               <button
@@ -576,9 +582,9 @@ export default function InventoryPage() {
                   setState((p) => ({ ...p, search: "" }));
                   setTableSettings((p) => ({ ...p, currentPage: 1 }));
                 }}
-                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
-                <IconX size={14} stroke={iconStroke} />
+                <IconX size={16} stroke={iconStroke} />
               </button>
             )}
           </div>
@@ -591,12 +597,12 @@ export default function InventoryPage() {
                 setSelectedStatus(e.target.value);
                 setTableSettings((p) => ({ ...p, currentPage: 1 }));
               }}
-              className="min-h-[38px] px-3 pr-8 py-1.5 text-xs sm:text-[13px] font-normal rounded-md border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 appearance-none focus:outline-none focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+              className="min-h-[42px] px-3.5 pr-8 py-2 text-xs sm:text-[13px] font-medium rounded-xl border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-500 cursor-pointer shadow-xs"
             >
-              <option value="all">All</option>
-              <option value="in">In Stock</option>
-              <option value="low">Low Stock</option>
-              <option value="out">Out of Stock</option>
+              <option value="all">{t('inventory.status_all', 'All')}</option>
+              <option value="in">{t('inventory.stock_status_in', 'In Stock')}</option>
+              <option value="low">{t('inventory.stock_status_low', 'Low Stock')}</option>
+              <option value="out">{t('inventory.stock_status_out', 'Out of Stock')}</option>
             </select>
             <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-500">
               <IconChevronDown size={14} stroke={iconStroke} />
@@ -607,25 +613,25 @@ export default function InventoryPage() {
         {/* Right Side: Print, Export, Gear, and Pagination */}
         <div className="flex items-center gap-3 self-end sm:self-auto">
           {/* Action Icons */}
-          <div className="flex items-center gap-1 border-r border-slate-200 dark:border-neutral-700 pr-3">
+          <div className="flex items-center gap-1.5 border-r border-slate-200 dark:border-neutral-700 pr-3">
             {/* Print Table */}
             <button
               type="button"
               onClick={handlePrintTable}
-              title="Print table"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95"
+              title={t('inventory.print_table', 'Print table')}
+              className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 border border-slate-200 dark:border-neutral-700/60"
             >
-              <IconPrinter size={16} stroke={iconStroke} />
+              <IconPrinter size={17} stroke={iconStroke} />
             </button>
 
             {/* Export Excel */}
             <button
               type="button"
               onClick={handleExportToExcel}
-              title="Export to Excel"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95"
+              title={t('inventory.export_excel', 'Export to Excel')}
+              className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 border border-slate-200 dark:border-neutral-700/60"
             >
-              <IconDownload size={16} stroke={iconStroke} />
+              <IconDownload size={17} stroke={iconStroke} />
             </button>
 
             {/* Settings Gear Popover */}
@@ -638,30 +644,30 @@ export default function InventoryPage() {
                     showGearMenu: !p.showGearMenu,
                   }))
                 }
-                title="Table settings"
+                title={t('inventory.table_settings', 'Table settings')}
                 className={clsx(
-                  "w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95",
-                  tableSettings.showGearMenu && "bg-slate-200 dark:bg-neutral-800 text-slate-900"
+                  "min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 border border-slate-200 dark:border-neutral-700/60",
+                  tableSettings.showGearMenu && "bg-slate-200 dark:bg-neutral-800 text-slate-900 border-slate-300"
                 )}
               >
-                <IconSettings size={16} stroke={iconStroke} />
+                <IconSettings size={17} stroke={iconStroke} />
               </button>
 
               {tableSettings.showGearMenu && (
-                <div className="absolute right-0 top-9 w-60 p-3 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl border border-slate-200 dark:border-neutral-700 text-xs z-[100] animate-in fade-in duration-100">
+                <div className="absolute right-0 top-11 w-64 p-3.5 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl border border-slate-200 dark:border-neutral-700 text-xs z-[100] animate-in fade-in duration-100">
                   <div className="font-bold text-slate-900 dark:text-white pb-2 mb-2 border-b border-slate-100 dark:border-neutral-800">
-                    Columns
+                    {t('inventory.columns', 'Columns')}
                   </div>
-                  <div className="space-y-1.5 mb-3">
+                  <div className="space-y-2 mb-3">
                     {[
-                      { key: "currentStock", label: "Current Stock" },
-                      { key: "minStock", label: "Min Stock" },
-                      { key: "status", label: "Stock Status" },
-                      { key: "updatedOn", label: "Updated On" },
+                      { key: "currentStock", label: t('inventory.table_current_stock', 'Current Stock') },
+                      { key: "minStock", label: t('inventory.table_min_stock', 'Min Stock') },
+                      { key: "status", label: t('inventory.table_stock_status', 'Stock Status') },
+                      { key: "updatedOn", label: t('inventory.table_updated_on', 'Updated On') },
                     ].map((col) => (
                       <label
                         key={col.key}
-                        className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                        className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                       >
                         <input
                           type="checkbox"
@@ -675,7 +681,7 @@ export default function InventoryPage() {
                               },
                             }))
                           }
-                          className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                         />
                         <span>{col.label}</span>
                       </label>
@@ -683,9 +689,9 @@ export default function InventoryPage() {
                   </div>
 
                   <div className="font-bold text-slate-900 dark:text-white pb-1 mb-2 border-b border-slate-100 dark:border-neutral-800">
-                    Display
+                    {t('inventory.display', 'Display')}
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-300 mb-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 dark:text-slate-300 mb-3">
                     <input
                       type="checkbox"
                       checked={tableSettings.compactDensity}
@@ -695,13 +701,13 @@ export default function InventoryPage() {
                           compactDensity: e.target.checked,
                         }))
                       }
-                      className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span>Compact rows</span>
+                    <span>{t('inventory.compact_rows', 'Compact rows')}</span>
                   </label>
 
                   <div className="font-bold text-slate-900 dark:text-white pb-1 mb-1 border-b border-slate-100 dark:border-neutral-800">
-                    Rows per page
+                    {t('inventory.rows_per_page', 'Rows per page')}
                   </div>
                   <select
                     value={tableSettings.pageSize}
@@ -712,7 +718,7 @@ export default function InventoryPage() {
                         currentPage: 1,
                       }))
                     }
-                    className="w-full px-2 py-1 text-xs rounded border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-200"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-200"
                   >
                     <option value={10}>10</option>
                     <option value={25}>25</option>
@@ -725,7 +731,7 @@ export default function InventoryPage() {
           </div>
 
           {/* Pagination Text: < Previous  1 - 10 of 42  Next > */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400">
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400 select-none">
             <button
               type="button"
               disabled={currentPage <= 1}
@@ -736,17 +742,17 @@ export default function InventoryPage() {
                 }))
               }
               className={clsx(
-                "flex items-center gap-0.5 hover:text-slate-900 dark:hover:text-white transition",
-                currentPage <= 1 && "opacity-40 cursor-not-allowed hover:text-slate-600"
+                "min-h-[36px] px-2.5 rounded-lg flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-700 dark:text-slate-300 transition active:scale-95",
+                currentPage <= 1 && "opacity-40 cursor-not-allowed hover:bg-transparent"
               )}
             >
-              <IconChevronLeft size={14} stroke={iconStroke} />
-              <span>Previous</span>
+              <IconChevronLeft size={16} stroke={iconStroke} />
+              <span>{t('inventory.previous', 'Previous')}</span>
             </button>
 
-            <span className="font-medium text-slate-800 dark:text-slate-200 tabular-nums">
+            <span className="font-medium text-slate-800 dark:text-slate-200 tabular-nums px-1">
               {totalItems > 0 ? `${startIndex + 1} - ${endIndex}` : "0 - 0"}
-              <span className="text-slate-400 font-normal"> of {totalItems}</span>
+              <span className="text-slate-400 font-normal"> {t('inventory.of', 'of')} {totalItems}</span>
             </span>
 
             <button
@@ -759,12 +765,12 @@ export default function InventoryPage() {
                 }))
               }
               className={clsx(
-                "flex items-center gap-0.5 hover:text-slate-900 dark:hover:text-white transition",
-                currentPage >= totalPages && "opacity-40 cursor-not-allowed hover:text-slate-600"
+                "min-h-[36px] px-2.5 rounded-lg flex items-center gap-1 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-700 dark:text-slate-300 transition active:scale-95",
+                currentPage >= totalPages && "opacity-40 cursor-not-allowed hover:bg-transparent"
               )}
             >
-              <span>Next</span>
-              <IconChevronRight size={14} stroke={iconStroke} />
+              <span>{t('inventory.next', 'Next')}</span>
+              <IconChevronRight size={16} stroke={iconStroke} />
             </button>
           </div>
         </div>
@@ -867,7 +873,7 @@ export default function InventoryPage() {
                         {/* Min Stock */}
                         {tableSettings.visibleColumns.minStock && (
                           <td className={clsx("px-3 tabular-nums text-slate-500 dark:text-slate-400", tableSettings.compactDensity ? "py-2" : "py-3")}>
-                            {minQuantityThresholdRef ? min_quantity_threshold : "-"} <span className="text-slate-400 font-normal">{unit}</span>
+                            {min_quantity_threshold != null ? min_quantity_threshold : "-"} <span className="text-slate-400 font-normal">{unit}</span>
                           </td>
                         )}
 

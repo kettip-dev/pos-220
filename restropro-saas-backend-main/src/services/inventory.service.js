@@ -601,9 +601,9 @@ exports.getCummulativeInventoryMovementsDB = async (type, from, to, tenantId) =>
         l.inventory_item_id,
         i.title,
         i.unit,
-        SUM(CASE WHEN l.type = 'in' THEN l.quantity_change ELSE 0 END) AS total_in,
-        SUM(CASE WHEN l.type = 'out' THEN l.quantity_change ELSE 0 END) AS total_out,
-        SUM(CASE WHEN l.type = 'wastage' THEN l.quantity_change ELSE 0 END) AS total_wastage,
+        SUM(CASE WHEN UPPER(l.type) = 'IN' THEN l.quantity_change ELSE 0 END) AS total_in,
+        SUM(CASE WHEN UPPER(l.type) = 'OUT' THEN l.quantity_change ELSE 0 END) AS total_out,
+        SUM(CASE WHEN UPPER(l.type) = 'WASTAGE' THEN l.quantity_change ELSE 0 END) AS total_wastage,
         COUNT(*) AS movement_count
       FROM inventory_logs l
       JOIN inventory_items i ON i.id = l.inventory_item_id
@@ -634,7 +634,7 @@ exports.getInventoryUsageVsCurrentStockDB = async (type, from, to, tenantId) => 
         i.min_quantity_threshold,
         i.unit,
         i.status,
-        SUM(CASE WHEN l.type = 'out' THEN l.quantity_change ELSE 0 END) AS total_usage
+        SUM(CASE WHEN UPPER(l.type) = 'OUT' THEN l.quantity_change ELSE 0 END) AS total_usage
       FROM inventory_items i
       LEFT JOIN inventory_logs l
         ON l.inventory_item_id = i.id AND l.tenant_id = i.tenant_id AND ${filter}

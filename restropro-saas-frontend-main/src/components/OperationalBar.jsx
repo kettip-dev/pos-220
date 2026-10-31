@@ -213,9 +213,9 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
           </button>
         )}
 
-        {/* User Profile Avatar (opens menu to the right of the left rail) */}
+        {/* User Profile Avatar (opens menu upward to the right of the left rail) */}
         <div className="pt-0.5">
-          <AppBarDropdown isCollapsed={true} align="left" className="!w-9 !h-9 !p-0.5" />
+          <AppBarDropdown isCollapsed={true} align="left" direction="up" className="!w-9 !h-9 !p-0.5" />
         </div>
       </div>
     </aside>

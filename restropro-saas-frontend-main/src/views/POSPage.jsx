@@ -3114,7 +3114,7 @@ export default function POSPage() {
                     </span>
                     {isPostpaidOnly && (
                       <span className="text-[10px] font-semibold opacity-75 hidden sm:inline">
-                        (Postpaid)
+                        {t('pos.postpaid_parenthesis', '(Postpaid)')}
                       </span>
                     )}
                   </span>

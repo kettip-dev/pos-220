@@ -152,10 +152,10 @@ exports.sendTelegramMessage = async (botToken, chatId, text, { threadId = null, 
 exports.testTelegramConnection = async (botToken, chatId, threadId = null) => {
   const timestamp = new Date().toLocaleString();
   const testMessage = [
-    `🔔 <b>Restro PRO — Connection Test</b>`,
+    `<b>RESTRO PRO — Connection Test</b>`,
     `━━━━━━━━━━━━━━━━━━━━`,
-    `✅ <b>Success!</b> Your Telegram bot is successfully connected and can send push notifications.`,
-    `🕒 <b>Sent:</b> <i>${escapeHtml(timestamp)}</i>`,
+    `<b>Status:</b> Success. Your Telegram bot is connected and ready to send notifications.`,
+    `<b>Sent:</b> <i>${escapeHtml(timestamp)}</i>`,
   ].join("\n");
 
   return exports.sendTelegramMessage(botToken, chatId, testMessage, { threadId, parseMode: "HTML" });
@@ -283,14 +283,14 @@ exports.sendOrderTelegramNotification = async (tenantId, orderId) => {
             .filter(Boolean);
 
           if (addonTitles.length > 0) {
-            itemLine += `\n   ➕ <i>${escapeHtml(addonTitles.join(", "))}</i>`;
+            itemLine += `\n   + <i>${escapeHtml(addonTitles.join(", "))}</i>`;
           }
         } catch {}
       }
 
       // Item notes
       if (item.notes && item.notes.trim()) {
-        itemLine += `\n   📝 <code>${escapeHtml(item.notes.trim())}</code>`;
+        itemLine += `\n   <i>Note: ${escapeHtml(item.notes.trim())}</i>`;
       }
 
       itemLine += ` — <code>${currency} ${lineTotal.toFixed(2)}</code>`;
@@ -303,25 +303,25 @@ exports.sendOrderTelegramNotification = async (tenantId, orderId) => {
     });
 
     const lines = [
-      `🛒 <b>NEW ORDER #${orderRow.id}</b> ${orderRow.token_no ? `(Token: <b>#${orderRow.token_no}</b>)` : ""}`,
-      `🏪 <b>${escapeHtml(storeName)}</b>`,
+      `<b>NEW ORDER #${orderRow.id}</b> ${orderRow.token_no ? `(Token: <b>#${orderRow.token_no}</b>)` : ""}`,
+      `<b>${escapeHtml(storeName)}</b>`,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `📍 <b>Type:</b> ${typeDisplay}${orderRow.table_title ? ` | <b>Table:</b> ${escapeHtml(orderRow.table_title)}` : ""}`,
-      `👤 <b>Staff:</b> ${escapeHtml(orderRow.created_by || "POS")}`,
+      `<b>Type:</b> ${typeDisplay}${orderRow.table_title ? ` | <b>Table:</b> ${escapeHtml(orderRow.table_title)}` : ""}`,
+      `<b>Staff:</b> ${escapeHtml(orderRow.created_by || "POS")}`,
     ];
 
     if (orderRow.customer_name || orderRow.customer_phone) {
       const custDetails = [orderRow.customer_name, orderRow.customer_phone].filter(Boolean).join(" - ");
-      lines.push(`👥 <b>Customer:</b> ${escapeHtml(custDetails)}`);
+      lines.push(`<b>Customer:</b> ${escapeHtml(custDetails)}`);
     }
 
-    lines.push(`🕒 <b>Time:</b> ${escapeHtml(orderTime)}`);
+    lines.push(`<b>Time:</b> ${escapeHtml(orderTime)}`);
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`🍽️ <b>Items (${totalQty}):</b>`);
+    lines.push(`<b>Items (${totalQty}):</b>`);
     lines.push(itemsTextLines.join("\n"));
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-    lines.push(`💰 <b>Total:</b> <b>${currency} ${totalEstimated.toFixed(2)}</b>`);
-    lines.push(`💳 <b>Payment:</b> ${orderRow.payment_status?.toUpperCase() || "PENDING"}`);
+    lines.push(`<b>Total:</b> <b>${currency} ${totalEstimated.toFixed(2)}</b>`);
+    lines.push(`<b>Payment:</b> ${orderRow.payment_status?.toUpperCase() || "PENDING"}`);
 
     const finalMessage = lines.join("\n");
 
@@ -433,27 +433,27 @@ exports.sendEodTelegramNotification = async (tenantId, date, { force = false } =
       : "• <i>No settled payments</i>";
 
     const lines = [
-      `📊 <b>END OF DAY SUMMARY REPORT</b>`,
-      `🏪 <b>${escapeHtml(storeName)}</b>`,
-      `📅 <b>Date:</b> ${date}`,
+      `<b>END OF DAY SUMMARY REPORT</b>`,
+      `<b>${escapeHtml(storeName)}</b>`,
+      `<b>Date:</b> ${date}`,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `💰 <b>Financial Overview:</b>`,
+      `<b>Financial Overview:</b>`,
       `• <b>Gross Revenue:</b> <b>${currency} ${grossSales.toFixed(2)}</b>`,
       `• <b>Net Sales:</b> ${currency} ${netSales.toFixed(2)}`,
       discountTotal > 0 ? `• <b>Discounts:</b> -${currency} ${discountTotal.toFixed(2)}` : null,
       taxTotal > 0 ? `• <b>Taxes:</b> ${currency} ${taxTotal.toFixed(2)}` : null,
       serviceChargeTotal > 0 ? `• <b>Service Charges:</b> ${currency} ${serviceChargeTotal.toFixed(2)}` : null,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `📦 <b>Operations:</b>`,
+      `<b>Operations:</b>`,
       `• <b>Total Orders:</b> ${totalOrders}`,
       `• <b>Paid Invoices:</b> ${totalInvoices}`,
-      Number(ordTotals.unpaid_orders || 0) > 0 ? `• ⚠️ <b>Unpaid Orders:</b> ${ordTotals.unpaid_orders}` : null,
-      Number(ordTotals.cancelled_orders || 0) > 0 ? `• ❌ <b>Cancelled Orders:</b> ${ordTotals.cancelled_orders}` : null,
+      Number(ordTotals.unpaid_orders || 0) > 0 ? `• <b>Unpaid Orders:</b> ${ordTotals.unpaid_orders}` : null,
+      Number(ordTotals.cancelled_orders || 0) > 0 ? `• <b>Cancelled Orders:</b> ${ordTotals.cancelled_orders}` : null,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `💳 <b>Payment Methods:</b>`,
+      `<b>Payment Methods:</b>`,
       paymentMixLines,
       `━━━━━━━━━━━━━━━━━━━━`,
-      `🕒 <i>Generated at ${new Date().toLocaleTimeString()}</i>`,
+      `<i>Generated at ${new Date().toLocaleTimeString()}</i>`,
     ].filter(Boolean);
 
     const messageText = lines.join("\n");

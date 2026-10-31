@@ -101,11 +101,6 @@ export default function RegistrationPage() {
   const CURRENCIES = [
     { code: "USD", symbol: "$", label: "USD ($)" },
     { code: "KHR", symbol: "៛", label: "KHR (៛)" },
-    { code: "EUR", symbol: "€", label: "EUR (€)" },
-    { code: "GBP", symbol: "£", label: "GBP (£)" },
-    { code: "AUD", symbol: "A$", label: "AUD (A$)" },
-    { code: "THB", symbol: "฿", label: "THB (฿)" },
-    { code: "SGD", symbol: "S$", label: "SGD (S$)" },
   ];
 
   const BILLING_MODES = [

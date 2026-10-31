@@ -16,7 +16,8 @@ import {
   IconUser,
   IconAward,
   IconSparkles,
-  IconGift
+  IconGift,
+  IconRotate
 } from '@tabler/icons-react';
 import { PAYMENT_ICONS } from '../../config/payment_icons';
 import { clsx } from 'clsx';
@@ -201,6 +202,25 @@ export default function POSPaymentDrawer({
       setter(val);
     } else {
       setter(`${currentVal}${val}`);
+    }
+  };
+
+  // 1-Tap exact payment targeting active currency or remaining balance
+  const handleExactTender = () => {
+    if (activeTenderCurrency === 'USD') {
+      if (numKHR > 0 && diffKHR < 0) {
+        const remainingUSD = Math.max(0, Math.abs(diffKHR) / rate);
+        setTenderedUSD(remainingUSD.toFixed(2));
+      } else {
+        setTenderedUSD(totalUSD.toFixed(2));
+      }
+    } else {
+      if (numUSD > 0 && diffKHR < 0) {
+        const remainingKHR = Math.round(Math.max(0, Math.abs(diffKHR)) / 100) * 100;
+        setTenderedKHR(String(remainingKHR));
+      } else {
+        setTenderedKHR(String(Math.round(totalKHR)));
+      }
     }
   };
 
@@ -401,7 +421,7 @@ export default function POSPaymentDrawer({
         <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 p-4 sm:p-5 overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-950">
           
           {/* ----------------- LEFT COLUMN (5 of 12 cols) ----------------- */}
-          <div className="md:col-span-5 flex flex-col justify-between h-full space-y-3 min-h-0 overflow-y-auto md:overflow-hidden">
+          <div className="md:col-span-5 flex flex-col justify-between h-full space-y-3 min-h-0 overflow-y-auto">
             
             <div className="space-y-3">
               
@@ -782,7 +802,7 @@ export default function POSPaymentDrawer({
 
 
           {/* ----------------- RIGHT COLUMN (7 of 12 cols) ----------------- */}
-          <div className="md:col-span-7 flex flex-col justify-between h-full bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs min-h-0 overflow-y-auto md:overflow-hidden">
+          <div className="md:col-span-7 flex flex-col justify-between h-full bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-xs min-h-0 overflow-y-auto">
             
             {/* ==================== A. CASH PAYMENT WORKSPACE ==================== */}
             {isCash ? (
@@ -798,7 +818,7 @@ export default function POSPaymentDrawer({
                       <button
                         type="button"
                         onClick={() => { setTenderedUSD(''); setTenderedKHR(''); }}
-                        className="text-[11px] font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition active:scale-95 cursor-pointer"
+                        className="text-[11px] font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition active:scale-95 cursor-pointer touch-manipulation select-none"
                       >
                         {t('pos.clear_both', 'Clear Both')}
                       </button>
@@ -810,19 +830,22 @@ export default function POSPaymentDrawer({
                     <div
                       onClick={() => setActiveTenderCurrency('USD')}
                       className={clsx(
-                        "p-3.5 rounded-2xl border-2 transition cursor-pointer relative select-none",
+                        "p-3 sm:p-3.5 rounded-2xl border-2 transition cursor-pointer relative select-none touch-manipulation",
                         activeTenderCurrency === 'USD'
                           ? "border-[#0ea5e9] bg-[#0ea5e9]/10 ring-2 ring-[#0ea5e9]/20 shadow-2xs"
                           : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800"
                       )}
                     >
                       <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-0.5">
-                        <span>USD ($)</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className={clsx("w-2 h-2 rounded-full", activeTenderCurrency === 'USD' ? "bg-[#0ea5e9]" : "bg-slate-400")} />
+                          USD ($)
+                        </span>
                         {tenderedUSD && (
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setTenderedUSD(''); }}
-                            className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 hover:text-red-500 cursor-pointer"
+                            className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 hover:text-red-500 cursor-pointer touch-manipulation"
                           >
                             <IconX size={13} />
                           </button>
@@ -840,19 +863,22 @@ export default function POSPaymentDrawer({
                     <div
                       onClick={() => setActiveTenderCurrency('KHR')}
                       className={clsx(
-                        "p-3.5 rounded-2xl border-2 transition cursor-pointer relative select-none",
+                        "p-3 sm:p-3.5 rounded-2xl border-2 transition cursor-pointer relative select-none touch-manipulation",
                         activeTenderCurrency === 'KHR'
                           ? "border-[#0ea5e9] bg-[#0ea5e9]/10 ring-2 ring-[#0ea5e9]/20 shadow-2xs"
                           : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800"
                       )}
                     >
                       <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-0.5">
-                        <span>RIEL (៛)</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className={clsx("w-2 h-2 rounded-full", activeTenderCurrency === 'KHR' ? "bg-[#0ea5e9]" : "bg-slate-400")} />
+                          RIEL (៛)
+                        </span>
                         {tenderedKHR && (
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setTenderedKHR(''); }}
-                            className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 hover:text-red-500 cursor-pointer"
+                            className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 hover:text-red-500 cursor-pointer touch-manipulation"
                           >
                             <IconX size={13} />
                           </button>
@@ -872,9 +898,16 @@ export default function POSPaymentDrawer({
                 <div className="space-y-1.5">
                   {/* USD Banknotes */}
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      {t('pos.quick_usd_banknotes', 'Quick USD Banknotes ($):')}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        {t('pos.quick_usd_banknotes', 'Quick USD Banknotes ($):')}
+                      </span>
+                      {activeTenderCurrency === 'USD' && (
+                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                          ● {t('pos.active', 'Active')}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-7 gap-1.5">
                       {usdChips.map((chip, idx) => (
                         <button
@@ -885,10 +918,12 @@ export default function POSPaymentDrawer({
                             setActiveTenderCurrency('USD');
                           }}
                           className={clsx(
-                            "min-h-[42px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer flex items-center justify-center truncate",
+                            "h-10 sm:h-11 px-1 rounded-xl font-mono font-bold text-[10px] sm:text-[11px] border transition active:scale-95 cursor-pointer flex items-center justify-center truncate touch-manipulation select-none",
                             tenderedUSD === chip.value
                               ? "bg-[#0ea5e9] text-white border-[#0ea5e9] shadow-2xs"
-                              : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                              : activeTenderCurrency === 'USD'
+                                ? "bg-sky-50/70 hover:bg-sky-100/80 dark:bg-sky-950/30 dark:hover:bg-sky-900/40 text-slate-700 dark:text-slate-200 border-sky-200/70 dark:border-sky-800/40"
+                                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                           )}
                         >
                           {chip.label}
@@ -899,9 +934,16 @@ export default function POSPaymentDrawer({
 
                   {/* KHR Banknotes */}
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      {t('pos.quick_khr_banknotes', 'Quick Riel Banknotes (៛):')}
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        {t('pos.quick_khr_banknotes', 'Quick Riel Banknotes (៛):')}
+                      </span>
+                      {activeTenderCurrency === 'KHR' && (
+                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                          ● {t('pos.active', 'Active')}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-7 gap-1.5">
                       {khrChips.map((chip, idx) => (
                         <button
@@ -912,10 +954,12 @@ export default function POSPaymentDrawer({
                             setActiveTenderCurrency('KHR');
                           }}
                           className={clsx(
-                            "min-h-[42px] px-1 py-1 rounded-xl font-mono font-bold text-[11px] border transition active:scale-95 cursor-pointer flex items-center justify-center truncate",
+                            "h-10 sm:h-11 px-1 rounded-xl font-mono font-bold text-[10px] sm:text-[11px] border transition active:scale-95 cursor-pointer flex items-center justify-center truncate touch-manipulation select-none",
                             tenderedKHR === chip.value
                               ? "bg-[#0ea5e9] text-white border-[#0ea5e9] shadow-2xs"
-                              : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                              : activeTenderCurrency === 'KHR'
+                                ? "bg-sky-50/70 hover:bg-sky-100/80 dark:bg-sky-950/30 dark:hover:bg-sky-900/40 text-slate-700 dark:text-slate-200 border-sky-200/70 dark:border-sky-800/40"
+                                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                           )}
                         >
                           {chip.label}
@@ -925,62 +969,79 @@ export default function POSPaymentDrawer({
                   </div>
                 </div>
 
-                {/* 3. High-Density Touch Numpad */}
-                <div className="flex-1 flex flex-col justify-between min-h-0 pt-1">
-                  <div className="grid grid-cols-3 gap-2 flex-1 min-h-0">
+                {/* 3. High-Density Touch Numpad (Unified 3-Column x 5-Row POS Keypad) */}
+                <div className="flex-1 flex flex-col justify-end min-h-0 pt-1">
+                  <div className="grid grid-cols-3 gap-2 w-full">
+                    {/* Digits 1-9 */}
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((n) => (
                       <button
                         key={n}
                         type="button"
                         onClick={() => handleNumpadPress(n)}
-                        className="min-h-[52px] sm:min-h-[58px] rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-2xl font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs select-none"
+                        className="h-12 sm:h-13 md:h-14 rounded-2xl bg-slate-100/90 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-2xl sm:text-3xl font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 active:bg-slate-300 dark:active:bg-slate-600 flex items-center justify-center cursor-pointer shadow-2xs select-none touch-manipulation"
                       >
                         {n}
                       </button>
                     ))}
 
-                    {/* Dynamic Key: '000' for Riel, '.' for USD */}
+                    {/* Row 4: Key 10: '.' for USD, '00' for KHR */}
                     <button
                       type="button"
-                      onClick={() => handleNumpadPress(activeTenderCurrency === 'KHR' ? '000' : '.')}
-                      className="min-h-[52px] sm:min-h-[58px] rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-lg font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs select-none"
+                      onClick={() => handleNumpadPress(activeTenderCurrency === 'KHR' ? '00' : '.')}
+                      className="h-12 sm:h-13 md:h-14 rounded-2xl bg-slate-100/90 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xl sm:text-2xl font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 active:bg-slate-300 dark:active:bg-slate-600 flex items-center justify-center cursor-pointer shadow-2xs select-none touch-manipulation"
                     >
-                      {activeTenderCurrency === 'KHR' ? '000' : '.'}
+                      {activeTenderCurrency === 'KHR' ? '00' : '.'}
                     </button>
 
+                    {/* Key 11: '0' */}
                     <button
                       type="button"
                       onClick={() => handleNumpadPress('0')}
-                      className="min-h-[52px] sm:min-h-[58px] rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-2xl font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs select-none"
+                      className="h-12 sm:h-13 md:h-14 rounded-2xl bg-slate-100/90 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-2xl sm:text-3xl font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 active:bg-slate-300 dark:active:bg-slate-600 flex items-center justify-center cursor-pointer shadow-2xs select-none touch-manipulation"
                     >
                       0
                     </button>
 
+                    {/* Key 12: '00' for USD, '000' for KHR */}
                     <button
                       type="button"
-                      onClick={() => handleNumpadPress('00')}
-                      className="min-h-[52px] sm:min-h-[58px] rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-lg font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 flex items-center justify-center cursor-pointer shadow-2xs select-none"
+                      onClick={() => handleNumpadPress(activeTenderCurrency === 'KHR' ? '000' : '00')}
+                      className="h-12 sm:h-13 md:h-14 rounded-2xl bg-slate-100/90 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-lg sm:text-xl font-mono font-black border border-slate-200 dark:border-slate-700 transition active:scale-95 active:bg-slate-300 dark:active:bg-slate-600 flex items-center justify-center cursor-pointer shadow-2xs select-none touch-manipulation"
                     >
-                      00
+                      {activeTenderCurrency === 'KHR' ? '000' : '00'}
                     </button>
-                  </div>
 
-                  {/* Numpad Action Row */}
-                  <div className="grid grid-cols-2 gap-2 mt-2 shrink-0">
+                    {/* Row 5: Action Row (Col 1: Clear, Col 2: Exact, Col 3: Delete) */}
+                    {/* Key 13: Clear Active Currency */}
                     <button
                       type="button"
                       onClick={() => handleNumpadPress('CLEAR')}
-                      className="min-h-[44px] rounded-2xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-750 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-bold border border-slate-300 dark:border-slate-650 transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer select-none"
+                      className="h-12 sm:h-13 md:h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200/90 dark:border-rose-900/60 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs select-none touch-manipulation"
+                      title={t('pos.clear_currency', 'Clear')}
                     >
-                      {t('pos.clear_currency', 'Clear')} {activeTenderCurrency}
+                      <IconRotate size={16} stroke={iconStroke} />
+                      <span>{t('pos.clear', 'Clear')}</span>
                     </button>
 
+                    {/* Key 14: Exact Tender */}
+                    <button
+                      type="button"
+                      onClick={handleExactTender}
+                      className="h-12 sm:h-13 md:h-14 rounded-2xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800/60 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs select-none touch-manipulation"
+                      title={t('pos.exact', 'Exact Amount')}
+                    >
+                      <IconCheck size={16} stroke={2.5} />
+                      <span>{t('pos.exact', 'Exact')}</span>
+                    </button>
+
+                    {/* Key 15: Backspace / Delete */}
                     <button
                       type="button"
                       onClick={() => handleNumpadPress('BACKSPACE')}
-                      className="min-h-[44px] rounded-2xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-750 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white text-xs font-bold border border-slate-300 dark:border-slate-650 transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer select-none"
+                      className="h-12 sm:h-13 md:h-14 rounded-2xl bg-slate-200/90 hover:bg-slate-300 dark:bg-slate-750 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-650 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs select-none touch-manipulation"
+                      title={t('pos.delete', 'Delete')}
                     >
-                      <IconBackspace size={17} stroke={iconStroke} />
+                      <IconBackspace size={19} stroke={iconStroke} />
                       <span>{t('pos.delete', 'Delete')}</span>
                     </button>
                   </div>

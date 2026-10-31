@@ -39,6 +39,7 @@ import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { SCOPES, hasFullBusinessAccess } from "../config/scopes";
 import DeleteModal from "../components/DeleteModal";
 import InvoiceAuditLogModal from "../components/InvoiceAuditLogModal";
+import InvoiceDetailsDrawer from "../components/InvoiceDetailsDrawer";
 import clsx from "clsx";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -57,17 +58,18 @@ function InvoiceActionDropdown({
   btnPrintReceipt,
   btnOpenAuditLogModal,
   btnOpenVoidModal,
+  invoiceSummary,
   t,
   iconStroke,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef(null);
+  const containerRef = useRef(null);
 
   const toggleDropdown = (e) => {
     e.stopPropagation();
-    if (!isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
       const menuHeight = 180;
       const spaceBelow = window.innerHeight - rect.bottom;
       const top =
@@ -92,23 +94,39 @@ function InvoiceActionDropdown({
   }, [isOpen]);
 
   return (
-    <div className="relative inline-flex items-center justify-end text-right">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={toggleDropdown}
-        className="group inline-flex items-center gap-1.5 py-1.5 px-2.5 rounded-md text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-[#252525] transition active:scale-95"
-      >
-        <span>{t("invoices.view_receipt") || "View receipt"}</span>
-        <IconChevronDown
-          size={14}
-          stroke={iconStroke}
-          className={clsx(
-            "text-slate-500 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-transform duration-150",
-            isOpen && "rotate-180"
-          )}
-        />
-      </button>
+    <div ref={containerRef} className="relative inline-flex items-center justify-end text-right">
+      {/* Split action button */}
+      <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-600 transition">
+        {/* Main action: Click to slide open details drawer */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            btnViewReceipt(invoice_id, orderIdsArr, tokens, payment_type_id, invoiceSummary);
+          }}
+          className="group inline-flex items-center gap-1.5 py-1.5 px-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-zinc-700/60 rounded-l-lg transition active:scale-95 cursor-pointer"
+          title={t("invoices.view_receipt") || "View receipt"}
+        >
+          <span>{t("invoices.view_receipt") || "View receipt"}</span>
+        </button>
+
+        {/* Dropdown toggle */}
+        <button
+          type="button"
+          onClick={toggleDropdown}
+          aria-label="More actions"
+          className="py-1.5 px-1.5 border-l border-slate-200 dark:border-zinc-700 text-slate-500 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-zinc-700/60 rounded-r-lg transition active:scale-95 cursor-pointer"
+        >
+          <IconChevronDown
+            size={14}
+            stroke={iconStroke}
+            className={clsx(
+              "text-slate-500 transition-transform duration-150",
+              isOpen && "rotate-180"
+            )}
+          />
+        </button>
+      </div>
 
       {isOpen && (
         <div
@@ -123,9 +141,9 @@ function InvoiceActionDropdown({
           <button
             onClick={() => {
               setIsOpen(false);
-              btnViewReceipt(invoice_id, orderIdsArr, tokens, payment_type_id);
+              btnViewReceipt(invoice_id, orderIdsArr, tokens, payment_type_id, invoiceSummary);
             }}
-            className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+            className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95 cursor-pointer"
           >
             <IconReceipt size={16} stroke={iconStroke} className="text-emerald-600 shrink-0" />
             <span>{t("invoices.view_receipt") || "View Receipt"}</span>
@@ -136,7 +154,7 @@ function InvoiceActionDropdown({
               setIsOpen(false);
               btnPrintReceipt(invoice_id, orderIdsArr, tokens, payment_type_id);
             }}
-            className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+            className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95 cursor-pointer"
           >
             <IconPrinter size={16} stroke={iconStroke} className="text-slate-500 shrink-0" />
             <span>{t("invoices.print_receipt") || "Print Receipt"}</span>
@@ -148,7 +166,7 @@ function InvoiceActionDropdown({
                 setIsOpen(false);
                 btnOpenAuditLogModal(invoice_id);
               }}
-              className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+              className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95 cursor-pointer"
             >
               <IconHistory size={16} stroke={iconStroke} className="text-slate-500 shrink-0" />
               <span>{t("auditLogs.audit_log_action_title") || "Audit Log"}</span>
@@ -161,7 +179,7 @@ function InvoiceActionDropdown({
                 setIsOpen(false);
                 btnOpenVoidModal(invoice_id);
               }}
-              className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition active:scale-95"
+              className="flex w-full min-h-[36px] items-center gap-2 rounded-lg px-3 py-2 font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition active:scale-95 cursor-pointer"
             >
               <IconBan size={16} stroke={iconStroke} className="shrink-0" />
               <span>{t("invoices.void_invoice") || "Void Invoice"}</span>
@@ -267,6 +285,15 @@ export default function InvoicesPage() {
   const [auditLogModal, setAuditLogModal] = useState({
     open: false,
     invoice: null,
+  });
+
+  const [detailsDrawer, setDetailsDrawer] = useState({
+    isOpen: false,
+    invoiceId: null,
+    orderIdsArr: [],
+    tokens: "",
+    paymentTypeId: null,
+    invoiceSummary: null,
   });
 
   useEffect(() => {
@@ -673,7 +700,27 @@ export default function InvoicesPage() {
     }
   };
 
-  const btnViewReceipt = handleReceiptPrintFlow;
+  const btnViewReceipt = (
+    invoiceId,
+    orderIdsArr = [],
+    tokens = "",
+    paymentTypeId = null,
+    invoiceSummary = null
+  ) => {
+    setDetailsDrawer({
+      isOpen: true,
+      invoiceId,
+      orderIdsArr: orderIdsArr || [],
+      tokens: tokens || "",
+      paymentTypeId,
+      invoiceSummary,
+    });
+  };
+
+  const closeDetailsDrawer = () => {
+    setDetailsDrawer((prev) => ({ ...prev, isOpen: false }));
+  };
+
   const btnPrintReceipt = handleReceiptPrintFlow;
 
   const btnOpenVoidModal = (invoiceId) => {
@@ -1418,7 +1465,23 @@ export default function InvoicesPage() {
                         compactDensity ? "py-2" : "py-3"
                       )}
                     >
-                      <span>#{invoice_id}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          btnViewReceipt(
+                            invoice_id,
+                            orderIdsArr,
+                            tokens,
+                            payment_type_id,
+                            invoice
+                          );
+                        }}
+                        className="font-bold text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition cursor-pointer"
+                        title={t("invoices.view_receipt") || "View receipt"}
+                      >
+                        #{invoice_id}
+                      </button>
                       {tokens && !visibleColumns.tokens && (
                         <span className="text-[11px] text-slate-400 font-normal ml-1.5">
                           (Token #{tokens})
@@ -1606,6 +1669,7 @@ export default function InvoicesPage() {
                         btnPrintReceipt={btnPrintReceipt}
                         btnOpenAuditLogModal={btnOpenAuditLogModal}
                         btnOpenVoidModal={btnOpenVoidModal}
+                        invoiceSummary={invoice}
                         t={t}
                         iconStroke={iconStroke}
                       />
@@ -1774,6 +1838,31 @@ export default function InvoicesPage() {
         isOpen={auditLogModal.open}
         onClose={closeAuditLogModal}
         invoiceId={auditLogModal.invoice}
+      />
+
+      <InvoiceDetailsDrawer
+        isOpen={detailsDrawer.isOpen}
+        onClose={closeDetailsDrawer}
+        invoiceId={detailsDrawer.invoiceId}
+        orderIdsArr={detailsDrawer.orderIdsArr}
+        tokens={detailsDrawer.tokens}
+        paymentTypeId={detailsDrawer.paymentTypeId}
+        invoiceSummary={detailsDrawer.invoiceSummary}
+        currency={state.currency}
+        paymentTypes={state.paymentTypes}
+        storeSettings={state.storeSettings}
+        printSettings={state.printSettings}
+        canVoid={canVoid}
+        canViewAuditLog={canViewAuditLog}
+        onPrintReceipt={(invId, oIds, toks, ptId) => {
+          handleReceiptPrintFlow(invId, oIds, toks, ptId);
+        }}
+        onOpenVoidModal={(invId) => {
+          btnOpenVoidModal(invId);
+        }}
+        onOpenAuditLogModal={(invId) => {
+          btnOpenAuditLogModal(invId);
+        }}
       />
     </Page>
   );

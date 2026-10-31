@@ -22,11 +22,24 @@ import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { useTheme } from "../contexts/ThemeContext";
 import clsx from "clsx";
 
-export default function AppBarDropdown({ isCollapsed = false, className = "", align = "right" }) {
+export default function AppBarDropdown({ isCollapsed = false, className = "", align = "right", direction = "down" }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const user = getUserDetailsInLocalStorage();
   const { theme, toggleTheme } = useTheme();
+
+  const isDropUp = direction === "up" || align === "left";
+  const placementClasses = isDropUp
+    ? align === "left"
+      ? isCollapsed
+        ? "left-full ml-3 bottom-0 origin-bottom-left"
+        : "left-0 bottom-full mb-2 origin-bottom-left"
+      : "right-0 bottom-full mb-2 origin-bottom-right"
+    : align === "left"
+      ? isCollapsed
+        ? "left-full ml-3 top-0 origin-top-left"
+        : "left-0 top-full mt-2 origin-top-left"
+      : "right-0 top-full mt-2 origin-top-right";
 
   const btnLogout = async () => {
     try {
@@ -95,12 +108,8 @@ export default function AppBarDropdown({ isCollapsed = false, className = "", al
       >
         <Menu.Items
           className={clsx(
-            "absolute z-[100] divide-y divide-gray-100 dark:divide-zinc-800 rounded-2xl shadow-2xl ring-1 ring-black/10 focus:outline-none bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-1.5 w-64",
-            align === "left"
-              ? isCollapsed
-                ? "left-full ml-3 top-0 origin-top-left"
-                : "left-0 top-full mt-2 origin-top-left"
-              : "right-0 top-full mt-2 origin-top-right"
+            "absolute z-[100] divide-y divide-gray-100 dark:divide-zinc-800 rounded-2xl shadow-2xl ring-1 ring-black/10 focus:outline-none bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-1.5 w-64 max-h-[calc(100vh-2rem)] overflow-y-auto",
+            placementClasses
           )}
         >
           {/* User Profile Card Header */}

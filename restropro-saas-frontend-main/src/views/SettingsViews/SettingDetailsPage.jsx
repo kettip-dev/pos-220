@@ -466,7 +466,9 @@ export default function SettingDetailsPage() {
                   <option value="" hidden>
                     {t("settings.select_currency")}
                   </option>
-                  {CURRENCIES.map((item, index) => (
+                  {CURRENCIES.filter(
+                    (item) => ["USD", "KHR"].includes(item.cc) || item.cc === currency
+                  ).map((item, index) => (
                     <option value={item.cc} key={index}>
                       {item.name} - ({item.symbol})
                     </option>

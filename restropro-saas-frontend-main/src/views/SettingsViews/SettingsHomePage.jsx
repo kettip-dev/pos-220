@@ -25,83 +25,101 @@ export default function SettingsHomePage() {
   const settingsCards = [
     {
       id: "store-details",
-      title: t("settings.store_details"),
-      description:
-        "Manage restaurant profile, logo, store address, contact details, and QR menu preferences.",
+      title: t("settings.store_details", "Store Details"),
+      description: t(
+        "settings.desc_store_details",
+        "Manage restaurant profile, logo, store address, contact details, and QR menu preferences."
+      ),
       path: "/dashboard/settings/details",
-      category: "General & Operations",
+      category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconInfoSquareRounded stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "print-settings",
-      title: t("settings.print_settings"),
-      description:
-        "Configure receipt header/footer, thermal printer connections, KOT auto-print options.",
+      title: t("settings.print_settings", "Print Settings"),
+      description: t(
+        "settings.desc_print_settings",
+        "Configure receipt header/footer, thermal printer connections, KOT auto-print options."
+      ),
       path: "/dashboard/settings/print-settings",
-      category: "General & Operations",
+      category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconPrinter stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "telegram-notifications",
-      title: "Telegram Notifications",
-      description:
-        "Configure Telegram bot token, group chat IDs, order dispatch tickets, and daily EOD summary reports.",
+      title: t("settings.telegram_notifications", "Telegram Notifications"),
+      description: t(
+        "settings.desc_telegram_notifications",
+        "Configure Telegram bot token, group chat IDs, order dispatch tickets, and daily EOD summary reports."
+      ),
       path: "/dashboard/settings/telegram",
-      category: "General & Operations",
+      category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconBrandTelegram stroke={iconStroke} className="w-6 h-6 text-[#229ED9]" />,
     },
     {
       id: "thermal-printers",
-      title: "Thermal Printers (LAN / TCP)",
-      description:
-        "Manage network ESC/POS thermal printers, configure IP & Port 9100, paper size, auto-cut, and test connectivity.",
+      title: t("settings.thermal_printers", "Thermal Printers (LAN / TCP)"),
+      description: t(
+        "settings.desc_thermal_printers",
+        "Manage network ESC/POS thermal printers, configure IP & Port 9100, paper size, auto-cut, and test connectivity."
+      ),
       path: "/dashboard/settings/thermal-printers",
-      category: "General & Operations",
+      category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconPrinter stroke={iconStroke} className="w-6 h-6 text-emerald-600" />,
     },
     {
       id: "kitchen-stations",
-      title: "Kitchen Stations",
-      description:
-        "Configure multiple prep stations (Hot Kitchen, Bar, Grill) and route thermal KOT printers.",
+      title: t("settings.kitchen_stations", "Kitchen Stations"),
+      description: t(
+        "settings.desc_kitchen_stations",
+        "Configure multiple prep stations (Hot Kitchen, Bar, Grill) and route thermal KOT printers."
+      ),
       path: "/dashboard/settings/kitchen-stations",
-      category: "General & Operations",
+      category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconChefHat stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "tables-seating",
-      title: t("settings.tables"),
-      description:
-        "Define floor plan layouts, dining areas, table numbers, and seating capacities.",
+      title: t("settings.tables", "Tables & Seating"),
+      description: t(
+        "settings.desc_tables",
+        "Define floor plan layouts, dining areas, table numbers, and seating capacities."
+      ),
       path: "/dashboard/settings/tables",
-      category: "Dining & Layout",
+      category: t("settings.cat_dining_layout", "Dining & Layout"),
       icon: <IconArmchair2 stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "table-assignments",
-      title: t("settings.table_assignments"),
-      description:
-        "Assign waitstaff and servers to designated dining sections or specific tables.",
+      title: t("settings.table_assignments", "Table Assignments"),
+      description: t(
+        "settings.desc_table_assignments",
+        "Assign waitstaff and servers to designated dining sections or specific tables."
+      ),
       path: "/dashboard/settings/table-assignments",
-      category: "Dining & Layout",
+      category: t("settings.cat_dining_layout", "Dining & Layout"),
       icon: <IconUsers stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "menu-items",
-      title: t("settings.menu_items"),
-      description:
-        "Organize categories, food items, price list, variant options, and item availability.",
+      title: t("settings.menu_items", "Menu Items"),
+      description: t(
+        "settings.desc_menu_items",
+        "Organize categories, food items, price list, variant options, and item availability."
+      ),
       path: "/dashboard/settings/menu-items",
-      category: "Menu & Catalog",
+      category: t("settings.cat_menu_catalog", "Menu & Catalog"),
       icon: <IconBook stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "tax-setup",
-      title: t("settings.tax_setup"),
-      description:
-        "Configure GST, VAT, service taxes, and select inclusive or exclusive tax modes.",
+      title: t("settings.tax_setup", "Tax Setup"),
+      description: t(
+        "settings.desc_tax_setup",
+        "Configure GST, VAT, service taxes, and select inclusive or exclusive tax modes."
+      ),
       path: "/dashboard/settings/tax-setup",
-      category: "Finance & Tax",
+      category: t("settings.cat_finance_tax", "Finance & Tax"),
       icon: <IconReceiptTax stroke={iconStroke} className="w-6 h-6" />,
     },
     {
@@ -117,20 +135,24 @@ export default function SettingsHomePage() {
     },
     {
       id: "loyalty-rewards",
-      title: "Loyalty & Rewards",
-      description:
-        "Configure points earning rules, cash redemption conversion rate, minimum point thresholds, and member tiers.",
+      title: t("settings.loyalty_rewards", "Loyalty & Rewards"),
+      description: t(
+        "settings.desc_loyalty_rewards",
+        "Configure points earning rules, cash redemption conversion rate, minimum point thresholds, and member tiers."
+      ),
       path: "/dashboard/settings/loyalty",
-      category: "Marketing & Discounts",
+      category: t("settings.category_marketing", "Marketing & Discounts"),
       icon: <IconAward stroke={iconStroke} className="w-6 h-6 text-amber-500" />,
     },
     {
       id: "payment-types",
-      title: t("settings.payment_types"),
-      description:
-        "Enable Cash, Credit/Debit Card, UPI, online payment gateways, and custom payment options.",
+      title: t("settings.payment_types", "Payment Types"),
+      description: t(
+        "settings.desc_payment_types",
+        "Enable Cash, Credit/Debit Card, UPI, online payment gateways, and custom payment options."
+      ),
       path: "/dashboard/settings/payment-types",
-      category: "Finance & Tax",
+      category: t("settings.cat_finance_tax", "Finance & Tax"),
       icon: <IconCreditCard stroke={iconStroke} className="w-6 h-6" />,
     },
   ];

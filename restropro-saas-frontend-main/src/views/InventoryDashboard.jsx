@@ -55,197 +55,304 @@ export default function InventoryDashboardPage() {
   }
 
   const {
-    cummulativeInventoryMovements,
-    inventoryUsageVSCurrentStock
-  } = data;
+    cummulativeInventoryMovements = [],
+    inventoryUsageVSCurrentStock = []
+  } = data || {};
+
+  // Summary KPI statistics
+  const summaryKpis = React.useMemo(() => {
+    let totalIn = 0;
+    let totalOut = 0;
+    let totalWastage = 0;
+    let totalMovements = 0;
+
+    (cummulativeInventoryMovements || []).forEach((item) => {
+      totalIn += parseFloat(item.total_in || 0);
+      totalOut += parseFloat(item.total_out || 0);
+      totalWastage += parseFloat(item.total_wastage || 0);
+      totalMovements += parseInt(item.movement_count || 0, 10);
+    });
+
+    const lowStockCount = (inventoryUsageVSCurrentStock || []).filter(
+      (item) => item.status === "low" || item.status === "out"
+    ).length;
+
+    return { totalIn, totalOut, totalWastage, totalMovements, lowStockCount };
+  }, [cummulativeInventoryMovements, inventoryUsageVSCurrentStock]);
 
   return (
     <Page>
-      <div className="breadcrumbs text-sm mb-1">
+      <div className="breadcrumbs text-xs text-slate-500 mb-2">
         <ul>
           <li>
-            <Link to="/dashboard/inventory">{t("inventory.breadcrumbs_inventory")}</Link>
+            <Link to="/dashboard/inventory" className="hover:text-emerald-600 transition">
+              {t("inventory.breadcrumbs_inventory")}
+            </Link>
           </li>
-          <li>{t("inventory.breadcrumbs_dashboard")}</li>
+          <li className="font-semibold text-slate-700 dark:text-slate-300">
+            {t("inventory.breadcrumbs_dashboard")}
+          </li>
         </ul>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center gap-2">
-        <h3 className="text-2xl flex-1">{t("inventory.page_title_dashboard")}</h3>
-        <div className="relative md:w-80">
-          <IconSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="search"
-            className="input input-sm input-bordered focus:outline-none focus:ring-1 focus-within:ring-gray-200 transition pl-8 pr-2 w-full rounded-lg text-gray-500 py-4 h-8"
-            placeholder={t("inventory.search_placeholder")}
-            value={state.search}
-            onChange={(e) => {
-              setState({
-                ...state,
-                search: e.target.value,
-              });
-            }}
-          />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            {t("inventory.page_title_dashboard")}
+          </h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-neutral-400">
+            {t("inventory.showing_data_for")}{" "}
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+              {filters.find((f) => f.key == state.filter)?.value}
+            </span>
+          </p>
         </div>
-        <button
-          onClick={() => document.getElementById("filter-dialog").showModal()}
-          className='btn btn-sm rounded-lg w-fit bg-restro-gray hover:bg-restro-button-hover text-restro-text border border-restro-border-green'
-        >
-          <IconFilter stroke={iconStroke} /> {t("inventory.filters_button")}
-        </button>
+
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex-1 md:w-72">
+            <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="search"
+              className="w-full min-h-[42px] pl-9 pr-3 py-2 text-xs sm:text-[13px] rounded-xl border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-500 transition shadow-xs"
+              placeholder={t("inventory.search_placeholder")}
+              value={state.search}
+              onChange={(e) => {
+                setState({
+                  ...state,
+                  search: e.target.value,
+                });
+              }}
+            />
+          </div>
+          <button
+            onClick={() => document.getElementById("filter-dialog").showModal()}
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center gap-1.5 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-neutral-700 shadow-xs"
+          >
+            <IconFilter stroke={iconStroke} size={18} />
+            <span>{t("inventory.filters_button")}</span>
+          </button>
+        </div>
       </div>
 
-      <h3 className="mt-1 text-gray-500 text-base">
-        {t("inventory.showing_data_for")} {filters.find((f) => f.key == state.filter).value}
-      </h3>
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-3 mb-6">
+        <div className="p-4 rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {t("inventory.stock_movements_all", "Total Movements")}
+            </span>
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-300">
+              <IconBox size={18} stroke={iconStroke} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
+            {summaryKpis.totalMovements}
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 mt-6">
+        <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              {t("inventory.table_header_in", "Stock In")}
+            </span>
+            <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+              <IconArrowDownLeft size={18} stroke={iconStroke} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
+            {summaryKpis.totalIn.toFixed(1)}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+              {t("inventory.table_header_out", "Stock Out")}
+            </span>
+            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+              <IconArrowUpRight size={18} stroke={iconStroke} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-blue-700 dark:text-blue-400 mt-1 tabular-nums">
+            {summaryKpis.totalOut.toFixed(1)}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-rose-800 dark:text-rose-300">
+              {t("inventory.table_header_wastage", "Wastage")}
+            </span>
+            <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300">
+              <IconCircleMinus size={18} stroke={iconStroke} />
+            </div>
+          </div>
+          <div className="text-2xl font-bold text-rose-700 dark:text-rose-400 mt-1 tabular-nums">
+            {summaryKpis.totalWastage.toFixed(1)}
+          </div>
+        </div>
+      </div>
+
+      {/* Two Responsive Grid Widgets */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Top Moving Inventory Items */}
-        <div className='h-[calc(100vh-220px)] rounded-3xl border border-restro-border-green text-restro-text'>
-          <div className='pt-5 px-4 backdrop-blur sticky top-0 z-10 font-bold pb-1 bg-restro-bg-gray rounded-t-3xl'>
-            {t("inventory.cummulative_inventory_movements")}
+        <div className="flex flex-col min-h-[460px] max-h-[580px] rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b] shadow-xs overflow-hidden">
+          <div className="p-4 border-b border-slate-100 dark:border-neutral-800 bg-slate-50/80 dark:bg-neutral-850/80 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                {t("inventory.cummulative_inventory_movements")}
+              </h2>
+            </div>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+              {cummulativeInventoryMovements?.length || 0}
+            </span>
           </div>
 
-          <div className="mt-4 h-[calc(100%-60px)] overflow-auto">
+          <div className="flex-1 overflow-auto">
             {cummulativeInventoryMovements?.filter((item) => {
-              if (!state.search) {
-                return true;
-              }
-              return new String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
+              if (!state.search) return true;
+              return String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
             })?.length > 0 ? (
-              <table className="table table-sm w-full text-xs lg:text-sm">
-                <thead className='px-4 sticky top-0 z-10 bg-restro-bg-gray'>
+              <table className="w-full text-left border-collapse text-xs sm:text-[13px]">
+                <thead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-neutral-800/90 backdrop-blur border-b border-slate-200 dark:border-neutral-700 text-slate-700 dark:text-slate-300 font-semibold">
                   <tr>
-                    <th>{t("inventory.table_header_number")}</th>
-                    <th>{t("inventory.table_header_item")}</th>
-                    <th className="text-green-600">{t("inventory.table_header_in")}</th>
-                    <th className="text-red-600">{t("inventory.table_header_out")}</th>
-                    <th className="text-yellow-600">{t("inventory.table_header_wastage")}</th>
+                    <th className="px-3.5 py-2.5 w-10">#</th>
+                    <th className="px-3.5 py-2.5">{t("inventory.table_header_item")}</th>
+                    <th className="px-3.5 py-2.5 text-emerald-700 dark:text-emerald-400">{t("inventory.table_header_in")}</th>
+                    <th className="px-3.5 py-2.5 text-blue-700 dark:text-blue-400">{t("inventory.table_header_out")}</th>
+                    <th className="px-3.5 py-2.5 text-rose-700 dark:text-rose-400">{t("inventory.table_header_wastage")}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-neutral-800">
                   {cummulativeInventoryMovements.filter((item) => {
-                    if (!state.search) {
-                      return true;
-                    }
-                    return new String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
+                    if (!state.search) return true;
+                    return String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
                   })?.map((item, index) => (
-                    <tr key={item.inventory_item_id}>
-                      <td>{index + 1}</td>
-                      <td>{item.title}</td>
-                      <td className="text-green-600">
-                        <div className="flex gap-1 items-center">
-                          <IconArrowDownLeft stroke={iconStroke} size={18} />
-                          {item.total_in} {item.unit}
+                    <tr key={item.inventory_item_id || index} className="hover:bg-slate-50 dark:hover:bg-neutral-800/40 transition">
+                      <td className="px-3.5 py-3 font-mono text-slate-400 text-xs">{index + 1}</td>
+                      <td className="px-3.5 py-3 font-medium text-slate-900 dark:text-white">{item.title}</td>
+                      <td className="px-3.5 py-3 text-emerald-600 dark:text-emerald-400 font-semibold tabular-nums">
+                        <div className="flex items-center gap-1">
+                          <IconArrowDownLeft stroke={iconStroke} size={15} />
+                          <span>{Number(item.total_in).toFixed(1)} {item.unit}</span>
                         </div>
                       </td>
-                      <td className="text-red-600">
-                        <div className="flex gap-1 items-center">
-                          <IconArrowUpRight stroke={iconStroke} size={18} />
-                          {item.total_out} {item.unit}
+                      <td className="px-3.5 py-3 text-blue-600 dark:text-blue-400 font-semibold tabular-nums">
+                        <div className="flex items-center gap-1">
+                          <IconArrowUpRight stroke={iconStroke} size={15} />
+                          <span>{Number(item.total_out).toFixed(1)} {item.unit}</span>
                         </div>
                       </td>
-                      <td className="text-yellow-600">
-                        <div className="flex gap-1 items-center">
-                          {item.total_wastage > 0 && <IconCircleMinus stroke={iconStroke} size={18} />}
-                          {item.total_wastage > 0 ? `${item.total_wastage} ${item.unit}` : t("inventory.default_no_remarks")}
-                        </div>
+                      <td className="px-3.5 py-3 text-rose-600 dark:text-rose-400 font-semibold tabular-nums">
+                        {parseFloat(item.total_wastage) > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <IconCircleMinus stroke={iconStroke} size={15} />
+                            <span>{Number(item.total_wastage).toFixed(1)} {item.unit}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-normal">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-400 text-sm mt-8">
+              <div className="flex flex-col items-center justify-center p-12 text-slate-400 text-xs sm:text-sm">
                 <img
                   src="/assets/illustrations/top-selling-not-found.webp"
                   alt={t("inventory.no_data_image_alt")}
-                  className="w-1/4 mx-auto mb-2"
+                  className="w-32 sm:w-40 mb-3 opacity-90"
                 />
-                <span>{t("inventory.no_inventory_movements_message")}</span>
+                <span className="font-medium text-slate-500">{t("inventory.no_inventory_movements_message")}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Usage vs Current Stock */}
-        <div className='h-[calc(100vh-220px)] border rounded-3xl border-restro-border-green'>
-          <div className='pt-5 px-4 sticky top-0 z-10 font-bold pb-1 rounded-t-3xl bg-restro-bg-gray border-t-restro-border-green'>
-            {t("inventory.usage_vs_current_stock")}
+        <div className="flex flex-col min-h-[460px] max-h-[580px] rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b] shadow-xs overflow-hidden">
+          <div className="p-4 border-b border-slate-100 dark:border-neutral-800 bg-slate-50/80 dark:bg-neutral-850/80 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <h2 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                {t("inventory.usage_vs_current_stock")}
+              </h2>
+            </div>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-neutral-800 text-slate-700 dark:text-slate-300">
+              {inventoryUsageVSCurrentStock?.length || 0}
+            </span>
           </div>
 
-          <div className="mt-4 h-[calc(100%-60px)] overflow-auto">
+          <div className="flex-1 overflow-auto">
             {inventoryUsageVSCurrentStock?.filter((item) => {
-              if (!state.search) {
-                return true;
-              }
-              return new String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
-            }).length > 0 ? (
-              <table className="table table-sm w-full text-xs lg:text-sm">
-                <thead className='sticky top-0 z-10 bg-restro-bg-gray'>
+              if (!state.search) return true;
+              return String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
+            })?.length > 0 ? (
+              <table className="w-full text-left border-collapse text-xs sm:text-[13px]">
+                <thead className="sticky top-0 z-10 bg-slate-100/90 dark:bg-neutral-800/90 backdrop-blur border-b border-slate-200 dark:border-neutral-700 text-slate-700 dark:text-slate-300 font-semibold">
                   <tr>
-                    <th>{t("inventory.table_header_number")}</th>
-                    <th>{t("inventory.table_header_item")}</th>
-                    <th className="text-red-600">{t("inventory.table_header_used")}</th>
-                    <th className="text-green-600">{t("inventory.table_header_current_stock")}</th>
-                    <th className="text-yellow-600">{t("inventory.table_header_min_qty")}</th>
-                    <th>{t("inventory.table_header_status")}</th>
+                    <th className="px-3.5 py-2.5 w-10">#</th>
+                    <th className="px-3.5 py-2.5">{t("inventory.table_header_item")}</th>
+                    <th className="px-3.5 py-2.5 text-blue-700 dark:text-blue-400">{t("inventory.table_header_used")}</th>
+                    <th className="px-3.5 py-2.5 text-emerald-700 dark:text-emerald-400">{t("inventory.table_header_current_stock")}</th>
+                    <th className="px-3.5 py-2.5 text-amber-700 dark:text-amber-400">{t("inventory.table_header_min_qty")}</th>
+                    <th className="px-3.5 py-2.5 text-center">{t("inventory.table_header_status")}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-neutral-800">
                   {inventoryUsageVSCurrentStock.filter((item) => {
-                    if (!state.search) {
-                      return true;
-                    }
-                    return new String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
-                  }).map((item, index) => {
-                    return (
-                      <tr key={index}>
-                        <td>{index + 1}</td>
-                        <td>{item.title}</td>
-                        <td className="text-restro-red">
-                          <div className="flex gap-1 items-center">
-                            <IconCopyMinus stroke={iconStroke} size={18} />
-                            {item.total_usage} {item.unit}
-                          </div>
-                        </td>
-                        <td className="text-restro-green">
-                          <div className="flex gap-1 items-center">
-                            <IconBox stroke={iconStroke} size={18} />
-                            {item.current_stock} {item.unit}
-                          </div>
-                        </td>
-                        <td className="text-restro-yellow flex gap-1 items-center">
-                          <IconAlertTriangle stroke={iconStroke} size={16} />
-                          {Number(item.min_quantity_threshold).toFixed(2)} {item.unit}
-                        </td>
-                        <td>
-                          <span
-                            className={clsx(
-                              "px-2 py-1 text-xs font-medium rounded-lg",
-                              item.status === "in" && "bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 ",
-                              item.status === "low" && "bg-yellow-100 dark:bg-yellow-600 text-yellow-600 dark:text-yellow-300",
-                              item.status === "out" && "bg-red-100 dark:bg-red-600 text-red-600 dark:text-red-300"
-                            )}
-                          >
-                            {item.status === "in" && t("inventory.status_in_stock")}
-                            {item.status === "low" && t("inventory.status_low_stock")}
-                            {item.status === "out" && t("inventory.status_out_of_stock")}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                    if (!state.search) return true;
+                    return String(item.title).trim().toLowerCase().includes(state.search.trim().toLowerCase());
+                  }).map((item, index) => (
+                    <tr key={item.inventory_item_id || index} className="hover:bg-slate-50 dark:hover:bg-neutral-800/40 transition">
+                      <td className="px-3.5 py-3 font-mono text-slate-400 text-xs">{index + 1}</td>
+                      <td className="px-3.5 py-3 font-medium text-slate-900 dark:text-white">{item.title}</td>
+                      <td className="px-3.5 py-3 text-blue-600 dark:text-blue-400 font-semibold tabular-nums">
+                        <div className="flex items-center gap-1">
+                          <IconCopyMinus stroke={iconStroke} size={15} />
+                          <span>{Number(item.total_usage || 0).toFixed(1)} {item.unit}</span>
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-3 text-emerald-600 dark:text-emerald-400 font-semibold tabular-nums">
+                        <div className="flex items-center gap-1">
+                          <IconBox stroke={iconStroke} size={15} />
+                          <span>{Number(item.current_stock || 0).toFixed(1)} {item.unit}</span>
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-3 text-amber-600 dark:text-amber-400 tabular-nums">
+                        <div className="flex items-center gap-1">
+                          <IconAlertTriangle stroke={iconStroke} size={14} />
+                          <span>{Number(item.min_quantity_threshold || 0).toFixed(1)} {item.unit}</span>
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-3 text-center whitespace-nowrap">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border",
+                            item.status === "in" && "bg-[#dcfce7] text-[#15803d] dark:bg-emerald-950/70 dark:text-emerald-400 border-[#bbf7d0] dark:border-emerald-800",
+                            item.status === "low" && "bg-[#fef3c7] text-[#b45309] dark:bg-amber-950/70 dark:text-amber-400 border-[#fde68a] dark:border-amber-800",
+                            item.status === "out" && "bg-[#fee2e2] text-[#991b1b] dark:bg-rose-950/70 dark:text-rose-400 border-[#fecaca] dark:border-rose-800"
+                          )}
+                        >
+                          {item.status === "in" && t("inventory.status_in_stock")}
+                          {item.status === "low" && t("inventory.status_low_stock")}
+                          {item.status === "out" && t("inventory.status_out_of_stock")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-gray-400 text-sm mt-8">
+              <div className="flex flex-col items-center justify-center p-12 text-slate-400 text-xs sm:text-sm">
                 <img
                   src="/assets/illustrations/kitchen-order-not-found.webp"
                   alt={t("inventory.no_data_image_alt")}
-                  className="w-1/4 mx-auto mb-2"
+                  className="w-32 sm:w-40 mb-3 opacity-90"
                 />
-                <span>{t("inventory.no_usage_vs_stock_message")}</span>
+                <span className="font-medium text-slate-500">{t("inventory.no_usage_vs_stock_message")}</span>
               </div>
             )}
           </div>
