@@ -13,6 +13,7 @@ const { ensureTelegramSettingsSchema } = require("../utils/telegramSettingsMigra
 const { ensureSupplierManagementSchema } = require("../utils/supplierManagementMigration");
 const { ensurePromotionSchema } = require("../utils/promotionMigration");
 const { ensureLoyaltyProgramSchema } = require("../utils/loyaltyMigration");
+const { ensureSplitBillSchema } = require("../utils/splitBillMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -78,6 +79,10 @@ ensurePromotionSchema(pool).catch((err) => {
 
 ensureLoyaltyProgramSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring loyalty program schema:", err);
+});
+
+ensureSplitBillSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring bill splitting schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

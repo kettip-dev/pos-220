@@ -17,7 +17,8 @@ import {
   IconAward,
   IconSparkles,
   IconGift,
-  IconRotate
+  IconRotate,
+  IconArrowsSplit2,
 } from '@tabler/icons-react';
 import { PAYMENT_ICONS } from '../../config/payment_icons';
 import { clsx } from 'clsx';
@@ -52,6 +53,7 @@ export default function POSPaymentDrawer({
   customerType = 'WALKIN',
   diningOption = 'dinein',
   tableTitle = '',
+  onOpenSplitBill,
 }) {
   const { t } = useTranslation();
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
@@ -403,6 +405,21 @@ export default function POSPaymentDrawer({
                 </div>
               )}
             </div>
+
+            {onOpenSplitBill && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenSplitBill();
+                }}
+                className="h-[34px] px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs hover:bg-indigo-100"
+                title={t('pos.split_bill', 'Split Bill')}
+              >
+                <IconArrowsSplit2 size={16} stroke={iconStroke} />
+                <span className="hidden sm:inline">{t('pos.split_bill', 'Split Bill')}</span>
+              </button>
+            )}
 
             {/* Close Button */}
             <button 

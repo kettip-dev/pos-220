@@ -172,3 +172,51 @@ export async function splitCheckByItems(sourceOrderId, items) {
     }
 }
 
+export async function createSplitSubInvoices(orderId, splitMode, splits) {
+    try {
+        const response = await ApiClient.post(`/orders/split-sub-invoices`, {
+            orderId,
+            splitMode,
+            splits,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function getOrderSubInvoices(orderId) {
+    try {
+        const response = await ApiClient.get(`/orders/sub-invoices/${orderId}`);
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function settleSubInvoice(subInvoiceId, paymentTypeId, paymentTypeTitle, tipAmount = 0, notes = null) {
+    try {
+        const response = await ApiClient.post(`/orders/settle-sub-invoice`, {
+            subInvoiceId,
+            paymentTypeId,
+            paymentTypeTitle,
+            tipAmount,
+            notes,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function cancelSplitPlan(orderId) {
+    try {
+        const response = await ApiClient.post(`/orders/cancel-split-plan`, {
+            orderId,
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+

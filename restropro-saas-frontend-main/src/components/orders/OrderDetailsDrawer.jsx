@@ -17,6 +17,7 @@ import {
   IconStars,
   IconAlertTriangle,
   IconNotes,
+  IconArrowsSplit2,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import { formatElapsedOrderTime, parseOrderDate } from "../../helpers/DateHelper";
@@ -36,6 +37,7 @@ export default function OrderDetailsDrawer({
   onCancelOrder,
   onPrintReceipt,
   onCollectFeedback,
+  onSplitBill,
 }) {
   const { t } = useTranslation();
 
@@ -484,6 +486,19 @@ export default function OrderDetailsDrawer({
                 <IconX size={16} stroke={iconStroke} />
                 <span>{t("orders.cancel", "Cancel")}</span>
               </button>
+
+              {/* Split Bill Button */}
+              {!isPaid && (
+                <button
+                  type="button"
+                  onClick={() => onSplitBill && onSplitBill(orderGroup)}
+                  title={t("orders.split_bill", "Split Bill")}
+                  className="h-[42px] min-h-[42px] px-3 shrink-0 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap transition active:scale-95 cursor-pointer shadow-2xs"
+                >
+                  <IconArrowsSplit2 size={16} stroke={iconStroke} />
+                  <span>{t("orders.split_bill", "Split")}</span>
+                </button>
+              )}
 
               {/* Primary Action Button: Pay & Settle vs Complete Order */}
               {!isPaid ? (

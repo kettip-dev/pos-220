@@ -20,6 +20,10 @@ const {
   transferTableOrder,
   moveOrderItems,
   splitCheckByItems,
+  createSplitSubInvoices,
+  getOrderSubInvoices,
+  settleSubInvoice,
+  cancelSplitPlan,
 } = require("../controllers/orders.controller");
 
 const router = Router();
@@ -180,6 +184,54 @@ router.post(
     SCOPES.ORDERS,
   ]),
   splitCheckByItems
+);
+
+router.post(
+  "/split-sub-invoices",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  createSplitSubInvoices
+);
+
+router.get(
+  "/sub-invoices/:orderId",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  getOrderSubInvoices
+);
+
+router.post(
+  "/settle-sub-invoice",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  settleSubInvoice
+);
+
+router.post(
+  "/cancel-split-plan",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([
+    SCOPES.POS,
+    SCOPES.ORDERS,
+  ]),
+  cancelSplitPlan
 );
 
 module.exports = router;

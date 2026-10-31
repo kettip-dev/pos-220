@@ -9,11 +9,11 @@ export default function RatingComponent({
   const { t } = useTranslation();
   const {theme } = useTheme();
   const values = [
-    {value: 1, icon: '', text: t("rating.worst")},
-    {value: 2, icon: '', text: t("rating.bad")},
-    {value: 3, icon: '', text: t("rating.average")},
-    {value: 4, icon: '', text: t("rating.good")},
-    {value: 5, icon: '', text: t("rating.loved")}
+    {value: 1, icon: '😡', text: t("rating.worst")},
+    {value: 2, icon: '🙁', text: t("rating.bad")},
+    {value: 3, icon: '😐', text: t("rating.average")},
+    {value: 4, icon: '😊', text: t("rating.good")},
+    {value: 5, icon: '😍', text: t("rating.loved")}
   ]
 
   return (

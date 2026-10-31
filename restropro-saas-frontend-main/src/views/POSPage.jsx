@@ -28,6 +28,7 @@ import POSCustomerDrawer from '../components/pos/POSCustomerDrawer';
 import POSQROrdersDrawer from '../components/pos/POSQROrdersDrawer';
 import POSPaymentSuccessModal from '../components/pos/POSPaymentSuccessModal';
 import POSPromotionDrawer from '../components/pos/POSPromotionDrawer';
+import POSSplitBillDrawer from '../components/pos/POSSplitBillDrawer';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { evaluateCartPromotions } from '../helpers/promotionEvaluator';
 import { clsx } from "clsx";
@@ -53,6 +54,8 @@ export default function POSPage() {
   const [isCustomerDrawerOpen, setIsCustomerDrawerOpen] = useState(false);
   const [isQrOrdersDrawerOpen, setIsQrOrdersDrawerOpen] = useState(false);
   const [isPromotionDrawerOpen, setIsPromotionDrawerOpen] = useState(false);
+  const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
+  const [splitBillOrder, setSplitBillOrder] = useState(null);
   const [enteredCouponCode, setEnteredCouponCode] = useState("");
   const { promotions: activePromotionsList = [] } = useActivePromotions();
   const [completedPaymentInfo, setCompletedPaymentInfo] = useState(null);
@@ -1910,6 +1913,62 @@ export default function POSPage() {
     broadcastPaymentModalOpen(paymentTypes, defaultPayType);
   };
 
+  const handleOpenSplitFromPOS = () => {
+    if (cartItems?.length === 0) {
+      toast.error(t('pos.empty_cart'));
+      return;
+    }
+
+    const summary = calculateOrderSummary();
+    const formattedItems = cartItems.map((it, idx) => ({
+      id: idx + 1,
+      item_title: it.title,
+      variant_title: it.variant?.title || null,
+      price: Number(it.price || 0),
+      quantity: Number(it.quantity || 1),
+    }));
+
+    setSplitBillOrder({
+      id: Date.now(),
+      table_title: selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : ''),
+      token_no: 'POS',
+      subtotal: summary.itemsTotal,
+      total: summary.payableTotal,
+      tax_total: summary.taxTotal,
+      service_charge_total: summary.serviceChargeTotal,
+      items: formattedItems,
+    });
+    setIsSplitDrawerOpen(true);
+  };
+
+  const handlePrintSubReceiptFromPOS = (sub, order) => {
+    const formattedItems = (sub.items || []).map((it) => ({
+      title: it.item_title,
+      variant: it.variant_title ? { title: it.variant_title } : null,
+      price: it.price,
+      quantity: it.quantity,
+    }));
+
+    triggerPrintReceipt({
+      order_id: `POS (${sub.seat_label})`,
+      order_title: `${order?.table_title ? order.table_title + " - " : ""}${sub.seat_label}`,
+      token_no: sub.sub_invoice_number,
+      customer_type: selectedDiningOption || "dinein",
+      customer_name: sub.seat_label,
+      items: formattedItems,
+      sub_total: sub.subtotal,
+      tax_total: sub.tax_total,
+      service_charge_total: sub.service_charge_total,
+      discount_total: sub.discount_total,
+      total: sub.payable_total,
+      tip_amount: sub.tip_amount,
+      payment_type: sub.payment_type_title || "Cash",
+      date: sub.paid_at || new Date().toISOString(),
+      printSettings: state.printSettings,
+      storeSettings: state.storeSettings,
+    });
+  };
+
   const btnPayAndSendToKitchen = async (tenderData = null) => {
     if(!state.selectedPaymentType) {
       return toast.error(t('orders.select_payment_method'));
@@ -3209,6 +3268,27 @@ export default function POSPage() {
         customerType={customerType}
         diningOption={selectedDiningOption}
         tableTitle={selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : '')}
+        onOpenSplitBill={handleOpenSplitFromPOS}
+      />
+
+      {/* Advanced Bill Splitting Drawer */}
+      <POSSplitBillDrawer
+        isOpen={isSplitDrawerOpen}
+        onClose={() => {
+          setIsSplitDrawerOpen(false);
+          setSplitBillOrder(null);
+        }}
+        order={splitBillOrder}
+        currency={currency}
+        paymentTypes={paymentTypes}
+        onPaymentComplete={(settleResult) => {
+          if (settleResult?.isFullyCompleted) {
+            clearCart();
+            setIsSplitDrawerOpen(false);
+            setSplitBillOrder(null);
+          }
+        }}
+        onPrintSubReceipt={handlePrintSubReceiptFromPOS}
       />
 
       {/* High-Impact Payment Success & Change Due Modal */}

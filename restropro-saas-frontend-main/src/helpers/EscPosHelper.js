@@ -226,6 +226,11 @@ export function buildReceiptEscPos(receiptDetails) {
     out += formatTwoColumns("Service Charge:", `${currency}${Number(serviceChargeTotal).toFixed(2)}`, width) + "\n";
   }
 
+  if (Number(receiptDetails.tip_amount || receiptDetails.tipAmount) > 0) {
+    const tip = Number(receiptDetails.tip_amount || receiptDetails.tipAmount);
+    out += formatTwoColumns("Server Tip:", `${currency}${tip.toFixed(2)}`, width) + "\n";
+  }
+
   out += formatDivider("=", width) + "\n";
 
   // Grand Total

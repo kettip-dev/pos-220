@@ -1,4 +1,4 @@
-const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, getCustomerPhoneFromOrderIdsDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB } = require("../services/orders.service");
+const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, getCustomerPhoneFromOrderIdsDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB, createSplitSubInvoicesDB, getOrderSubInvoicesDB, settleSubInvoiceDB, cancelSplitPlanDB } = require("../services/orders.service");
 const {
   getPaymentTypesDB,
   getPrintSettingDB,
@@ -536,6 +536,150 @@ exports.splitCheckByItems = async (req, res) => {
     });
   } catch (error) {
     console.error("splitCheckByItems controller error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.createSplitSubInvoices = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const username = req.user.username;
+    const { orderId, splitMode, splits } = req.body;
+
+    if (!orderId || !Array.isArray(splits) || splits.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid split configuration. At least 2 splits are required.",
+      });
+    }
+
+    const result = await createSplitSubInvoicesDB(tenantId, orderId, splitMode, splits, username);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", { action: "split_created", orderId });
+      io.to(String(tenantId)).emit("order_update", { orderId });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Split checks created successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("createSplitSubInvoices error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.getOrderSubInvoices = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order ID is required",
+      });
+    }
+
+    const data = await getOrderSubInvoicesDB(tenantId, Number(orderId));
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("getOrderSubInvoices error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.settleSubInvoice = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const username = req.user.username;
+    const { subInvoiceId, paymentTypeId, paymentTypeTitle, tipAmount, notes } = req.body;
+
+    if (!subInvoiceId || !paymentTypeId) {
+      return res.status(400).json({
+        success: false,
+        message: "Sub-invoice ID and payment type are required",
+      });
+    }
+
+    const result = await settleSubInvoiceDB(
+      tenantId,
+      subInvoiceId,
+      paymentTypeId,
+      paymentTypeTitle,
+      tipAmount,
+      username,
+      notes
+    );
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", {
+        action: "sub_invoice_settled",
+        subInvoiceId,
+        isFullyCompleted: result.isFullyCompleted,
+      });
+      io.to(String(tenantId)).emit("order_update", { subInvoiceId });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: result.isFullyCompleted
+        ? "Sub-check settled. All checks paid and order completed!"
+        : "Sub-check settled successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("settleSubInvoice error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || req.__("something_went_wrong_try_later"),
+    });
+  }
+};
+
+exports.cancelSplitPlan = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { orderId } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order ID is required",
+      });
+    }
+
+    const result = await cancelSplitPlanDB(tenantId, orderId);
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(String(tenantId)).emit("table_status_update", { action: "split_cancelled", orderId });
+      io.to(String(tenantId)).emit("order_update", { orderId });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Split plan reverted successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("cancelSplitPlan error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || req.__("something_went_wrong_try_later"),

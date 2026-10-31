@@ -853,3 +853,298 @@ exports.splitCheckByItemsDB = async (sourceOrderId, itemsToSplit = [], tenantId,
   }
 };
 
+/**
+ * Advanced Bill Splitting: Create sub-invoices with proportional tax, service charge, and discount distribution.
+ */
+exports.createSplitSubInvoicesDB = async (tenantId, orderId, splitMode, splits = [], username = null) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [orderRows] = await conn.query(
+      `SELECT * FROM orders WHERE id = ? AND tenant_id = ? LIMIT 1 FOR UPDATE`,
+      [orderId, tenantId]
+    );
+    if (!orderRows.length) throw new Error("Order not found");
+    const order = orderRows[0];
+
+    // Check if there are already paid sub-invoices
+    const [existingSubInvoices] = await conn.query(
+      `SELECT * FROM order_sub_invoices WHERE order_id = ? AND tenant_id = ?`,
+      [orderId, tenantId]
+    );
+    const hasPaid = existingSubInvoices.some((s) => s.payment_status === "paid");
+    if (hasPaid) {
+      throw new Error("Cannot re-split an order with already settled sub-checks");
+    }
+
+    // Clean up any pending un-paid sub-invoices if re-configuring split plan
+    if (existingSubInvoices.length > 0) {
+      const subIds = existingSubInvoices.map((s) => s.id);
+      await conn.query(
+        `DELETE FROM order_sub_invoice_items WHERE order_sub_invoice_id IN (?) AND tenant_id = ?`,
+        [subIds, tenantId]
+      );
+      await conn.query(
+        `DELETE FROM order_sub_invoices WHERE order_id = ? AND tenant_id = ?`,
+        [orderId, tenantId]
+      );
+    }
+
+    const createdSubInvoices = [];
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    for (let i = 0; i < splits.length; i++) {
+      const split = splits[i];
+      const suffix = alphabet[i % alphabet.length] || String(i + 1);
+      const subInvoiceNumber = `CHK-${order.token_no || order.id}-${suffix}`;
+      const seatLabel = split.seatLabel || `Guest ${i + 1}`;
+
+      const subtotal = Number(Number(split.subtotal || 0).toFixed(2));
+      const taxTotal = Number(Number(split.taxTotal || 0).toFixed(2));
+      const serviceChargeTotal = Number(Number(split.serviceChargeTotal || 0).toFixed(2));
+      const discountTotal = Number(Number(split.discountTotal || 0).toFixed(2));
+      const payableTotal = Number(
+        (subtotal + taxTotal + serviceChargeTotal - discountTotal).toFixed(2)
+      );
+
+      const [insertRes] = await conn.query(
+        `INSERT INTO order_sub_invoices 
+         (tenant_id, order_id, sub_invoice_number, seat_label, subtotal, tax_total, service_charge_total, discount_total, payable_total, payment_status, server_username)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        [
+          tenantId,
+          orderId,
+          subInvoiceNumber,
+          seatLabel,
+          subtotal,
+          taxTotal,
+          serviceChargeTotal,
+          discountTotal,
+          payableTotal,
+          username,
+        ]
+      );
+      const subInvoiceId = insertRes.insertId;
+
+      // Insert assigned items if split by items
+      if (Array.isArray(split.items) && split.items.length > 0) {
+        for (const item of split.items) {
+          await conn.query(
+            `INSERT INTO order_sub_invoice_items 
+             (tenant_id, order_sub_invoice_id, order_item_id, item_title, variant_title, quantity, price)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              tenantId,
+              subInvoiceId,
+              item.order_item_id || null,
+              item.item_title || item.title || "Item",
+              item.variant_title || null,
+              Number(item.quantity || 1),
+              Number(item.price || 0),
+            ]
+          );
+        }
+      }
+
+      createdSubInvoices.push({
+        id: subInvoiceId,
+        sub_invoice_number: subInvoiceNumber,
+        seat_label: seatLabel,
+        subtotal,
+        tax_total: taxTotal,
+        service_charge_total: serviceChargeTotal,
+        discount_total: discountTotal,
+        payable_total: payableTotal,
+        payment_status: "pending",
+      });
+    }
+
+    await conn.query(
+      `UPDATE orders SET split_status = 'split_in_progress' WHERE id = ? AND tenant_id = ?`,
+      [orderId, tenantId]
+    );
+
+    await conn.commit();
+    return createdSubInvoices;
+  } catch (error) {
+    await conn.rollback();
+    console.error("createSplitSubInvoicesDB error:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Fetch all sub-invoices and their line items for an order.
+ */
+exports.getOrderSubInvoicesDB = async (tenantId, orderId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [subInvoices] = await conn.query(
+      `SELECT * FROM order_sub_invoices WHERE order_id = ? AND tenant_id = ? ORDER BY id ASC`,
+      [orderId, tenantId]
+    );
+
+    if (subInvoices.length === 0) {
+      return [];
+    }
+
+    const subIds = subInvoices.map((s) => s.id);
+    const [items] = await conn.query(
+      `SELECT * FROM order_sub_invoice_items WHERE order_sub_invoice_id IN (?) AND tenant_id = ?`,
+      [subIds, tenantId]
+    );
+
+    return subInvoices.map((sub) => ({
+      ...sub,
+      items: items.filter((it) => it.order_sub_invoice_id === sub.id),
+    }));
+  } catch (error) {
+    console.error("getOrderSubInvoicesDB error:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Settle an individual sub-invoice (record tender + server tip, and evaluate master order status).
+ */
+exports.settleSubInvoiceDB = async (
+  tenantId,
+  subInvoiceId,
+  paymentTypeId,
+  paymentTypeTitle,
+  tipAmount = 0,
+  username = null,
+  notes = null
+) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [subRows] = await conn.query(
+      `SELECT * FROM order_sub_invoices WHERE id = ? AND tenant_id = ? LIMIT 1 FOR UPDATE`,
+      [subInvoiceId, tenantId]
+    );
+    if (!subRows.length) throw new Error("Sub-invoice not found");
+    const subInvoice = subRows[0];
+
+    if (subInvoice.payment_status === "paid") {
+      throw new Error("This sub-check has already been paid");
+    }
+
+    const tip = Number(Number(tipAmount || 0).toFixed(2));
+
+    await conn.query(
+      `UPDATE order_sub_invoices SET
+         payment_type_id = ?,
+         payment_type_title = ?,
+         tip_amount = ?,
+         payment_status = 'paid',
+         server_username = ?,
+         notes = ?,
+         paid_at = NOW()
+       WHERE id = ? AND tenant_id = ?`,
+      [paymentTypeId, paymentTypeTitle, tip, username, notes, subInvoiceId, tenantId]
+    );
+
+    // Update order cumulative tips
+    await conn.query(
+      `UPDATE orders SET tip_total = tip_total + ? WHERE id = ? AND tenant_id = ?`,
+      [tip, subInvoice.order_id, tenantId]
+    );
+
+    // Check overall split completion
+    const [allSubs] = await conn.query(
+      `SELECT * FROM order_sub_invoices WHERE order_id = ? AND tenant_id = ?`,
+      [subInvoice.order_id, tenantId]
+    );
+
+    const allPaid = allSubs.every((s) => s.payment_status === "paid");
+    let isFullyCompleted = false;
+
+    if (allPaid) {
+      await conn.query(
+        `UPDATE orders SET
+           status = 'completed',
+           payment_status = 'paid',
+           split_status = 'split_settled'
+         WHERE id = ? AND tenant_id = ?`,
+        [subInvoice.order_id, tenantId]
+      );
+      await rotateTablePinsByOrderIdsDB(tenantId, [subInvoice.order_id]);
+      isFullyCompleted = true;
+    } else {
+      await conn.query(
+        `UPDATE orders SET
+           payment_status = 'partially_paid'
+         WHERE id = ? AND tenant_id = ?`,
+        [subInvoice.order_id, tenantId]
+      );
+    }
+
+    await conn.commit();
+    return {
+      success: true,
+      subInvoiceId,
+      isFullyCompleted,
+      allPaid,
+      tipAmount: tip,
+    };
+  } catch (error) {
+    await conn.rollback();
+    console.error("settleSubInvoiceDB error:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Cancel/revert an active split plan if no sub-invoices have been settled yet.
+ */
+exports.cancelSplitPlanDB = async (tenantId, orderId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [existingSubInvoices] = await conn.query(
+      `SELECT * FROM order_sub_invoices WHERE order_id = ? AND tenant_id = ?`,
+      [orderId, tenantId]
+    );
+    const hasPaid = existingSubInvoices.some((s) => s.payment_status === "paid");
+    if (hasPaid) {
+      throw new Error("Cannot cancel split plan with settled checks");
+    }
+
+    if (existingSubInvoices.length > 0) {
+      const subIds = existingSubInvoices.map((s) => s.id);
+      await conn.query(
+        `DELETE FROM order_sub_invoice_items WHERE order_sub_invoice_id IN (?) AND tenant_id = ?`,
+        [subIds, tenantId]
+      );
+      await conn.query(
+        `DELETE FROM order_sub_invoices WHERE order_id = ? AND tenant_id = ?`,
+        [orderId, tenantId]
+      );
+    }
+
+    await conn.query(
+      `UPDATE orders SET split_status = 'none' WHERE id = ? AND tenant_id = ?`,
+      [orderId, tenantId]
+    );
+
+    await conn.commit();
+    return { success: true };
+  } catch (error) {
+    await conn.rollback();
+    console.error("cancelSplitPlanDB error:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+

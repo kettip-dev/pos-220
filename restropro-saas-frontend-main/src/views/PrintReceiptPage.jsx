@@ -168,6 +168,12 @@ export default function PrintReceiptPage() {
           <p className="font-mono">{currency}{Number(serviceChargeTotal).toFixed(2)}</p>
         </div>
       )}
+      {Number(receiptDetails.tip_amount || receiptDetails.tipAmount || 0) > 0 && (
+        <div className="flex justify-between text-xs py-0.5 text-emerald-800 font-semibold">
+          <p>Server Tip: </p>
+          <p className="font-mono">+{currency}{Number(receiptDetails.tip_amount || receiptDetails.tipAmount).toFixed(2)}</p>
+        </div>
+      )}
 
       {/* Primary Grand Total */}
       <div className="border-t border-dashed mt-2 pt-2">

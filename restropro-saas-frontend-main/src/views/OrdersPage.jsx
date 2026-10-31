@@ -50,6 +50,7 @@ import clsx from "clsx";
 import OrderCard from "../components/orders/OrderCard";
 import OrderDetailsDrawer from "../components/orders/OrderDetailsDrawer";
 import POSPaymentDrawer from "../components/pos/POSPaymentDrawer";
+import POSSplitBillDrawer from "../components/pos/POSSplitBillDrawer";
 
 export default function OrdersPage() {
   const { t } = useTranslation();
@@ -120,6 +121,78 @@ export default function OrdersPage() {
     customExchangeRate: null,
     isSubmitting: false,
   });
+
+  const [splitDrawerState, setSplitDrawerState] = useState({
+    isOpen: false,
+    order: null,
+  });
+
+  const handleOpenSplitDrawer = (orderGroup) => {
+    if (!orderGroup || !orderGroup.order_ids || orderGroup.order_ids.length === 0) return;
+    const primaryOrderId = orderGroup.order_ids[0];
+
+    const allItems = [];
+    (orderGroup.orders || []).forEach((o) => {
+      (o.items || []).forEach((it) => {
+        allItems.push({
+          id: it.id,
+          order_id: it.order_id,
+          item_title: it.item_title,
+          variant_title: it.variant_title,
+          price: Number(it.price || 0),
+          quantity: Number(it.quantity || 1),
+        });
+      });
+    });
+
+    const calculatedSubtotal = allItems.reduce(
+      (sum, it) => sum + Number(it.price) * Number(it.quantity),
+      0
+    );
+
+    setSplitDrawerState({
+      isOpen: true,
+      order: {
+        id: primaryOrderId,
+        order_ids: orderGroup.order_ids,
+        table_title: orderGroup.table_title,
+        token_no: orderGroup.orders?.map((o) => o.token_no).join(", "),
+        subtotal: calculatedSubtotal,
+        total: calculatedSubtotal,
+        tax_total: 0,
+        service_charge_total: 0,
+        items: allItems,
+      },
+    });
+  };
+
+  const handlePrintSubReceipt = (sub, order) => {
+    const formattedItems = (sub.items || []).map((it) => ({
+      title: it.item_title,
+      variant: it.variant_title ? { title: it.variant_title } : null,
+      price: it.price,
+      quantity: it.quantity,
+    }));
+
+    triggerPrintReceipt({
+      order_id: `${order?.token_no || order?.id} (${sub.seat_label})`,
+      order_title: `${order?.table_title ? order.table_title + " - " : ""}${sub.seat_label}`,
+      token_no: sub.sub_invoice_number,
+      customer_type: "dinein",
+      customer_name: sub.seat_label,
+      items: formattedItems,
+      sub_total: sub.subtotal,
+      tax_total: sub.tax_total,
+      service_charge_total: sub.service_charge_total,
+      discount_total: sub.discount_total,
+      total: sub.payable_total,
+      tip_amount: sub.tip_amount,
+      payment_type: sub.payment_type_title || "Cash",
+      date: sub.paid_at || new Date().toISOString(),
+      printSettings: state.printSettings,
+      storeSettings: state.storeSettings,
+    });
+  };
 
   // Close Order Display dropdown on click outside
   useEffect(() => {
@@ -1259,6 +1332,20 @@ export default function OrdersPage() {
         onCancelOrder={btnShowCancelOrderModal}
         onPrintReceipt={btnPrintReceipt}
         onCollectFeedback={btnCollectFeedback}
+        onSplitBill={handleOpenSplitDrawer}
+      />
+
+      {/* ── Advanced Bill Splitting Drawer ── */}
+      <POSSplitBillDrawer
+        isOpen={splitDrawerState.isOpen}
+        onClose={() => setSplitDrawerState({ isOpen: false, order: null })}
+        order={splitDrawerState.order}
+        currency={currency}
+        paymentTypes={paymentTypes}
+        onPaymentComplete={() => {
+          _loadOrders();
+        }}
+        onPrintSubReceipt={handlePrintSubReceipt}
       />
 
       {/* ── Unified POS Payment Drawer (Dual currency numpad, banknote presets, change calculator) ── */}
