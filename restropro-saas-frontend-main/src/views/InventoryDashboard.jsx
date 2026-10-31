@@ -46,20 +46,12 @@ export default function InventoryDashboardPage() {
     to: state.toDate,
   });
 
-  if (isLoading) {
-    return <Page>{t("inventory.loading_message")}</Page>;
-  }
-
-  if (error) {
-    return <Page>{t("inventory.error_loading_message")}</Page>;
-  }
-
   const {
     cummulativeInventoryMovements = [],
     inventoryUsageVSCurrentStock = []
   } = data || {};
 
-  // Summary KPI statistics
+  // Summary KPI statistics - must be declared before any early returns to satisfy React Rules of Hooks
   const summaryKpis = React.useMemo(() => {
     let totalIn = 0;
     let totalOut = 0;
@@ -79,6 +71,14 @@ export default function InventoryDashboardPage() {
 
     return { totalIn, totalOut, totalWastage, totalMovements, lowStockCount };
   }, [cummulativeInventoryMovements, inventoryUsageVSCurrentStock]);
+
+  if (isLoading) {
+    return <Page>{t("inventory.loading_message")}</Page>;
+  }
+
+  if (error) {
+    return <Page>{t("inventory.error_loading_message")}</Page>;
+  }
 
   return (
     <Page>

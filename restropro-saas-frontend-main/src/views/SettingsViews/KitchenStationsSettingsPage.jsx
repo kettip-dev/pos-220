@@ -223,14 +223,14 @@ export default function KitchenStationsSettingsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Kitchen Stations
+              {t("settings.kitchen_stations", "Kitchen Stations")}
             </h1>
             <span className="badge badge-sm bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border-none font-semibold">
-              KDS & KOT Routing
+              {t("settings.kitchen_stations_routing_badge", "KDS & KOT Routing")}
             </span>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            Split kitchen orders into dedicated prep stations (Hot Kitchen, Bar, Grill, Bakery) and route KOT print jobs directly to each station&apos;s thermal printer.
+            {t("settings.desc_kitchen_stations_long", "Split kitchen orders into dedicated prep stations (Hot Kitchen, Bar, Grill, Bakery) and route KOT print jobs directly to each station's thermal printer.")}
           </p>
         </div>
 
@@ -239,7 +239,7 @@ export default function KitchenStationsSettingsPage() {
           className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-sm gap-2 h-10 min-h-0 px-4 rounded-xl normal-case font-medium"
         >
           <IconPlus size={18} stroke={iconStroke} />
-          <span>Add Station</span>
+          <span>{t("settings.add_station", "Add Station")}</span>
         </button>
       </div>
 
@@ -249,16 +249,18 @@ export default function KitchenStationsSettingsPage() {
           <div className="w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-950/40 text-orange-500 flex items-center justify-center mb-4">
             <IconFlame size={32} stroke={iconStroke} />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Kitchen Stations Yet</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            {t("settings.no_kitchen_stations_yet", "No Kitchen Stations Yet")}
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mt-1 mb-6">
-            By default, all orders appear together in the master kitchen. Create stations to split items by Bar, Hot Kitchen, Cold Prep, or Bakery.
+            {t("settings.no_kitchen_stations_desc", "By default, all orders appear together in the master kitchen. Create stations to split items by Bar, Hot Kitchen, Cold Prep, or Bakery.")}
           </p>
           <button
             onClick={openAddModal}
             className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 text-white border-none gap-2 rounded-xl"
           >
             <IconPlus size={18} stroke={iconStroke} />
-            <span>Create First Station</span>
+            <span>{t("settings.create_first_station", "Create First Station")}</span>
           </button>
         </div>
       ) : (
@@ -307,7 +309,7 @@ export default function KitchenStationsSettingsPage() {
                                 : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-slate-400"
                             )}
                           >
-                            {isEnabled ? "Active Station" : "Disabled"}
+                            {isEnabled ? t("settings.station_active_badge", "Active Station") : t("settings.station_disabled_badge", "Disabled")}
                           </span>
                         </div>
                       </div>
@@ -332,7 +334,7 @@ export default function KitchenStationsSettingsPage() {
                             </span>
                           ) : (
                             <span className="text-slate-400 italic">
-                              Default KOT Printer
+                              {t("settings.default_kot_printer", "Default KOT Printer")}
                             </span>
                           )}
                         </span>
@@ -340,11 +342,11 @@ export default function KitchenStationsSettingsPage() {
 
                       <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#252525] px-3 py-2 rounded-xl">
                         <span>
-                          <strong className="text-slate-800 dark:text-slate-200">{station.category_count || 0}</strong> categories
+                          <strong className="text-slate-800 dark:text-slate-200">{station.category_count || 0}</strong> {t("settings.categories_count", "categories")}
                         </span>
                         <span className="text-slate-300 dark:text-slate-600">•</span>
                         <span>
-                          <strong className="text-slate-800 dark:text-slate-200">{station.item_count || 0}</strong> menu items
+                          <strong className="text-slate-800 dark:text-slate-200">{station.item_count || 0}</strong> {t("settings.menu_items_count", "menu items")}
                         </span>
                       </div>
                     </div>
@@ -357,14 +359,14 @@ export default function KitchenStationsSettingsPage() {
                       className="btn btn-sm btn-ghost hover:bg-slate-100 dark:hover:bg-[#2a2a2a] text-slate-700 dark:text-slate-300 normal-case rounded-lg px-2.5 h-8 min-h-0 gap-1.5"
                     >
                       <IconPencil size={15} stroke={iconStroke} />
-                      <span>Edit</span>
+                      <span>{t("common.edit", "Edit")}</span>
                     </button>
                     <button
                       onClick={() => setDeleteStationId(station.id)}
                       className="btn btn-sm btn-ghost hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-400 normal-case rounded-lg px-2.5 h-8 min-h-0 gap-1.5"
                     >
                       <IconTrash size={15} stroke={iconStroke} />
-                      <span>Delete</span>
+                      <span>{t("common.delete", "Delete")}</span>
                     </button>
                   </div>
                 </div>
@@ -389,10 +391,12 @@ export default function KitchenStationsSettingsPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                    {editStation ? "Edit Kitchen Station" : "New Kitchen Station"}
+                    {editStation
+                      ? t("settings.edit_kitchen_station", "Edit Kitchen Station")
+                      : t("settings.new_kitchen_station", "New Kitchen Station")}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Define station identifier, icon, color badge, and printer.
+                    {t("settings.station_modal_desc", "Define station identifier, icon, color badge, and printer.")}
                   </p>
                 </div>
               </div>
@@ -409,12 +413,12 @@ export default function KitchenStationsSettingsPage() {
               {/* Station Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Station Name <span className="text-rose-500">*</span>
+                  {t("settings.station_name", "Station Name")} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Hot Kitchen, Bar, Grill, Bakery"
+                  placeholder={t("settings.station_name_placeholder", "e.g. Hot Kitchen, Bar, Grill, Bakery")}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="input input-bordered w-full text-sm bg-white dark:bg-[#252525] border-slate-200 dark:border-[#3a3a3a] rounded-xl focus:border-emerald-500"
@@ -424,7 +428,7 @@ export default function KitchenStationsSettingsPage() {
               {/* Station Color Picker */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Station Badge Color
+                  {t("settings.station_badge_color", "Station Badge Color")}
                 </label>
                 <div className="flex flex-wrap items-center gap-2.5">
                   {STATION_COLORS.map((col) => {
@@ -458,7 +462,7 @@ export default function KitchenStationsSettingsPage() {
               {/* Station Icon Picker */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Station Icon
+                  {t("settings.station_icon", "Station Icon")}
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {STATION_ICONS.map((item) => {
@@ -488,16 +492,16 @@ export default function KitchenStationsSettingsPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Designated Thermal Printer
+                    {t("settings.designated_thermal_printer", "Designated Thermal Printer")}
                   </label>
-                  <span className="text-[11px] text-slate-400">Optional</span>
+                  <span className="text-[11px] text-slate-400">{t("common.optional", "Optional")}</span>
                 </div>
                 <select
                   value={formData.printer_id}
                   onChange={(e) => setFormData({ ...formData, printer_id: e.target.value })}
                   className="select select-bordered w-full text-sm bg-white dark:bg-[#252525] border-slate-200 dark:border-[#3a3a3a] rounded-xl focus:border-emerald-500"
                 >
-                  <option value="">No dedicated printer (Uses default KOT printer)</option>
+                  <option value="">{t("settings.no_dedicated_printer", "No dedicated printer (Uses default KOT printer)")}</option>
                   {printers.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.transport.toUpperCase()} - {p.address || "Local"}) {p.is_kot_printer ? " KOT" : ""}
@@ -505,15 +509,15 @@ export default function KitchenStationsSettingsPage() {
                   ))}
                 </select>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  When enabled, KOT print jobs for this station will automatically route to this printer.
+                  {t("settings.designated_printer_hint", "When enabled, KOT print jobs for this station will automatically route to this printer.")}
                 </p>
               </div>
 
               {/* Active Toggle */}
               <div className="flex items-center justify-between bg-slate-50 dark:bg-[#252525] p-3.5 rounded-xl">
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-900 dark:text-white">Station Active</h4>
-                  <p className="text-[11px] text-slate-400">Active stations appear in the KDS top bar</p>
+                  <h4 className="text-xs font-semibold text-slate-900 dark:text-white">{t("settings.station_active", "Station Active")}</h4>
+                  <p className="text-[11px] text-slate-400">{t("settings.station_active_hint", "Active stations appear in the KDS top bar")}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -531,7 +535,7 @@ export default function KitchenStationsSettingsPage() {
                   className="btn btn-sm btn-ghost rounded-xl normal-case"
                   disabled={isSubmitting}
                 >
-                  Cancel
+                  {t("common.cancel", "Cancel")}
                 </button>
                 <button
                   type="submit"
@@ -539,7 +543,7 @@ export default function KitchenStationsSettingsPage() {
                   className="btn btn-sm btn-primary bg-emerald-600 hover:bg-emerald-700 text-white border-none rounded-xl normal-case px-5 gap-2"
                 >
                   {isSubmitting && <span className="loading loading-spinner loading-xs"></span>}
-                  <span>{editStation ? "Save Changes" : "Create Station"}</span>
+                  <span>{editStation ? t("common.save", "Save Changes") : t("settings.create_station", "Create Station")}</span>
                 </button>
               </div>
             </form>
@@ -551,8 +555,8 @@ export default function KitchenStationsSettingsPage() {
       {deleteStationId && (
         <DeleteModal
           isOpen={true}
-          title="Delete Kitchen Station?"
-          message="Deleting this station will unassign any categories and menu items currently routed here. They will automatically revert to the master kitchen. This action cannot be undone."
+          title={t("settings.delete_station_title", "Delete Kitchen Station?")}
+          message={t("settings.delete_station_message", "Deleting this station will unassign any categories and menu items currently routed here. They will automatically revert to the master kitchen. This action cannot be undone.")}
           onClose={() => setDeleteStationId(null)}
           onConfirm={handleDelete}
         />

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import {
   IconBuildingStore,
   IconChevronDown,
-  IconDeviceIpadHorizontal,
+  IconCashRegister,
   IconArmchair,
   IconChefHat,
   IconToolsKitchen3,
@@ -458,9 +458,9 @@ export default function TopNavbar() {
                     : "text-slate-300 hover:text-white hover:bg-white/10"
                 )}
               >
-                <IconDeviceIpadHorizontal
-                  size={15}
-                  stroke={2.2}
+                <IconCashRegister
+                  size={16}
+                  stroke={1.9}
                   className={isPosActive ? "text-white" : "text-emerald-400"}
                 />
                 <span>{t("top_bar.pos", "POS")}</span>

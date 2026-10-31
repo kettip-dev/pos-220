@@ -73,6 +73,7 @@ export default function TableSettingsPage() {
   const [rotatingPinId, setRotatingPinId] = useState(null);
   const [duplicatingId, setDuplicatingId] = useState(null);
   const [deleteTableId, setDeleteTableId] = useState(null);
+  const [copiedPinId, setCopiedPinId] = useState(null);
 
   // Add / Edit Modal state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -107,7 +108,8 @@ export default function TableSettingsPage() {
   // Format display title so "9" shows as "Table 9" or "តុ 9", while "Table 1" stays "Table 1"
   const formatTableHeading = (title) => {
     const str = String(title || "").trim();
-    if (/^(table|តុ)\b/i.test(str)) return str;
+    if (!str) return t("pos.table", "Table");
+    if (/^(table|តុ)(\s|$|[0-9])/i.test(str)) return str;
     return `${t("pos.table", "Table")} ${str}`;
   };
 
@@ -385,6 +387,17 @@ export default function TableSettingsPage() {
     }
   };
 
+  // Copy 4-digit Table PIN with feedback
+  const handleCopyPin = (storeTable) => {
+    if (!storeTable?.table_pin) return;
+    navigator.clipboard?.writeText(String(storeTable.table_pin));
+    setCopiedPinId(storeTable.id);
+    toast.success(t("table_settings.pin_copied", "Table PIN copied!"));
+    setTimeout(() => {
+      setCopiedPinId(null);
+    }, 1800);
+  };
+
   // Download Table QR PNG
   const btnDownloadTableMenuQR = async (storeTable, includePin = false) => {
     try {
@@ -472,63 +485,68 @@ export default function TableSettingsPage() {
         ? IconSquare
         : IconRectangle;
 
-    // Color accent based on capacity tier
-    const badgeTheme =
-      cap <= 2
-        ? "bg-sky-50 text-sky-700 border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/60"
-        : cap <= 4
-        ? "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60"
-        : "bg-indigo-50 text-indigo-700 border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/60";
+    // Subtle modern gradient top accent & avatar theme based on capacity
+    const isSmall = cap <= 2;
+    const isMedium = cap <= 4;
 
-    const stripColor =
-      cap <= 2 ? "bg-sky-500" : cap <= 4 ? "bg-emerald-500" : "bg-indigo-500";
+    const accentGradient = isSmall
+      ? "from-sky-500 via-sky-400 to-cyan-400"
+      : isMedium
+      ? "from-emerald-500 via-teal-500 to-emerald-400"
+      : "from-indigo-500 via-purple-500 to-indigo-400";
+
+    const avatarTheme = isSmall
+      ? "bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300 border-sky-100 dark:border-sky-800/50"
+      : isMedium
+      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800/50"
+      : "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-100 dark:border-indigo-800/50";
+
+    const isPinCopied = copiedPinId === id;
 
     return (
       <div
         key={id}
-        className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 dark:border-[#2e2e2e] bg-white dark:bg-[#1a1d24] shadow-xs hover:shadow-md hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-all duration-200"
+        className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 dark:border-[#2e3340] bg-white dark:bg-[#1a1d24] shadow-xs hover:shadow-lg hover:border-emerald-500/50 dark:hover:border-emerald-500/40 transition-all duration-200 overflow-hidden"
       >
-        {/* Top Accent Strip */}
-        <div className={clsx("h-1.5 w-full rounded-t-2xl", stripColor)} />
+        {/* Sleek Top Gradient Accent */}
+        <div className={clsx("h-[3px] w-full bg-gradient-to-r", accentGradient)} />
 
         <div className="p-4 flex-1 flex flex-col justify-between gap-3.5">
-          {/* Card Header: Table Avatar, Title + Metadata Pills, Quick Actions */}
+          {/* Card Header: Table Avatar, Title + Floor & Seats, Actions */}
           <div className="flex items-start justify-between gap-2.5">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              {/* Table Shape / QR Avatar Badge */}
-              <div
+              {/* Table Shape Avatar (Clickable to preview QR) */}
+              <button
+                type="button"
                 onClick={() => setPreviewTable(storeTable)}
-                title={t("table_settings.preview_qr", "Preview QR Code")}
+                title={t("table_settings.preview_qr", "Click to preview QR Code")}
                 className={clsx(
-                  "relative w-12 h-12 rounded-2xl border flex flex-col items-center justify-center shrink-0 cursor-pointer transition-transform active:scale-95 shadow-2xs group/avatar",
-                  badgeTheme
+                  "relative w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer transition-transform active:scale-95 shadow-2xs group/avatar",
+                  avatarTheme
                 )}
               >
-                <ShapeIcon size={20} stroke={2} className="transition-transform group-hover/avatar:scale-110" />
-                <span className="text-[10px] font-bold leading-none mt-1 opacity-80">
-                  {cap}P
-                </span>
+                <ShapeIcon size={22} stroke={2} className="transition-transform group-hover/avatar:scale-110" />
                 {/* Tiny QR indicator badge */}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-zinc-800 shadow-xs border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-zinc-800 shadow-xs border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover/avatar:text-emerald-500 transition-colors">
                   <IconQrcode size={10} stroke={2.2} />
                 </div>
-              </div>
+              </button>
 
-              {/* Title + Floor & Capacity Pills */}
+              {/* Title & Metadata */}
               <div className="min-w-0 flex-1">
                 <h4
                   title={formatTableHeading(table_title)}
-                  className="font-bold text-base sm:text-[17px] text-slate-900 dark:text-white leading-snug line-clamp-1 break-words"
+                  className="font-bold text-[15px] sm:text-base text-slate-900 dark:text-white leading-snug truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
                 >
                   {formatTableHeading(table_title)}
                 </h4>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300">
-                    <IconLayersSubtract size={11} className="opacity-70" />
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-slate-300">
+                    <IconLayersSubtract size={11} className="opacity-70 shrink-0" />
                     <span className="truncate max-w-[110px]">{formatFloorLabel(floor)}</span>
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
-                    <IconUsers size={11} />
+                    <IconUsers size={11} className="shrink-0" />
                     <span>
                       {cap} {t("table_settings.seats", "Seats")}
                     </span>
@@ -537,15 +555,15 @@ export default function TableSettingsPage() {
               </div>
             </div>
 
-            {/* Header Actions: Edit + DaisyUI Dropdown Menu */}
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Quick Header Actions */}
+            <div className="flex items-center gap-0.5 shrink-0 -mr-1">
               <button
                 type="button"
                 onClick={() => openEditModal(storeTable)}
                 title={t("common.edit", "Edit Table")}
                 className="w-8 h-8 rounded-xl flex items-center justify-center transition active:scale-95 text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800"
               >
-                <IconPencil stroke={iconStroke} size={16} />
+                <IconPencil stroke={iconStroke} size={15} />
               </button>
 
               {/* Dropdown for Secondary Actions */}
@@ -556,7 +574,7 @@ export default function TableSettingsPage() {
                   title={t("table_settings.more_actions", "More Actions")}
                   className="w-8 h-8 rounded-xl flex items-center justify-center transition active:scale-95 text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800"
                 >
-                  <IconDotsVertical stroke={iconStroke} size={16} />
+                  <IconDotsVertical stroke={iconStroke} size={15} />
                 </button>
                 <ul
                   tabIndex={0}
@@ -610,15 +628,11 @@ export default function TableSettingsPage() {
             </div>
           </div>
 
-          {/* 4-Digit Table Security PIN Bar */}
-          <div className="px-3 py-2 rounded-xl bg-slate-50/90 dark:bg-[#20242e] border border-slate-200/80 dark:border-[#2f3542] flex items-center justify-between gap-2">
+          {/* Sleek PIN & Security Access Bar */}
+          <div className="px-3 py-2 rounded-xl bg-slate-50/90 dark:bg-[#20242e] border border-slate-200/80 dark:border-[#2f3542] flex items-center justify-between gap-2 shadow-2xs">
             <button
               type="button"
-              onClick={() => {
-                if (!table_pin) return;
-                navigator.clipboard?.writeText(String(table_pin));
-                toast.success(t("table_settings.pin_copied", "Table PIN copied!"));
-              }}
+              onClick={() => handleCopyPin(storeTable)}
               title={t("table_settings.copy_pin", "Click to copy PIN")}
               className="flex items-center gap-2 text-left group/pin cursor-pointer flex-1 min-w-0"
             >
@@ -626,8 +640,13 @@ export default function TableSettingsPage() {
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 {t("table_settings.table_pin", "PIN")}:
               </span>
-              <span className="px-2.5 py-0.5 rounded-md bg-white dark:bg-[#15171e] border border-slate-200 dark:border-zinc-700 font-mono font-black tracking-widest text-xs text-slate-900 dark:text-white group-hover/pin:border-emerald-500 group-hover/pin:text-emerald-600 transition shadow-2xs">
-                {table_pin || "----"}
+              <span className="px-2.5 py-0.5 rounded-md bg-white dark:bg-[#15171e] border border-slate-200 dark:border-zinc-700 font-mono font-black tracking-widest text-xs text-slate-900 dark:text-white group-hover/pin:border-emerald-500 group-hover/pin:text-emerald-600 transition shadow-2xs flex items-center gap-1.5">
+                <span>{table_pin || "----"}</span>
+                {isPinCopied ? (
+                  <IconCheck size={11} className="text-emerald-600 shrink-0" />
+                ) : (
+                  <IconCopy size={10} className="text-slate-400 group-hover/pin:text-emerald-500 opacity-60 group-hover/pin:opacity-100 transition shrink-0" />
+                )}
               </span>
             </button>
 
@@ -636,13 +655,13 @@ export default function TableSettingsPage() {
               disabled={rotatingPinId === id}
               onClick={() => handleRotatePin(storeTable)}
               title={t("table_settings.reset_pin", "Generate New 4-Digit PIN")}
-              className="px-2.5 py-1 min-h-[32px] rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 disabled:opacity-50 shrink-0"
+              className="px-2.5 py-1 min-h-[32px] rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 disabled:opacity-50 shrink-0 shadow-2xs"
             >
               <IconRefresh
                 size={13}
                 className={clsx(rotatingPinId === id && "animate-spin text-emerald-600")}
               />
-              <span className="hidden sm:inline">{t("table_settings.reset_pin", "Reset")}</span>
+              <span className="text-[11px] font-medium">{t("table_settings.reset_pin", "Reset")}</span>
             </button>
           </div>
 
@@ -651,18 +670,18 @@ export default function TableSettingsPage() {
             <button
               type="button"
               onClick={() => btnDownloadTableMenuQR(storeTable)}
-              className="min-h-[42px] px-3 rounded-xl border border-slate-200 dark:border-[#303642] bg-slate-50/70 dark:bg-[#222630] hover:bg-slate-100 dark:hover:bg-[#2a2f3a] text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
+              className="min-h-[42px] px-3 rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#20242e] hover:bg-slate-50 dark:hover:bg-[#2a2f3a] text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
             >
-              <IconDownload size={15} stroke={iconStroke} className="shrink-0" />
+              <IconDownload size={15} stroke={iconStroke} className="shrink-0 text-slate-500 dark:text-slate-400" />
               <span className="truncate">{t("table_settings.download_table_qr", "Download QR")}</span>
             </button>
 
             <button
               type="button"
               onClick={() => handlePrintSingleSlip(storeTable)}
-              className="min-h-[42px] px-3 rounded-xl border border-emerald-600/30 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95"
+              className="min-h-[42px] px-3 rounded-xl bg-restro-green hover:bg-restro-green-button-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:shadow-emerald-600/25 transition active:scale-95"
             >
-              <IconPrinter size={15} stroke={iconStroke} className="shrink-0" />
+              <IconPrinter size={15} stroke={iconStroke} className="shrink-0 text-white" />
               <span className="truncate">{t("table_settings.print_qr", "Print QR")}</span>
             </button>
           </div>

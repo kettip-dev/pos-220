@@ -98,18 +98,30 @@ export default function LoyaltySettingsPage() {
                 {t("settings.loyalty_rule_summary", "Active Rules Preview")}
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                Spend <strong className="text-slate-900 dark:text-white font-mono">$1.00</strong> = Earn{" "}
+                {t("settings.loyalty_rule_spend", "Spend")}{" "}
+                <strong className="text-slate-900 dark:text-white font-mono">$1.00</strong> ={" "}
+                {t("settings.loyalty_rule_earn", "Earn")}{" "}
                 <strong className="text-amber-600 dark:text-amber-400 font-mono">
-                  {ptsPerDollarNum} {ptsPerDollarNum === 1 ? "point" : "points"}
+                  {ptsPerDollarNum}{" "}
+                  {ptsPerDollarNum === 1
+                    ? t("settings.loyalty_point_singular", "point")
+                    : t("settings.loyalty_point_plural", "points")}
                 </strong>
                 . <br className="hidden sm:inline" />
-                Redeem <strong className="text-amber-600 dark:text-amber-400 font-mono">{pointsForOneDollar} points</strong> ={" "}
-                <strong className="text-emerald-600 dark:text-emerald-400 font-mono">$1.00 discount</strong> at POS.
+                {t("settings.loyalty_rule_redeem", "Redeem")}{" "}
+                <strong className="text-amber-600 dark:text-amber-400 font-mono">
+                  {pointsForOneDollar} {t("settings.loyalty_points", "points")}
+                </strong>{" "}
+                ={" "}
+                <strong className="text-emerald-600 dark:text-emerald-400 font-mono">
+                  $1.00 {t("settings.loyalty_discount", "discount")}
+                </strong>{" "}
+                {t("settings.loyalty_at_pos", "at POS.")}
               </p>
             </div>
           </div>
           <span className="px-3 py-1 rounded-full text-xs font-black uppercase font-mono bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-            {isEnabled ? "● Program Active" : "○ Disabled"}
+            {isEnabled ? t("settings.loyalty_active", "● Program Active") : t("settings.loyalty_disabled", "○ Disabled")}
           </span>
         </div>
 
@@ -157,11 +169,11 @@ export default function LoyaltySettingsPage() {
                     required
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 font-mono">
-                    pts / $
+                    {t("settings.pts_per_dollar_unit", "pts / $")}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Example: 1 means spending $50 gives 50 points.
+                  {t("settings.points_per_dollar_example", "Example: 1 means spending $50 gives 50 points.")}
                 </p>
               </div>
 
@@ -183,11 +195,11 @@ export default function LoyaltySettingsPage() {
                     required
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 font-mono">
-                    $ / pt
+                    {t("settings.dollar_per_pt_unit", "$ / pt")}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Default: 0.0100 (100 points = $1.00 redemption discount).
+                  {t("settings.value_per_point_hint", "Default: 0.0100 (100 points = $1.00 redemption discount).")}
                 </p>
               </div>
 
@@ -209,11 +221,11 @@ export default function LoyaltySettingsPage() {
                     required
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 font-mono">
-                    pts min
+                    {t("settings.pts_min_unit", "pts min")}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Prevents trivial redemptions; customer must accumulate at least this balance.
+                  {t("settings.min_points_to_redeem_hint", "Prevents trivial redemptions; customer must accumulate at least this balance.")}
                 </p>
               </div>
 
@@ -240,7 +252,7 @@ export default function LoyaltySettingsPage() {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Maximum percent of the payable bill points can cover (e.g. 50% or 100%).
+                  {t("settings.max_discount_cap_hint", "Maximum percent of the payable bill points can cover (e.g. 50% or 100%).")}
                 </p>
               </div>
             </div>
@@ -253,24 +265,32 @@ export default function LoyaltySettingsPage() {
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
-                  <span className="text-xs font-extrabold uppercase text-slate-600 dark:text-slate-400">Standard</span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">0 - 499 pts</p>
-                  <span className="text-[10px] text-slate-400">Entry Tier</span>
+                  <span className="text-xs font-extrabold uppercase text-slate-600 dark:text-slate-400">
+                    {t("settings.tier_standard", "Standard")}
+                  </span>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">0 - 499 {t("settings.loyalty_points", "pts")}</p>
+                  <span className="text-[10px] text-slate-400">{t("settings.tier_standard_sub", "Entry Tier")}</span>
                 </div>
                 <div className="p-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70">
-                  <span className="text-xs font-extrabold uppercase text-slate-700 dark:text-slate-200">Silver</span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">500+ pts</p>
-                  <span className="text-[10px] text-slate-500">Regular Guest</span>
+                  <span className="text-xs font-extrabold uppercase text-slate-700 dark:text-slate-200">
+                    {t("settings.tier_silver", "Silver")}
+                  </span>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">500+ {t("settings.loyalty_points", "pts")}</p>
+                  <span className="text-[10px] text-slate-500">{t("settings.tier_silver_sub", "Regular Guest")}</span>
                 </div>
                 <div className="p-3 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20">
-                  <span className="text-xs font-extrabold uppercase text-amber-700 dark:text-amber-400">Gold</span>
-                  <p className="text-sm font-bold text-amber-900 dark:text-amber-200 font-mono mt-1">2,000+ pts</p>
-                  <span className="text-[10px] text-amber-600">Frequent Diner</span>
+                  <span className="text-xs font-extrabold uppercase text-amber-700 dark:text-amber-400">
+                    {t("settings.tier_gold", "Gold")}
+                  </span>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">2,000+ {t("settings.loyalty_points", "pts")}</p>
+                  <span className="text-[10px] text-amber-600">{t("settings.tier_gold_sub", "Frequent Diner")}</span>
                 </div>
                 <div className="p-3 rounded-2xl border border-purple-300 dark:border-purple-700/60 bg-purple-50 dark:bg-purple-950/20">
-                  <span className="text-xs font-extrabold uppercase text-purple-700 dark:text-purple-400">VIP</span>
-                  <p className="text-sm font-bold text-purple-900 dark:text-purple-200 font-mono mt-1">5,000+ pts</p>
-                  <span className="text-[10px] text-purple-600">Top Tier Member</span>
+                  <span className="text-xs font-extrabold uppercase text-purple-700 dark:text-purple-400">
+                    {t("settings.tier_vip", "VIP")}
+                  </span>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">5,000+ {t("settings.loyalty_points", "pts")}</p>
+                  <span className="text-[10px] text-purple-600">{t("settings.tier_vip_sub", "Top Tier Member")}</span>
                 </div>
               </div>
             </div>

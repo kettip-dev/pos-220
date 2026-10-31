@@ -9,6 +9,7 @@ import {
   IconGridDots,
   IconAdjustmentsHorizontal,
   IconDeviceIpadHorizontal,
+  IconCashRegister,
   IconArmchair,
   IconToolsKitchen3,
   IconFriends,
@@ -1173,32 +1174,32 @@ export default function QBONavigation({ children }) {
           </div>
 
           {/* Right: Quick Tables & POS Launch Pills & Utility Icons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {hasAccess([SCOPES.POS], [PLAN_FEATURES.POS]) && (
-              <div className="hidden sm:flex items-center gap-1 mr-1">
+              <div className="hidden sm:flex items-center gap-1.5">
                 <Link
                   to="/dashboard/tables"
                   title={t("navbar.floor_plan_tables", "Floor Plan & Tables")}
-                  className="h-8 px-2.5 rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50 hover:bg-gray-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 flex items-center gap-1.5 text-xs font-semibold transition active:scale-95"
+                  className="h-9 px-3 rounded-full border border-gray-200 dark:border-slate-700 bg-gray-50 hover:bg-gray-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 flex items-center gap-1.5 text-xs font-semibold transition active:scale-95 shadow-2xs"
                 >
-                  <IconArmchair size={15} stroke={2} className="text-[#008489]" />
+                  <IconArmchair size={16} stroke={2} className="text-[#008489] dark:text-[#2dd4bf] shrink-0" />
                   <span className="hidden lg:inline">{t("top_bar.tables", "Tables")}</span>
                 </Link>
 
                 <Link
                   to="/dashboard/pos"
                   title={t("top_bar.open_pos", "Open Register / POS")}
-                  className="h-8 px-3 rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white flex items-center gap-1.5 text-xs font-semibold shadow-2xs transition active:scale-95"
+                  className="h-9 px-3.5 rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white flex items-center gap-1.5 text-xs font-semibold shadow-2xs transition active:scale-95"
                 >
-                  <IconDeviceIpadHorizontal size={15} stroke={2.2} />
+                  <IconCashRegister size={16} stroke={2} className="shrink-0" />
                   <span>{t("top_bar.pos", "POS")}</span>
                 </Link>
               </div>
             )}
 
             {/* User Profile Avatar Dropdown */}
-            <div className="relative ml-0.5">
-              <AppBarDropdown isCollapsed={true} className="!w-8 !h-8 !p-0" />
+            <div className="relative flex items-center justify-center shrink-0">
+              <AppBarDropdown isCollapsed={true} className="!w-9 !h-9 !p-0 rounded-full" />
             </div>
           </div>
         </header>

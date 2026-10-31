@@ -83,36 +83,45 @@ export default function AppBarDropdown({ isCollapsed = false, className = "", al
       <div>
         <Menu.Button
           className={clsx(
-            "text-sm transition rounded-xl flex items-center justify-between gap-2 p-1.5 w-full cursor-pointer",
+            "text-sm transition flex items-center cursor-pointer",
             isCollapsed
-              ? "w-11 h-11 justify-center rounded-xl hover:bg-white/10"
-              : "hover:bg-white/10 border border-transparent hover:border-white/15",
+              ? "w-9 h-9 justify-center rounded-full hover:ring-2 hover:ring-[#2CA01C]/60 p-0 overflow-hidden ring-1 ring-gray-200 dark:ring-slate-700 bg-gray-100 dark:bg-slate-800"
+              : "rounded-xl justify-between gap-2 p-1.5 w-full hover:bg-white/10 border border-transparent hover:border-white/15",
             className
           )}
         >
-          <div className="flex items-center gap-2.5 overflow-hidden text-left">
+          {isCollapsed ? (
             <img
               src={avatarSrc}
               alt="avatar"
               onError={(e) => {
                 e.currentTarget.src = AvatarImg;
               }}
-              className="w-10 h-10 rounded-full shrink-0 border border-white/20 p-0.5 bg-white/10 object-cover"
+              className="w-full h-full rounded-full object-cover aspect-square block shrink-0"
             />
-            {!isCollapsed && (
-              <div className="truncate">
-                <p className="font-semibold text-sm text-white truncate">
-                  {user.name}
-                </p>
-                <p className="text-[11px] text-slate-300 capitalize">
-                  {user.role}
-                  {user.designation ? ` • ${user.designation}` : ""}
-                </p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2.5 overflow-hidden text-left">
+                <img
+                  src={avatarSrc}
+                  alt="avatar"
+                  onError={(e) => {
+                    e.currentTarget.src = AvatarImg;
+                  }}
+                  className="w-10 h-10 rounded-full shrink-0 border border-white/20 p-0.5 bg-white/10 object-cover aspect-square"
+                />
+                <div className="truncate">
+                  <p className="font-semibold text-sm text-white truncate">
+                    {user.name}
+                  </p>
+                  <p className="text-[11px] text-slate-300 capitalize">
+                    {user.role}
+                    {user.designation ? ` • ${user.designation}` : ""}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-          {!isCollapsed && (
-            <IconChevronDown stroke={iconStroke} className="text-slate-300 shrink-0 mr-1" size={18} />
+              <IconChevronDown stroke={iconStroke} className="text-slate-300 shrink-0 mr-1" size={18} />
+            </>
           )}
         </Menu.Button>
       </div>
