@@ -30,13 +30,14 @@ import {
   IconReceipt,
   IconRefresh,
   IconSearch,
+  IconSortAscending,
+  IconSortDescending,
   IconStars,
   IconTicket,
   IconToolsKitchen2,
-  IconTrendingUp,
-  IconUser,
   IconX,
 } from "@tabler/icons-react";
+import { formatElapsedOrderTime, parseOrderDate } from "../helpers/DateHelper";
 import { iconStroke } from "../config/config";
 import { CURRENCIES } from "../config/currencies.config";
 import { triggerPrintReceipt } from "../helpers/ReceiptHelper";
@@ -48,7 +49,13 @@ import { useTheme } from "../contexts/ThemeContext";
 import clsx from "clsx";
 
 // Redesigned Tablet-Native Subcomponents
-import OrderCard from "../components/orders/OrderCard";
+import OrderCard, {
+  WAIT_LATE_MINS,
+  WAIT_WARN_MINS,
+  formatMoney,
+  getEarliestOrderDate,
+  getElapsedMinutes,
+} from "../components/orders/OrderCard";
 import OrderDetailsDrawer from "../components/orders/OrderDetailsDrawer";
 import POSPaymentDrawer from "../components/pos/POSPaymentDrawer";
 import POSSplitBillDrawer from "../components/pos/POSSplitBillDrawer";
@@ -81,6 +88,14 @@ export default function OrdersPage() {
     }
   };
   const [showOrderDisplayMenu, setShowOrderDisplayMenu] = useState(false);
+  const [sortOrder, setSortOrder] = useState("oldest"); // "oldest" | "newest"
+
+  // Re-render every 30s so elapsed timers on cards and KPIs stay live
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   // Slide-over Drawer for deep order inspection
   const [selectedOrderGroup, setSelectedOrderGroup] = useState(null);
@@ -325,10 +340,17 @@ export default function OrdersPage() {
     let unpaidTotal = 0;
     let paidCount = 0;
     let paidTotal = 0;
+    let oldestDate = null;
+    let oldestLabel = "";
 
     (kitchenOrders || []).forEach((group) => {
       (group.orders || []).forEach((ord) => {
         openOrdersCount += 1;
+        const parsed = parseOrderDate(ord.date);
+        if (parsed && (!oldestDate || parsed < parseOrderDate(oldestDate))) {
+          oldestDate = ord.date;
+          oldestLabel = `${group.table_title || ord.delivery_type || ""} #${ord.token_no}`.trim();
+        }
         const type = String(
           ord.delivery_type || (group.table_id ? "dinein" : "takeaway")
         ).toLowerCase();
@@ -367,8 +389,11 @@ export default function OrdersPage() {
       unpaidTotal,
       paidCount,
       paidTotal,
+      oldestElapsed: oldestDate ? formatElapsedOrderTime(oldestDate) : null,
+      oldestMins: oldestDate ? getElapsedMinutes(oldestDate) : 0,
+      oldestLabel,
     };
-  }, [kitchenOrders]);
+  }, [kitchenOrders, nowTick]);
 
   // Filter Tabs Definition
   const filterTabs = [
@@ -470,8 +495,14 @@ export default function OrdersPage() {
       });
     }
 
+    // Sort by earliest order time in each card (FIFO by default)
+    const toTime = (g) => parseOrderDate(getEarliestOrderDate(g.orders))?.getTime() ?? 0;
+    list.sort((a, b) =>
+      sortOrder === "oldest" ? toTime(a) - toTime(b) : toTime(b) - toTime(a)
+    );
+
     return list;
-  }, [kitchenOrders, viewMode, activeFilter, searchQuery]);
+  }, [kitchenOrders, viewMode, activeFilter, searchQuery, sortOrder]);
 
   // ── Item Status Tap Handler (Optimistic Local + Server) ──
   const handleDirectItemStatusChange = async (orderItemId, newStatus) => {
@@ -921,28 +952,29 @@ export default function OrdersPage() {
 
   return (
     <Page>
-      {/* ── Top Bar: Title, TV Display Menu, Refresh & Live Socket Pulse ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200/80 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#2CA01C]/15 via-[#2CA01C]/10 to-[#2CA01C]/5 text-[#2CA01C] flex items-center justify-center border border-[#2CA01C]/25 shrink-0 shadow-xs">
+      {/* ── Header: Title, live sync, display menu & refresh ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-xl bg-[#2CA01C] text-white flex items-center justify-center shrink-0 shadow-sm">
             <IconReceipt size={22} stroke={iconStroke} />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
                 {t("orders.title")}
               </h1>
-              <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-2 rounded-full text-xs font-black bg-[#2CA01C]/15 text-[#2CA01C] border border-[#2CA01C]/30 leading-none">
-                {summaryMetrics.openOrdersCount}
-              </span>
-              {/* Live Socket Sync Pill */}
-              <div
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/80 text-[11px] font-bold text-slate-600 dark:text-zinc-300 select-none"
+              <span
+                className={clsx(
+                  "inline-flex items-center gap-1.5 h-6 px-2 rounded-full text-[11px] font-bold select-none",
+                  isSocketConnected
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                    : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400"
+                )}
                 title={isSocketConnected ? t("orders.socket_connected", "Live Socket Sync Active") : t("orders.socket_connecting", "Connecting...")}
               >
                 <span className="relative flex h-2 w-2">
                   {isSocketConnected && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   )}
                   <span
                     className={clsx(
@@ -951,268 +983,191 @@ export default function OrdersPage() {
                     )}
                   />
                 </span>
-                <span className="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-zinc-400">
-                  {isSocketConnected ? "Live" : "Offline"}
-                </span>
-              </div>
+                {isSocketConnected ? t("orders.live", "Live") : t("orders.offline", "Offline")}
+              </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 font-normal">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5 truncate">
               {t("orders.subtitle")}
             </p>
           </div>
         </div>
 
-        {/* Top Right Actions: TV Display dropdown & Refresh button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Order Display Dropdown */}
           <div ref={orderDisplayMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setShowOrderDisplayMenu((prev) => !prev)}
-              className="min-h-[42px] flex items-center gap-2 rounded-xl transition-all active:scale-95 px-3.5 py-2 bg-white dark:bg-zinc-850 text-slate-700 dark:text-zinc-200 border border-slate-200/90 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:border-slate-300 dark:hover:border-zinc-600 font-bold text-xs sm:text-sm cursor-pointer shadow-xs"
+              className="h-[42px] flex items-center gap-2 rounded-xl transition-all active:scale-95 px-3.5 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 font-bold text-sm cursor-pointer"
             >
-              <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#2CA01C] shrink-0">
-                <IconDeviceTv size={15} stroke={iconStroke} />
-              </div>
+              <IconDeviceTv size={18} stroke={iconStroke} className="text-[#2CA01C]" />
               <span>{t("orders.order_display")}</span>
               <IconChevronDown
-                size={14}
+                size={15}
                 stroke={iconStroke}
                 className={clsx("transition-transform duration-200 text-slate-400", showOrderDisplayMenu && "rotate-180")}
               />
             </button>
 
             {showOrderDisplayMenu && (
-              <div
-                className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-slate-200/90 dark:border-zinc-800 rounded-2xl shadow-xl shadow-slate-900/10 dark:shadow-black/50 z-50 p-1.5 flex flex-col gap-1 ring-1 ring-black/5"
-                onMouseLeave={() => setShowOrderDisplayMenu(false)}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowOrderDisplayMenu(false);
-                    if (!storeSettings?.unique_qr_code) {
-                      toast.error("Store QR code not found!");
-                      return;
-                    }
-                    window.open(
-                      `/order-status/${storeSettings.unique_qr_code}?mode=detailed`,
-                      "_blank"
-                    );
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-left cursor-pointer"
-                >
-                  <IconListDetails
-                    size={18}
-                    stroke={iconStroke}
-                    className="text-[#2CA01C] shrink-0"
-                  />
-                  <div>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {t("orders.detailed_view", "Detailed View")}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-normal">
-                      {t("orders.detailed_view_desc", "Shows items & prep progress")}
-                    </p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowOrderDisplayMenu(false);
-                    if (!storeSettings?.unique_qr_code) {
-                      toast.error("Store QR code not found!");
-                      return;
-                    }
-                    window.open(
-                      `/order-status/${storeSettings.unique_qr_code}?mode=token`,
-                      "_blank"
-                    );
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-left cursor-pointer"
-                >
-                  <IconHash
-                    size={18}
-                    stroke={iconStroke}
-                    className="text-[#2CA01C] shrink-0"
-                  />
-                  <div>
-                    <p className="font-bold text-slate-900 dark:text-white">
-                      {t("orders.token_display_mode", "Token Display Mode")}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-normal">
-                      {t("orders.token_display_mode_desc", "Minimal TV view with tokens only")}
-                    </p>
-                  </div>
-                </button>
+              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 p-1.5 flex flex-col gap-1">
+                {[
+                  {
+                    mode: "detailed",
+                    icon: IconListDetails,
+                    title: t("orders.detailed_view", "Detailed View"),
+                    desc: t("orders.detailed_view_desc", "Shows items & prep progress"),
+                  },
+                  {
+                    mode: "token",
+                    icon: IconHash,
+                    title: t("orders.token_display_mode", "Token Display Mode"),
+                    desc: t("orders.token_display_mode_desc", "Minimal TV view with tokens only"),
+                  },
+                ].map(({ mode, icon: ModeIcon, title, desc }) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setShowOrderDisplayMenu(false);
+                      if (!storeSettings?.unique_qr_code) {
+                        toast.error("Store QR code not found!");
+                        return;
+                      }
+                      window.open(
+                        `/order-status/${storeSettings.unique_qr_code}?mode=${mode}`,
+                        "_blank"
+                      );
+                    }}
+                    className="min-h-[52px] flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all text-left cursor-pointer active:scale-[0.98]"
+                  >
+                    <span className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[#2CA01C] flex items-center justify-center shrink-0">
+                      <ModeIcon size={18} stroke={iconStroke} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold text-slate-900 dark:text-white">{title}</span>
+                      <span className="block text-xs text-slate-500 dark:text-zinc-400">{desc}</span>
+                    </span>
+                    <IconExternalLink size={15} stroke={iconStroke} className="text-slate-300 dark:text-zinc-600 shrink-0" />
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Refresh Button */}
           <button
             type="button"
             onClick={refreshOrders}
             disabled={state.isLoading}
             title={t("orders.refresh", "Refresh")}
-            className="min-h-[42px] flex items-center gap-2 rounded-xl text-slate-700 dark:text-zinc-200 transition-all active:scale-95 px-3.5 py-2 bg-white dark:bg-zinc-850 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:border-slate-300 dark:hover:border-zinc-600 border border-slate-200/90 dark:border-zinc-700 text-xs sm:text-sm font-bold shadow-xs cursor-pointer disabled:opacity-60"
+            className="h-[42px] w-[42px] flex items-center justify-center rounded-xl text-slate-600 dark:text-zinc-300 transition-all active:scale-95 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 cursor-pointer disabled:opacity-60"
           >
             <IconRefresh
-              size={16}
+              size={18}
               stroke={iconStroke}
               className={clsx(state.isLoading && "animate-spin text-[#2CA01C]")}
             />
-            <span>{t("orders.refresh")}</span>
           </button>
         </div>
       </div>
 
-      {/* ── Live Stat Metric Ribbon (QuickBooks / Toast POS Standard - Compact) ── */}
+      {/* ── KPI tiles (tap to filter) ── */}
       {kitchenOrders?.length > 0 && (
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-          {/* Metric 1: Total Active Orders */}
-          <div className="px-3.5 py-2.5 rounded-xl border border-slate-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 shadow-xs flex items-center justify-between transition-all hover:border-slate-300 dark:hover:border-zinc-700">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block leading-tight">
-                {t("orders.active_orders_metric", "Active Orders")}
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tabular-nums leading-none">
-                  {summaryMetrics.openOrdersCount}
-                </span>
-                <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">
-                  ({summaryMetrics.dineInCount} {t("orders.filter_dinein", "Dine-in")}, {summaryMetrics.takeawayCount + summaryMetrics.deliveryCount} {t("pos.takeaway", "Takeaway")})
-                </span>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500 dark:text-zinc-400 shrink-0 ml-2">
-              <IconArmchair size={17} stroke={iconStroke} />
-            </div>
-          </div>
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          {[
+            {
+              key: "all",
+              label: t("orders.active_orders_metric", "Active Orders"),
+              value: summaryMetrics.openOrdersCount,
+              hint: `${summaryMetrics.dineInCount} ${t("orders.filter_dinein", "Dine-In")} · ${summaryMetrics.takeawayCount + summaryMetrics.deliveryCount} ${t("pos.takeaway", "Takeaway")}`,
+              icon: IconReceipt,
+              tone: "slate",
+            },
+            {
+              key: "unpaid",
+              label: t("orders.unpaid_balance_metric", "Unpaid Balance"),
+              value: `${currency}${formatMoney(summaryMetrics.unpaidTotal)}`,
+              hint: `${summaryMetrics.unpaidCount} ${t("orders.filter_unpaid", "Unpaid")}`,
+              icon: IconCash,
+              tone: "amber",
+            },
+            {
+              key: "paid",
+              label: t("orders.paid_ready_metric", "Paid & In Kitchen"),
+              value: `${currency}${formatMoney(summaryMetrics.paidTotal)}`,
+              hint: `${summaryMetrics.paidCount} ${t("orders.filter_paid", "Paid")}`,
+              icon: IconCheck,
+              tone: "emerald",
+            },
+            {
+              key: null,
+              label: t("orders.longest_wait_metric", "Longest Wait"),
+              value: summaryMetrics.oldestElapsed || "—",
+              hint: summaryMetrics.oldestLabel || "",
+              icon: IconClock,
+              tone:
+                summaryMetrics.oldestMins >= WAIT_LATE_MINS
+                  ? "rose"
+                  : summaryMetrics.oldestMins >= WAIT_WARN_MINS
+                  ? "amber"
+                  : "slate",
+            },
+          ].map((kpi) => {
+            const KpiIcon = kpi.icon;
+            const isActive = kpi.key && activeFilter === kpi.key;
+            const toneCls = {
+              slate: "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300",
+              amber: "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400",
+              emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400",
+              rose: "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400",
+            }[kpi.tone];
+            const valueCls = {
+              slate: "text-slate-900 dark:text-white",
+              amber: "text-amber-700 dark:text-amber-300",
+              emerald: "text-emerald-700 dark:text-emerald-300",
+              rose: "text-rose-600 dark:text-rose-400",
+            }[kpi.tone];
 
-          {/* Metric 2: Unpaid Balance Pending Settlement */}
-          <div className="px-3.5 py-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-gradient-to-r from-amber-50/60 to-white dark:from-amber-950/20 dark:to-zinc-900 shadow-xs flex items-center justify-between transition-all hover:border-amber-300 dark:hover:border-amber-800">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block leading-tight">
-                {t("orders.unpaid_balance_metric", "Unpaid Balance")}
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-base sm:text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums leading-none">
-                  {currency}
-                  {summaryMetrics.unpaidTotal.toLocaleString(undefined, {
-                    minimumFractionDigits: summaryMetrics.unpaidTotal % 1 === 0 ? 0 : 2,
-                    maximumFractionDigits: 2,
-                  })}
+            return (
+              <button
+                key={kpi.label}
+                type="button"
+                disabled={!kpi.key}
+                onClick={() => kpi.key && setActiveFilter(kpi.key)}
+                className={clsx(
+                  "text-left px-4 py-3 rounded-2xl border bg-white dark:bg-zinc-900 flex items-center gap-3 transition-all duration-150",
+                  kpi.key ? "cursor-pointer active:scale-[0.98] hover:border-slate-300 dark:hover:border-zinc-700" : "cursor-default",
+                  isActive
+                    ? "border-[#2CA01C] ring-2 ring-[#2CA01C]/20"
+                    : "border-slate-200 dark:border-zinc-800"
+                )}
+              >
+                <span className={clsx("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", toneCls)}>
+                  <KpiIcon size={20} stroke={iconStroke} />
                 </span>
-                <span className="text-[11px] font-semibold text-amber-600/90 dark:text-amber-400/90 truncate">
-                  • {summaryMetrics.unpaidCount} {t("orders.unpaid_status", "Unpaid")}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 truncate">
+                    {kpi.label}
+                  </span>
+                  <span className={clsx("block text-xl font-black tabular-nums leading-tight truncate", valueCls)}>
+                    {kpi.value}
+                  </span>
+                  {kpi.hint && (
+                    <span className="block text-[11px] font-medium text-slate-400 dark:text-zinc-500 truncate">
+                      {kpi.hint}
+                    </span>
+                  )}
                 </span>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-amber-100/80 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center shrink-0 ml-2">
-              <IconCash size={17} stroke={iconStroke} />
-            </div>
-          </div>
-
-          {/* Metric 3: Paid & Active in Kitchen */}
-          <div className="px-3.5 py-2.5 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 bg-gradient-to-r from-emerald-50/60 to-white dark:from-emerald-950/20 dark:to-zinc-900 shadow-xs flex items-center justify-between transition-all hover:border-emerald-300 dark:hover:border-emerald-800">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block leading-tight">
-                {t("orders.paid_ready_metric", "Paid & In Kitchen")}
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums leading-none">
-                  {currency}
-                  {summaryMetrics.paidTotal.toLocaleString(undefined, {
-                    minimumFractionDigits: summaryMetrics.paidTotal % 1 === 0 ? 0 : 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-                <span className="text-[11px] font-semibold text-emerald-600/90 dark:text-emerald-400/90 truncate">
-                  • {summaryMetrics.paidCount} {t("orders.paid_status", "Paid")}
-                </span>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-lg bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center shrink-0 ml-2">
-              <IconCheck size={17} stroke={iconStroke} />
-            </div>
-          </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* ── Segmented Toolbar: View Mode Switcher + Dining/Payment Filters + Search ── */}
+      {/* ── Toolbar: filter tabs · search · sort · view · density ── */}
       {kitchenOrders?.length > 0 && (
-        <div className="mt-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Left: View Mode Toggle & Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-            {/* View Mode Switcher (Group by Table ↔ Individual Tickets) */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
-                  viewMode === "table"
-                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
-                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
-                )}
-                title={t("orders.group_by_table", "Group by Table")}
-              >
-                <IconArmchair size={15} stroke={iconStroke} />
-                <span className="hidden sm:inline">{t("orders.group_by_table", "By Table")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("ticket")}
-                className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
-                  viewMode === "ticket"
-                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
-                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
-                )}
-                title={t("orders.individual_tickets", "Individual Tickets")}
-              >
-                <IconReceipt size={15} stroke={iconStroke} />
-                <span className="hidden sm:inline">{t("orders.individual_tickets", "Tickets")}</span>
-              </button>
-            </div>
-
-            {/* Density Switcher (Comfortable ↔ Compact) */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleDensityChange("normal")}
-                className={clsx(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
-                  density === "normal"
-                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
-                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
-                )}
-                title={t("orders.comfortable_view", "Normal / Comfortable View")}
-              >
-                <IconLayoutGrid size={15} stroke={iconStroke} />
-                <span className="inline">{t("orders.normal_density", "Normal")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDensityChange("compact")}
-                className={clsx(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 cursor-pointer",
-                  density === "compact"
-                    ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
-                    : "text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white"
-                )}
-                title={t("orders.compact_view", "Compact View")}
-              >
-                <IconGridDots size={15} stroke={iconStroke} />
-                <span className="inline">{t("orders.compact_density", "Compact")}</span>
-              </button>
-            </div>
-
-            {/* Filter Pills */}
-            <div className="h-6 w-px bg-slate-200 dark:bg-zinc-800 mx-1 shrink-0" />
-
+        <div className="mt-4 flex flex-col xl:flex-row xl:items-center gap-2.5">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-zinc-800/80 overflow-x-auto no-scrollbar touch-pan-x min-w-0">
             {filterTabs.map((tab) => {
               const isSelected = activeFilter === tab.key;
               return (
@@ -1221,19 +1176,19 @@ export default function OrdersPage() {
                   type="button"
                   onClick={() => setActiveFilter(tab.key)}
                   className={clsx(
-                    "min-h-[38px] flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all active:scale-95 border cursor-pointer",
+                    "h-[42px] flex items-center gap-2 px-3.5 rounded-lg text-sm font-bold shrink-0 whitespace-nowrap transition-all duration-150 active:scale-95 cursor-pointer",
                     isSelected
-                      ? "bg-[#2CA01C] text-white border-[#2CA01C] shadow-2xs"
-                      : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
                   )}
                 >
                   <span>{tab.label}</span>
                   <span
                     className={clsx(
-                      "px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none",
+                      "min-w-[22px] h-[22px] px-1.5 inline-flex items-center justify-center rounded-full text-[11px] font-black tabular-nums",
                       isSelected
-                        ? "bg-white/25 text-white"
-                        : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300"
+                        ? "bg-[#2CA01C] text-white"
+                        : "bg-slate-200/80 text-slate-500 dark:bg-zinc-700 dark:text-zinc-300"
                     )}
                   >
                     {tab.count}
@@ -1243,39 +1198,95 @@ export default function OrdersPage() {
             })}
           </div>
 
-          {/* Right: Search Input */}
-          <div className="min-h-[42px] w-full lg:w-72 px-3 rounded-xl flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus-within:border-[#2CA01C] transition shadow-2xs shrink-0">
-            <IconSearch size={17} stroke={iconStroke} className="text-slate-400 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("orders.search_placeholder")}
-              className="bg-transparent text-xs sm:text-sm text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 outline-none w-full"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-              >
-                <IconX stroke={iconStroke} size={14} />
-              </button>
-            )}
+          <div className="flex items-center gap-2 xl:ml-auto">
+            <div className="h-[42px] flex-1 xl:w-72 xl:flex-none px-3 rounded-xl flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 focus-within:border-[#2CA01C] focus-within:ring-2 focus-within:ring-[#2CA01C]/15 transition min-w-0">
+              <IconSearch size={18} stroke={iconStroke} className="text-slate-400 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("orders.search_placeholder")}
+                className="bg-transparent text-sm text-slate-800 dark:text-zinc-100 placeholder:text-slate-400 outline-none w-full min-w-0"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer shrink-0"
+                >
+                  <IconX stroke={iconStroke} size={15} />
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSortOrder((prev) => (prev === "oldest" ? "newest" : "oldest"))}
+              title={sortOrder === "oldest" ? t("orders.sort_oldest", "Oldest first") : t("orders.sort_newest", "Newest first")}
+              className="h-[42px] flex items-center gap-1.5 px-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-sm font-bold transition active:scale-95 cursor-pointer shrink-0"
+            >
+              {sortOrder === "oldest" ? (
+                <IconSortAscending size={18} stroke={iconStroke} />
+              ) : (
+                <IconSortDescending size={18} stroke={iconStroke} />
+              )}
+              <span className="hidden sm:inline whitespace-nowrap">
+                {sortOrder === "oldest" ? t("orders.sort_oldest", "Oldest first") : t("orders.sort_newest", "Newest first")}
+              </span>
+            </button>
+
+            {[
+              {
+                value: viewMode,
+                onChange: setViewMode,
+                options: [
+                  { key: "table", icon: IconArmchair, title: t("orders.group_by_table", "Group by Table") },
+                  { key: "ticket", icon: IconTicket, title: t("orders.individual_tickets", "Individual Tickets") },
+                ],
+              },
+              {
+                value: density,
+                onChange: handleDensityChange,
+                options: [
+                  { key: "normal", icon: IconLayoutGrid, title: t("orders.comfortable_view", "Normal / Comfortable View") },
+                  { key: "compact", icon: IconGridDots, title: t("orders.compact_view", "Compact View") },
+                ],
+              },
+            ].map((group, gi) => (
+              <div key={gi} className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-zinc-800/80 shrink-0">
+                {group.options.map(({ key, icon: OptIcon, title }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => group.onChange(key)}
+                    title={title}
+                    aria-pressed={group.value === key}
+                    className={clsx(
+                      "w-[42px] h-[40px] flex items-center justify-center rounded-lg transition active:scale-95 cursor-pointer",
+                      group.value === key
+                        ? "bg-white dark:bg-zinc-900 text-[#2CA01C] shadow-sm"
+                        : "text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    <OptIcon size={18} stroke={iconStroke} />
+                  </button>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* ── Empty State: No Active Orders at all ── */}
       {kitchenOrders?.length === 0 && !isLoading && (
-        <div className="w-full h-[calc(100vh-280px)] flex gap-3 flex-col items-center justify-center text-center px-4">
-          <div className="w-20 h-20 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs mb-1">
+        <div className="mt-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-zinc-800 min-h-[50vh] flex gap-3 flex-col items-center justify-center text-center px-4 py-16">
+          <div className="w-20 h-20 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1">
             <IconToolsKitchen2 size={38} stroke={iconStroke} />
           </div>
-          <h3 className="font-bold text-base text-slate-800 dark:text-zinc-200 mt-2">
+          <h3 className="font-black text-lg text-slate-800 dark:text-zinc-200 mt-2">
             {t("orders.no_orders")}
           </h3>
-          <p className="text-xs text-slate-400 max-w-sm">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">
             {t("orders.no_orders_subtitle")}
           </p>
         </div>
@@ -1283,11 +1294,14 @@ export default function OrdersPage() {
 
       {/* ── Empty State: Filtered out ── */}
       {kitchenOrders?.length > 0 && filteredOrders.length === 0 && (
-        <div className="mt-8 rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 py-16 px-4 text-center shadow-xs">
-          <p className="font-black text-lg text-slate-800 dark:text-zinc-200">
+        <div className="mt-5 rounded-3xl border-2 border-dashed border-slate-200 dark:border-zinc-800 py-16 px-4 text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-zinc-800 text-slate-400 flex items-center justify-center">
+            <IconSearch size={26} stroke={iconStroke} />
+          </div>
+          <p className="mt-3 font-black text-lg text-slate-800 dark:text-zinc-200">
             {t("orders.no_matching_orders")}
           </p>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
             {t("orders.no_matching_orders_subtitle")}
           </p>
           <button
@@ -1296,26 +1310,26 @@ export default function OrdersPage() {
               setActiveFilter("all");
               setSearchQuery("");
             }}
-            className="mt-4 min-h-[42px] px-5 py-2 rounded-xl bg-[#2CA01C] text-white text-xs font-bold active:scale-95 transition cursor-pointer shadow-xs"
+            className="mt-5 h-[42px] px-5 rounded-xl bg-[#2CA01C] hover:bg-[#248217] text-white text-sm font-bold active:scale-95 transition cursor-pointer"
           >
             {t("orders.filter_all")}
           </button>
         </div>
       )}
 
-      {/* ── Elevated Orders Grid ── */}
+      {/* ── Orders Grid ── */}
       {filteredOrders?.length > 0 && (
         <div
           className={clsx(
-            "mt-5 grid",
+            "mt-4 grid items-stretch",
             density === "compact"
-              ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3"
-              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3"
+              : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"
           )}
         >
-          {filteredOrders.map((orderGroup, index) => (
+          {filteredOrders.map((orderGroup) => (
             <OrderCard
-              key={index}
+              key={`${viewMode}-${orderGroup.table_id ?? "x"}-${orderGroup.order_ids?.join("-")}`}
               orderGroup={orderGroup}
               currency={currency}
               viewMode={viewMode}
@@ -1359,7 +1373,7 @@ export default function OrdersPage() {
         currency={currency}
         paymentTypes={paymentTypes}
         onPaymentComplete={() => {
-          _loadOrders();
+          refreshOrders();
         }}
         onPrintSubReceipt={handlePrintSubReceipt}
       />
