@@ -1,23 +1,39 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import Page from "../components/Page";
 import { SelectBusinessEmptyState } from "../components/RequiresSingleBusiness";
 import { isBusinessRequiredError } from "../helpers/BusinessScope";
 import {
+  IconAlertTriangle,
+  IconArchive,
   IconArrowLeft,
-  IconChevronRight,
+  IconArrowsSort,
+  IconCalendarEvent,
+  IconCalendarStats,
+  IconChartBar,
+  IconChefHat,
   IconChevronDown,
-  IconChevronUp,
+  IconChevronRight,
+  IconClockHour4,
+  IconCreditCard,
   IconDownload,
   IconFileSpreadsheet,
+  IconLayoutList,
   IconLoader2,
+  IconMoodSmile,
+  IconReceiptTax,
+  IconRefresh,
+  IconReportAnalytics,
   IconSearch,
-  IconFilter,
+  IconSortAscending,
+  IconSortDescending,
   IconStar,
   IconStarFilled,
-  IconDotsVertical,
-  IconHelpCircle,
+  IconToolsKitchen2,
+  IconUsers,
+  IconX,
   IconBrandTelegram,
 } from "@tabler/icons-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -58,17 +74,24 @@ const READY_REPORTS = new Set([
   "feedback-summary", "negative-feedback", "recommendation-score",
 ]);
 
-const categoryAccentClasses = [
-  "text-restro-green bg-restro-green-10",
-  "text-blue-600 bg-blue-50 dark:bg-blue-950/30",
-  "text-amber-600 bg-amber-50 dark:bg-amber-950/30",
-  "text-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-950/30",
-  "text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30",
-  "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30",
-  "text-rose-600 bg-rose-50 dark:bg-rose-950/30",
-  "text-violet-600 bg-violet-50 dark:bg-violet-950/30",
-  "text-teal-600 bg-teal-50 dark:bg-teal-950/30",
-];
+// Reports where the Telegram end-of-day summary is the natural next action.
+const TELEGRAM_EOD_REPORTS = new Set(["sales-summary", "daily-close"]);
+
+const CATEGORY_META = {
+  Sales: { icon: IconChartBar, tile: "bg-emerald-50 text-[#2CA01C] dark:bg-emerald-950/40 dark:text-emerald-400" },
+  Payments: { icon: IconCreditCard, tile: "bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400" },
+  Menu: { icon: IconToolsKitchen2, tile: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" },
+  Customers: { icon: IconUsers, tile: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" },
+  Operations: { icon: IconChefHat, tile: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400" },
+  Inventory: { icon: IconArchive, tile: "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400" },
+  Accounting: { icon: IconReceiptTax, tile: "bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400" },
+  Reservations: { icon: IconCalendarStats, tile: "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400" },
+  Feedback: { icon: IconMoodSmile, tile: "bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-950/40 dark:text-fuchsia-400" },
+};
+const FALLBACK_CATEGORY_META = { icon: IconReportAnalytics, tile: "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300" };
+const getCategoryMeta = (category) => CATEGORY_META[category] || FALLBACK_CATEGORY_META;
+
+const isReportReady = (report) => READY_REPORTS.has(report.id) && report.status === "ready";
 
 const getDefaultDate = (offsetDays = 0) => {
   const date = new Date();
@@ -76,348 +99,530 @@ const getDefaultDate = (offsetDays = 0) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 };
 
+const formatShortDate = (value) => {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  if (!year || !month || !day) return value || "";
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+};
+
 function getCurrencySymbol(currencyCode) {
   return CURRENCIES.find((currency) => currency.cc === currencyCode)?.symbol || "";
 }
 
-function ReportStatus({ status }) {
-  const isReady = status === "ready";
-  return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${isReady ? "bg-restro-green-10 text-restro-green" : "bg-restro-bg-gray text-restro-text"}`}>
-      {isReady ? "Ready" : "Planned"}
-    </span>
-  );
+function useCategoryLabel() {
+  const { t } = useTranslation();
+  return (cat) => {
+    if (cat === "Favourites") return t("reports.favourites", "Favourites");
+    if (cat === "Sales") return t("reports.categories.business_overview_and_sales", "Business overview & Sales");
+    return t(`reports.categories.${cat.toLowerCase()}`, cat);
+  };
 }
 
-function ReportCard({ report, onOpen }) {
-  const Icon = report.icon;
+function useSendTelegramEod() {
+  const { t } = useTranslation();
+  const [isSending, setIsSending] = useState(false);
 
+  const send = async (payload = {}) => {
+    try {
+      setIsSending(true);
+      const res = await sendManualEodReport(payload);
+      toast.success(res?.message || t("reports.eod_sent", "EOD Summary sent to Telegram!"));
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || t("reports.eod_failed", "Failed to send EOD report"));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return { send, isSending };
+}
+
+function TelegramButton({ onClick, isSending, label }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
-      onClick={() => onOpen(report)}
-      className="group relative flex h-full flex-col items-start rounded-xl border border-restro-border-green bg-background p-5 text-left transition-all hover:-translate-y-1 hover:border-restro-green hover:shadow-md"
+      onClick={onClick}
+      disabled={isSending}
+      title={t("reports.send_eod_telegram", "Send EOD to Telegram")}
+      className="h-[42px] min-w-[42px] shrink-0 flex items-center justify-center gap-2 rounded-xl border border-[#229ED9]/40 bg-[#229ED9]/10 px-2.5 sm:px-3.5 text-sm font-bold text-[#229ED9] transition-all hover:bg-[#229ED9]/20 active:scale-95 disabled:opacity-50 cursor-pointer"
     >
-      <div className="flex w-full items-start justify-between">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-restro-bg-gray text-restro-text transition-colors group-hover:bg-restro-green-10 group-hover:text-restro-green">
-          <Icon size={20} stroke={iconStroke} />
-        </span>
-        <ReportStatus status={report.status} />
-      </div>
-
-      <div className="mt-4 flex-1">
-        <h3 className="font-bold text-foreground group-hover:text-restro-green">{report.title}</h3>
-        <p className="mt-1 line-clamp-2 text-sm text-restro-text">{report.description}</p>
-      </div>
-
-      <div className="mt-4 flex w-full items-center justify-end">
-        <span className="flex items-center gap-1 text-xs font-bold text-restro-text opacity-0 transition-all group-hover:text-restro-green group-hover:opacity-100">
-          Open Report <IconChevronRight size={14} stroke={iconStroke} />
-        </span>
-      </div>
+      {isSending ? <IconLoader2 size={18} className="animate-spin" /> : <IconBrandTelegram size={18} stroke={iconStroke} />}
+      <span className="hidden sm:inline">{isSending ? t("reports.sending", "Sending...") : label}</span>
     </button>
   );
 }
 
-const FAV_REPORTS_STORAGE_KEY = "restro_qbo_fav_reports_v1";
-const DEFAULT_FAV_REPORTS = [
-  "sales-summary",
-  "gross-sales",
-  "net-sales",
-  "daily-close",
-];
+/* -------------------------------------------------------------------------- */
+/*                               Reports index                                */
+/* -------------------------------------------------------------------------- */
 
-function QBOReportRow({ report, isFav, onToggleFav, onOpen }) {
+const FAV_REPORTS_STORAGE_KEY = "restro_qbo_fav_reports_v1";
+const RECENT_REPORTS_STORAGE_KEY = "restro_recent_reports_v1";
+const COLLAPSED_SECTIONS_STORAGE_KEY = "restro_reports_collapsed_v1";
+const DEFAULT_FAV_REPORTS = ["sales-summary", "gross-sales", "net-sales", "daily-close"];
+const MAX_RECENT_REPORTS = 6;
+
+const readStoredList = (key, fallback) => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+    if (Array.isArray(saved)) return saved;
+  } catch {}
+  return fallback;
+};
+
+const writeStored = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+};
+
+const rememberRecentReport = (reportId) => {
+  const recent = readStoredList(RECENT_REPORTS_STORAGE_KEY, []).filter((id) => id !== reportId);
+  writeStored(RECENT_REPORTS_STORAGE_KEY, [reportId, ...recent].slice(0, MAX_RECENT_REPORTS));
+};
+
+function FavouriteButton({ isFav, onToggle }) {
   const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      title={isFav ? t("reports.remove_from_favourites", "Remove from Favourites") : t("reports.add_to_favourites", "Add to Favourites")}
+      aria-pressed={isFav}
+      className="h-[42px] w-[42px] shrink-0 flex items-center justify-center rounded-xl transition-all hover:bg-slate-100 dark:hover:bg-zinc-800 active:scale-90 cursor-pointer"
+    >
+      {isFav ? (
+        <IconStarFilled size={18} className="text-amber-400" />
+      ) : (
+        <IconStar size={18} stroke={1.8} className="text-slate-300 dark:text-zinc-600 group-hover:text-slate-400" />
+      )}
+    </button>
+  );
+}
+
+function ReportRow({ report, isFav, onToggleFav, onOpen }) {
+  const { t } = useTranslation();
+  const ready = isReportReady(report);
+  const Icon = report.icon;
   const title = t(`reports.catalog.${report.id}.title`, report.title);
   const description = t(`reports.catalog.${report.id}.description`, report.description);
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(report)}
-      className="group flex items-center justify-between border-b border-gray-200/80 dark:border-slate-800 py-1.5 px-2 hover:bg-[#F4F5F8] dark:hover:bg-slate-800/60 transition-colors cursor-pointer rounded-xs"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(report);
+        }
+      }}
+      className="group min-h-[60px] flex items-center gap-3 rounded-xl px-2.5 py-2 transition-all hover:bg-slate-50 dark:hover:bg-zinc-800/60 active:scale-[0.99] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2CA01C]/40"
     >
-      <div className="flex items-center gap-1.5 min-w-0 pr-2">
-        <span className="text-[13px] font-medium text-gray-700 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white truncate">
-          {title}
+      <span className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-emerald-50 group-hover:text-[#2CA01C] dark:bg-zinc-800 dark:text-zinc-400 dark:group-hover:bg-emerald-950/40 dark:group-hover:text-emerald-400">
+        <Icon size={18} stroke={iconStroke} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-sm font-bold text-slate-800 group-hover:text-slate-950 dark:text-zinc-100 dark:group-hover:text-white">
+            {title}
+          </span>
+          {!ready && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">
+              {t("reports.soon", "Soon")}
+            </span>
+          )}
         </span>
         {description && (
-          <span
-            title={description}
-            onClick={(e) => e.stopPropagation()}
-            className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <IconHelpCircle size={14} stroke={1.8} />
+          <span className="block truncate text-xs text-slate-500 dark:text-zinc-400" title={description}>
+            {description}
           </span>
         )}
-      </div>
-
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFav(report.id);
-          }}
-          title={isFav ? t("reports.remove_from_favourites", "Remove from Favourites") : t("reports.add_to_favourites", "Add to Favourites")}
-          className="p-1 rounded hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
-        >
-          {isFav ? (
-            <IconStarFilled size={15} className="text-[#008489] dark:text-emerald-400" />
-          ) : (
-            <IconStar size={15} stroke={1.8} className="text-gray-400 dark:text-slate-500 hover:text-[#008489]" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen(report);
-          }}
-          title={t("reports.open_report", "Open Report")}
-          className="p-1 rounded text-gray-400 hover:text-gray-800 dark:text-slate-500 dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-slate-700 transition cursor-pointer"
-        >
-          <IconDotsVertical size={14} stroke={2} />
-        </button>
-      </div>
+      </span>
+      <FavouriteButton isFav={isFav} onToggle={() => onToggleFav(report.id)} />
     </div>
+  );
+}
+
+function QuickReportCard({ report, onOpen, isFav, onToggleFav }) {
+  const { t } = useTranslation();
+  const getCategoryLabel = useCategoryLabel();
+  const meta = getCategoryMeta(report.category);
+  const Icon = report.icon;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(report)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(report);
+        }
+      }}
+      className="group relative flex min-h-[76px] w-[250px] shrink-0 items-center gap-3 sm:w-auto rounded-2xl border border-slate-200 bg-white p-3 pr-1.5 transition-all hover:border-[#2CA01C]/50 hover:shadow-md active:scale-[0.98] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2CA01C]/40 dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      <span className={clsx("h-11 w-11 shrink-0 flex items-center justify-center rounded-xl", meta.tile)}>
+        <Icon size={20} stroke={iconStroke} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold text-slate-900 dark:text-white">
+          {t(`reports.catalog.${report.id}.title`, report.title)}
+        </span>
+        <span className="block truncate text-xs text-slate-500 dark:text-zinc-400">{getCategoryLabel(report.category)}</span>
+      </span>
+      <FavouriteButton isFav={isFav} onToggle={() => onToggleFav(report.id)} />
+    </div>
+  );
+}
+
+function CategoryChip({ active, onClick, icon: Icon, label, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "h-[42px] shrink-0 flex items-center gap-2 rounded-xl px-3.5 text-sm font-bold transition-all active:scale-95 cursor-pointer",
+        active
+          ? "bg-[#2CA01C] text-white shadow-sm"
+          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-700 dark:hover:bg-zinc-800"
+      )}
+    >
+      {Icon && <Icon size={16} stroke={iconStroke} className={active ? "text-white" : "text-slate-400 dark:text-zinc-500"} />}
+      <span className="whitespace-nowrap">{label}</span>
+      <span
+        className={clsx(
+          "min-w-[22px] rounded-full px-1.5 py-0.5 text-[11px] font-black tabular-nums",
+          active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400"
+        )}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
 function ReportsIndex() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const getCategoryLabel = useCategoryLabel();
+  const searchInputRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const category = searchParams.get("category") || "All";
   const normalizedQuery = query.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0;
+  const { send: sendTelegramEod, isSending: isSendingTelegram } = useSendTelegramEod();
 
-  const getCategoryLabel = (cat) => {
-    if (cat === "Favourites") return t("reports.favourites", "Favourites");
-    if (cat === "Sales") return t("reports.categories.business_overview_and_sales", "Business overview & Sales");
-    return t(`reports.categories.${cat.toLowerCase()}`, cat);
-  };
-
-  const [favReportIds, setFavReportIds] = useState(() => {
+  const [favReportIds, setFavReportIds] = useState(() => readStoredList(FAV_REPORTS_STORAGE_KEY, DEFAULT_FAV_REPORTS));
+  const [recentReportIds] = useState(() => readStoredList(RECENT_REPORTS_STORAGE_KEY, []));
+  const [collapsedSections, setCollapsedSections] = useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(FAV_REPORTS_STORAGE_KEY));
-      if (Array.isArray(saved)) return saved;
-    } catch {}
-    return DEFAULT_FAV_REPORTS;
+      return JSON.parse(localStorage.getItem(COLLAPSED_SECTIONS_STORAGE_KEY)) || {};
+    } catch {
+      return {};
+    }
   });
 
-  const [collapsedSections, setCollapsedSections] = useState({});
+  // "/" jumps to search, like most back-office tools.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const tag = event.target?.tagName;
+      if (event.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && !event.target?.isContentEditable) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
-  const toggleSection = (key) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const updateCollapsed = (next) => {
+    setCollapsedSections(next);
+    writeStored(COLLAPSED_SECTIONS_STORAGE_KEY, next);
   };
+
+  const toggleSection = (key) => updateCollapsed({ ...collapsedSections, [key]: !collapsedSections[key] });
 
   const toggleFavReport = (reportId) => {
     setFavReportIds((prev) => {
-      const next = prev.includes(reportId)
-        ? prev.filter((id) => id !== reportId)
-        : [...prev, reportId];
-      try {
-        localStorage.setItem(FAV_REPORTS_STORAGE_KEY, JSON.stringify(next));
-      } catch {}
+      const next = prev.includes(reportId) ? prev.filter((id) => id !== reportId) : [...prev, reportId];
+      writeStored(FAV_REPORTS_STORAGE_KEY, next);
       return next;
     });
   };
 
   const setCategoryFilter = (cat) => {
-    if (!cat || cat === "All") {
-      setSearchParams({});
-    } else {
-      setSearchParams({ category: cat });
-    }
+    if (!cat || cat === "All") setSearchParams({});
+    else setSearchParams({ category: cat });
   };
 
-  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
-  const handleSendTelegramEod = async () => {
-    try {
-      setIsSendingTelegram(true);
-      const res = await sendManualEodReport({});
-      toast.success(res?.message || "EOD Summary sent to Telegram!");
-    } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Failed to send EOD report");
-    } finally {
-      setIsSendingTelegram(false);
-    }
+  const openReport = (report) => navigate(`/dashboard/reports/${report.id}`);
+
+  const matchesQuery = (report) => {
+    if (!normalizedQuery) return true;
+    return [
+      report.title,
+      t(`reports.catalog.${report.id}.title`, report.title),
+      report.category,
+      getCategoryLabel(report.category),
+      report.description,
+      t(`reports.catalog.${report.id}.description`, report.description),
+      report.priority,
+      ...(report.keywords || []),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery);
   };
 
-  const favouriteReports = useMemo(() => {
-    return REPORT_CATALOG.filter((report) => {
-      if (!favReportIds.includes(report.id)) return false;
-      if (!normalizedQuery) return true;
-      const translatedTitle = t(`reports.catalog.${report.id}.title`, report.title);
-      const translatedDesc = t(`reports.catalog.${report.id}.description`, report.description);
-      const searchable = [
-        report.title,
-        translatedTitle,
-        report.category,
-        getCategoryLabel(report.category),
-        report.description,
-        translatedDesc,
-        ...(report.keywords || []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return searchable.includes(normalizedQuery);
+  const categoryCounts = useMemo(() => {
+    const counts = {};
+    REPORT_CATALOG.forEach((report) => {
+      counts[report.category] = (counts[report.category] || 0) + 1;
     });
-  }, [favReportIds, normalizedQuery, t]);
+    return counts;
+  }, []);
+
+  const favouriteReports = useMemo(
+    () => favReportIds.map((id) => REPORT_CATALOG.find((report) => report.id === id)).filter(Boolean),
+    [favReportIds]
+  );
+
+  const recentReports = useMemo(
+    () => recentReportIds
+      .map((id) => REPORT_CATALOG.find((report) => report.id === id))
+      .filter((report) => report && isReportReady(report))
+      .slice(0, 4),
+    [recentReportIds]
+  );
 
   const groupedReports = useMemo(() => {
-    if (category === "Favourites") return [];
-    return REPORT_CATEGORIES.map((categoryName) => {
-      const reports = REPORT_CATALOG.filter((report) => {
-        if (report.category !== categoryName) return false;
-        if (category !== "All" && report.category !== category) return false;
-        if (!normalizedQuery) return true;
+    if (category === "Favourites") {
+      const reports = favouriteReports.filter(matchesQuery);
+      return reports.length ? [{ category: "Favourites", reports }] : [];
+    }
+    return REPORT_CATEGORIES
+      .filter((categoryName) => category === "All" || categoryName === category)
+      .map((categoryName) => ({
+        category: categoryName,
+        reports: REPORT_CATALOG.filter((report) => report.category === categoryName && matchesQuery(report)),
+      }))
+      .filter((group) => group.reports.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, normalizedQuery, favouriteReports, t]);
 
-        const translatedTitle = t(`reports.catalog.${report.id}.title`, report.title);
-        const translatedDesc = t(`reports.catalog.${report.id}.description`, report.description);
-        const searchable = [
-          report.title,
-          translatedTitle,
-          report.category,
-          getCategoryLabel(report.category),
-          report.description,
-          translatedDesc,
-          report.priority,
-          ...(report.keywords || []),
-        ]
-          .join(" ")
-          .toLowerCase();
+  const resultCount = groupedReports.reduce((sum, group) => sum + group.reports.length, 0);
+  const readyCount = REPORT_CATALOG.filter(isReportReady).length;
+  const showQuickAccess = category === "All" && !isSearching;
+  const allCollapsed = groupedReports.length > 0 && groupedReports.every((group) => collapsedSections[group.category]);
 
-        return searchable.includes(normalizedQuery);
-      });
-
-      return { category: categoryName, reports };
-    }).filter((group) => group.reports.length > 0);
-  }, [category, normalizedQuery, t]);
+  const setAllCollapsed = (collapsed) => {
+    const next = { ...collapsedSections };
+    groupedReports.forEach((group) => {
+      next[group.category] = collapsed;
+    });
+    updateCollapsed(next);
+  };
 
   return (
-    <Page className="min-h-[calc(100vh-56px)] bg-white dark:bg-[#08101D] px-4 sm:px-6 py-4">
-      <div className="mx-auto max-w-5xl">
-        {/* Top QBO Search & Filter Bar */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-1 max-w-md">
-            <div className="relative flex-1 flex items-center rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-[#008489] focus-within:ring-1 focus-within:ring-[#008489] transition">
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className="h-9 w-full bg-transparent px-3 text-xs sm:text-sm text-gray-800 dark:text-slate-100 placeholder-gray-400 outline-none"
-                placeholder={t("reports.search_placeholder", "Type report name here")}
-              />
-              <span className="h-9 px-2.5 border-l border-gray-200 dark:border-slate-800 flex items-center justify-center text-gray-500">
-                <IconChevronDown size={15} />
-              </span>
+    <Page className="min-h-[calc(100vh-56px)] bg-slate-50/60 px-3 py-4 sm:px-6 sm:py-5 dark:bg-[#08101D]">
+      <div className="mx-auto max-w-6xl">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="h-11 w-11 shrink-0 flex items-center justify-center rounded-xl bg-[#2CA01C] text-white shadow-sm">
+              <IconReportAnalytics size={22} stroke={iconStroke} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-black leading-tight tracking-tight text-slate-900 sm:text-2xl dark:text-white">
+                {t("reports.title", "Reports")}
+              </h1>
+              <p className="mt-0.5 truncate text-xs text-slate-500 sm:text-sm dark:text-zinc-400">
+                {t("reports.index_subtitle", "{{count}} reports across {{categories}} categories", {
+                  count: readyCount,
+                  categories: REPORT_CATEGORIES.length,
+                })}
+              </p>
             </div>
           </div>
+          <TelegramButton
+            onClick={() => sendTelegramEod({})}
+            isSending={isSendingTelegram}
+            label={t("reports.send_eod_telegram", "Send EOD to Telegram")}
+          />
+        </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSendTelegramEod}
-              disabled={isSendingTelegram}
-              className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#229ED9]/40 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 text-[#229ED9] text-xs font-bold transition active:scale-95 disabled:opacity-50"
-              title="Send End-of-Day Summary to Telegram"
-            >
-              <IconBrandTelegram size={16} stroke={iconStroke} />
-              <span>{isSendingTelegram ? t("reports.sending", "Sending...") : t("reports.send_eod_telegram", "Send EOD to Telegram")}</span>
-            </button>
-          </div>
-
-          {category !== "All" && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">
-                {t("reports.filtered_by", "Filtered by:")}{" "}
-                <strong className="text-gray-900 dark:text-white">{getCategoryLabel(category)}</strong>
-              </span>
+        {/* Search */}
+        <div className="mt-4 flex items-center gap-2">
+          <div className="h-[46px] min-w-0 flex-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 transition focus-within:border-[#2CA01C] focus-within:ring-2 focus-within:ring-[#2CA01C]/15 dark:border-zinc-700 dark:bg-zinc-900">
+            <IconSearch size={18} stroke={iconStroke} className="shrink-0 text-slate-400" />
+            <input
+              ref={searchInputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setQuery("");
+                if (event.key === "Enter" && resultCount === 1) openReport(groupedReports[0].reports[0]);
+              }}
+              className="w-full min-w-0 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-zinc-100"
+              placeholder={t("reports.search_placeholder_long", "Search reports — sales, tax, stock, customers…")}
+            />
+            {query ? (
               <button
                 type="button"
-                onClick={() => setCategoryFilter("All")}
-                className="text-xs font-semibold text-[#0077C5] hover:underline cursor-pointer"
+                onClick={() => setQuery("")}
+                className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-zinc-800 cursor-pointer"
+                aria-label={t("reports.clear_search", "Clear search")}
               >
-                {t("reports.show_all_reports", "Show all reports")}
+                <IconX size={16} />
               </button>
-            </div>
+            ) : (
+              <kbd className="hidden shrink-0 rounded-md border border-slate-200 px-1.5 py-0.5 text-[11px] font-bold text-slate-400 sm:inline dark:border-zinc-700">/</kbd>
+            )}
+          </div>
+          {groupedReports.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setAllCollapsed(!allCollapsed)}
+              title={allCollapsed ? t("reports.expand_all", "Expand all") : t("reports.collapse_all", "Collapse all")}
+              className="h-[46px] shrink-0 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold text-slate-600 transition-all hover:bg-slate-50 active:scale-95 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              <IconLayoutList size={18} stroke={iconStroke} />
+              <span className="hidden md:inline">{allCollapsed ? t("reports.expand_all", "Expand all") : t("reports.collapse_all", "Collapse all")}</span>
+            </button>
           )}
         </div>
 
-        {/* Collapsible QBO Report Cards */}
-        <div className="space-y-3">
-          {/* 1. Favourites Card */}
-          {(category === "All" || category === "Favourites") &&
-            favouriteReports.length > 0 && (
-              <section className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3.5 sm:p-4 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => toggleSection("Favourites")}
-                  className="flex items-center gap-2 text-left cursor-pointer focus:outline-none"
-                >
-                  {collapsedSections["Favourites"] ? (
-                    <IconChevronRight size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
-                  ) : (
-                    <IconChevronDown size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
-                  )}
-                  <h2 className="text-[15px] font-bold text-gray-800 dark:text-white">
-                    {getCategoryLabel("Favourites")}
-                  </h2>
-                </button>
+        {/* Category chips */}
+        <div className="no-scrollbar -mx-3 mt-3 flex touch-pan-x gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
+          <CategoryChip
+            active={category === "All"}
+            onClick={() => setCategoryFilter("All")}
+            icon={IconReportAnalytics}
+            label={t("reports.all", "All")}
+            count={REPORT_CATALOG.length}
+          />
+          <CategoryChip
+            active={category === "Favourites"}
+            onClick={() => setCategoryFilter("Favourites")}
+            icon={IconStarFilled}
+            label={getCategoryLabel("Favourites")}
+            count={favouriteReports.length}
+          />
+          {REPORT_CATEGORIES.map((cat) => (
+            <CategoryChip
+              key={cat}
+              active={category === cat}
+              onClick={() => setCategoryFilter(cat)}
+              icon={getCategoryMeta(cat).icon}
+              label={t(`reports.categories.${cat.toLowerCase()}`, cat)}
+              count={categoryCounts[cat] || 0}
+            />
+          ))}
+        </div>
 
-                {!collapsedSections["Favourites"] && (
-                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
-                    {favouriteReports.map((report) => (
-                      <QBOReportRow
-                        key={report.id}
-                        report={report}
-                        isFav={true}
-                        onToggleFav={toggleFavReport}
-                        onOpen={(r) => navigate(`/dashboard/reports/${r.id}`)}
-                      />
-                    ))}
-                  </div>
-                )}
+        {/* Quick access: favourites + recently viewed */}
+        {showQuickAccess && (favouriteReports.length > 0 || recentReports.length > 0) && (
+          <div className="mt-5 space-y-5">
+            {favouriteReports.length > 0 && (
+              <section>
+                <h2 className="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <IconStarFilled size={13} className="text-amber-400" />
+                  {getCategoryLabel("Favourites")}
+                </h2>
+                <div className="no-scrollbar -mx-3 flex touch-pan-x gap-2.5 overflow-x-auto px-3 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+                  {favouriteReports.map((report) => (
+                    <QuickReportCard key={report.id} report={report} isFav onToggleFav={toggleFavReport} onOpen={openReport} />
+                  ))}
+                </div>
               </section>
             )}
+            {recentReports.length > 0 && (
+              <section>
+                <h2 className="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <IconClockHour4 size={14} stroke={2} />
+                  {t("reports.recently_viewed", "Recently viewed")}
+                </h2>
+                <div className="no-scrollbar flex touch-pan-x gap-2 overflow-x-auto pb-1">
+                  {recentReports.map((report) => (
+                    <button
+                      key={report.id}
+                      type="button"
+                      onClick={() => openReport(report)}
+                      className="h-[42px] shrink-0 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 transition-all hover:border-[#2CA01C]/50 hover:text-slate-900 active:scale-95 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 cursor-pointer"
+                    >
+                      <report.icon size={16} stroke={iconStroke} className="text-slate-400" />
+                      {t(`reports.catalog.${report.id}.title`, report.title)}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
 
-          {/* 2. Category Report Sections */}
+        {isSearching && resultCount > 0 && (
+          <p className="mt-4 text-xs font-semibold text-slate-500 dark:text-zinc-400">
+            {t("reports.search_results", "{{count}} matching reports", { count: resultCount })}
+            {resultCount === 1 && <span className="ml-1 text-slate-400">· {t("reports.press_enter_to_open", "press Enter to open")}</span>}
+          </p>
+        )}
+
+        {/* Category sections */}
+        <div className={clsx("space-y-3", showQuickAccess ? "mt-6" : "mt-4")}>
           {groupedReports.map((group) => {
-            const isCollapsed = !!collapsedSections[group.category];
+            // Searching always shows matches, regardless of collapsed state.
+            const isCollapsed = !isSearching && !!collapsedSections[group.category];
+            const meta = group.category === "Favourites"
+              ? { icon: IconStarFilled, tile: "bg-amber-50 text-amber-500 dark:bg-amber-950/40 dark:text-amber-400" }
+              : getCategoryMeta(group.category);
+            const CategoryIcon = meta.icon;
+
             return (
               <section
                 key={group.category}
-                className="rounded-xl border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3.5 sm:p-4 shadow-2xs"
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90"
               >
                 <button
                   type="button"
                   onClick={() => toggleSection(group.category)}
-                  className="flex items-center gap-2 text-left cursor-pointer focus:outline-none"
+                  aria-expanded={!isCollapsed}
+                  className="min-h-[60px] w-full flex items-center gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 cursor-pointer focus:outline-none"
                 >
-                  {isCollapsed ? (
-                    <IconChevronRight size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
-                  ) : (
-                    <IconChevronDown size={17} stroke={2} className="text-gray-700 dark:text-slate-300" />
-                  )}
-                  <h2 className="text-[15px] font-bold text-gray-800 dark:text-white">
-                    {getCategoryLabel(group.category)}
-                  </h2>
+                  <span className={clsx("h-10 w-10 shrink-0 flex items-center justify-center rounded-xl", meta.tile)}>
+                    <CategoryIcon size={20} stroke={iconStroke} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-black text-slate-900 dark:text-white">
+                      {getCategoryLabel(group.category)}
+                    </span>
+                    <span className="block text-xs text-slate-500 dark:text-zinc-400">
+                      {t("reports.report_count", "{{count}} reports", { count: group.reports.length })}
+                    </span>
+                  </span>
+                  <IconChevronDown
+                    size={18}
+                    stroke={2}
+                    className={clsx("shrink-0 text-slate-400 transition-transform duration-200", isCollapsed && "-rotate-90")}
+                  />
                 </button>
 
                 {!isCollapsed && (
-                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0.5">
+                  <div className="grid grid-cols-1 gap-x-2 border-t border-slate-100 p-1.5 md:grid-cols-2 xl:grid-cols-3 dark:border-zinc-800">
                     {group.reports.map((report) => (
-                      <QBOReportRow
+                      <ReportRow
                         key={report.id}
                         report={report}
                         isFav={favReportIds.includes(report.id)}
                         onToggleFav={toggleFavReport}
-                        onOpen={(r) => navigate(`/dashboard/reports/${r.id}`)}
+                        onOpen={openReport}
                       />
                     ))}
                   </div>
@@ -427,238 +632,602 @@ function ReportsIndex() {
           })}
         </div>
 
-        {groupedReports.length === 0 &&
-          (category !== "Favourites" || favouriteReports.length === 0) && (
-            <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-slate-800 bg-white dark:bg-slate-900 py-12 text-center">
-              <IconSearch className="mb-3 text-gray-400" size={36} stroke={iconStroke} />
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">
-                {t("reports.no_reports_found", "No reports found")}
-              </h3>
-              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                {t("reports.try_adjusting_search", "Try adjusting your search or category filter.")}
-              </p>
-              <button
-                onClick={() => {
-                  setQuery("");
-                  setCategoryFilter("All");
-                }}
-                className="mt-4 rounded-lg bg-[#2CA01C] px-4 py-2 text-xs font-bold text-white hover:bg-[#248417] cursor-pointer"
-              >
-                {t("reports.show_all_reports", "Show all reports")}
-              </button>
-            </div>
-          )}
+        {groupedReports.length === 0 && (
+          <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
+            {category === "Favourites" && !isSearching ? (
+              <>
+                <IconStar className="mb-3 text-slate-300" size={36} stroke={iconStroke} />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("reports.no_favourites", "No favourites yet")}</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+                  {t("reports.no_favourites_hint", "Tap the star on any report to pin it here.")}
+                </p>
+              </>
+            ) : (
+              <>
+                <IconSearch className="mb-3 text-slate-300" size={36} stroke={iconStroke} />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">{t("reports.no_reports_found", "No reports found")}</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+                  {t("reports.try_adjusting_search", "Try adjusting your search or category filter.")}
+                </p>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setCategoryFilter("All");
+              }}
+              className="mt-4 h-[42px] rounded-xl bg-[#2CA01C] px-4 text-sm font-bold text-white transition-all hover:bg-[#248417] active:scale-95 cursor-pointer"
+            >
+              {t("reports.show_all_reports", "Show all reports")}
+            </button>
+          </div>
+        )}
       </div>
     </Page>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*                         Shared report building blocks                      */
+/* -------------------------------------------------------------------------- */
 
 function SummaryGrid({ summary, currency }) {
   if (!summary?.length) return null;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {summary.map((item) => (
-        <div key={item.label} className="flex flex-col justify-center rounded-xl border border-restro-border-green bg-background p-5 shadow-sm">
-          <p className="text-sm font-medium text-restro-text">{item.label}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-foreground">{formatReportValue(item.value, item.type, currency)}</p>
-        </div>
-      ))}
+    <div
+      className={clsx(
+        "grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4",
+        summary.length % 5 === 0 && "xl:grid-cols-5",
+        summary.length === 3 && "lg:grid-cols-3"
+      )}
+    >
+      {summary.map((item, index) => {
+        const isPrimary = index === 0;
+        const value = formatReportValue(item.value, item.type, currency);
+        return (
+          <div
+            key={item.label}
+            className={clsx(
+              "min-w-0 rounded-2xl border p-3.5 sm:p-4",
+              isPrimary
+                ? "border-[#2CA01C]/30 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/30"
+                : "border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+            )}
+          >
+            <p className="truncate text-xs font-semibold text-slate-500 dark:text-zinc-400" title={item.label}>{item.label}</p>
+            <p
+              className={clsx(
+                "mt-1 truncate text-xl font-black tabular-nums tracking-tight sm:text-2xl",
+                isPrimary ? "text-[#1C6B12] dark:text-emerald-400" : "text-slate-900 dark:text-white"
+              )}
+              title={String(value)}
+            >
+              {value}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
+
+const NUMERIC_TYPES = new Set(["money", "number", "quantity"]);
+// Columns that are rates, prices, scores or identifiers: a column total would be meaningless.
+const NON_SUMMABLE_KEY = /average|avg|price|rate|rating|threshold|capacity|days_until|discount_value|_id$|^id$/;
+const TABLE_PAGE_SIZE = 50;
+
+const STATUS_KEYS = new Set(["status", "payment_status", "movement_type", "recommendation_group"]);
+const statusTone = (value) => {
+  const v = String(value || "").toLowerCase();
+  if (/(complete|paid|served|ready|done|confirmed|promoter|in$|restock|purchase)/.test(v)) return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400";
+  if (/(cancel|void|unpaid|no.?show|detractor|waste|out)/.test(v)) return "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400";
+  if (/(pending|prepar|progress|created|passive|adjust|booked)/.test(v)) return "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400";
+  return "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300";
+};
+
+const isSummableColumn = (column) => (
+  (column.type === "money" || column.type === "number") && !NON_SUMMABLE_KEY.test(column.key)
+);
+
+const compareValues = (a, b, type) => {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (NUMERIC_TYPES.has(type)) return Number(a) - Number(b);
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+};
 
 function DataTable({ table, currency }) {
+  const { t } = useTranslation();
+  const columns = table.columns || [];
+  const rows = table.rows || [];
+  const [sort, setSort] = useState({ key: null, dir: "desc" });
+  const [filter, setFilter] = useState("");
+  const [visibleCount, setVisibleCount] = useState(TABLE_PAGE_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(TABLE_PAGE_SIZE);
+  }, [rows, filter, sort]);
+
+  const filteredRows = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) => columns.some((column) => (
+      String(formatReportValue(row[column.key], column.type, currency) ?? "").toLowerCase().includes(needle)
+    )));
+  }, [rows, columns, filter, currency]);
+
+  const sortedRows = useMemo(() => {
+    if (!sort.key) return filteredRows;
+    const type = columns.find((column) => column.key === sort.key)?.type;
+    const sorted = [...filteredRows].sort((a, b) => compareValues(a[sort.key], b[sort.key], type));
+    return sort.dir === "desc" ? sorted.reverse() : sorted;
+  }, [filteredRows, sort, columns]);
+
+  const totals = useMemo(() => {
+    const summable = columns.filter(isSummableColumn);
+    if (filteredRows.length < 2 || summable.length === 0) return null;
+    return summable.reduce((result, column) => {
+      result[column.key] = filteredRows.reduce((sum, row) => sum + Number(row[column.key] || 0), 0);
+      return result;
+    }, {});
+  }, [filteredRows, columns]);
+
+  const toggleSort = (column) => {
+    setSort((current) => {
+      if (current.key !== column.key) return { key: column.key, dir: NUMERIC_TYPES.has(column.type) ? "desc" : "asc" };
+      if (current.dir === "desc") return { key: column.key, dir: "asc" };
+      return { key: null, dir: "desc" };
+    });
+  };
+
+  const visibleRows = sortedRows.slice(0, visibleCount);
+  const remaining = sortedRows.length - visibleRows.length;
+  const isNumeric = (column) => NUMERIC_TYPES.has(column.type);
+
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b] shadow-2xs">
-      <div className="border-b border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-800/50 px-5 py-3.5">
-        <h2 className="font-semibold text-slate-900 dark:text-white text-sm tracking-tight">{table.title}</h2>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs sm:text-[13px]">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
-              {(table.columns || []).map((column) => (
-                <th key={column.key} className={`whitespace-nowrap px-4 py-3 font-semibold ${column.type === "money" || column.type === "number" || column.type === "quantity" ? "text-right" : ""}`}>
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
-            {(table.rows || []).length === 0 && (
-              <tr>
-                <td colSpan={(table.columns || []).length || 1} className="py-12 text-center text-slate-400 dark:text-neutral-500">
-                  No data available for this period.
-                </td>
-              </tr>
-            )}
-            {(table.rows || []).map((row, rowIndex) => (
-              <tr key={row.id || row.invoice_id || row.order_item_id || rowIndex} className="transition-colors hover:bg-slate-50/70 dark:hover:bg-neutral-800/40">
-                {(table.columns || []).map((column) => (
-                  <td key={column.key} className={`whitespace-nowrap px-4 py-3 ${column.type === "money" || column.type === "number" || column.type === "quantity" ? "text-right tabular-nums font-medium text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}`}>
-                    {formatReportValue(row[column.key], column.type, currency)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ReportFilterBar({ state, setState, isLoading }) {
-  const isCustom = state.filter === "custom";
-
-  return (
-    <div className="rounded-xl border border-restro-border-green bg-background p-2 shadow-sm">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="custom-scroll-wrapper flex gap-1 overflow-x-auto pb-1 xl:pb-0">
-          {DATE_FILTERS.map((filter) => (
-            <button
-              key={filter.key}
-              type="button"
-              disabled={isLoading}
-              onClick={() => {
-                if (filter.key === "custom") {
-                  setState((current) => ({
-                    filter: "custom",
-                    fromDate: current.fromDate || getDefaultDate(-6),
-                    toDate: current.toDate || getDefaultDate(),
-                  }));
-                  return;
-                }
-                setState({ filter: filter.key, fromDate: null, toDate: null });
-              }}
-              className={`h-10 shrink-0 rounded-lg px-4 text-sm font-semibold transition ${state.filter === filter.key ? "bg-restro-text text-white shadow-md" : "text-restro-text hover:bg-restro-bg-gray hover:text-foreground"} disabled:opacity-50`}
-            >
-              {filter.label}
-            </button>
-          ))}
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-black tracking-tight text-slate-900 dark:text-white">{table.title}</h2>
+          <p className="text-xs text-slate-500 dark:text-zinc-400">
+            {filter
+              ? t("reports.rows_filtered", "{{shown}} of {{total}} rows", { shown: sortedRows.length, total: rows.length })
+              : t("reports.rows_count", "{{count}} rows", { count: rows.length })}
+          </p>
         </div>
-
-        {isCustom && (
-          <div className="flex items-center gap-2 xl:w-auto">
-            <div className="flex items-center rounded-lg border border-restro-border-green bg-background px-2 focus-within:border-restro-green">
-              <span className="text-xs font-bold text-restro-text">From</span>
-              <input
-                type="date"
-                value={state.fromDate || getDefaultDate(-6)}
-                onChange={(event) => setState((current) => ({ ...current, fromDate: event.target.value }))}
-                className="h-10 border-none bg-transparent px-2 text-sm text-foreground outline-none dark:[color-scheme:dark]"
-              />
-            </div>
-            <span className="text-restro-text">-</span>
-            <div className="flex items-center rounded-lg border border-restro-border-green bg-background px-2 focus-within:border-restro-green">
-              <span className="text-xs font-bold text-restro-text">To</span>
-              <input
-                type="date"
-                value={state.toDate || getDefaultDate()}
-                onChange={(event) => setState((current) => ({ ...current, toDate: event.target.value }))}
-                className="h-10 border-none bg-transparent px-2 text-sm text-foreground outline-none dark:[color-scheme:dark]"
-              />
-            </div>
+        {rows.length > 8 && (
+          <div className="h-[42px] w-full sm:w-64 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 transition focus-within:border-[#2CA01C] focus-within:ring-2 focus-within:ring-[#2CA01C]/15 dark:border-zinc-700 dark:bg-zinc-900">
+            <IconSearch size={16} stroke={iconStroke} className="shrink-0 text-slate-400" />
+            <input
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={t("reports.filter_rows", "Filter rows…")}
+              className="w-full min-w-0 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-zinc-100"
+            />
+            {filter && (
+              <button type="button" onClick={() => setFilter("")} className="shrink-0 text-slate-400 hover:text-slate-600 cursor-pointer" aria-label={t("reports.clear_search", "Clear search")}>
+                <IconX size={15} />
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      <div className="max-h-[70vh] overflow-auto">
+        <table className="w-full border-collapse text-left text-[13px]">
+          <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-zinc-800">
+            <tr className="text-xs font-bold text-slate-600 dark:text-zinc-300">
+              {columns.map((column) => {
+                const active = sort.key === column.key;
+                const SortIcon = !active ? IconArrowsSort : sort.dir === "asc" ? IconSortAscending : IconSortDescending;
+                return (
+                  <th
+                    key={column.key}
+                    className={clsx("whitespace-nowrap border-b border-slate-200 p-0 dark:border-zinc-700", isNumeric(column) && "text-right")}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(column)}
+                      className={clsx(
+                        "min-h-[42px] w-full flex items-center gap-1 px-4 py-2 transition-colors hover:text-slate-900 dark:hover:text-white cursor-pointer",
+                        isNumeric(column) && "justify-end",
+                        active && "text-slate-900 dark:text-white"
+                      )}
+                    >
+                      {column.label}
+                      <SortIcon size={13} stroke={2} className={active ? "text-[#2CA01C]" : "text-slate-300 dark:text-zinc-600"} />
+                    </button>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+            {sortedRows.length === 0 && (
+              <tr>
+                <td colSpan={columns.length || 1} className="py-12 text-center text-slate-400 dark:text-zinc-500">
+                  {filter ? t("reports.no_matching_rows", "No rows match your filter.") : t("reports.no_data_period", "No data available for this period.")}
+                </td>
+              </tr>
+            )}
+            {visibleRows.map((row, rowIndex) => (
+              <tr key={row.id || row.invoice_id || row.order_item_id || rowIndex} className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40">
+                {columns.map((column, columnIndex) => {
+                  const raw = row[column.key];
+                  const value = formatReportValue(raw, column.type, currency);
+                  const isEmpty = raw == null || raw === "";
+                  return (
+                    <td
+                      key={column.key}
+                      className={clsx(
+                        "whitespace-nowrap px-4 py-3",
+                        isNumeric(column)
+                          ? "text-right font-semibold tabular-nums text-slate-900 dark:text-zinc-100"
+                          : columnIndex === 0
+                            ? "font-semibold text-slate-900 dark:text-zinc-100"
+                            : "text-slate-600 dark:text-zinc-300",
+                        isNumeric(column) && Number(raw) < 0 && "text-red-600 dark:text-red-400"
+                      )}
+                    >
+                      {isEmpty && !isNumeric(column) ? (
+                        <span className="text-slate-300 dark:text-zinc-600">—</span>
+                      ) : STATUS_KEYS.has(column.key) ? (
+                        <span className={clsx("inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold capitalize", statusTone(raw))}>
+                          {String(value).replace(/_/g, " ")}
+                        </span>
+                      ) : (
+                        value
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+          {totals && (
+            <tfoot className="sticky bottom-0 bg-slate-50 dark:bg-zinc-800">
+              <tr className="text-[13px] font-black text-slate-900 dark:text-white">
+                {columns.map((column, columnIndex) => (
+                  <td
+                    key={column.key}
+                    className={clsx("whitespace-nowrap border-t border-slate-200 px-4 py-3 dark:border-zinc-700", isNumeric(column) && "text-right tabular-nums")}
+                  >
+                    {column.key in totals
+                      ? formatReportValue(totals[column.key], column.type, currency)
+                      : columnIndex === 0
+                        ? t("reports.total", "Total")
+                        : ""}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+
+      {remaining > 0 && (
+        <div className="border-t border-slate-200 p-2 dark:border-zinc-800">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((count) => count + TABLE_PAGE_SIZE)}
+            className="h-[42px] w-full rounded-xl text-sm font-bold text-[#2CA01C] transition-all hover:bg-emerald-50 active:scale-[0.99] dark:hover:bg-emerald-950/30 cursor-pointer"
+          >
+            {t("reports.show_more_rows", "Show {{count}} more", { count: Math.min(remaining, TABLE_PAGE_SIZE) })}
+            <span className="ml-1 font-semibold text-slate-400">({t("reports.remaining", "{{count}} remaining", { count: remaining })})</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-function ExportMenu({ isExporting, data, onExport }) {
+/* -------------------------------------------------------------------------- */
+/*                                Report detail                               */
+/* -------------------------------------------------------------------------- */
+
+const readFilterState = (searchParams) => {
+  const range = searchParams.get("range");
+  if (range === "custom") {
+    return {
+      filter: "custom",
+      fromDate: searchParams.get("from") || getDefaultDate(-6),
+      toDate: searchParams.get("to") || getDefaultDate(),
+    };
+  }
+  return {
+    filter: DATE_FILTERS.some((filter) => filter.key === range) ? range : "today",
+    fromDate: null,
+    toDate: null,
+  };
+};
+
+function ReportFilterBar({ state, onChange, isRefreshing }) {
+  const { t } = useTranslation();
+  const isCustom = state.filter === "custom";
+
+  const setCustomDate = (field, value) => {
+    if (!value) return;
+    const next = { ...state, [field]: value };
+    // Keep the range valid: dragging one end past the other moves both.
+    if (next.fromDate > next.toDate) {
+      if (field === "fromDate") next.toDate = value;
+      else next.fromDate = value;
+    }
+    onChange(next);
+  };
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative flex flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="no-scrollbar flex min-w-0 touch-pan-x items-center gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 dark:bg-zinc-800/80">
+        {DATE_FILTERS.map((filter) => {
+          const active = state.filter === filter.key;
+          return (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => {
+                if (filter.key === "custom") {
+                  onChange({
+                    filter: "custom",
+                    fromDate: state.fromDate || getDefaultDate(-6),
+                    toDate: state.toDate || getDefaultDate(),
+                  });
+                  return;
+                }
+                onChange({ filter: filter.key, fromDate: null, toDate: null });
+              }}
+              className={clsx(
+                "h-[42px] shrink-0 flex items-center gap-1.5 rounded-lg px-3.5 text-sm font-bold transition-all active:scale-95 cursor-pointer",
+                active
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-zinc-950 dark:text-white"
+                  : "text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100"
+              )}
+            >
+              {filter.key === "custom" && <IconCalendarEvent size={16} stroke={iconStroke} />}
+              {t(`reports.filters.${filter.key}`, filter.label)}
+            </button>
+          );
+        })}
+      </div>
+
+      {isCustom && (
+        <div className="flex items-center gap-2">
+          <label className="h-[42px] flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 focus-within:border-[#2CA01C] dark:border-zinc-700 dark:bg-zinc-900">
+            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">{t("reports.from", "From")}</span>
+            <input
+              type="date"
+              value={state.fromDate || getDefaultDate(-6)}
+              max={getDefaultDate()}
+              onChange={(event) => setCustomDate("fromDate", event.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none dark:text-zinc-100 dark:[color-scheme:dark]"
+            />
+          </label>
+          <label className="h-[42px] flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 focus-within:border-[#2CA01C] dark:border-zinc-700 dark:bg-zinc-900">
+            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">{t("reports.to", "To")}</span>
+            <input
+              type="date"
+              value={state.toDate || getDefaultDate()}
+              onChange={(event) => setCustomDate("toDate", event.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none dark:text-zinc-100 dark:[color-scheme:dark]"
+            />
+          </label>
+        </div>
+      )}
+
+      {isRefreshing && (
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 lg:ml-auto dark:text-zinc-400">
+          <IconLoader2 size={15} className="animate-spin text-[#2CA01C]" />
+          {t("reports.updating", "Updating…")}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ExportButtons({ isExporting, disabled, onExport }) {
+  return (
+    <>
       <button
         type="button"
-        disabled={isExporting || !data}
+        disabled={isExporting || disabled}
         onClick={() => onExport("excel")}
-        className="flex h-10 items-center gap-2 rounded-lg border border-restro-border-green bg-background px-4 text-sm font-bold text-foreground transition hover:bg-restro-bg-gray disabled:opacity-50"
+        className="h-[42px] flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-bold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
       >
-        <IconFileSpreadsheet size={18} stroke={iconStroke} /> Excel
+        <IconFileSpreadsheet size={18} stroke={iconStroke} className="text-[#2CA01C]" />
+        <span>Excel</span>
       </button>
       <button
         type="button"
-        disabled={isExporting || !data}
+        disabled={isExporting || disabled}
         onClick={() => onExport("pdf")}
-        className="flex h-10 items-center gap-2 rounded-lg bg-restro-green px-4 text-sm font-bold text-white transition hover:bg-restro-green/90 disabled:opacity-50"
+        className="h-[42px] flex items-center gap-2 rounded-xl bg-[#2CA01C] px-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#248417] active:scale-95 disabled:opacity-50 cursor-pointer"
       >
-        <IconDownload size={18} stroke={iconStroke} /> PDF
+        {isExporting ? <IconLoader2 size={18} className="animate-spin" /> : <IconDownload size={18} stroke={iconStroke} />}
+        <span>PDF</span>
       </button>
+    </>
+  );
+}
+
+function ReportSkeleton() {
+  return (
+    <div className="mt-5 animate-pulse space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((key) => (
+          <div key={key} className="h-[84px] rounded-2xl bg-slate-200/70 dark:bg-zinc-800/70" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className="h-[340px] rounded-2xl bg-slate-200/70 dark:bg-zinc-800/70" />
+        <div className="h-[340px] rounded-2xl bg-slate-200/70 dark:bg-zinc-800/70" />
+      </div>
+      <div className="h-64 rounded-2xl bg-slate-200/70 dark:bg-zinc-800/70" />
+    </div>
+  );
+}
+
+function ReportHeader({ report, subtitle, actions }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const getCategoryLabel = useCategoryLabel();
+  const meta = getCategoryMeta(report.category);
+  const Icon = report.icon;
+
+  return (
+    <>
+      <nav className="flex min-w-0 items-center gap-1 text-xs font-semibold text-slate-500 dark:text-zinc-400">
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard/reports")}
+          className="-ml-2 min-h-[42px] flex items-center gap-1.5 rounded-lg px-2 transition-colors hover:text-slate-900 dark:hover:text-white cursor-pointer"
+        >
+          <IconArrowLeft size={16} stroke={iconStroke} />
+          {t("reports.title", "Reports")}
+        </button>
+        <IconChevronRight size={14} className="shrink-0 text-slate-300 dark:text-zinc-600" />
+        <button
+          type="button"
+          onClick={() => navigate(`/dashboard/reports?category=${encodeURIComponent(report.category)}`)}
+          className="min-h-[42px] truncate rounded-lg px-2 transition-colors hover:text-slate-900 dark:hover:text-white cursor-pointer"
+        >
+          {getCategoryLabel(report.category)}
+        </button>
+      </nav>
+
+      <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={clsx("h-11 w-11 shrink-0 flex items-center justify-center rounded-xl", meta.tile)}>
+            <Icon size={22} stroke={iconStroke} />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-black leading-tight tracking-tight text-slate-900 sm:text-2xl dark:text-white">
+              {t(`reports.catalog.${report.id}.title`, report.title)}
+            </h1>
+            {subtitle && <p className="mt-0.5 truncate text-xs text-slate-500 sm:text-sm dark:text-zinc-400">{subtitle}</p>}
+          </div>
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      </div>
+    </>
+  );
+}
+
+function SiblingReports({ report }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const siblings = REPORT_CATALOG.filter((item) => item.category === report.category && isReportReady(item));
+  if (siblings.length < 2) return null;
+  const search = searchParams.toString();
+
+  return (
+    <div className="no-scrollbar -mx-3 flex touch-pan-x gap-1.5 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+      {siblings.map((item) => {
+        const active = item.id === report.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => !active && navigate(`/dashboard/reports/${item.id}${search ? `?${search}` : ""}`)}
+            aria-current={active ? "page" : undefined}
+            className={clsx(
+              "h-[42px] shrink-0 rounded-xl px-3.5 text-sm font-bold transition-all active:scale-95 cursor-pointer",
+              active
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            )}
+          >
+            {t(`reports.catalog.${item.id}.title`, item.title)}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 function PlannedReport({ report }) {
-  const Icon = report.icon;
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
-    <Page className="bg-restro-bg-gray/20 px-4 py-8">
-      <div className="mx-auto max-w-4xl">
-        <button type="button" onClick={() => navigate("/dashboard/reports")} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-restro-text transition hover:text-foreground">
-          <IconArrowLeft size={18} stroke={iconStroke} /> Back to Reports
-        </button>
-
-        <div className="rounded-2xl border border-restro-border-green bg-background p-8 shadow-sm md:p-10">
-          <div className="flex flex-col items-start gap-6 md:flex-row">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-restro-bg-gray text-restro-text">
-              <Icon size={32} stroke={iconStroke} />
-            </span>
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-restro-green">{report.category}</p>
-              <h1 className="mt-1 text-3xl font-bold text-foreground">{report.title}</h1>
-              <p className="mt-3 text-lg text-restro-text">{report.description}</p>
-            </div>
-          </div>
-
-          <div className="mt-10 flex items-center gap-3 rounded-xl border border-dashed border-restro-border-green bg-restro-bg-gray/30 p-5 text-restro-text">
-            <IconLoader2 className="animate-spin text-restro-green" size={24} />
-            <p>This report is planned for a later phase and is currently being tracked in <span className="font-bold text-foreground">docs/reports-roadmap.md</span>.</p>
-          </div>
+    <Page className="min-h-[calc(100vh-56px)] bg-slate-50/60 px-3 py-4 sm:px-6 sm:py-5 dark:bg-[#08101D]">
+      <div className="mx-auto max-w-3xl">
+        <ReportHeader report={report} subtitle={t(`reports.catalog.${report.id}.description`, report.description)} />
+        <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center dark:border-zinc-700 dark:bg-zinc-900">
+          <span className="h-12 w-12 flex items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">
+            <IconClockHour4 size={24} stroke={iconStroke} />
+          </span>
+          <h2 className="mt-4 text-lg font-black text-slate-900 dark:text-white">{t("reports.coming_soon", "Coming soon")}</h2>
+          <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-zinc-400">
+            {t("reports.coming_soon_hint", "This report is planned for a later release. In the meantime, the other reports in this category may cover what you need.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(`/dashboard/reports?category=${encodeURIComponent(report.category)}`)}
+            className="mt-5 h-[42px] rounded-xl bg-[#2CA01C] px-4 text-sm font-bold text-white transition-all hover:bg-[#248417] active:scale-95 cursor-pointer"
+          >
+            {t("reports.browse_category", "Browse related reports")}
+          </button>
         </div>
       </div>
     </Page>
   );
 }
 
+const hasAnyData = (data) => (
+  (data?.tables || []).some((table) => (table.rows || []).length > 0)
+  || (data?.summary || []).some((item) => Number(item.value || 0) !== 0)
+);
+
 function ReportDetail({ report }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const ReportPageComponent = getReportPageComponent(report.id);
-  const [filterState, setFilterState] = useState({ filter: "today", fromDate: null, toDate: null });
+  const filterState = useMemo(() => readFilterState(searchParams), [searchParams]);
   const [isExporting, setIsExporting] = useState(false);
-  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
-  const { data, error, isLoading } = useReport({
+  const { send: sendTelegramEod, isSending: isSendingTelegram } = useSendTelegramEod();
+  const { data: rawData, error, isLoading, isValidating, mutate } = useReport({
     reportId: report.id,
     type: filterState.filter,
     from: filterState.fromDate,
     to: filterState.toDate,
   });
+  // keepPreviousData can hand us the previous report's payload while the new one
+  // loads; never render it with this report's layout.
+  const data = rawData?.reportId === report.id ? rawData : null;
+  const isRefreshing = Boolean(data) && isValidating;
 
-  const getCategoryLabel = (cat) => {
-    if (cat === "Favourites") return t("reports.favourites", "Favourites");
-    if (cat === "Sales") return t("reports.categories.business_overview_and_sales", "Business overview & Sales");
-    return t(`reports.categories.${cat.toLowerCase()}`, cat);
-  };
+  useEffect(() => {
+    rememberRecentReport(report.id);
+  }, [report.id]);
 
-  const handleSendTelegramEod = async () => {
-    try {
-      setIsSendingTelegram(true);
-      const date = filterState.fromDate || new Date().toISOString().substring(0, 10);
-      const res = await sendManualEodReport({ date });
-      toast.success(res?.message || "EOD Summary sent to Telegram!");
-    } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Failed to send EOD report");
-    } finally {
-      setIsSendingTelegram(false);
+  const setFilterState = (next) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("range", next.filter);
+    if (next.filter === "custom") {
+      params.set("from", next.fromDate);
+      params.set("to", next.toDate);
+    } else {
+      params.delete("from");
+      params.delete("to");
     }
+    setSearchParams(params, { replace: true });
   };
 
-  const filterLabel = DATE_FILTERS.find((filter) => filter.key === filterState.filter)?.label || filterState.filter;
+  const filterLabel = filterState.filter === "custom"
+    ? `${formatShortDate(filterState.fromDate)} – ${formatShortDate(filterState.toDate)}`
+    : t(`reports.filters.${filterState.filter}`, DATE_FILTERS.find((filter) => filter.key === filterState.filter)?.label || filterState.filter);
   const currency = getCurrencySymbol(data?.currency);
+
+  const handleSendTelegramEod = () => {
+    const date = filterState.filter === "custom"
+      ? filterState.fromDate
+      : getDefaultDate(filterState.filter === "yesterday" ? -1 : 0);
+    sendTelegramEod({ date });
+  };
 
   const exportReport = async (format) => {
     try {
@@ -668,63 +1237,43 @@ function ReportDetail({ report }) {
       } else {
         await exportReportToPdf(data, currency, filterLabel);
       }
-      toast.success(`${format === "excel" ? "Excel" : "PDF"} report exported`);
-    } catch (error) {
-      console.error(error);
-      toast.error("Could not export report. Please try again.");
+      toast.success(`${format === "excel" ? "Excel" : "PDF"} ${t("reports.exported", "report exported")}`);
+    } catch (exportError) {
+      console.error(exportError);
+      toast.error(t("reports.export_failed", "Could not export report. Please try again."));
     } finally {
       setIsExporting(false);
     }
   };
 
-  const translatedTitle = t(`reports.catalog.${report.id}.title`, report.title);
+  const showEmptyHint = data && !hasAnyData(data) && filterState.filter !== "last_month" && filterState.filter !== "custom";
 
   return (
-    <Page className="bg-restro-bg-gray/20 px-4 py-8">
+    <Page className="min-h-[calc(100vh-56px)] bg-slate-50/60 px-3 py-4 sm:px-6 sm:py-5 dark:bg-[#08101D]">
       <div className="mx-auto max-w-7xl">
-        <button type="button" onClick={() => navigate("/dashboard/reports")} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-restro-text transition hover:text-foreground">
-          <IconArrowLeft size={18} stroke={iconStroke} /> {t("reports.back_to_reports", "Back to Reports")}
-        </button>
+        <ReportHeader
+          report={report}
+          subtitle={t("reports.showing_data_for", { filter: filterLabel, defaultValue: "Showing data for {{filter}}" })}
+          actions={(
+            <>
+              {TELEGRAM_EOD_REPORTS.has(report.id) && (
+                <TelegramButton
+                  onClick={handleSendTelegramEod}
+                  isSending={isSendingTelegram}
+                  label={t("reports.send_to_telegram", "Send to Telegram")}
+                />
+              )}
+              <ExportButtons isExporting={isExporting} disabled={!data} onExport={exportReport} />
+            </>
+          )}
+        />
 
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-restro-green-10 text-restro-green">
-                <report.icon size={18} stroke={iconStroke} />
-              </span>
-              <p className="text-sm font-bold uppercase tracking-wider text-restro-green">{getCategoryLabel(report.category)}</p>
-            </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{translatedTitle}</h1>
-            <p className="mt-2 text-restro-text">
-              {t("reports.showing_data_for", { filter: filterLabel })}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={isSendingTelegram}
-              onClick={handleSendTelegramEod}
-              className="flex h-10 items-center gap-2 rounded-lg border border-[#229ED9]/40 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 text-[#229ED9] px-4 text-sm font-bold transition active:scale-95 disabled:opacity-50"
-              title="Send Summary to Telegram"
-            >
-              <IconBrandTelegram size={18} stroke={iconStroke} />
-              <span>{isSendingTelegram ? t("reports.sending", "Sending...") : t("reports.send_to_telegram", "Send to Telegram")}</span>
-            </button>
-            <ExportMenu isExporting={isExporting} data={data} onExport={exportReport} />
-          </div>
+        <div className="mt-4 space-y-3">
+          <SiblingReports report={report} />
+          <ReportFilterBar state={filterState} onChange={setFilterState} isRefreshing={isRefreshing} />
         </div>
 
-        <div className="mt-8">
-          <ReportFilterBar state={filterState} setState={setFilterState} isLoading={isLoading} />
-        </div>
-
-        {isLoading && (
-          <div className="mt-10 flex min-h-[40vh] flex-col items-center justify-center gap-4 text-restro-text">
-            <IconLoader2 className="animate-spin text-restro-green" size={40} stroke={iconStroke} />
-            <p className="font-medium">Crunching the numbers...</p>
-          </div>
-        )}
+        {(isLoading || (!data && isValidating)) && !error && <ReportSkeleton />}
 
         {/* Operational reports (per-table, per-kitchen, per-shift) cannot be
             consolidated. That is an expected state in All Businesses mode, so it
@@ -733,20 +1282,46 @@ function ReportDetail({ report }) {
         {error && isBusinessRequiredError(error) && <SelectBusinessEmptyState />}
 
         {error && !isBusinessRequiredError(error) && (
-          <div className="mt-10 rounded-2xl border border-dashed border-red-200 bg-red-50 p-10 text-center text-red-600 dark:border-red-900/50 dark:bg-red-950/20">
-            <h3 className="text-lg font-bold">Failed to load report</h3>
-            <p className="mt-1 text-sm opacity-80">There was a problem fetching this data. Please try again later.</p>
+          <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-red-200 bg-red-50 px-6 py-10 text-center text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400">
+            <IconAlertTriangle size={32} stroke={iconStroke} />
+            <h3 className="mt-2 text-lg font-black">{t("reports.load_failed", "Failed to load report")}</h3>
+            <p className="mt-1 text-sm opacity-80">{t("reports.load_failed_hint", "There was a problem fetching this data. Please try again.")}</p>
+            <button
+              type="button"
+              onClick={() => mutate()}
+              className="mt-4 h-[42px] flex items-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition-all hover:bg-red-700 active:scale-95 cursor-pointer"
+            >
+              <IconRefresh size={17} stroke={iconStroke} />
+              {t("reports.retry", "Retry")}
+            </button>
+          </div>
+        )}
+
+        {showEmptyHint && (
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/20">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              {t("reports.no_activity", "No activity recorded for {{filter}}.", { filter: filterLabel })}
+            </p>
+            <button
+              type="button"
+              onClick={() => setFilterState({ filter: "this_month", fromDate: null, toDate: null })}
+              className="h-[42px] shrink-0 rounded-xl bg-white px-3.5 text-sm font-bold text-amber-800 shadow-sm transition-all hover:bg-amber-100 active:scale-95 dark:bg-zinc-900 dark:text-amber-300 cursor-pointer"
+            >
+              {t("reports.view_this_month", "View this month")}
+            </button>
           </div>
         )}
 
         {data && (
-          <ReportPageComponent
-            report={report}
-            data={data}
-            currency={currency}
-            filterLabel={filterLabel}
-            components={{ SummaryGrid, DataTable }}
-          />
+          <div className={clsx("transition-opacity", isRefreshing && "opacity-60")}>
+            <ReportPageComponent
+              report={report}
+              data={data}
+              currency={currency}
+              filterLabel={filterLabel}
+              components={{ SummaryGrid, DataTable }}
+            />
+          </div>
         )}
       </div>
     </Page>
@@ -754,26 +1329,37 @@ function ReportDetail({ report }) {
 }
 
 export default function ReportsPage() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const { reportId } = useParams();
   const selectedReport = REPORT_CATALOG.find((report) => report.id === reportId);
 
   if (reportId && !selectedReport) {
     return (
       <Page className="flex min-h-[50vh] items-center justify-center px-4 py-8">
-        <div className="rounded-xl border border-restro-border-green bg-background p-10 text-center shadow-sm">
-          <h2 className="text-xl font-bold text-foreground">Report Not Found</h2>
-          <p className="mt-2 text-restro-text">The report you are looking for doesn't exist or has been moved.</p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-xl font-black text-slate-900 dark:text-white">{t("reports.not_found", "Report Not Found")}</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-zinc-400">
+            {t("reports.not_found_hint", "The report you are looking for doesn't exist or has been moved.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/reports")}
+            className="mt-5 h-[42px] rounded-xl bg-[#2CA01C] px-4 text-sm font-bold text-white transition-all hover:bg-[#248417] active:scale-95 cursor-pointer"
+          >
+            {t("reports.back_to_reports", "Back to Reports")}
+          </button>
         </div>
       </Page>
     );
   }
 
-  if (selectedReport && (!READY_REPORTS.has(selectedReport.id) || selectedReport.status !== "ready")) {
+  if (selectedReport && !isReportReady(selectedReport)) {
     return <PlannedReport report={selectedReport} />;
   }
 
   if (selectedReport) {
-    return <ReportDetail report={selectedReport} />;
+    return <ReportDetail key={selectedReport.id} report={selectedReport} />;
   }
 
   return <ReportsIndex />;
