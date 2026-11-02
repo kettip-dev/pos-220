@@ -20,6 +20,7 @@ import {
   IconSearch,
   IconToolsKitchen3,
   IconUser,
+  IconUsers,
   IconUsersGroup,
   IconX,
 } from "@tabler/icons-react";
@@ -138,6 +139,14 @@ export default function AppBar() {
       description: "",
       icon: <IconFriends stroke={iconStroke} />,
       link: "/dashboard/customers",
+      scopes: [SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.MANAGE_CUSTOMERS],
+      features: [PLAN_FEATURES.CUSTOMERS],
+    },
+    {
+      title: t("navbar.customer_groups", "Customer Groups"),
+      description: "",
+      icon: <IconUsers stroke={iconStroke} />,
+      link: "/dashboard/customer-groups",
       scopes: [SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.MANAGE_CUSTOMERS],
       features: [PLAN_FEATURES.CUSTOMERS],
     },

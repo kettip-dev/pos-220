@@ -86,7 +86,7 @@ exports.createOrder = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal} = req.body;
 
     if(cart?.length == 0) {
       return res.status(400).json({
@@ -95,7 +95,7 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
 
     if(selectedQrOrderItem) {
       await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
@@ -187,10 +187,10 @@ exports.createOrderAndInvoice = async (req, res) => {
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
     const custPhone = customerId?.phone || (typeof customerId === 'string' ? customerId : null);
-    const invoiceId = await createInvoiceDB(netTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone);
+    const invoiceId = await createInvoiceDB(netTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, null, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
     // create invoice
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
     const orderId = result.orderId;
     const tokenNo = result.tokenNo;
 

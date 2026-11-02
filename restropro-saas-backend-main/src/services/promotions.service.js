@@ -95,6 +95,7 @@ exports.createPromotion = async (tenantId, data) => {
       is_automatic = 1,
       is_stackable = 0,
       dining_options = null,
+      applicable_customer_group_ids = null,
       start_date = null,
       end_date = null,
       start_time = null,
@@ -127,9 +128,10 @@ exports.createPromotion = async (tenantId, data) => {
         discount_value, max_discount_cap, min_order_amount, apply_to,
         target_category_ids, target_item_ids, buy_qty, get_qty,
         get_discount_percent, is_automatic, is_stackable, dining_options,
+        applicable_customer_group_ids,
         start_date, end_date, start_time, end_time, days_of_week,
         usage_limit_total, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await conn.query(sql, [
@@ -150,6 +152,7 @@ exports.createPromotion = async (tenantId, data) => {
       is_automatic ? 1 : 0,
       is_stackable ? 1 : 0,
       dining_options ? JSON.stringify(dining_options) : null,
+      applicable_customer_group_ids ? JSON.stringify(applicable_customer_group_ids) : null,
       start_date || null,
       end_date || null,
       start_time || null,
@@ -196,6 +199,7 @@ exports.updatePromotion = async (id, tenantId, data) => {
       is_automatic = 1,
       is_stackable = 0,
       dining_options = null,
+      applicable_customer_group_ids = null,
       start_date = null,
       end_date = null,
       start_time = null,
@@ -227,6 +231,7 @@ exports.updatePromotion = async (id, tenantId, data) => {
         discount_value = ?, max_discount_cap = ?, min_order_amount = ?, apply_to = ?,
         target_category_ids = ?, target_item_ids = ?, buy_qty = ?, get_qty = ?,
         get_discount_percent = ?, is_automatic = ?, is_stackable = ?, dining_options = ?,
+        applicable_customer_group_ids = ?,
         start_date = ?, end_date = ?, start_time = ?, end_time = ?, days_of_week = ?,
         usage_limit_total = ?, is_active = ?
       WHERE id = ? AND tenant_id = ?
@@ -249,6 +254,7 @@ exports.updatePromotion = async (id, tenantId, data) => {
       is_automatic ? 1 : 0,
       is_stackable ? 1 : 0,
       dining_options ? JSON.stringify(dining_options) : null,
+      applicable_customer_group_ids ? JSON.stringify(applicable_customer_group_ids) : null,
       start_date || null,
       end_date || null,
       start_time || null,

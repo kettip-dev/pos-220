@@ -5,11 +5,13 @@ import { clearUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import { clearBusinessScope } from "../helpers/BusinessScope";
 import useSWR from "swr";
 
-export async function signIn(username, password) {
+export async function signIn(username, password, managerPin = null) {
     axios.defaults.withCredentials = true;
     try {
         const response = await axios.post(`${API}/auth/signin`, {
-            username, password
+            username,
+            password,
+            ...(managerPin ? { manager_pin: managerPin } : {}),
         });
 
         return response;

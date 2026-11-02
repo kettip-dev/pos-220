@@ -8,6 +8,7 @@ import {
   IconSoup,
   IconPlus,
   IconMinus,
+  IconSearch,
   IconStack2,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -104,15 +105,13 @@ const POSMenuItemCompactView = ({
   return (
     <div className="w-full h-full overflow-hidden">
       {filteredMenuItems.length === 0 ? (
-        <div className="flex flex-col justify-center items-center w-full h-full rounded-xl py-12">
-          <img
-            src="/assets/illustrations/pos-not-found.webp"
-            alt={t('pos.not_found_img_alt')}
-            className="w-1/4 max-w-[180px] mb-4 opacity-80"
-          />
-          <p className="text-lg text-gray-800 dark:text-white font-bold">{t("pos_menu.not_found_title")}</p>
-          <p className="text-gray-500 text-sm">{t("pos_menu.not_found_message")}</p>
-          <p className="text-gray-400 text-xs mt-1">{t("pos_menu.not_found_carrot")}</p>
+        <div className="flex flex-col justify-center items-center w-full h-full rounded-xl py-12 text-center px-4">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 mb-3 shadow-xs">
+            <IconSearch size={30} stroke={1.75} />
+          </div>
+          <p className="text-base text-gray-800 dark:text-white font-bold">{t("pos_menu.not_found_title")}</p>
+          <p className="text-gray-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5">{t("pos_menu.not_found_message")}</p>
+          <p className="text-gray-400 dark:text-slate-500 text-xs mt-1">{t("pos_menu.not_found_carrot")}</p>
         </div>
       ) : (
         <div

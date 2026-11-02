@@ -30,6 +30,21 @@ export default {
         'background': 'var(--background)',
         'foreground': 'var(--foreground)',
 
+        primary: {
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#2CA01C',
+          600: '#248417',
+          700: '#1C6B12',
+          800: '#16560e',
+          900: '#11440b',
+          950: '#082506',
+          DEFAULT: '#2CA01C',
+        },
+
 
         // 'restro-green-light': "#ECF1EB",
         'restro-green': "var(--restro-green)",

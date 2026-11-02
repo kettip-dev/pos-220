@@ -323,6 +323,14 @@ export default function CustomerInsightsPage() {
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase font-mono bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                   {currentTier}
                 </span>
+                {customer?.customer_group_name && (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-xs"
+                    style={{ backgroundColor: customer.customer_group_color || '#6366F1' }}
+                  >
+                    👥 {customer.customer_group_name}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 font-mono mt-0.5">{customer.phone}</p>
             </div>

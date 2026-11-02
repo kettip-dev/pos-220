@@ -37,11 +37,13 @@ const planRoutes = require("./routes/plans.routes");
 const orderStatusDisplayRoutes = require("./routes/order_status_display.routes");
 const deviceRoutes = require("./routes/device.routes");
 const businessGroupRoutes = require("./routes/business_group.routes");
+const shiftRosterRoutes = require("./routes/shift_roster.routes");
 const kitchenStationRoutes = require("./routes/kitchen_stations.routes");
 const telegramRoutes = require("./routes/telegram.routes");
 const vendorRoutes = require("./routes/vendor.routes");
 const purchaseOrderRoutes = require("./routes/purchase_order.routes");
 const promotionsRoutes = require("./routes/promotions.routes");
+const customerGroupsRoutes = require("./routes/customer_groups.routes");
 const profileRoutes = require("./routes/profile.routes");
 // routes import
 
@@ -173,11 +175,13 @@ app.use("/api/v1/plans", planRoutes);
 app.use("/api/v1/order-status-display", orderStatusDisplayRoutes);
 app.use("/api/v1/devices", deviceRoutes);
 app.use("/api/v1/kitchen-stations", kitchenStationRoutes);
+app.use("/api/v1/shift-roster", shiftRosterRoutes);
 app.use("/api/v1/telegram", telegramRoutes);
 app.use("/api/v1/vendors", vendorRoutes);
 app.use("/api/v1/suppliers", vendorRoutes);
 app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
 app.use("/api/v1/promotions", promotionsRoutes);
+app.use("/api/v1/customer-groups", customerGroupsRoutes);
 app.use("/api/v1/profile", profileRoutes);
 // routes
 

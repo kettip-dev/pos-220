@@ -33,8 +33,9 @@ import TablePayModal from "../components/tables/TablePayModal";
 import TableCustomerModal from "../components/tables/TableCustomerModal";
 import MoveTableModal from "../components/tables/MoveTableModal";
 import MoveItemModal from "../components/tables/MoveItemModal";
-import SplitCheckModal from "../components/tables/SplitCheckModal";
+import POSSplitBillDrawer from "../components/pos/POSSplitBillDrawer";
 import MergeTableModal from "../components/tables/MergeTableModal";
+import { triggerPrintReceipt } from "../helpers/ReceiptHelper";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
@@ -145,8 +146,8 @@ export default function TablesPage() {
   const [moveTableSource, setMoveTableSource] = useState(null);
   const [isMoveItemModalOpen, setIsMoveItemModalOpen] = useState(false);
   const [moveItemSource, setMoveItemSource] = useState(null);
-  const [isSplitCheckModalOpen, setIsSplitCheckModalOpen] = useState(false);
-  const [splitCheckTable, setSplitCheckTable] = useState(null);
+  const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
+  const [splitDrawerOrder, setSplitDrawerOrder] = useState(null);
 
   // Sync state when floor or layouts change
   useEffect(() => {
@@ -558,6 +559,10 @@ export default function TablesPage() {
       toast.error(t("tables.no_active_order_to_pay", "This table does not have an active order to pay."));
       return;
     }
+    if ((table.active_split_status || table.split_status) === "split_in_progress") {
+      handleSplitChecks(table);
+      return;
+    }
     setPayTable(table);
     setIsPayModalOpen(true);
   };
@@ -664,13 +669,107 @@ export default function TablesPage() {
     setIsMoveItemModalOpen(true);
   };
 
-  const handleSplitChecks = (table) => {
+  const handleSplitChecks = async (table) => {
     if (!table || !table.active_order_id) {
       toast.error(t("tables.select_active_table_to_split", "Please select an active table to split checks"));
       return;
     }
-    setSplitCheckTable(table);
-    setIsSplitCheckModalOpen(true);
+
+    try {
+      let summary = activeOrderSummary;
+      const isCurrentSummary = summary?.orders?.some(
+        (o) => Number(o.id) === Number(table.active_order_id)
+      );
+
+      if (!isCurrentSummary || !summary?.orders) {
+        const res = await getCompleteOrderPaymentSummary([table.active_order_id]);
+        if (res?.status === 200 && res?.data) {
+          summary = res.data;
+          setActiveOrderSummary(res.data);
+        }
+      }
+
+      // Extract items from summary.orders (as returned by complete-order-payment-summary)
+      let rawItems = [];
+      if (Array.isArray(summary?.orders)) {
+        rawItems = summary.orders
+          .flatMap((o) => o.items || [])
+          .filter((it) => it.status !== "cancelled");
+      } else if (Array.isArray(summary?.kitchenOrdersItems)) {
+        rawItems = summary.kitchenOrdersItems.filter((it) => it.status !== "cancelled");
+      }
+
+      const items = rawItems.map((it) => {
+        let addonsTotal = 0;
+        if (Array.isArray(it.addons)) {
+          addonsTotal = it.addons.reduce((sum, a) => sum + Number(a.price || 0), 0);
+        }
+        const unitPrice = Number(it.variant_price || it.price || 0) + addonsTotal;
+        return {
+          id: it.id,
+          order_item_id: it.id,
+          item_id: it.item_id,
+          item_title: it.item_title || it.title || "Item",
+          title: it.item_title || it.title || "Item",
+          price: unitPrice,
+          quantity: Number(it.quantity || 1),
+          variant_title: it.variant_title || null,
+        };
+      });
+
+      const calculatedSubtotal = Number(
+        summary?.subtotal || items.reduce((sum, it) => sum + it.price * it.quantity, 0)
+      );
+      const calculatedTax = Number(summary?.taxTotal || 0);
+      const calculatedService = Number(summary?.serviceChargeTotal || 0);
+      const calculatedTotal = Number(
+        summary?.total || (calculatedSubtotal + calculatedTax + calculatedService)
+      );
+
+      setSplitDrawerOrder({
+        id: table.active_order_id,
+        order_ids: [table.active_order_id],
+        table_title: table.table_title,
+        token_no: table.active_order_token || table.active_order_id,
+        subtotal: calculatedSubtotal,
+        total: calculatedTotal,
+        tax_total: calculatedTax,
+        service_charge_total: calculatedService,
+        items: items,
+      });
+      setIsSplitDrawerOpen(true);
+    } catch (err) {
+      console.error("Failed to load table items for splitting:", err);
+      toast.error(t("tables.failed_to_load_items", "Failed to load order items for splitting"));
+    }
+  };
+
+  const handlePrintSubReceipt = (sub, order, mode = "receipt") => {
+    const formattedItems = (sub.items || []).map((it) => ({
+      title: it.item_title,
+      variant: it.variant_title ? { title: it.variant_title } : null,
+      price: it.price,
+      quantity: it.quantity,
+    }));
+
+    triggerPrintReceipt({
+      order_id: `${order?.token_no || order?.id} (${sub.seat_label})`,
+      order_title: `${order?.table_title ? order.table_title + " - " : ""}${sub.seat_label}`,
+      token_no: sub.sub_invoice_number,
+      customer_type: "dinein",
+      customer_name: sub.seat_label,
+      items: formattedItems,
+      sub_total: sub.subtotal,
+      tax_total: sub.tax_total,
+      service_charge_total: sub.service_charge_total,
+      discount_total: sub.discount_total,
+      total: sub.payable_total,
+      tip_amount: sub.tip_amount,
+      payment_type: sub.payment_type_title || "Cash",
+      date: sub.paid_at || new Date().toISOString(),
+      printSettings: printSettingsData,
+      storeSettings: storeSettings,
+    });
   };
 
   const handleSeatReservation = (res) => {
@@ -1065,26 +1164,35 @@ export default function TablesPage() {
         />
       )}
 
-      {/* 9. Split Checks (By Item or Equal Share) Modal */}
-      {isSplitCheckModalOpen && (
-        <SplitCheckModal
-          isOpen={isSplitCheckModalOpen}
-          onClose={() => {
-            setIsSplitCheckModalOpen(false);
-            setSplitCheckTable(null);
-          }}
-          table={splitCheckTable}
-          activeOrderSummary={activeOrderSummary}
-          currency={currency}
-          onSuccess={async () => {
-            await mutate();
-          }}
-          onPayPartial={(tbl) => {
-            setPayTable(tbl);
-            setIsPayModalOpen(true);
-          }}
-        />
-      )}
+      {/* 9. Advanced Bill Splitting Drawer */}
+      <POSSplitBillDrawer
+        isOpen={isSplitDrawerOpen}
+        onClose={() => {
+          setIsSplitDrawerOpen(false);
+          setSplitDrawerOrder(null);
+        }}
+        order={splitDrawerOrder}
+        currency={currency}
+        paymentTypes={paymentTypes}
+        exchangeRateUsdToKhr={
+          storeSettings?.exchange_rate_usd_to_khr ||
+          storeSettings?.exchangeRateUsdToKhr ||
+          4100
+        }
+        onPaymentComplete={async (data) => {
+          await mutate();
+          if (selectedTable?.active_order_id) {
+            const updated = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
+            if (updated?.data) setActiveOrderSummary(updated.data);
+          }
+          if (data?.isFullyCompleted) {
+            setIsSplitDrawerOpen(false);
+            setSplitDrawerOrder(null);
+            setSelectedTable(null);
+          }
+        }}
+        onPrintSubReceipt={handlePrintSubReceipt}
+      />
       {/* 10. Table Merge & Link Confirmation Modal */}
       {mergeModalData?.isOpen && (
         <MergeTableModal

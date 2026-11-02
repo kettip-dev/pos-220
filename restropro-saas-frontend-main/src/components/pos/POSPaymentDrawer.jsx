@@ -37,6 +37,8 @@ export default function POSPaymentDrawer({
   serviceChargeTotal = 0,
   discountAmount = 0,
   promotionDiscountTotal = 0,
+  customerGroupDiscountTotal = 0,
+  customerGroup = null,
   appliedPromotions = [],
   discountType = 'fixed',
   discountValue = 0,
@@ -510,6 +512,12 @@ export default function POSPaymentDrawer({
                       <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
                         <span>{t('pos.promotions', 'Promotions')}</span>
                         <span>-{currency}{Number(promotionDiscountTotal).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {Number(customerGroupDiscountTotal) > 0 && (
+                      <div className="flex justify-between text-indigo-600 dark:text-indigo-400 font-semibold">
+                        <span>{customerGroup?.name ? `${customerGroup.name} (${t('pos.customer_group_discount', 'Group Discount')})` : t('pos.customer_group_discount', 'Group Discount')}</span>
+                        <span>-{currency}{Number(customerGroupDiscountTotal).toFixed(2)}</span>
                       </div>
                     )}
                     {loyaltyDiscountAmount > 0 && (

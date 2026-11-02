@@ -32,6 +32,7 @@ import {
   IconSearch,
   IconStars,
   IconTicket,
+  IconToolsKitchen2,
   IconTrendingUp,
   IconUser,
   IconX,
@@ -555,6 +556,11 @@ export default function OrdersPage() {
           storeSettings?.exchangeRateUsdToKhr ||
           4100;
 
+        const firstOrder = orders[0] || {};
+        const customerGroupId = firstOrder.customer_group_id || orderGroup?.customer_group_id || null;
+        const customerGroupName = firstOrder.customer_group_name || orderGroup?.customer_group_name || null;
+        const customerGroupDiscountTotal = Number(firstOrder.customer_group_discount_total || orderGroup?.customer_group_discount_total || 0);
+
         setPaymentDrawerState({
           isOpen: true,
           orderIds,
@@ -567,6 +573,9 @@ export default function OrdersPage() {
           discountType: discountType || "fixed",
           discountValue: Number(discountValue) || 0,
           discountTotal: Number(discountTotal) || 0,
+          customerGroupId,
+          customerGroupName,
+          customerGroupDiscountTotal,
           totalPayable: Number(total),
           selectedPaymentType: firstPaymentId,
           tenderedAmount: "",
@@ -639,7 +648,10 @@ export default function OrdersPage() {
         null,
         0,
         loyaltyPointsRedeemed,
-        orderGroup?.customer_id || orderGroup?.orders?.[0]?.customer_id || null
+        orderGroup?.customer_id || orderGroup?.orders?.[0]?.customer_id || null,
+        paymentDrawerState.customerGroupId,
+        paymentDrawerState.customerGroupName,
+        paymentDrawerState.customerGroupDiscountTotal
       );
 
       if (res.status === 200) {
@@ -699,6 +711,9 @@ export default function OrdersPage() {
             discountType,
             discountValue,
             discountAmount: discountTotal || 0,
+            customer_group_id: paymentDrawerState.customerGroupId,
+            customer_group_name: paymentDrawerState.customerGroupName,
+            customer_group_discount: paymentDrawerState.customerGroupDiscountTotal,
             loyaltyPointsRedeemed: tenderData?.loyaltyPointsRedeemed || 0,
             loyaltyDiscountAmount: tenderData?.loyaltyDiscountAmount || 0,
             loyaltyPointsEarned: tenderData?.loyaltyPointsEarned || 0,
@@ -834,6 +849,9 @@ export default function OrdersPage() {
           discountType,
           discountValue,
           discountAmount: discountTotal || 0,
+          customer_group_id: firstOrder.customer_group_id || null,
+          customer_group_name: firstOrder.customer_group_name || null,
+          customer_group_discount: Number(firstOrder.customer_group_discount_total || 0),
           taxTotal,
           serviceChargeTotal,
           payableTotal: total,
@@ -1251,11 +1269,9 @@ export default function OrdersPage() {
       {/* ── Empty State: No Active Orders at all ── */}
       {kitchenOrders?.length === 0 && !isLoading && (
         <div className="w-full h-[calc(100vh-280px)] flex gap-3 flex-col items-center justify-center text-center px-4">
-          <img
-            src="/assets/illustrations/orders-not-found.webp"
-            alt={t("orders.no_orders_img_alt")}
-            className="w-44 md:w-56 opacity-90"
-          />
+          <div className="w-20 h-20 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs mb-1">
+            <IconToolsKitchen2 size={38} stroke={iconStroke} />
+          </div>
           <h3 className="font-bold text-base text-slate-800 dark:text-zinc-200 mt-2">
             {t("orders.no_orders")}
           </h3>
@@ -1367,6 +1383,8 @@ export default function OrdersPage() {
         taxTotal={paymentDrawerState.taxTotal}
         serviceChargeTotal={paymentDrawerState.serviceCharge}
         discountAmount={paymentDrawerState.discountTotal}
+        customerGroupDiscountTotal={paymentDrawerState.customerGroupDiscountTotal}
+        customerGroup={paymentDrawerState.customerGroupName ? { name: paymentDrawerState.customerGroupName } : null}
         discountType={paymentDrawerState.discountType}
         discountValue={paymentDrawerState.discountValue}
         onDiscountChange={handlePaymentDrawerDiscountChange}

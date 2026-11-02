@@ -49,6 +49,12 @@ const {
 } = require("../utils/jwt");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const { checkUserShiftEligibilityDB } = require("../services/roster.service");
+const {
+  clockInDB,
+  clockOutDB,
+  verifyManagerQuickPinDB,
+} = require("../services/attendance.service");
 const {
   deleteUserRefreshTokensDB,
   updateUserPasswordDB,
@@ -240,6 +246,62 @@ exports.signIn = async (req, res) => {
         await ensureGroupOwnerActiveBusinessDB(result.username);
       }
 
+      // Staff Shift Restriction & Auto Clock-In
+      let shiftEligibility = null;
+      let managerOverrideBy = null;
+      let attendanceStatus = "on_time";
+
+      if (
+        result.role !== ROLES.GROUP_OWNER &&
+        result.role !== "admin" &&
+        result.role !== "superadmin"
+      ) {
+        const managerPin = req.body?.manager_pin;
+        if (managerPin) {
+          const pinResult = await verifyManagerQuickPinDB(
+            result.tenant_id,
+            managerPin
+          );
+          if (!pinResult.verified) {
+            return res.status(400).json({
+              success: false,
+              message:
+                req.__("invalid_manager_pin") || "Invalid Manager PIN.",
+            });
+          }
+          managerOverrideBy = pinResult.manager.username;
+          attendanceStatus = "override";
+        } else {
+          shiftEligibility = await checkUserShiftEligibilityDB(
+            result.tenant_id,
+            result.username
+          );
+          if (!shiftEligibility.allowed) {
+            return res.status(403).json({
+              success: false,
+              shift_restricted: true,
+              message:
+                req.__("shift_login_restricted") ||
+                "Login restricted: You are not currently scheduled for an active shift.",
+              reason: shiftEligibility.reason,
+              nextShift: shiftEligibility.nextShift,
+            });
+          }
+        }
+
+        // Trigger Auto Clock-In (fire and forget)
+        clockInDB(
+          result.tenant_id,
+          result.username,
+          shiftEligibility?.roster?.id || null,
+          shiftEligibility?.roster?.shift_id || null,
+          managerOverrideBy,
+          attendanceStatus
+        ).catch((err) =>
+          console.error("[Shift Roster] Auto Clock-in error:", err)
+        );
+      }
+
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
@@ -396,6 +458,13 @@ exports.signOut = async (req, res) => {
 
     // remove refreshToken in DB.
     await removeRefreshTokenDB(user.username, refreshToken);
+
+    // Auto Clock-Out
+    if (user?.tenant_id && user?.username) {
+      clockOutDB(user.tenant_id, user.username).catch((err) =>
+        console.error("[Shift Roster] Auto Clock-out error:", err)
+      );
+    }
 
     return res.status(200).json({
       success: true,

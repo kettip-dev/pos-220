@@ -1,4 +1,5 @@
 import React, { memo, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { IconRotate, IconTrash, IconPencil, IconQrcode, IconClock, IconLink } from "@tabler/icons-react";
 import { formatElapsedOrderTime } from "../../helpers/DateHelper";
 export { formatElapsedOrderTime };
@@ -104,6 +105,17 @@ export const BINDO_STATUS_CONFIG = {
     chair: "bg-slate-200 dark:bg-zinc-700 border border-slate-300 dark:border-zinc-600",
     badgeBg: "bg-pink-50 text-[#be185d] border-pink-200 dark:bg-pink-950/70 dark:text-pink-300 dark:border-pink-800",
   },
+  split: {
+    label: "SPLIT",
+    bg: "bg-white dark:bg-zinc-900",
+    accentBg: "bg-[#8b5cf6]",
+    text: "text-slate-800 dark:text-zinc-100",
+    subText: "text-slate-400 dark:text-zinc-400",
+    border: "border-[#8b5cf6]",
+    statusDot: "bg-[#8b5cf6]",
+    chair: "bg-slate-200 dark:bg-zinc-700 border border-slate-300 dark:border-zinc-600",
+    badgeBg: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800",
+  },
   available: {
     label: "AVAILABLE",
     bg: "bg-white dark:bg-zinc-900",
@@ -146,8 +158,10 @@ export function getTableBindoStatus(table) {
 
   const status = table.order_status || table.active_order_status;
   const paymentStatus = table.payment_status || table.active_payment_status;
+  const splitStatus = table.active_split_status || table.split_status;
 
   if (paymentStatus === "paid") return "paid";
+  if (splitStatus === "split_in_progress") return "split";
   if (status === "check_dropped" || status === "billed") return "ck_dropped";
   if (table.is_alert) return "alert";
   if (table.is_over_time) return "over_time";
@@ -354,6 +368,7 @@ const BindoTableNode = memo(function BindoTableNode({
   onDelete,
   onEdit,
 }) {
+  const { t } = useTranslation();
   const shape =
     table.shape ||
     (table.seating_capacity > 4 ? "rectangle" : table.seating_capacity > 2 ? "square" : "round");
@@ -387,8 +402,11 @@ const BindoTableNode = memo(function BindoTableNode({
     (table.active_order_id ? formatElapsedOrderTime(table.active_order_date) : null);
 
   const isOccupied = Boolean(table.active_order_id);
+  const isSplitInProgress = (table.active_split_status || table.split_status) === "split_in_progress";
   const pendingQrCount = Number(table.pending_qr_orders_count || 0);
-  const orderTotal = Number(table.order_total || table.active_order_total || 0);
+  const orderTotal = isSplitInProgress && Number(table.split_remaining_payable) > 0
+    ? Number(table.split_remaining_payable)
+    : Number(table.order_total || table.active_order_total || 0);
   const guestLabel = table.customer_name || table.server_name || table.assigned_waiter || null;
 
   return (
@@ -497,19 +515,29 @@ const BindoTableNode = memo(function BindoTableNode({
                   : "bg-white/95 dark:bg-zinc-900/95 border-slate-200/90 dark:border-zinc-700 text-slate-800 dark:text-slate-100 backdrop-blur-xs"
               }`}
             >
-              {guestLabel && (
-                <span className="max-w-[84px] truncate font-semibold">
-                  {guestLabel}
+              {isSplitInProgress ? (
+                <span className="text-purple-600 dark:text-purple-400 font-black flex items-center gap-1">
+                  <span>{t('tables.split_badge', 'Split')} ({table.split_paid_checks || 0}/{table.split_total_checks || 2})</span>
+                  <span>•</span>
+                  <span>{currency}{orderTotal.toFixed(2)}</span>
                 </span>
-              )}
-              {guestLabel && isOccupied && orderTotal > 0 && (
-                <span className="text-slate-300 dark:text-zinc-600">•</span>
-              )}
-              {isOccupied && orderTotal > 0 && (
-                <span className={effectiveDimmed ? "" : "text-[#0284c7] dark:text-[#38bdf8] font-extrabold"}>
-                  {currency}
-                  {orderTotal % 1 === 0 ? orderTotal.toLocaleString() : orderTotal.toFixed(2)}
-                </span>
+              ) : (
+                <>
+                  {guestLabel && (
+                    <span className="max-w-[84px] truncate font-semibold">
+                      {guestLabel}
+                    </span>
+                  )}
+                  {guestLabel && isOccupied && orderTotal > 0 && (
+                    <span className="text-slate-300 dark:text-zinc-600">•</span>
+                  )}
+                  {isOccupied && orderTotal > 0 && (
+                    <span className={effectiveDimmed ? "" : "text-[#0284c7] dark:text-[#38bdf8] font-extrabold"}>
+                      {currency}
+                      {orderTotal % 1 === 0 ? orderTotal.toLocaleString() : orderTotal.toFixed(2)}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>

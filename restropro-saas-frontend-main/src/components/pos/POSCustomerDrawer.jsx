@@ -32,6 +32,7 @@ import {
   addCustomer,
   updateCustomer,
 } from '../../controllers/customers.controller';
+import { useCustomerGroups } from '../../controllers/customer_groups.controller';
 import { validateEmail } from '../../utils/emailValidator';
 import { validatePhone } from '../../utils/phoneValidator';
 
@@ -62,6 +63,9 @@ export default function POSCustomerDrawer({
   const [formEmail, setFormEmail] = useState('');
   const [formBirthDate, setFormBirthDate] = useState('');
   const [formGender, setFormGender] = useState('');
+  const [formGroupId, setFormGroupId] = useState('');
+
+  const { customerGroups = [] } = useCustomerGroups();
 
   // Recent customers via SWR (loaded when drawer opens)
   const { data: recentData, APIURL: recentApiUrl, isLoading: isLoadingRecent } = useCustomers({
@@ -159,6 +163,7 @@ export default function POSCustomerDrawer({
     setFormEmail('');
     setFormBirthDate('');
     setFormGender('');
+    setFormGroupId('');
     setMode('CREATE');
   };
 
@@ -171,6 +176,7 @@ export default function POSCustomerDrawer({
       cust.birth_date ? String(cust.birth_date).substring(0, 10) : ''
     );
     setFormGender(cust.gender || '');
+    setFormGroupId(cust.customer_group_id ? String(cust.customer_group_id) : '');
     setMode('EDIT');
   };
 
@@ -183,6 +189,16 @@ export default function POSCustomerDrawer({
       email: cust.email || null,
       birth_date: cust.birth_date || null,
       gender: cust.gender || null,
+      customer_group_id: cust.customer_group_id || null,
+      customer_group_name: cust.customer_group_name || null,
+      customer_group_code: cust.customer_group_code || null,
+      customer_group_color: cust.customer_group_color || null,
+      group_discount_type: cust.group_discount_type || null,
+      group_discount_value: cust.group_discount_value || 0,
+      group_apply_to: cust.group_apply_to || 'ALL',
+      group_target_category_ids: cust.group_target_category_ids || null,
+      group_min_order_amount: cust.group_min_order_amount || 0,
+      group_max_discount_cap: cust.group_max_discount_cap || null,
       label: `${cleanName} - (${cust.phone})`,
       value: cust.phone,
     });
@@ -195,6 +211,7 @@ export default function POSCustomerDrawer({
     const email = formEmail.trim() || null;
     const birthDate = formBirthDate || null;
     const gender = formGender || null;
+    const customerGroupId = formGroupId ? Number(formGroupId) : null;
 
     if (!phone) {
       toast.error(t('customers.please_provide_phone', 'Please provide customer phone number'));
@@ -215,20 +232,51 @@ export default function POSCustomerDrawer({
 
     try {
       setIsSubmitting(true);
+      const selectedGroup = customerGroups.find((g) => Number(g.id) === customerGroupId);
       if (mode === 'EDIT') {
-        const res = await updateCustomer(phone, name, email, birthDate, gender);
+        const res = await updateCustomer(phone, name, email, birthDate, gender, customerGroupId);
         if (res.status === 200) {
           if (recentApiUrl) await mutate(recentApiUrl);
           toast.success(res.data?.message || t('customers.updated', 'Customer updated'));
-          handlePickCustomer({ phone, name, email, birth_date: birthDate, gender });
+          handlePickCustomer({
+            phone,
+            name,
+            email,
+            birth_date: birthDate,
+            gender,
+            customer_group_id: customerGroupId,
+            customer_group_name: selectedGroup?.name || null,
+            customer_group_color: selectedGroup?.color || null,
+            group_discount_type: selectedGroup?.discount_type || null,
+            group_discount_value: selectedGroup?.discount_value || 0,
+            group_apply_to: selectedGroup?.apply_to || 'ALL',
+            group_target_category_ids: selectedGroup?.target_category_ids || null,
+            group_min_order_amount: selectedGroup?.min_order_amount || 0,
+            group_max_discount_cap: selectedGroup?.max_discount_cap || null,
+          });
           setMode('SEARCH');
         }
       } else {
-        const res = await addCustomer(phone, name, email, birthDate, gender);
+        const res = await addCustomer(phone, name, email, birthDate, gender, customerGroupId);
         if (res.status === 200) {
           if (recentApiUrl) await mutate(recentApiUrl);
           toast.success(res.data?.message || t('customers.added', 'Customer created & attached'));
-          handlePickCustomer({ phone, name, email, birth_date: birthDate, gender });
+          handlePickCustomer({
+            phone,
+            name,
+            email,
+            birth_date: birthDate,
+            gender,
+            customer_group_id: customerGroupId,
+            customer_group_name: selectedGroup?.name || null,
+            customer_group_color: selectedGroup?.color || null,
+            group_discount_type: selectedGroup?.discount_type || null,
+            group_discount_value: selectedGroup?.discount_value || 0,
+            group_apply_to: selectedGroup?.apply_to || 'ALL',
+            group_target_category_ids: selectedGroup?.target_category_ids || null,
+            group_min_order_amount: selectedGroup?.min_order_amount || 0,
+            group_max_discount_cap: selectedGroup?.max_discount_cap || null,
+          });
           onClose();
         }
       }
@@ -693,6 +741,19 @@ export default function POSCustomerDrawer({
                                   {cust.points_balance} pts
                                 </span>
                               )}
+                              {cust.customer_group_name && (
+                                <span
+                                  className="px-2 py-0.5 rounded-full text-white text-[10px] font-bold shadow-xs inline-flex items-center gap-1"
+                                  style={{ backgroundColor: cust.customer_group_color || "#6366f1" }}
+                                >
+                                  {cust.customer_group_name}
+                                  {cust.group_discount_value > 0 && (
+                                    <span>
+                                      • {cust.group_discount_type === "PERCENTAGE" ? `${cust.group_discount_value}%` : `$${cust.group_discount_value}`} Off
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 dark:text-slate-400">
@@ -812,6 +873,25 @@ export default function POSCustomerDrawer({
                     className="w-full min-h-[48px] pl-10 pr-4 py-2.5 rounded-xl text-sm font-medium bg-[#F4F5F8] dark:bg-slate-800 border border-[#D4D7DC] dark:border-slate-700 focus:border-[#008489] focus:bg-white dark:focus:bg-slate-900 text-gray-900 dark:text-white outline-none transition"
                   />
                 </div>
+              </div>
+
+              {/* Customer Group Selector */}
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-600 dark:text-slate-300 mb-1.5">
+                  {t('customer_groups.customer_group', 'Customer Group')}
+                </label>
+                <select
+                  value={formGroupId}
+                  onChange={(e) => setFormGroupId(e.target.value)}
+                  className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-[#F4F5F8] dark:bg-slate-800 border border-[#D4D7DC] dark:border-slate-700 focus:border-[#008489] focus:bg-white dark:focus:bg-slate-900 text-gray-900 dark:text-white outline-none transition"
+                >
+                  <option value="">{t('customer_groups.select_group', 'Select a customer group...')}</option>
+                  {customerGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} {g.is_default ? `(${t('common.default', 'Default')})` : ''} {g.discount_value > 0 ? `• ${g.discount_type === 'PERCENTAGE' ? `${g.discount_value}%` : `$${g.discount_value}`} Off` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Gender Touch Pills & Birth Date */}

@@ -6,9 +6,11 @@ import {
   IconDeviceIpadHorizontal,
   IconArmchair,
   IconFileInvoice,
+  IconUsers,
   IconUsersGroup,
   IconCalendarEvent,
   IconBuildingWarehouse,
+  IconDatabase,
   IconToolsKitchen3,
   IconChefHat,
   IconChartBar,
@@ -95,6 +97,12 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
           iconBg: "bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400 group-hover:bg-teal-500 group-hover:text-white",
         },
         {
+          label: t("navbar.customer_groups", "Customer Groups"),
+          path: "/dashboard/customer-groups",
+          icon: <IconUsers size={18} stroke={iconStroke} />,
+          iconBg: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white",
+        },
+        {
           label: t("quick_new.reservation", "Table Reservations"),
           path: "/dashboard/reservation",
           icon: <IconCalendarEvent size={18} stroke={iconStroke} />,
@@ -119,6 +127,18 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
           iconBg: "bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400 group-hover:bg-purple-500 group-hover:text-white",
         },
         {
+          label: t("navbar.add_stock_adjustment", "Add Stock Adjustment"),
+          path: "/dashboard/inventory/adjustments/add",
+          icon: <IconDatabase size={18} stroke={iconStroke} />,
+          iconBg: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white",
+        },
+        {
+          label: t("navbar.add_stock_transfer", "Add Stock Transfer"),
+          path: "/dashboard/inventory/transfers/add",
+          icon: <IconTruck size={18} stroke={iconStroke} />,
+          iconBg: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white",
+        },
+        {
           label: t("navbar.vendors_directory", "Suppliers Directory"),
           path: "/dashboard/suppliers",
           icon: <IconTruck size={18} stroke={iconStroke} />,
@@ -137,7 +157,7 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
   return (
     <div className={clsx("relative", compact ? "inline-block" : "w-full")} ref={menuRef}>
       {qboRail ? (
-        // QBO Far-Left Rail '+ Create' circular button (icon only)
+        // QBO Far-Left Rail '+ Create' (icon only, clean transparent background)
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -147,32 +167,47 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
         >
           <span
             className={clsx(
-              "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 shadow-md active:scale-95 select-none",
+              "w-[42px] h-[42px] rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 select-none",
               isOpen
-                ? "bg-[#0D233A] text-white ring-4 ring-emerald-500/30 scale-105 shadow-lg"
-                : "bg-gradient-to-tr from-[#248417] via-[#2CA01C] to-[#36be24] text-white shadow-emerald-600/25 hover:shadow-lg hover:shadow-emerald-600/40 hover:scale-105"
+                ? "bg-slate-100 dark:bg-slate-800 text-[#0D233A] dark:text-white"
+                : "text-[#2CA01C] hover:text-[#248417] hover:bg-emerald-50/70 dark:hover:bg-slate-800/70"
             )}
           >
             <span
               className={clsx(
-                "inline-flex items-center justify-center transition-transform duration-200 text-white",
+                "inline-flex items-center justify-center transition-transform duration-200",
                 isOpen && "rotate-45"
               )}
             >
-              <IconPlus size={22} stroke={2.6} className="text-white drop-shadow-xs" />
+              <IconPlus size={24} stroke={2.4} />
             </span>
           </span>
         </button>
       ) : isCollapsed ? (
-        // Collapsed mode: Circular button (sidebar collapsed)
+        // Collapsed mode: (icon only, clean transparent background)
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           title={t("quick_new.new", "+ New")}
-          className="w-11 h-11 mx-auto flex items-center justify-center rounded-full bg-[#2CA01C] hover:bg-[#248417] text-white shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer font-bold"
+          aria-label={t("quick_new.new", "+ New")}
+          className="w-full flex items-center justify-center py-1 cursor-pointer select-none focus:outline-none"
         >
-          <span className={clsx("inline-flex items-center justify-center transition-transform duration-200", isOpen && "rotate-45")}>
-            <IconPlus size={20} stroke={2.5} />
+          <span
+            className={clsx(
+              "w-[42px] h-[42px] mx-auto rounded-xl flex items-center justify-center transition-all duration-200 active:scale-90 select-none",
+              isOpen
+                ? "bg-slate-100 dark:bg-slate-800 text-[#0D233A] dark:text-white"
+                : "text-[#2CA01C] hover:text-[#248417] hover:bg-emerald-50/70 dark:hover:bg-slate-800/70"
+            )}
+          >
+            <span
+              className={clsx(
+                "inline-flex items-center justify-center transition-transform duration-200",
+                isOpen && "rotate-45"
+              )}
+            >
+              <IconPlus size={24} stroke={2.4} />
+            </span>
           </span>
         </button>
       ) : compact ? (

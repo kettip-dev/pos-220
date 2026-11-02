@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
 import {
+  IconAward,
   IconCalendarPlus,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
+  IconCoins,
   IconDownload,
   IconFileSpreadsheet,
   IconChartBar,
@@ -19,6 +21,7 @@ import {
   IconTableImport,
   IconTrash,
   IconUser,
+  IconUserCheck,
   IconUsers,
   IconX,
   IconMail,
@@ -26,6 +29,11 @@ import {
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import DialogAddCustomer from "../components/DialogAddCustomer";
+import CustomerGroupsTab from "./CustomerGroupsTab";
+import {
+  useCustomerGroups,
+  bulkAssignCustomerGroup,
+} from "../controllers/customer_groups.controller";
 import {
   deleteCustomer,
   getAllCustomers,
@@ -40,10 +48,10 @@ import { isAllBusinessesScope } from "../helpers/BusinessScope";
 import { SCOPES, hasFullBusinessAccess } from "../config/scopes";
 import { validateEmail } from "../utils/emailValidator";
 import { validatePhone } from "../utils/phoneValidator";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
 
-export default function CustomersPage() {
+export default function CustomersPage({ initialTab = "customers" }) {
   const { t } = useTranslation();
   const { role, scope } = getUserDetailsInLocalStorage();
   const isConsolidated = isAllBusinessesScope(role);
@@ -63,6 +71,36 @@ export default function CustomersPage() {
   }
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const isGroupsRoute =
+    initialTab === "groups" ||
+    searchParams.get("tab") === "groups" ||
+    location.pathname.includes("customer-groups") ||
+    location.pathname.includes("customers/groups");
+
+  const [activeMainTab, setActiveMainTab] = useState(
+    isGroupsRoute ? "groups" : "customers"
+  );
+
+  useEffect(() => {
+    const isGroups =
+      initialTab === "groups" ||
+      searchParams.get("tab") === "groups" ||
+      location.pathname.includes("customer-groups") ||
+      location.pathname.includes("customers/groups");
+    setActiveMainTab(isGroups ? "groups" : "customers");
+  }, [location.pathname, searchParams, initialTab]);
+
+  const handleTabChange = (tab) => {
+    setActiveMainTab(tab);
+    if (tab === "groups") {
+      navigate("/dashboard/customer-groups");
+    } else {
+      navigate("/dashboard/customers");
+    }
+  };
 
   const phoneRef = useRef();
   const nameRef = useRef();
@@ -76,6 +114,9 @@ export default function CustomersPage() {
   const [deleteCustomerPhone, setDeleteCustomerPhone] = useState(null);
   const [selectedCustomers, setSelectedCustomers] = useState(new Set());
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const [editCustomerGroupId, setEditCustomerGroupId] = useState("");
+  const [bulkGroupDropdownOpen, setBulkGroupDropdownOpen] = useState(false);
+  const { customerGroups = [], mutate: mutateGroups } = useCustomerGroups();
 
   // Table options (QuickBooks gear icon settings)
   const [tableSettings, setTableSettings] = useState({
@@ -85,6 +126,7 @@ export default function CustomersPage() {
     visibleColumns: {
       phone: true,
       email: true,
+      group: true,
       created: true,
       business: true,
     },
@@ -99,6 +141,21 @@ export default function CustomersPage() {
     spage: 1,
     search: "",
   });
+  const [searchInput, setSearchInput] = useState(state.search);
+
+  // Debounced search sync
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput.trim() !== state.search) {
+        setState((prev) => ({
+          ...prev,
+          search: searchInput.trim(),
+          spage: 1,
+        }));
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput, state.search]);
 
   const { APIURL, data, error, isLoading } = useCustomers({
     page: state.spage,
@@ -127,36 +184,20 @@ export default function CustomersPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (isLoading) {
-    return (
-      <Page>
-        <div className="flex items-center justify-center p-20 text-slate-400 gap-3">
-          <span className="loading loading-spinner loading-md"></span>
-          <span className="text-sm font-medium">
-            {t("customers.please_wait")}
-          </span>
-        </div>
-      </Page>
-    );
-  }
-
-  if (error) {
-    console.error(error);
-    return (
-      <Page>
-        <div className="p-8 text-center text-rose-500 text-sm font-medium">
-          {t("customers.error_loading_details")}
-        </div>
-      </Page>
-    );
-  }
-
   const {
     customers = [],
     currentPage = 1,
     totalPages = 1,
     totalCustomers = 0,
   } = data || {};
+
+  const loyaltyMembersCount = useMemo(() => {
+    return customers.filter((c) => c.is_member || c.membership_tier).length;
+  }, [customers]);
+
+  const totalRewardPoints = useMemo(() => {
+    return customers.reduce((sum, c) => sum + Number(c.points_balance || 0), 0);
+  }, [customers]);
 
   // Client-side sort fallback / refinement
   const sortedCustomers = [...customers].sort((a, b) => {
@@ -252,18 +293,15 @@ export default function CustomersPage() {
 
   // Search Handlers
   const btnSearch = () => {
-    const searchQuery = searchRef.current?.value || "";
     setState((prev) => ({
       ...prev,
-      search: searchQuery.trim(),
+      search: searchInput.trim(),
       spage: 1,
     }));
   };
 
   const btnClearSearch = () => {
-    if (searchRef.current) {
-      searchRef.current.value = "";
-    }
+    setSearchInput("");
     setState((prev) => ({
       ...prev,
       search: "",
@@ -272,10 +310,11 @@ export default function CustomersPage() {
   };
 
   // Update Customer Handlers
-  const btnShowUpdate = (phone, name, email, birthDate, gender) => {
+  const btnShowUpdate = (phone, name, email, birthDate, gender, customerGroupId = null) => {
     if (phoneRef.current) phoneRef.current.value = phone;
     if (nameRef.current) nameRef.current.value = name;
     if (emailRef.current) emailRef.current.value = email || "";
+    setEditCustomerGroupId(customerGroupId ? String(customerGroupId) : "");
 
     const bDate = birthDate ? new Date(birthDate) : null;
     if (birthDateRef.current) {
@@ -296,6 +335,7 @@ export default function CustomersPage() {
     const email = emailRef.current?.value || null;
     const gender = genderRef.current?.value || null;
     const birthDate = birthDateRef.current?.value || null;
+    const customerGroupId = editCustomerGroupId ? Number(editCustomerGroupId) : null;
 
     if (!phone) {
       toast.error(t("customers.please_provide_phone"));
@@ -318,7 +358,7 @@ export default function CustomersPage() {
 
     try {
       toast.loading(t("customers.please_wait"));
-      const res = await updateCustomer(phone, name, email, birthDate, gender);
+      const res = await updateCustomer(phone, name, email, birthDate, gender, customerGroupId);
 
       if (res.status === 200) {
         if (phoneRef.current) phoneRef.current.value = "";
@@ -428,10 +468,11 @@ export default function CustomersPage() {
   };
 
   const { compactDensity, visibleColumns } = tableSettings;
+  const totalCustomerCount = totalCustomers || customers.length;
   const startIndex = (currentPage - 1) * tableSettings.pageSize;
   const endIndex = Math.min(
     startIndex + tableSettings.pageSize,
-    totalCustomers || customers.length
+    totalCustomerCount
   );
 
   return (
@@ -441,99 +482,213 @@ export default function CustomersPage() {
         <span>Customers & CRM</span>
         <span className="text-slate-300 dark:text-neutral-600">/</span>
         <span className="text-slate-700 dark:text-neutral-300 font-medium">
-          {t("customers.title") || "Customers"}
+          {activeMainTab === "groups"
+            ? (t("customer_groups.title") || "Customer Groups")
+            : (t("customers.title") || "Customers")}
         </span>
       </div>
 
-      {/* ── QuickBooks Header & Primary Action ── */}
+      {/* ── Page Header & Primary Actions ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
         <div>
           <h1 className="text-2xl sm:text-[28px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-            {t("customers.title") || "Customers"}
+            {activeMainTab === "groups"
+              ? t("customer_groups.title", "Customer Groups")
+              : t("customers.title", "Customers")}
           </h1>
           <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
-            {t(
-              "customers.subtitle",
-              "Manage customer accounts, contact details and insights"
-            )}
+            {activeMainTab === "groups"
+              ? t("customer_groups.subtitle", "Organize customer tiers, apply automated discounts and manage membership")
+              : t("customers.subtitle", "Manage customer accounts, contact details and insights")}
           </p>
         </div>
 
         {/* Top Right Header Action Buttons */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {/* Actions Dropdown */}
-          <div className="relative" ref={actionsBtnRef}>
-            <button
-              type="button"
-              onClick={() => setShowActionsDropdown((p) => !p)}
-              className="min-h-[42px] px-3.5 py-2 rounded-lg border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] hover:bg-slate-50 dark:hover:bg-[#202020] text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium flex items-center gap-1.5 active:scale-95 transition"
-            >
-              <span>{t("customers.actions") || "Actions"}</span>
-              <IconChevronDown size={14} stroke={iconStroke} />
-            </button>
+          {activeMainTab === "customers" ? (
+            <>
+              {/* Actions Dropdown */}
+              <div className="relative" ref={actionsBtnRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowActionsDropdown((p) => !p)}
+                  className="min-h-[42px] px-3.5 py-2 rounded-lg border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] hover:bg-slate-50 dark:hover:bg-[#202020] text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium flex items-center gap-1.5 active:scale-95 transition"
+                >
+                  <span>{t("customers.actions") || "Actions"}</span>
+                  <IconChevronDown size={14} stroke={iconStroke} />
+                </button>
 
-            {showActionsDropdown && (
-              <ul className="absolute right-0 top-12 z-[100] p-1.5 shadow-xl bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-neutral-700 rounded-xl w-48 text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      btnDownloadCustomerDataVisible();
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
-                  >
-                    <IconDownload size={15} stroke={iconStroke} />
-                    <span>{t("customers.download_visible")}</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      btnDownloadCustomerAllData();
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
-                  >
-                    <IconFileSpreadsheet
-                      size={15}
-                      stroke={iconStroke}
-                      className="text-emerald-600"
-                    />
-                    <span>{t("customers.download_all")}</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowActionsDropdown(false);
-                      navigate("import");
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
-                  >
-                    <IconTableImport size={15} stroke={iconStroke} />
-                    <span>{t("customers.import")}</span>
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
+                {showActionsDropdown && (
+                  <ul className="absolute right-0 top-12 z-[100] p-1.5 shadow-xl bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-neutral-700 rounded-xl w-48 text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowActionsDropdown(false);
+                          btnDownloadCustomerDataVisible();
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+                      >
+                        <IconDownload size={15} stroke={iconStroke} />
+                        <span>{t("customers.download_visible")}</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowActionsDropdown(false);
+                          btnDownloadCustomerAllData();
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+                      >
+                        <IconFileSpreadsheet
+                          size={15}
+                          stroke={iconStroke}
+                          className="text-emerald-600"
+                        />
+                        <span>{t("customers.download_all")}</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowActionsDropdown(false);
+                          navigate("import");
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+                      >
+                        <IconTableImport size={15} stroke={iconStroke} />
+                        <span>{t("customers.import")}</span>
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
 
-          {/* QuickBooks Signature Green New Customer Button */}
-          {isManageAllowed && (
-            <button
-              type="button"
-              onClick={() =>
-                document.getElementById("modal-add-customer")?.showModal()
-              }
-              className="min-h-[42px] px-4 py-2 rounded-lg bg-[#107c41] hover:bg-[#0c6634] text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-xs"
-            >
-              <IconPlus size={16} stroke={iconStroke} />
-              <span>{t("customers.new") || "New customer"}</span>
-            </button>
+              {/* QuickBooks Signature Green New Customer Button */}
+              {isManageAllowed && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.getElementById("modal-add-customer")?.showModal()
+                  }
+                  className="min-h-[42px] px-4 py-2 rounded-lg bg-[#107c41] hover:bg-[#0c6634] text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-xs"
+                >
+                  <IconPlus size={16} stroke={iconStroke} />
+                  <span>{t("customers.new") || "New customer"}</span>
+                </button>
+              )}
+            </>
+          ) : (
+            isManageAllowed && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("open-add-customer-group"));
+                }}
+                className="min-h-[42px] px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-xs"
+              >
+                <IconPlus size={16} stroke={iconStroke} />
+                <span>{t("customer_groups.new_group", "New Customer Group")}</span>
+              </button>
+            )
           )}
+        </div>
+      </div>
+
+      {/* ── Main Tab Navigation: Customers vs Customer Groups ── */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-neutral-800 mb-5">
+        <button
+          type="button"
+          onClick={() => handleTabChange("customers")}
+          className={`min-h-[42px] px-5 py-2.5 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 active:scale-95 ${
+            activeMainTab === "customers"
+              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+          }`}
+        >
+          <IconUser size={18} stroke={iconStroke} />
+          <span>{t("customer_groups.tab_customers", "Customers")}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange("groups")}
+          className={`min-h-[42px] px-5 py-2.5 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 active:scale-95 ${
+            activeMainTab === "groups"
+              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+          }`}
+        >
+          <IconUsers size={18} stroke={iconStroke} />
+          <span>{t("customer_groups.tab_groups", "Customer Groups")}</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold font-mono">
+            {customerGroups.length}
+          </span>
+        </button>
+      </div>
+
+      {activeMainTab === "groups" ? (
+        <CustomerGroupsTab isManageAllowed={isManageAllowed} />
+      ) : (
+        <>
+          {/* ── Summary KPI Metric Cards (table-design-system Standard) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-4">
+        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t("customers.total_customers", "Total Customers")}
+            </span>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <IconUsers size={16} stroke={iconStroke} />
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
+            {totalCustomerCount.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t("customers.loyalty_members", "Loyalty Members")}
+            </span>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <IconAward size={16} stroke={iconStroke} />
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
+            {loyaltyMembersCount.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t("customers.points_pool", "Reward Points")}
+            </span>
+            <span className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <IconCoins size={16} stroke={iconStroke} />
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
+            {totalRewardPoints.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t("customers.active_page", "Active on Page")}
+            </span>
+            <span className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <IconUserCheck size={16} stroke={iconStroke} />
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
+            {customers.length}
+          </div>
         </div>
       </div>
 
@@ -549,6 +704,72 @@ export default function CustomersPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Bulk Assign Customer Group Dropdown */}
+            {isManageAllowed && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setBulkGroupDropdownOpen((p) => !p)}
+                  className="px-3 py-1.5 rounded-md bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <IconUsers size={14} />
+                  <span>{t("customer_groups.assign_to_group", "Assign to Group")}</span>
+                  <IconChevronDown size={12} />
+                </button>
+                {bulkGroupDropdownOpen && (
+                  <div className="absolute right-0 top-9 z-[120] p-1.5 shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl w-56 text-xs space-y-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setBulkGroupDropdownOpen(false);
+                        try {
+                          await bulkAssignCustomerGroup(Array.from(selectedCustomers), null);
+                          toast.success(t("customer_groups.bulk_assign_success", { count: selectedCustomers.size }));
+                          await mutate(APIURL);
+                          mutateGroups();
+                          setSelectedCustomers(new Set());
+                        } catch (e) {
+                          toast.error(e.message);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium"
+                    >
+                      {t("customer_groups.no_group", "No Group (Clear)")}
+                    </button>
+                    {customerGroups.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={async () => {
+                          setBulkGroupDropdownOpen(false);
+                          try {
+                            await bulkAssignCustomerGroup(Array.from(selectedCustomers), g.id);
+                            toast.success(t("customer_groups.bulk_assign_success", { count: selectedCustomers.size }));
+                            await mutate(APIURL);
+                            mutateGroups();
+                            setSelectedCustomers(new Set());
+                          } catch (e) {
+                            toast.error(e.message);
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 flex items-center justify-between font-medium"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                          {g.name}
+                        </span>
+                        {g.discount_value > 0 && (
+                          <span className="text-[10px] text-indigo-500 font-mono font-bold">
+                            {g.discount_type === "PERCENTAGE" ? `${g.discount_value}%` : `$${g.discount_value}`}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={btnDownloadSelected}
@@ -567,9 +788,9 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* ── Filter & Action Bar Directly Above Table (QuickBooks Style) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-        {/* Left Side: Filter input */}
+      {/* ── Filter & Action Toolbar (table-design-system Standard) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        {/* Left Side: Real-time search */}
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <div className="relative flex-1 min-w-[200px]">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -577,8 +798,8 @@ export default function CustomersPage() {
             </div>
             <input
               ref={searchRef}
-              defaultValue={state.search}
               type="text"
+              value={searchInput}
               placeholder={
                 t("customers.search_placeholder") || "Filter by name or phone..."
               }
@@ -587,15 +808,10 @@ export default function CustomersPage() {
                   btnSearch();
                 }
               }}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (!val) {
-                  btnClearSearch();
-                }
-              }}
-              className="w-full min-h-[38px] pl-9 pr-8 py-1.5 text-xs sm:text-[13px] rounded-md border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-600 transition"
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full min-h-[38px] pl-9 pr-8 py-1.5 text-xs sm:text-[13px] rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-xs"
             />
-            {state.search && (
+            {searchInput && (
               <button
                 type="button"
                 onClick={btnClearSearch}
@@ -605,25 +821,18 @@ export default function CustomersPage() {
               </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={btnSearch}
-            className="min-h-[38px] px-3.5 py-1.5 rounded-md border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] hover:bg-slate-50 dark:hover:bg-[#202020] text-slate-700 dark:text-slate-200 text-xs sm:text-[13px] font-medium transition active:scale-95"
-          >
-            {t("customers.search") || "Search"}
-          </button>
         </div>
 
-        {/* Right Side: Print, Export, Gear, and Pagination */}
-        <div className="flex items-center gap-3 self-end sm:self-auto">
+        {/* Right Side: Print, Export, Gear Settings, and Inline Pagination */}
+        <div className="flex items-center gap-2.5 self-end sm:self-auto">
           {/* Action Icons */}
-          <div className="flex items-center gap-1 border-r border-slate-200 dark:border-neutral-700 pr-3">
+          <div className="flex items-center gap-1.5 border-r border-slate-200 dark:border-neutral-700 pr-2.5">
             {/* Print Table */}
             <button
               type="button"
               onClick={handlePrintTable}
               title="Print table"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95"
+              className="w-9 h-9 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95 shadow-xs"
             >
               <IconPrinter size={16} stroke={iconStroke} />
             </button>
@@ -633,7 +842,7 @@ export default function CustomersPage() {
               type="button"
               onClick={btnDownloadCustomerDataVisible}
               title="Export table data"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95"
+              className="w-9 h-9 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95 shadow-xs"
             >
               <IconDownload size={16} stroke={iconStroke} />
             </button>
@@ -650,26 +859,27 @@ export default function CustomersPage() {
                 }
                 title="Table settings"
                 className={clsx(
-                  "w-8 h-8 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95",
+                  "w-9 h-9 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#18181b] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95 shadow-xs",
                   tableSettings.showGearMenu &&
-                    "bg-slate-200 dark:bg-neutral-800 text-slate-900"
+                    "bg-slate-200 dark:bg-neutral-800 text-slate-900 dark:text-white"
                 )}
               >
                 <IconSettings size={16} stroke={iconStroke} />
               </button>
 
               {tableSettings.showGearMenu && (
-                <div className="absolute right-0 top-9 w-60 p-3 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl border border-slate-200 dark:border-neutral-700 text-xs z-[100] animate-in fade-in duration-100">
+                <div className="absolute right-0 top-11 w-60 p-3 bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl border border-slate-200 dark:border-neutral-700 text-xs z-[100] animate-in fade-in duration-100">
                   <div className="font-bold text-slate-900 dark:text-white pb-2 mb-2 border-b border-slate-100 dark:border-neutral-800">
                     Columns
                   </div>
                   <div className="space-y-1.5 mb-3">
                     {[
-                      { key: "phone", label: "Phone (Account type)" },
-                      { key: "email", label: "Email (Detail type)" },
-                      { key: "created", label: "Created Date" },
+                      { key: "phone", label: t("customers.phone", "Phone") },
+                      { key: "email", label: t("customers.email", "Email") },
+                      { key: "group", label: t("customer_groups.customer_group", "Customer Group") },
+                      { key: "created", label: t("customers.created_at", "Created Date") },
                       ...(isConsolidated
-                        ? [{ key: "business", label: "Business" }]
+                        ? [{ key: "business", label: t("business_switcher.business", "Business") }]
                         : []),
                     ].map((col) => (
                       <label
@@ -722,6 +932,7 @@ export default function CustomersPage() {
                       setTableSettings((p) => ({
                         ...p,
                         pageSize: Number(e.target.value),
+                        spage: 1,
                       }))
                     }
                     className="w-full px-2 py-1 text-xs rounded border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-200"
@@ -736,8 +947,8 @@ export default function CustomersPage() {
             </div>
           </div>
 
-          {/* Pagination Text: < Previous  1 - 10 of 42  Next > */}
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400">
+          {/* Inline Compact Pagination */}
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400 pl-1">
             <button
               type="button"
               disabled={currentPage <= 1}
@@ -749,16 +960,16 @@ export default function CustomersPage() {
               )}
             >
               <IconChevronLeft size={14} stroke={iconStroke} />
-              <span>Previous</span>
+              <span>{t("customers.previous", "Previous")}</span>
             </button>
 
             <span className="font-medium text-slate-800 dark:text-slate-200 tabular-nums">
-              {totalCustomers > 0
+              {totalCustomerCount > 0
                 ? `${startIndex + 1} - ${endIndex}`
                 : "0 - 0"}
               <span className="text-slate-400 font-normal">
                 {" "}
-                of {totalCustomers || customers.length}
+                of {totalCustomerCount}
               </span>
             </span>
 
@@ -772,21 +983,21 @@ export default function CustomersPage() {
                   "opacity-40 cursor-not-allowed hover:text-slate-600"
               )}
             >
-              <span>Next</span>
+              <span>{t("customers.next", "Next")}</span>
               <IconChevronRight size={14} stroke={iconStroke} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── QuickBooks Data Table Container (Matching Image 2 Reference) ── */}
-      <div className="w-full overflow-x-auto border border-slate-200 dark:border-neutral-800 rounded-md bg-white dark:bg-[#18181b]">
+      {/* ── Compact Data Table (Flat, full-bleed container) ── */}
+      <div className="w-full overflow-x-auto border-t border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b]">
         <table className="w-full text-left border-collapse">
           {/* Header Row */}
           <thead>
-            <tr className="border-b border-slate-300 dark:border-neutral-700 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
+            <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
               {/* Checkbox column */}
-              <th className="w-10 px-3 py-3 text-center border-r border-slate-200 dark:border-neutral-800">
+              <th className="w-10 px-3 py-2.5 text-center">
                 <input
                   type="checkbox"
                   checked={isAllCurrentPageSelected}
@@ -799,7 +1010,7 @@ export default function CustomersPage() {
               {/* Name Column */}
               <th
                 onClick={() => handleSort("name")}
-                className="px-3 py-3 border-r border-slate-200 dark:border-neutral-800 cursor-pointer select-none hover:text-emerald-700 transition"
+                className="px-3 py-2.5 cursor-pointer select-none hover:text-emerald-700 transition"
               >
                 <div className="flex items-center gap-1">
                   <span>{t("customers.name") || "Name"}</span>
@@ -811,33 +1022,31 @@ export default function CustomersPage() {
                 </div>
               </th>
 
-              {/* Account type ↑ Column (with BAL badge indicator) */}
+              {/* Phone Column */}
               {visibleColumns.phone && (
                 <th
                   onClick={() => handleSort("phone")}
-                  className="px-3 py-3 border-r border-slate-200 dark:border-neutral-800 cursor-pointer select-none hover:text-emerald-700 transition"
+                  className="px-3 py-2.5 cursor-pointer select-none hover:text-emerald-700 transition"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Account type</span>
-                    <span className="text-xs">
-                      {sorting.field === "phone"
-                        ? sorting.direction === "asc"
-                          ? "↑"
-                          : "↓"
-                        : "↑"}
-                    </span>
+                    <span>{t("customers.phone") || "Phone"}</span>
+                    {sorting.field === "phone" && (
+                      <span className="text-xs">
+                        {sorting.direction === "asc" ? "↑" : "↓"}
+                      </span>
+                    )}
                   </div>
                 </th>
               )}
 
-              {/* Detail type Column */}
+              {/* Email Column */}
               {visibleColumns.email && (
                 <th
                   onClick={() => handleSort("email")}
-                  className="px-3 py-3 border-r border-slate-200 dark:border-neutral-800 cursor-pointer select-none hover:text-emerald-700 transition"
+                  className="px-3 py-2.5 cursor-pointer select-none hover:text-emerald-700 transition"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Detail type</span>
+                    <span>{t("customers.email") || "Email"}</span>
                     {sorting.field === "email" && (
                       <span className="text-xs">
                         {sorting.direction === "asc" ? "↑" : "↓"}
@@ -847,9 +1056,16 @@ export default function CustomersPage() {
                 </th>
               )}
 
+              {/* Customer Group Column */}
+              {visibleColumns.group && (
+                <th className="px-3 py-2.5">
+                  <span>{t("customer_groups.customer_group", "Customer Group")}</span>
+                </th>
+              )}
+
               {/* Consolidated Business Column */}
               {isConsolidated && visibleColumns.business && (
-                <th className="px-3 py-3 border-r border-slate-200 dark:border-neutral-800">
+                <th className="px-3 py-2.5">
                   <span>{t("business_switcher.business", "Business")}</span>
                 </th>
               )}
@@ -858,7 +1074,7 @@ export default function CustomersPage() {
               {visibleColumns.created && (
                 <th
                   onClick={() => handleSort("created_at")}
-                  className="px-3 py-3 border-r border-slate-200 dark:border-neutral-800 cursor-pointer select-none hover:text-emerald-700 transition"
+                  className="px-3 py-2.5 cursor-pointer select-none hover:text-emerald-700 transition"
                 >
                   <div className="flex items-center gap-1">
                     <span>{t("customers.created_at") || "Created"}</span>
@@ -872,15 +1088,36 @@ export default function CustomersPage() {
               )}
 
               {/* Action Column */}
-              <th className="px-4 py-3 text-right">
+              <th className="px-3 py-2.5 text-right">
                 <span>{t("customers.actions") || "Action"}</span>
               </th>
             </tr>
           </thead>
 
-          {/* QuickBooks Data Rows */}
-          <tbody>
-            {sortedCustomers.length === 0 ? (
+          {/* Table Data Rows */}
+          <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
+            {isLoading ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="py-14 text-center text-slate-400 dark:text-neutral-500 text-xs sm:text-sm"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="loading loading-spinner loading-md"></span>
+                    <span>{t("customers.please_wait", "Please wait...")}</span>
+                  </div>
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="py-14 text-center text-rose-500 text-xs sm:text-sm font-medium"
+                >
+                  {t("customers.error_loading_details", "Error loading customers")}
+                </td>
+              </tr>
+            ) : sortedCustomers.length === 0 ? (
               <tr>
                 <td
                   colSpan={7}
@@ -899,7 +1136,6 @@ export default function CustomersPage() {
                   email,
                   created_at,
                   businesses,
-                  is_member,
                 } = customer;
                 const isSelected = selectedCustomers.has(phone);
 
@@ -908,17 +1144,14 @@ export default function CustomersPage() {
                     key={phone || index}
                     onClick={() => toggleSelectRow(phone)}
                     className={clsx(
-                      "transition-colors cursor-pointer select-none border-b border-slate-200 dark:border-neutral-800",
-                      compactDensity ? "text-xs" : "text-[13px]",
-                      isSelected
-                        ? "bg-[#e8f4fd] dark:bg-emerald-950/20"
-                        : "hover:bg-[#f8f9fa] dark:hover:bg-[#202020]"
+                      "hover:bg-slate-50/70 dark:hover:bg-neutral-800/40 transition cursor-pointer select-none text-xs sm:text-[13px]",
+                      isSelected && "bg-emerald-50/40 dark:bg-emerald-950/20"
                     )}
                   >
                     {/* Checkbox Cell */}
                     <td
                       className={clsx(
-                        "w-10 px-3 text-center border-r border-slate-200 dark:border-neutral-800",
+                        "w-10 px-3 text-center",
                         compactDensity ? "py-1.5" : "py-2.5"
                       )}
                       onClick={(e) => e.stopPropagation()}
@@ -934,51 +1167,73 @@ export default function CustomersPage() {
                     {/* Name Cell */}
                     <td
                       className={clsx(
-                        "px-3 border-r border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap",
+                        "px-3 text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap",
                         compactDensity ? "py-1.5" : "py-2.5"
                       )}
                     >
                       <div className="flex items-center gap-2">
                         <span>{name}</span>
                         {customer.membership_tier && (
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-amber-50 text-amber-700 border border-amber-200/60 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800/60">
                             {customer.membership_tier}
                           </span>
                         )}
                         {Number(customer.points_balance || 0) > 0 && (
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800/60">
                             {customer.points_balance} pts
                           </span>
                         )}
                       </div>
                     </td>
 
-                    {/* Account Type (Phone) Cell with BAL badge */}
+                    {/* Phone Cell */}
                     {visibleColumns.phone && (
                       <td
                         className={clsx(
-                          "px-3 border-r border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-slate-300 whitespace-nowrap",
+                          "px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap font-normal",
                           compactDensity ? "py-1.5" : "py-2.5"
                         )}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-normal">{phone}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#d1fae5] text-[#008927] dark:bg-emerald-950/60 dark:text-emerald-400 select-none tracking-wide uppercase">
-                            BAL
-                          </span>
-                        </div>
+                        <span>{phone}</span>
                       </td>
                     )}
 
-                    {/* Detail Type (Email) Cell */}
+                    {/* Email Cell */}
                     {visibleColumns.email && (
                       <td
                         className={clsx(
-                          "px-3 border-r border-slate-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400 truncate max-w-[220px]",
+                          "px-3 text-slate-600 dark:text-slate-400 truncate max-w-[220px]",
                           compactDensity ? "py-1.5" : "py-2.5"
                         )}
                       >
-                        <span>{email || "Customer Account"}</span>
+                        <span>{email || "-"}</span>
+                      </td>
+                    )}
+
+                    {/* Customer Group Cell */}
+                    {visibleColumns.group && (
+                      <td
+                        className={clsx(
+                          "px-3 whitespace-nowrap",
+                          compactDensity ? "py-1.5" : "py-2.5"
+                        )}
+                      >
+                        {customer.customer_group_name ? (
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-white text-[11px] font-bold shadow-xs"
+                            style={{ backgroundColor: customer.customer_group_color || "#6366f1" }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                            {customer.customer_group_name}
+                            {customer.group_discount_value > 0 && (
+                              <span className="bg-black/20 px-1 py-0.2 rounded text-[10px]">
+                                {customer.group_discount_type === "PERCENTAGE" ? `${customer.group_discount_value}%` : `$${customer.group_discount_value}`} Off
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">—</span>
+                        )}
                       </td>
                     )}
 
@@ -986,7 +1241,7 @@ export default function CustomersPage() {
                     {isConsolidated && visibleColumns.business && (
                       <td
                         className={clsx(
-                          "px-3 border-r border-slate-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400 text-xs",
+                          "px-3 text-slate-600 dark:text-slate-400 text-xs",
                           compactDensity ? "py-1.5" : "py-2.5"
                         )}
                       >
@@ -1007,7 +1262,7 @@ export default function CustomersPage() {
                     {visibleColumns.created && (
                       <td
                         className={clsx(
-                          "px-3 border-r border-slate-200 dark:border-neutral-800 text-slate-600 dark:text-slate-400 whitespace-nowrap",
+                          "px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap",
                           compactDensity ? "py-1.5" : "py-2.5"
                         )}
                       >
@@ -1019,10 +1274,10 @@ export default function CustomersPage() {
                       </td>
                     )}
 
-                    {/* Action Cell (QuickBooks Clean Toolbar) */}
+                    {/* Action Cell */}
                     <td
                       className={clsx(
-                        "px-4 text-right whitespace-nowrap",
+                        "px-3 text-right whitespace-nowrap",
                         compactDensity ? "py-1.5" : "py-2.5"
                       )}
                       onClick={(e) => e.stopPropagation()}
@@ -1039,8 +1294,8 @@ export default function CustomersPage() {
                           <button
                             type="button"
                             onClick={() => navigate(`${phone}/insights`)}
-                            title="View Insights"
-                            className="p-1.5 rounded-md text-slate-500 hover:text-emerald-700 hover:bg-slate-100 dark:hover:bg-neutral-800 dark:text-slate-400 dark:hover:text-emerald-400 transition active:scale-95"
+                            title={t("customers.insights", "View Insights")}
+                            className="w-8 h-8 rounded-md text-slate-500 hover:text-emerald-700 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95"
                           >
                             <IconChartBar size={16} stroke={iconStroke} />
                           </button>
@@ -1052,22 +1307,25 @@ export default function CustomersPage() {
                                 name,
                                 email,
                                 customer.birth_date,
-                                customer.gender
+                                customer.gender,
+                                customer.customer_group_id
                               )
                             }
-                            title="Edit Customer"
-                            className="p-1.5 rounded-md text-slate-500 hover:text-emerald-700 hover:bg-slate-100 dark:hover:bg-neutral-800 dark:text-slate-400 dark:hover:text-emerald-400 transition active:scale-95"
+                            title={t("customers.edit", "Edit Customer")}
+                            className="w-8 h-8 rounded-md text-slate-500 hover:text-emerald-700 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95"
                           >
                             <IconPencil size={16} stroke={iconStroke} />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteCustomerPhone(phone)}
-                            title="Delete Customer"
-                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition active:scale-95"
-                          >
-                            <IconTrash size={16} stroke={iconStroke} />
-                          </button>
+                          {isManageAllowed && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteCustomerPhone(phone)}
+                              title={t("customers.delete", "Delete Customer")}
+                              className="w-8 h-8 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center justify-center transition active:scale-95"
+                            >
+                              <IconTrash size={16} stroke={iconStroke} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -1078,6 +1336,49 @@ export default function CustomersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Bottom Pagination Bar (table-design-system Standard) ── */}
+      <div className="flex items-center justify-between py-3 px-1 text-xs text-slate-600 dark:text-neutral-400">
+        <div className="text-slate-500">
+          {t("customers.showing", "Showing")} {totalCustomerCount > 0 ? startIndex + 1 : 0}{" "}
+          {t("customers.to", "to")} {endIndex} {t("customers.of", "of")}{" "}
+          {totalCustomerCount} {t("customers.entries", "entries")}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={btnPaginationPreviousPage}
+            className={clsx(
+              "flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition",
+              currentPage <= 1 && "opacity-40 cursor-not-allowed hover:text-slate-600"
+            )}
+          >
+            <IconChevronLeft size={14} stroke={iconStroke} />
+            <span>{t("customers.previous", "Previous")}</span>
+          </button>
+
+          <span className="tabular-nums font-medium text-slate-800 dark:text-slate-200">
+            Page {currentPage} of {totalPages}
+          </span>
+
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={btnPaginationNextPage}
+            className={clsx(
+              "flex items-center gap-1 hover:text-slate-900 dark:hover:text-white transition",
+              currentPage >= totalPages && "opacity-40 cursor-not-allowed hover:text-slate-600"
+            )}
+          >
+            <span>{t("customers.next", "Next")}</span>
+            <IconChevronRight size={14} stroke={iconStroke} />
+          </button>
+        </div>
+      </div>
+      </>
+      )}
 
       {/* ── Dialogs ── */}
       <DialogAddCustomer APIURL={APIURL} />
@@ -1145,6 +1446,27 @@ export default function CustomersPage() {
               className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
               placeholder={t("customers.email")}
             />
+          </div>
+
+          <div className="mt-4">
+            <label
+              htmlFor="edit_customer_group"
+              className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium"
+            >
+              {t("customer_groups.customer_group")}
+            </label>
+            <select
+              value={editCustomerGroupId}
+              onChange={(e) => setEditCustomerGroupId(e.target.value)}
+              className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            >
+              <option value="">{t("customer_groups.no_group")}</option>
+              {customerGroups.map((grp) => (
+                <option key={grp.id} value={grp.id}>
+                  {grp.name} {grp.is_default ? `(${t("common.default", "Default")})` : ""} {grp.discount_value > 0 ? `• ${grp.discount_type === "PERCENTAGE" ? `${grp.discount_value}%` : `$${grp.discount_value}`} Off` : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex gap-4 w-full my-4">

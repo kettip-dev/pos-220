@@ -13,6 +13,7 @@ import {
   IconFileInvoice,
   IconUsersGroup,
   IconBuildingWarehouse,
+  IconDatabase,
   IconChartArea,
   IconSettings2,
   IconHistory,
@@ -26,6 +27,9 @@ import {
   IconHelp,
   IconLayoutGrid,
   IconBrandTelegram,
+  IconCalendar,
+  IconUserCheck,
+  IconUsers,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
@@ -112,6 +116,20 @@ export default function TopNavbar() {
           scopes: [SCOPES.INVENTORY],
           features: [PLAN_FEATURES.INVENTORY],
         },
+        {
+          label: t("navbar.stock_adjustment", "Stock Adjustment"),
+          path: "/dashboard/inventory/adjustments",
+          icon: <IconDatabase size={17} stroke={iconStroke} className="text-emerald-500" />,
+          scopes: [SCOPES.INVENTORY, SCOPES.VIEW_INVENTORY],
+          features: [PLAN_FEATURES.INVENTORY],
+        },
+        {
+          label: t("navbar.stock_transfers", "Stock Transfers"),
+          path: "/dashboard/inventory/transfers",
+          icon: <IconTruck size={17} stroke={iconStroke} className="text-indigo-500" />,
+          scopes: [SCOPES.INVENTORY, SCOPES.VIEW_INVENTORY],
+          features: [PLAN_FEATURES.INVENTORY],
+        },
       ],
     },
     {
@@ -122,6 +140,13 @@ export default function TopNavbar() {
           label: t("navbar.customers", "Customer Directory"),
           path: "/dashboard/customers",
           icon: <IconFriends size={17} stroke={iconStroke} className="text-teal-500" />,
+          scopes: [SCOPES.CUSTOMERS],
+          features: [PLAN_FEATURES.CUSTOMERS],
+        },
+        {
+          label: t("navbar.customer_groups", "Customer Groups"),
+          path: "/dashboard/customer-groups",
+          icon: <IconUsers size={17} stroke={iconStroke} className="text-indigo-500" />,
           scopes: [SCOPES.CUSTOMERS],
           features: [PLAN_FEATURES.CUSTOMERS],
         },
@@ -179,6 +204,13 @@ export default function TopNavbar() {
           scopes: [SCOPES.SETTINGS],
           features: [PLAN_FEATURES.SETTINGS],
         },
+        {
+          label: t("navbar.shift_roster", "Roster & Shifts"),
+          path: "/dashboard/shifts-roster",
+          icon: <IconCalendar size={17} stroke={iconStroke} className="text-blue-500" />,
+          scopes: [SCOPES.USER, SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.USER, PLAN_FEATURES.SETTINGS],
+        },
       ],
     },
     {
@@ -190,6 +222,13 @@ export default function TopNavbar() {
           path: "/dashboard/reports",
           icon: <IconChartArea size={17} stroke={iconStroke} className="text-purple-500" />,
           scopes: [SCOPES.REPORTS],
+          features: [PLAN_FEATURES.REPORTS],
+        },
+        {
+          label: t("navbar.staff_attendance", "Staff Attendance"),
+          path: "/dashboard/attendance",
+          icon: <IconUserCheck size={17} stroke={iconStroke} className="text-purple-500" />,
+          scopes: [SCOPES.REPORTS, SCOPES.USER, SCOPES.SETTINGS],
           features: [PLAN_FEATURES.REPORTS],
         },
       ],

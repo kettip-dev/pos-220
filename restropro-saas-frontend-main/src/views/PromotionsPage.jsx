@@ -41,6 +41,7 @@ import {
 } from "../controllers/promotions.controller";
 import { useCategories } from "../controllers/settings.controller";
 import { useMenuItems } from "../controllers/menu_item.controller";
+import { useCustomerGroups } from "../controllers/customer_groups.controller";
 import toast from "react-hot-toast";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
@@ -165,6 +166,7 @@ export default function PromotionsPage() {
 
   const { data: categories = [] } = useCategories();
   const { data: menuItems = [] } = useMenuItems();
+  const { customerGroups = [] } = useCustomerGroups();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState(null);
@@ -355,6 +357,7 @@ export default function PromotionsPage() {
     end_time: "",
     days_of_week: [1, 2, 3, 4, 5, 6, 7],
     usage_limit_total: "",
+    applicable_customer_group_ids: null,
     is_active: true,
   };
 
@@ -406,6 +409,13 @@ export default function PromotionsPage() {
         : promo.dining_options;
     }
 
+    let parsedGroupIds = null;
+    if (promo.applicable_customer_group_ids) {
+      parsedGroupIds = typeof promo.applicable_customer_group_ids === "string"
+        ? JSON.parse(promo.applicable_customer_group_ids)
+        : promo.applicable_customer_group_ids;
+    }
+
     setFormData({
       title: promo.title || "",
       description: promo.description || "",
@@ -429,6 +439,7 @@ export default function PromotionsPage() {
       end_time: promo.end_time ? promo.end_time.substring(0, 5) : "",
       days_of_week: parsedDays,
       usage_limit_total: promo.usage_limit_total != null ? promo.usage_limit_total : "",
+      applicable_customer_group_ids: parsedGroupIds,
       is_active: Boolean(promo.is_active),
     });
     setActiveStep(1);
@@ -494,6 +505,7 @@ export default function PromotionsPage() {
         end_time: formData.end_time ? `${formData.end_time}:00` : null,
         target_category_ids: formData.apply_to === "CATEGORY" ? formData.target_category_ids : null,
         target_item_ids: formData.apply_to === "ITEMS" ? formData.target_item_ids : null,
+        applicable_customer_group_ids: Array.isArray(formData.applicable_customer_group_ids) && formData.applicable_customer_group_ids.length > 0 ? formData.applicable_customer_group_ids : null,
       };
 
       if (editingPromotion) {
@@ -1037,6 +1049,11 @@ export default function PromotionsPage() {
                             >
                               {getPromoTypeBadge(promo.promo_type, t)}
                             </span>
+                            {promo.applicable_customer_group_ids && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                                👥 {t('customer_groups.customer_group', 'Group Only')}
+                              </span>
+                            )}
                           </div>
                           {promo.description && (
                             <p className="text-[11px] text-slate-400 dark:text-neutral-500 line-clamp-1 mt-0.5">
@@ -1234,19 +1251,26 @@ export default function PromotionsPage() {
                 <div>
                   {/* Top Header: Compact Type Pill & Active Toggle */}
                   <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={clsx(
-                        "text-[9px] font-black tracking-wide uppercase px-2 py-0.5 rounded-md flex items-center gap-1",
-                        isBogo
-                          ? "bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300"
-                          : promo.promo_type.startsWith("ITEM")
-                          ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
-                          : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={clsx(
+                          "text-[9px] font-black tracking-wide uppercase px-2 py-0.5 rounded-md flex items-center gap-1",
+                          isBogo
+                            ? "bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300"
+                            : promo.promo_type.startsWith("ITEM")
+                            ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                            : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                        )}
+                      >
+                        {isBogo && <IconGift size={11} />}
+                        {getPromoTypeBadge(promo.promo_type, t)}
+                      </span>
+                      {promo.applicable_customer_group_ids && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                          👥 Group
+                        </span>
                       )}
-                    >
-                      {isBogo && <IconGift size={11} />}
-                      {getPromoTypeBadge(promo.promo_type, t)}
-                    </span>
+                    </div>
 
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -1804,6 +1828,105 @@ export default function PromotionsPage() {
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* Customer Group Targeting */}
+                    <div className="pt-2 border-t border-gray-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                          {t('customer_groups.target_groups', 'Target Customer Groups')}
+                        </label>
+                        <span className="text-[11px] text-gray-400">
+                          {formData.applicable_customer_group_ids && formData.applicable_customer_group_ids.length > 0
+                            ? `${formData.applicable_customer_group_ids.length} group(s) selected`
+                            : t('customer_groups.target_all_customers', 'All Customers (including Guests)')}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, applicable_customer_group_ids: null })}
+                          className={clsx(
+                            "min-h-[42px] px-3 rounded-xl text-xs font-bold border transition text-center active:scale-95",
+                            !formData.applicable_customer_group_ids || formData.applicable_customer_group_ids.length === 0
+                              ? "bg-restro-green text-white border-restro-green shadow-xs"
+                              : "border-gray-200 dark:border-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800"
+                          )}
+                        >
+                          {t('customer_groups.target_all_customers', 'All Customers (including Guests)')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!formData.applicable_customer_group_ids || formData.applicable_customer_group_ids.length === 0) {
+                              setFormData({
+                                ...formData,
+                                applicable_customer_group_ids: customerGroups.length > 0 ? [customerGroups[0].id] : []
+                              });
+                            }
+                          }}
+                          className={clsx(
+                            "min-h-[42px] px-3 rounded-xl text-xs font-bold border transition text-center active:scale-95",
+                            formData.applicable_customer_group_ids && formData.applicable_customer_group_ids.length > 0
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                              : "border-gray-200 dark:border-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800"
+                          )}
+                        >
+                          {t('customer_groups.target_specific_groups', 'Restricted to Specific Groups')}
+                        </button>
+                      </div>
+
+                      {formData.applicable_customer_group_ids && (
+                        <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-2xl">
+                          {customerGroups.length === 0 ? (
+                            <p className="text-xs text-gray-500 col-span-2 p-2 text-center">
+                              No customer groups created yet.
+                            </p>
+                          ) : (
+                            customerGroups.map((grp) => {
+                              const isSelected = (formData.applicable_customer_group_ids || []).includes(grp.id);
+                              return (
+                                <label
+                                  key={grp.id}
+                                  className={clsx(
+                                    "flex items-center gap-2 p-2 rounded-xl text-xs cursor-pointer transition border",
+                                    isSelected
+                                      ? "bg-white dark:bg-slate-900 border-indigo-500 text-indigo-900 dark:text-indigo-200 font-bold shadow-xs"
+                                      : "border-transparent text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-slate-800"
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const current = Array.isArray(formData.applicable_customer_group_ids)
+                                        ? [...formData.applicable_customer_group_ids]
+                                        : [];
+                                      if (e.target.checked) {
+                                        current.push(grp.id);
+                                      } else {
+                                        const idx = current.indexOf(grp.id);
+                                        if (idx !== -1) current.splice(idx, 1);
+                                      }
+                                      setFormData({
+                                        ...formData,
+                                        applicable_customer_group_ids: current.length > 0 ? current : null
+                                      });
+                                    }}
+                                    className="w-4 h-4 text-indigo-600 rounded-md"
+                                  />
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: grp.color || '#6366F1' }}
+                                  />
+                                  <span className="truncate">{grp.name}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

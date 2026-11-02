@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
@@ -30,9 +30,15 @@ import POSPaymentSuccessModal from '../components/pos/POSPaymentSuccessModal';
 import POSPromotionDrawer from '../components/pos/POSPromotionDrawer';
 import POSSplitBillDrawer from '../components/pos/POSSplitBillDrawer';
 import { useActivePromotions } from '../controllers/promotions.controller';
-import { evaluateCartPromotions } from '../helpers/promotionEvaluator';
+import { 
+  evaluateCartPromotions, 
+  calculateCustomerGroupDiscount, 
+  combineCartDiscounts 
+} from '../helpers/promotionEvaluator';
 import { clsx } from "clsx";
 import { useTheme } from '../contexts/ThemeContext';
+import ManagerPinModal from '../components/common/ManagerPinModal';
+import { checkMyShiftEligibility } from '../controllers/shift_roster.controller';
 
 export default function POSPage() {
   const { t } = useTranslation();
@@ -56,6 +62,35 @@ export default function POSPage() {
   const [isPromotionDrawerOpen, setIsPromotionDrawerOpen] = useState(false);
   const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
   const [splitBillOrder, setSplitBillOrder] = useState(null);
+
+  // Shift Heartbeat & Warning Banner
+  const [shiftExpiredAlert, setShiftExpiredAlert] = useState(false);
+  const [isShiftOverridden, setIsShiftOverridden] = useState(false);
+  const [showShiftOverrideModal, setShowShiftOverrideModal] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === "admin" || user?.role === "group_owner" || user?.role === "superadmin") {
+      return;
+    }
+
+    const checkShift = async () => {
+      if (isShiftOverridden) return;
+      try {
+        const res = await checkMyShiftEligibility();
+        if (res.data?.success && !res.data.allowed) {
+          setShiftExpiredAlert(true);
+        } else {
+          setShiftExpiredAlert(false);
+        }
+      } catch (err) {
+        console.error("Shift check error:", err);
+      }
+    };
+
+    checkShift();
+    const interval = setInterval(checkShift, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user, isShiftOverridden]);
   const [enteredCouponCode, setEnteredCouponCode] = useState("");
   const { promotions: activePromotionsList = [] } = useActivePromotions();
   const [completedPaymentInfo, setCompletedPaymentInfo] = useState(null);
@@ -1725,7 +1760,8 @@ export default function POSPage() {
     setState(prev => ({
       ...prev,
       customerType: "WALKIN",
-      customer: null
+      customer: null,
+      customerGroupDiscountDisabled: false
     }));
     playTapSound();
     closeCustomerModalSync();
@@ -1743,12 +1779,7 @@ export default function POSPage() {
       const resp = await searchCustomer(phone);
       toast.dismiss();
       if(resp.status == 200) {
-        setState({
-          ...state,
-          customer: resp.data,
-          customerType: "CUSTOMER"
-        })
-        document.getElementById("modal-search-customer").close()
+        setCustomer(resp.data);
       }
 
     } catch (error) {
@@ -1796,17 +1827,51 @@ export default function POSPage() {
       }
     });
 
+    const currentCustomer = state.customer;
+    const currentCustGroup = currentCustomer?.customer_group_id ? {
+      id: currentCustomer.customer_group_id,
+      name: currentCustomer.customer_group_name,
+      color: currentCustomer.customer_group_color,
+      is_active: true,
+      discount_type: currentCustomer.group_discount_type || 'PERCENTAGE',
+      discount_value: Number(currentCustomer.group_discount_value || 0),
+      apply_to: currentCustomer.group_apply_to || 'ALL',
+      target_category_ids: currentCustomer.group_target_category_ids,
+      min_order_amount: Number(currentCustomer.group_min_order_amount || 0),
+      max_discount_cap: currentCustomer.group_max_discount_cap,
+    } : null;
+
     // Promotion Engine evaluation
     const promoEval = evaluateCartPromotions({
       promotions: activePromotionsList,
       cartItems: cartItems,
       diningOption: selectedDiningOption,
       enteredCode: enteredCouponCode,
+      customerGroupId: currentCustomer?.customer_group_id || null,
       now: new Date()
     });
 
-    const promotionDiscountTotal = promoEval?.totalPromotionDiscount || 0;
-    const appliedPromotions = promoEval?.appliedPromotions || [];
+    const rawPromoDiscount = promoEval?.totalPromotionDiscount || 0;
+    const rawAppliedPromotions = promoEval?.appliedPromotions || [];
+
+    // Calculate Direct Customer Group Discount
+    const groupCalc = calculateCustomerGroupDiscount({
+      customerGroup: currentCustGroup,
+      cartItems: cartItems,
+    });
+    const rawGroupDiscount = groupCalc.discountTotal;
+
+    // Resolve stacking & best value
+    const combinedDiscounts = combineCartDiscounts({
+      groupDiscount: rawGroupDiscount,
+      promoDiscount: rawPromoDiscount,
+      appliedPromotions: rawAppliedPromotions,
+      customerGroupDisabled: Boolean(state.customerGroupDiscountDisabled),
+    });
+
+    const customerGroupDiscountTotal = combinedDiscounts.groupDiscountApplied;
+    const promotionDiscountTotal = combinedDiscounts.promoDiscountApplied;
+    const appliedPromotions = combinedDiscounts.appliedPromotions;
     const eligiblePromotions = promoEval?.eligiblePromotions || [];
 
     let discountAmount = 0;
@@ -1820,7 +1885,7 @@ export default function POSPage() {
       }
     }
 
-    const totalDeductions = discountAmount + promotionDiscountTotal;
+    const totalDeductions = discountAmount + promotionDiscountTotal + customerGroupDiscountTotal;
     payableTotal = Math.max(0, payableTotal - totalDeductions);
 
     // Calculate Total Service charge % from items total
@@ -1834,6 +1899,10 @@ export default function POSPage() {
       itemsTotal,
       discountAmount,
       promotionDiscountTotal,
+      customerGroupDiscountTotal,
+      customerGroupDiscountRaw: rawGroupDiscount,
+      customerGroupDisabled: Boolean(state.customerGroupDiscountDisabled),
+      customerGroup: currentCustGroup,
       appliedPromotions,
       eligiblePromotions,
       taxTotal,
@@ -1989,7 +2058,10 @@ export default function POSPage() {
         state.selectedQrOrderItem, state.selectedPaymentType,
         state.discountType, state.discountValue, summary.discountAmount,
         summary.appliedPromotions, summary.promotionDiscountTotal,
-        loyaltyPointsRedeemed
+        loyaltyPointsRedeemed,
+        customer?.customer_group_id || null,
+        customer?.customer_group_name || null,
+        summary.customerGroupDiscountTotal || 0
       );
       toast.dismiss();
       setIsSubmittingPayment(false);
@@ -2027,6 +2099,9 @@ export default function POSPage() {
           discountAmount: summary.discountAmount,
           appliedPromotions: summary.appliedPromotions,
           promotionDiscountTotal: summary.promotionDiscountTotal,
+          customer_group_id: customer?.customer_group_id || null,
+          customer_group_name: customer?.customer_group_name || null,
+          customer_group_discount: summary.customerGroupDiscountTotal || 0,
           taxTotal: summary.taxTotal,
           serviceChargeTotal: summary.serviceChargeTotal,
           payableTotal: summary.payableTotal,
@@ -2170,7 +2245,13 @@ export default function POSPage() {
       const customer = state.customer;
 
       const summary = calculateOrderSummary();
-      const res = await createOrder(cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem, summary.appliedPromotions, summary.promotionDiscountTotal);
+      const res = await createOrder(
+        cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem,
+        summary.appliedPromotions, summary.promotionDiscountTotal,
+        customer?.customer_group_id || null,
+        customer?.customer_group_name || null,
+        summary.customerGroupDiscountTotal || 0
+      );
 
       if (res.status === 200) {
         const data = res.data;
@@ -2203,6 +2284,9 @@ export default function POSPage() {
           discountAmount: summary.discountAmount,
           appliedPromotions: summary.appliedPromotions,
           promotionDiscountTotal: summary.promotionDiscountTotal,
+          customer_group_id: customer?.customer_group_id || null,
+          customer_group_name: customer?.customer_group_name || null,
+          customer_group_discount: summary.customerGroupDiscountTotal || 0,
           taxTotal: summary.taxTotal,
           serviceChargeTotal: summary.serviceChargeTotal,
           payableTotal: summary.payableTotal,
@@ -2315,6 +2399,7 @@ export default function POSPage() {
           : rawName;
 
       const normalizedCustomer = {
+        id: customerObj.id || null,
         phone,
         name: cleanName || phone,
         email: customerObj.email || null,
@@ -2322,12 +2407,23 @@ export default function POSPage() {
         gender: customerObj.gender || null,
         label: `${cleanName || phone} - (${phone})`,
         value: phone,
+        customer_group_id: customerObj.customer_group_id || null,
+        customer_group_name: customerObj.customer_group_name || null,
+        customer_group_code: customerObj.customer_group_code || null,
+        customer_group_color: customerObj.customer_group_color || null,
+        group_discount_type: customerObj.group_discount_type || null,
+        group_discount_value: customerObj.group_discount_value || 0,
+        group_apply_to: customerObj.group_apply_to || 'ALL',
+        group_target_category_ids: customerObj.group_target_category_ids || null,
+        group_min_order_amount: customerObj.group_min_order_amount || 0,
+        group_max_discount_cap: customerObj.group_max_discount_cap || null,
       };
 
       setState(prev => ({
         ...prev,
         customer: normalizedCustomer,
-        customerType: "CUSTOMER"
+        customerType: "CUSTOMER",
+        customerGroupDiscountDisabled: false
       }));
       playTapSound();
       document.getElementById("modal-search-customer")?.close();
@@ -2342,7 +2438,11 @@ export default function POSPage() {
       if(inputValue) {
         const resp = await searchCustomer(inputValue);
         if(resp.status == 200) {
-          return resp.data.map((data)=>( {label: `${data.name} - (${data.phone})`, value: data.phone} ));
+          return resp.data.map((data)=>( {
+            ...data,
+            label: `${data.name} - (${data.phone})`,
+            value: data.phone
+          } ));
         }
       }
     } catch (error) {
@@ -2399,6 +2499,42 @@ export default function POSPage() {
         onOpenQrOrders={btnShowQROrdersModal}
         onDualScreenClick={handleDualScreenClick}
         onInitNewOrder={btnInitNewOrder}
+      />
+
+      {/* Shift Expiration Sticky Alert Banner */}
+      {shiftExpiredAlert && !isShiftOverridden && (
+        <div className="bg-amber-500 text-slate-950 px-4 py-2 flex items-center justify-between text-xs sm:text-sm font-bold shadow-md z-30 shrink-0 border-b border-amber-600">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚠️</span>
+            <span>
+              {t("shift_roster.shift_expired_pos_banner", "Your scheduled shift + grace period has ended. Please settle open bills. Starting new orders requires Manager PIN.")}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowShiftOverrideModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-slate-900 text-amber-400 hover:bg-slate-800 transition active:scale-95 text-xs font-bold cursor-pointer shadow-xs"
+          >
+            {t("shift_roster.manager_override_btn", "Manager PIN Override")}
+          </button>
+        </div>
+      )}
+
+      {/* Manager Override PIN Modal */}
+      <ManagerPinModal
+        isOpen={showShiftOverrideModal}
+        onClose={() => setShowShiftOverrideModal(false)}
+        onSuccess={(pin, manager) => {
+          setIsShiftOverridden(true);
+          setShiftExpiredAlert(false);
+          toast.success(
+            t("shift_roster.shift_extended_msg", "Manager override approved by {{name}}! POS session unlocked.", {
+              name: manager?.name || "Manager",
+            })
+          );
+        }}
+        title={t("shift_roster.pos_shift_expired_title", "POS Shift Session Expired")}
+        description={t("shift_roster.pos_shift_expired_desc", "Enter Manager PIN to extend POS terminal access.")}
       />
 
       {/* Main Split Layout: Catalog (Left) + Cart Sidebar (Right) - Fluid Edge-to-Edge Tablet Height */}
@@ -2580,16 +2716,6 @@ export default function POSPage() {
               <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#0D233A] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                 {cartItemsCount}
               </span>
-              {isPrepaidOnly && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 animate-in fade-in select-none whitespace-nowrap shrink-0">
-                  {t('pos.prepaid_badge', 'Prepaid Mode')}
-                </span>
-              )}
-              {isPostpaidOnly && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 animate-in fade-in select-none whitespace-nowrap shrink-0">
-                  {t('pos.postpaid_badge', 'Postpaid Mode')}
-                </span>
-              )}
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
@@ -3061,6 +3187,75 @@ export default function POSPage() {
                 </div>
               </button>
 
+              {/* Customer Group Discount Touch-Friendly Row */}
+              {liveCartSummary.customerGroup && (
+                <div
+                  className={`w-full min-h-[42px] px-2.5 py-1.5 rounded-xl border flex items-center justify-between transition ${
+                    (liveCartSummary.customerGroupDiscountTotal || 0) > 0 && !liveCartSummary.customerGroupDisabled
+                      ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-950 dark:text-indigo-200 shadow-2xs"
+                      : "bg-white dark:bg-slate-900 border-[#E3E5E8] dark:border-slate-700/80 text-gray-500 dark:text-gray-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 font-bold text-white shadow-xs text-xs"
+                      style={{ backgroundColor: liveCartSummary.customerGroup.color || '#6366F1' }}
+                    >
+                      <IconUsers size={16} />
+                    </span>
+                    <div className="text-left truncate">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold truncate text-gray-900 dark:text-gray-100">
+                          {liveCartSummary.customerGroup.name}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                          {liveCartSummary.customerGroup.discount_type === 'PERCENTAGE'
+                            ? `${liveCartSummary.customerGroup.discount_value}%`
+                            : `${currency}${Number(liveCartSummary.customerGroup.discount_value).toFixed(2)}`}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 block leading-tight truncate">
+                        {liveCartSummary.customerGroupDisabled
+                          ? t('customer_groups.disabled', 'Disabled by cashier')
+                          : (liveCartSummary.customerGroupDiscountTotal || 0) > 0
+                            ? t('customer_groups.group_discount_applied', 'Group discount applied')
+                            : (Number(liveCartSummary.customerGroup.min_order_amount) > (liveCartSummary.itemsTotal || 0))
+                              ? `${t('customer_groups.min_order_amount', 'Min Spend')}: ${currency}${Number(liveCartSummary.customerGroup.min_order_amount).toFixed(2)}`
+                              : t('customer_groups.not_applicable', 'No matching items')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {(liveCartSummary.customerGroupDiscountTotal || 0) > 0 && !liveCartSummary.customerGroupDisabled && (
+                      <span className="text-xs font-black font-mono text-indigo-600 dark:text-indigo-400">
+                        -{currency}{Number(liveCartSummary.customerGroupDiscountTotal).toFixed(2)}
+                      </span>
+                    )}
+
+                    {/* Quick Cashier Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playTapSound();
+                        setState(prev => ({
+                          ...prev,
+                          customerGroupDiscountDisabled: !prev.customerGroupDiscountDisabled
+                        }));
+                      }}
+                      className={`min-h-[30px] px-2 py-0.5 rounded-lg text-[10px] font-bold border transition active:scale-95 cursor-pointer ${
+                        liveCartSummary.customerGroupDisabled
+                          ? "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-300 hover:bg-gray-200"
+                          : "bg-indigo-100/80 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300"
+                      }`}
+                      title={liveCartSummary.customerGroupDisabled ? t('customer_groups.apply_group_discount', 'Apply Discount') : t('customer_groups.remove_group_discount', 'Remove Discount')}
+                    >
+                      {liveCartSummary.customerGroupDisabled ? t('customer_groups.apply_group_discount', 'Apply') : t('customer_groups.remove_group_discount', 'Remove')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Inline Discount Adjuster */}
               {isDiscountDrawerOpen && (
                 <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-[#D4D7DC] dark:border-slate-700 space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
@@ -3171,11 +3366,6 @@ export default function POSPage() {
                     <span className="text-xs font-bold truncate">
                       {isSendingToKitchen ? t('pos.sending', 'Sending...') : t('pos.kitchen', 'Kitchen')}
                     </span>
-                    {isPostpaidOnly && (
-                      <span className="text-[10px] font-semibold opacity-75 hidden sm:inline">
-                        {t('pos.postpaid_parenthesis', '(Postpaid)')}
-                      </span>
-                    )}
                   </span>
                   <span className="text-[10px] font-mono font-semibold px-1 py-0.5 rounded bg-white/15 text-white/80 shrink-0 hidden sm:inline">
                     F8
@@ -3200,11 +3390,6 @@ export default function POSPage() {
                   <div className="flex items-center gap-1.5 truncate">
                     <IconCash size={17} stroke={iconStroke} className="shrink-0" />
                     <span className="truncate">{t('pos.pay', 'Pay')}</span>
-                    {isPrepaidOnly && (
-                      <span className="text-[10px] font-semibold opacity-90 hidden sm:inline">
-                        (Prepaid)
-                      </span>
-                    )}
                     <span className="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-white/20 text-white shrink-0 hidden sm:inline">
                       F4
                     </span>
@@ -3252,6 +3437,8 @@ export default function POSPage() {
         serviceChargeTotal={liveCartSummary.serviceChargeTotal}
         discountAmount={liveCartSummary.discountAmount}
         promotionDiscountTotal={liveCartSummary.promotionDiscountTotal}
+        customerGroupDiscountTotal={liveCartSummary.customerGroupDiscountTotal}
+        customerGroup={liveCartSummary.customerGroup}
         appliedPromotions={liveCartSummary.appliedPromotions}
         discountType={state.discountType}
         discountValue={state.discountValue}

@@ -8,6 +8,7 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconFilter,
+  IconReceipt,
   IconRefresh,
   IconSearch,
   IconX,
@@ -171,12 +172,10 @@ export default function InvoiceAuditLogsPage() {
 
       {!isLoading && !error && data && data.auditLogs.length === 0 && (
         <div className="text-center w-full h-[50vh] flex flex-col items-center justify-center text-gray-500">
-          <img
-            src="/assets/illustrations/invoice-not-found.webp"
-            alt="no audit logs"
-            className="w-1/2 md:w-60"
-          />
-          <p className="mt-4">{t('auditLogs.no_results')}</p>
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-neutral-800 border border-slate-200/80 dark:border-neutral-700 flex items-center justify-center text-slate-400 dark:text-neutral-500 mb-3 shadow-xs">
+            <IconReceipt size={32} stroke={iconStroke} />
+          </div>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('auditLogs.no_results')}</p>
         </div>
       )}
 

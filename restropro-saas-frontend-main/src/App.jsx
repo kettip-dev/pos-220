@@ -14,6 +14,8 @@ import CustomerInsightsPage from "./views/CustomerInsightsPage";
 import InvoicesPage from "./views/InvoicesPage";
 import InvoiceAuditLogsPage from "./views/InvoiceAuditLogsPage";
 import UsersPage from "./views/UsersPage";
+import RosterShiftsPage from "./views/RosterShiftsPage";
+import AttendancePage from "./views/AttendancePage";
 import ReportsPage from "./views/ReportsPage";
 import SettingsPage from "./views/SettingsPage";
 import SettingsHomePage from "./views/SettingsViews/SettingsHomePage";
@@ -70,6 +72,10 @@ import LanguagePage from "./views/LanguagePage";
 import InventoryPage from "./views/InventoryPage";
 import InventoryLogsPage from "./views/InventoryLogsPage";
 import InventoryDashboardPage from "./views/InventoryDashboard";
+import StockAdjustmentsListPage from "./views/StockAdjustmentsListPage";
+import AddStockAdjustmentPage from "./views/AddStockAdjustmentPage";
+import StockTransfersListPage from "./views/StockTransfersListPage";
+import AddStockTransferPage from "./views/AddStockTransferPage";
 import SuppliersPage from "./views/SuppliersPage";
 import PurchaseOrdersPage from "./views/PurchaseOrdersPage";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -239,6 +245,34 @@ export default function App() {
               }
             />
             <Route
+              path="customer-groups"
+              element={
+                <ScopeProtectedRoute
+                  scopes={[
+                    SCOPES.CUSTOMERS,
+                    SCOPES.VIEW_CUSTOMERS,
+                    SCOPES.MANAGE_CUSTOMERS,
+                  ]}
+                >
+                  <CustomersPage initialTab="groups" />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="customers/groups"
+              element={
+                <ScopeProtectedRoute
+                  scopes={[
+                    SCOPES.CUSTOMERS,
+                    SCOPES.VIEW_CUSTOMERS,
+                    SCOPES.MANAGE_CUSTOMERS,
+                  ]}
+                >
+                  <CustomersPage initialTab="groups" />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
               path="customers/:phone/insights"
               element={
                 <ScopeProtectedRoute
@@ -307,6 +341,38 @@ export default function App() {
               }
             />
             <Route
+              path="inventory/adjustments"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
+                  <StockAdjustmentsListPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="inventory/adjustments/add"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
+                  <AddStockAdjustmentPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="inventory/transfers"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
+                  <StockTransfersListPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="inventory/transfers/add"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
+                  <AddStockTransferPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
               path="suppliers"
               element={
                 <ScopeProtectedRoute scopes={[SCOPES.INVENTORY]}>
@@ -323,6 +389,22 @@ export default function App() {
               }
             />
             <Route path="users" element={<ScopeProtectedRoute scopes={[SCOPES.USER]}><UsersPage /></ScopeProtectedRoute>} />
+            <Route
+              path="shifts-roster"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.USER, SCOPES.SETTINGS]}>
+                  <RosterShiftsPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="attendance"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.REPORTS, SCOPES.USER, SCOPES.SETTINGS]}>
+                  <AttendancePage />
+                </ScopeProtectedRoute>
+              }
+            />
             <Route
               path="reports"
               element={

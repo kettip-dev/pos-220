@@ -41,7 +41,7 @@ export async function uploadBulkCustomers(customers) {
   }
 }
 
-export async function addCustomer(phone, name, email, birthDate, gender) {
+export async function addCustomer(phone, name, email, birthDate, gender, customerGroupId = null) {
   try {
     const response = await ApiClient.post("/customers/add", {
       phone,
@@ -49,6 +49,7 @@ export async function addCustomer(phone, name, email, birthDate, gender) {
       email,
       birthDate,
       gender,
+      customerGroupId,
     });
     return response;
   } catch (error) {
@@ -56,13 +57,14 @@ export async function addCustomer(phone, name, email, birthDate, gender) {
   }
 }
 
-export async function updateCustomer(phone, name, email, birthDate, gender) {
+export async function updateCustomer(phone, name, email, birthDate, gender, customerGroupId = undefined) {
   try {
     const response = await ApiClient.post(`/customers/${phone}/update`, {
       name,
       email,
       birthDate,
       gender,
+      customerGroupId,
     });
     return response;
   } catch (error) {

@@ -14,6 +14,7 @@ import {
   IconToolsKitchen3,
   IconFriends,
   IconBuildingWarehouse,
+  IconDatabase,
   IconUsersGroup,
   IconSettings,
   IconSettings2,
@@ -41,10 +42,10 @@ import QuickNewMenu from "./QuickNewMenu";
 import { useStoreSettings } from "../controllers/settings.controller";
 import { getImageURL } from "../helpers/ImageHelper";
 
-const PINNED_STORAGE_KEY = "restro_qbo_pinned_apps_v3";
+const PINNED_STORAGE_KEY = "restro_qbo_pinned_apps_v6";
 const BOOKMARKS_STORAGE_KEY = "restro_qbo_bookmarks_v3";
 
-const DEFAULT_PINNED_IDS = ["orders", "inventory", "customers", "settings"];
+const DEFAULT_PINNED_IDS = ["orders", "inventory", "stock_adjustment", "stock_transfers", "customers", "settings"];
 
 const DEFAULT_BOOKMARKS = [
   { label: "POS Register", path: "/dashboard/pos" },
@@ -180,6 +181,58 @@ export function getQBOAppCategories(t) {
           scopes: [SCOPES.INVENTORY],
           features: [PLAN_FEATURES.INVENTORY],
         },
+        {
+          label: t("navbar.stock_adjustment", "Stock Adjustment"),
+          path: "/dashboard/inventory/adjustments",
+          scopes: [SCOPES.INVENTORY, SCOPES.VIEW_INVENTORY],
+          features: [PLAN_FEATURES.INVENTORY],
+        },
+        {
+          label: t("navbar.stock_transfers", "Stock Transfers"),
+          path: "/dashboard/inventory/transfers",
+          scopes: [SCOPES.INVENTORY, SCOPES.VIEW_INVENTORY],
+          features: [PLAN_FEATURES.INVENTORY],
+        },
+      ],
+    },
+    {
+      id: "stock_adjustment",
+      shortLabel: t("navbar.stock_adjustment", "Stock Adjustment"),
+      label: t("navbar.stock_adjustment", "Stock Adjustment"),
+      Icon: IconDatabase,
+      badgeBg: "bg-transparent text-gray-700 dark:text-slate-300",
+      badgeIcon: <IconDatabase size={18} stroke={1.8} />,
+      railIcon: <IconDatabase size={20} stroke={1.8} />,
+      defaultPath: "/dashboard/inventory/adjustments",
+      scopes: [SCOPES.INVENTORY],
+      features: [PLAN_FEATURES.INVENTORY],
+      items: [
+        {
+          label: t("navbar.stock_adjustment", "Stock Adjustment"),
+          path: "/dashboard/inventory/adjustments",
+          scopes: [SCOPES.INVENTORY, SCOPES.VIEW_INVENTORY],
+          features: [PLAN_FEATURES.INVENTORY],
+        },
+      ],
+    },
+    {
+      id: "stock_transfers",
+      shortLabel: t("navbar.stock_transfers", "Stock Transfers"),
+      label: t("navbar.stock_transfers", "Stock Transfers"),
+      Icon: IconTruck,
+      badgeBg: "bg-transparent text-gray-700 dark:text-slate-300",
+      badgeIcon: <IconTruck size={18} stroke={1.8} />,
+      railIcon: <IconTruck size={20} stroke={1.8} />,
+      defaultPath: "/dashboard/inventory/transfers",
+      scopes: [SCOPES.INVENTORY],
+      features: [PLAN_FEATURES.INVENTORY],
+      items: [
+        {
+          label: t("navbar.stock_transfers", "Stock Transfers"),
+          path: "/dashboard/inventory/transfers",
+          scopes: [SCOPES.INVENTORY, SCOPES.VIEW_INVENTORY],
+          features: [PLAN_FEATURES.INVENTORY],
+        },
       ],
     },
     {
@@ -227,6 +280,12 @@ export function getQBOAppCategories(t) {
           features: [PLAN_FEATURES.CUSTOMERS],
         },
         {
+          label: t("navbar.customer_groups", "Customer Groups"),
+          path: "/dashboard/customer-groups",
+          scopes: [SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.MANAGE_CUSTOMERS],
+          features: [PLAN_FEATURES.CUSTOMERS],
+        },
+        {
           label: t("navbar.import_customers", "Import Customers"),
           path: "/dashboard/customers/import",
           scopes: [SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS],
@@ -264,6 +323,12 @@ export function getQBOAppCategories(t) {
           scopes: [SCOPES.SETTINGS],
           features: [PLAN_FEATURES.SETTINGS],
         },
+        {
+          label: t("navbar.shift_roster", "Roster & Shifts"),
+          path: "/dashboard/shifts-roster",
+          scopes: [SCOPES.USER, SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.USER, PLAN_FEATURES.SETTINGS],
+        },
       ],
     },
     {
@@ -282,6 +347,12 @@ export function getQBOAppCategories(t) {
           label: t("navbar.reports", "Reports & Analytics"),
           path: "/dashboard/reports",
           scopes: [SCOPES.REPORTS],
+          features: [PLAN_FEATURES.REPORTS],
+        },
+        {
+          label: t("navbar.staff_attendance", "Staff Attendance"),
+          path: "/dashboard/attendance",
+          scopes: [SCOPES.REPORTS, SCOPES.USER, SCOPES.SETTINGS],
           features: [PLAN_FEATURES.REPORTS],
         },
       ],
@@ -450,16 +521,28 @@ export default function QBONavigation({ children }) {
     try {
       const current = window.location.pathname;
       const initialCats = getQBOAppCategories((k, def) => def || k);
-      for (const cat of initialCats) {
-        if (
-          cat.items.some(
-            (it) =>
-              current === it.path ||
-              (it.path !== "/dashboard" && current.startsWith(it.path + "/"))
-          )
-        ) {
-          return { [cat.id]: true };
+      const allItems = initialCats.flatMap((cat) => cat.items || []);
+      const exact = allItems.find(
+        (it) => it.path === current || (it.path === "/dashboard/home" && current === "/dashboard")
+      );
+      let matchedPath = exact?.path;
+      if (!matchedPath) {
+        const prefixMatches = allItems.filter(
+          (it) =>
+            it.path !== "/dashboard" &&
+            it.path !== "/dashboard/home" &&
+            current.startsWith(it.path + "/")
+        );
+        if (prefixMatches.length > 0) {
+          prefixMatches.sort((a, b) => b.path.length - a.path.length);
+          matchedPath = prefixMatches[0].path;
         }
+      }
+      if (matchedPath) {
+        const matchedCat = initialCats.find((c) =>
+          c.items?.some((it) => it.path === matchedPath)
+        );
+        if (matchedCat) return { [matchedCat.id]: true };
       }
     } catch {}
     return {};
@@ -487,16 +570,63 @@ export default function QBONavigation({ children }) {
     return DEFAULT_BOOKMARKS;
   });
 
+  // Identify the single most specific active item path for current location (prevents multi-highlight bugs)
+  const activeItemPath = useMemo(() => {
+    const current = location.pathname;
+    const currentWithSearch = location.pathname + location.search;
+    const allItems = categories.flatMap((cat) => cat.items || []);
+
+    // 0. Exact path + query match first (for tabs / query routes)
+    const exactQuery = allItems.find((it) => it.path === currentWithSearch);
+    if (exactQuery) return exactQuery.path;
+
+    // 1. Exact path match
+    const exact = allItems.find((it) => {
+      if (it.path === current) return true;
+      if (it.path === "/dashboard/home" && current === "/dashboard") return true;
+      if (current.includes("customer-groups") && it.path === "/dashboard/customer-groups") return true;
+      return false;
+    });
+    if (exact) return exact.path;
+
+    // 2. Longest matching path prefix for nested subroutes (e.g. /dashboard/inventory/adjustments/add)
+    const prefixMatches = allItems.filter(
+      (it) =>
+        it.path !== "/dashboard" &&
+        it.path !== "/dashboard/home" &&
+        current.startsWith(it.path + "/")
+    );
+
+    if (prefixMatches.length > 0) {
+      prefixMatches.sort((a, b) => b.path.length - a.path.length);
+      return prefixMatches[0].path;
+    }
+
+    return null;
+  }, [location.pathname, categories]);
+
   // Match current route to a category
   const activeCategoryForRoute = useMemo(() => {
+    if (activeItemPath) {
+      const found = categories.find((cat) =>
+        cat.items?.some((it) => it.path === activeItemPath)
+      );
+      if (found) return found.id;
+    }
     const current = location.pathname;
     for (const cat of categories) {
-      if (cat.items.some((it) => current === it.path || (it.path !== "/dashboard" && current.startsWith(it.path + "/")))) {
+      if (
+        cat.items?.some(
+          (it) =>
+            current === it.path ||
+            (it.path !== "/dashboard" && current.startsWith(it.path + "/"))
+        )
+      ) {
         return cat.id;
       }
     }
     return null;
-  }, [location.pathname, categories]);
+  }, [activeItemPath, location.pathname, categories]);
 
   // Keep only the active route's group expanded, collapsing other menus
   useEffect(() => {
@@ -552,14 +682,16 @@ export default function QBONavigation({ children }) {
     location.pathname === "/dashboard" || location.pathname === "/dashboard/home";
   const isReportsRoute = location.pathname.startsWith("/dashboard/reports");
 
-  const isSubItemActive = (item) => {
-    if (location.pathname === item.path) return true;
-    if (item.path === "/dashboard/home" && location.pathname === "/dashboard") return true;
-    if (item.path !== "/dashboard" && item.path !== "/dashboard/home" && location.pathname.startsWith(item.path + "/")) {
-      return true;
-    }
-    return false;
-  };
+  const isSubItemActive = useCallback(
+    (item) => {
+      if (!item) return false;
+      if (activeItemPath) {
+        return item.path === activeItemPath;
+      }
+      return false;
+    },
+    [activeItemPath]
+  );
 
   const pinnedCategories = useMemo(
     () => categories.filter((c) => pinnedIds.includes(c.id)),
@@ -832,8 +964,8 @@ export default function QBONavigation({ children }) {
                           className={clsx(
                             "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[14px] transition-colors group/item",
                             active
-                              ? "font-semibold text-gray-900 dark:text-white bg-gray-100/90 dark:bg-slate-800 border border-gray-300/80 dark:border-slate-700 shadow-2xs"
-                              : "font-medium text-gray-800 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800/60"
+                              ? "font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-slate-800"
+                              : "font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100/70 dark:hover:bg-slate-800/60"
                           )}
                         >
                           <Link
@@ -918,8 +1050,8 @@ export default function QBONavigation({ children }) {
                         className={clsx(
                           "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[14px] transition-colors group/header",
                           hasActiveChild
-                            ? "font-bold text-gray-900 dark:text-white bg-gray-50/70 dark:bg-slate-800/40"
-                            : "font-medium text-gray-800 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800/60"
+                            ? "font-bold text-gray-900 dark:text-white bg-gray-50/80 dark:bg-slate-800/40"
+                            : "font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100/70 dark:hover:bg-slate-800/60"
                         )}
                       >
                         <button
@@ -987,7 +1119,7 @@ export default function QBONavigation({ children }) {
 
                       {/* Accordion Subitems */}
                       {isExpanded && (
-                        <div className="mt-1 space-y-1 pl-7 pr-1 animate-in fade-in-50 duration-150">
+                        <div className="mt-1 space-y-0.5 pl-7 pr-1 animate-in fade-in-50 duration-150">
                           {cat.items.map((item, idx) => {
                             const active = isSubItemActive(item);
                             const isBookmarked = bookmarks.some((b) => b.path === item.path);
@@ -996,10 +1128,10 @@ export default function QBONavigation({ children }) {
                               <div
                                 key={idx}
                                 className={clsx(
-                                  "group flex items-center justify-between rounded-lg px-3 py-1.5 text-[13.5px] transition-all cursor-pointer",
+                                  "group flex items-center justify-between rounded-lg px-3 py-1.5 text-[13.5px] transition-colors cursor-pointer",
                                   active
-                                    ? "border border-gray-400/80 bg-gray-100/90 dark:bg-slate-800 font-semibold text-gray-900 dark:text-white shadow-2xs"
-                                    : "text-gray-700 dark:text-slate-300 hover:bg-gray-100/80 dark:hover:bg-slate-800/60 font-normal"
+                                    ? "bg-gray-100 dark:bg-slate-800 font-semibold text-gray-900 dark:text-white"
+                                    : "text-gray-700 dark:text-slate-300 hover:bg-gray-100/70 dark:hover:bg-slate-800/60 font-normal"
                                 )}
                               >
                                 <Link to={item.path} className="flex-1 truncate py-0.5">
@@ -1011,15 +1143,23 @@ export default function QBONavigation({ children }) {
                                     e.stopPropagation();
                                     toggleBookmarkItem(item);
                                   }}
-                                  title={isBookmarked ? "Remove bookmark" : "Bookmark page"}
+                                  title={
+                                    isBookmarked
+                                      ? t("navbar.remove_bookmark", "Remove bookmark")
+                                      : t("navbar.bookmark_page", "Bookmark page")
+                                  }
                                   className={clsx(
-                                    "p-0.5 transition cursor-pointer shrink-0 ml-1.5",
-                                    active || isBookmarked
-                                      ? "opacity-100 text-gray-700 dark:text-slate-300"
-                                      : "opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                                    "w-6 h-6 rounded flex items-center justify-center transition cursor-pointer shrink-0 ml-1.5",
+                                    isBookmarked
+                                      ? "text-[#2CA01C] dark:text-[#2CA01C] opacity-100"
+                                      : "opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-slate-700/50"
                                   )}
                                 >
-                                  <IconBookmark size={15} stroke={1.8} />
+                                  <IconBookmark
+                                    size={14}
+                                    stroke={isBookmarked ? 2.2 : 1.8}
+                                    className={isBookmarked ? "fill-[#2CA01C]" : ""}
+                                  />
                                 </button>
                               </div>
                             );
@@ -1277,8 +1417,8 @@ export default function QBONavigation({ children }) {
                         className={clsx(
                           "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors",
                           active
-                            ? "bg-[#E8EAED] dark:bg-slate-800 font-semibold text-gray-900 dark:text-white"
-                            : "text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800/60"
+                            ? "bg-gray-100 dark:bg-slate-800 font-semibold text-gray-900 dark:text-white"
+                            : "text-gray-700 dark:text-slate-300 hover:bg-gray-100/70 dark:hover:bg-slate-800/60"
                         )}
                       >
                         <span className="w-5 h-5 flex items-center justify-center shrink-0 text-gray-500 dark:text-slate-400">
@@ -1307,10 +1447,10 @@ export default function QBONavigation({ children }) {
                           to={item.path}
                           onClick={() => setMobileDrawerOpen(false)}
                           className={clsx(
-                            "block px-3 py-2 rounded-lg text-sm",
+                            "block px-3 py-2 rounded-lg text-sm transition-colors",
                             isSubItemActive(item)
-                              ? "bg-[#E8EAED] dark:bg-slate-800 font-semibold text-gray-900 dark:text-white"
-                              : "text-gray-700 dark:text-slate-300"
+                              ? "bg-gray-100 dark:bg-slate-800 font-semibold text-gray-900 dark:text-white"
+                              : "text-gray-700 dark:text-slate-300 hover:bg-gray-100/70 dark:hover:bg-slate-800/60"
                           )}
                         >
                           {item.label}

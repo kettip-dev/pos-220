@@ -10,6 +10,7 @@ import {
   IconCategory2,
   IconCircleMinus,
   IconDotsVertical,
+  IconHistory,
   IconLogs,
   IconPencil,
   IconPlus,
@@ -22,6 +23,8 @@ import {
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
+  IconDatabase,
+  IconTruck,
 } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import { iconStroke } from "../config/config";
@@ -438,7 +441,23 @@ export default function InventoryPage() {
             className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition active:scale-95 flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-neutral-700"
           >
             <IconLogs stroke={iconStroke} size={18} />
-            <span>{t('inventory.stock_movements')}</span>
+            <span>{t('inventory.stock_history_ledger', 'Stock History & Ledger')}</span>
+          </Link>
+
+          <Link
+            to="adjustments"
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition active:scale-95 flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-neutral-700"
+          >
+            <IconDatabase stroke={iconStroke} size={18} />
+            <span>{t('stock_adjustments.title', 'Stock Adjustments')}</span>
+          </Link>
+
+          <Link
+            to="transfers"
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition active:scale-95 flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-neutral-700"
+          >
+            <IconTruck stroke={iconStroke} size={18} />
+            <span>{t('stock_transfers.title', 'Stock Transfers')}</span>
           </Link>
 
           <button
@@ -780,12 +799,10 @@ export default function InventoryPage() {
       <div className="w-[100%]">
         {paginatedInventory.length === 0 ? (
           <div className="flex flex-col justify-center items-center text-center p-14 bg-white dark:bg-[#18181b] rounded-2xl border border-slate-200 dark:border-neutral-800">
-            <img
-              src="/assets/illustrations/orders-not-found.webp"
-              alt={t('inventory.no_items_image_alt')}
-              className="w-1/2 md:w-60 mb-3"
-            />
-            <p className='text-sm text-slate-500'>{t('inventory.no_items_message')}</p>
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 shadow-xs">
+              <IconBox size={32} stroke={iconStroke} />
+            </div>
+            <p className='text-sm font-semibold text-slate-700 dark:text-slate-300'>{t('inventory.no_items_message')}</p>
           </div>
         ) : (
           <div>
@@ -928,6 +945,15 @@ export default function InventoryPage() {
                             >
                               <IconPlus size={16} stroke={iconStroke} />
                             </button>
+
+                            {/* Stock History / Ledger Link */}
+                            <Link
+                              to={`/dashboard/inventory/stock-movements?search=${encodeURIComponent(inventoryItem.title)}`}
+                              className="w-8 h-8 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95"
+                              title={t("inventory.dropdown_stock_history", "Stock History / Ledger")}
+                            >
+                              <IconHistory size={16} stroke={iconStroke} />
+                            </Link>
 
                             <button
                               onClick={() => {

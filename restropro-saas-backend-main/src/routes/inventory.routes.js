@@ -18,7 +18,13 @@ const {
   getInventoryDashboardData
 } = require("../controllers/inventory.controller.js");
 
+const adjustmentsRoutes = require("./inventory_adjustments.routes");
+const transfersRoutes = require("./inventory_transfers.routes");
+
 const router = Router();
+
+router.use("/adjustments", adjustmentsRoutes);
+router.use("/transfers", transfersRoutes);
 
 router.post(
   "/add-item",

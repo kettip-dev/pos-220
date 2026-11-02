@@ -23,18 +23,28 @@ exports.doCustomerExistDB = async (phone, tenantId) => {
     }
 };
 
-exports.addCustomerDB = async (phone, name, email, birthDate, gender, isMember, tenantId) => {
+exports.addCustomerDB = async (phone, name, email, birthDate, gender, isMember, tenantId, customerGroupId = null) => {
     const conn = await getMySqlPromiseConnection();
     try {
+        let assignedGroupId = customerGroupId ? Number(customerGroupId) : null;
+        if (!assignedGroupId) {
+            const [defaultGroup] = await conn.query(
+                `SELECT id FROM customer_groups WHERE tenant_id = ? AND is_default = 1 AND is_active = 1 LIMIT 1`,
+                [tenantId]
+            );
+            if (defaultGroup.length > 0) {
+                assignedGroupId = defaultGroup[0].id;
+            }
+        }
 
         const sql = `
         INSERT INTO customers
-        (phone, name, email, birth_date, gender, is_member, tenant_id)
+        (phone, name, email, birth_date, gender, is_member, customer_group_id, tenant_id)
         VALUES
-        (?, ?, ?, ?, ?, ?, ?);
+        (?, ?, ?, ?, ?, ?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [phone, name, email, birthDate, gender, isMember, tenantId]);
+        const [result] = await conn.query(sql, [phone, name, email, birthDate, gender, isMember, assignedGroupId, tenantId]);
 
         return result.insertId;
     } catch (error) {
@@ -69,12 +79,12 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
 
         // Scope + filter are BOUND, never interpolated. `filter` is caller
         // supplied and was previously concatenated straight into the statement.
-        const { sql: tenantSql, params: tenantParams } = tenantFilter(scope);
+        const { sql: tenantSql, params: tenantParams } = tenantFilter(scope, "c");
         const where = [tenantSql];
         const params = [...tenantParams];
 
         if (filter) {
-            where.push("(name LIKE ? OR phone = ?)");
+            where.push("(c.name LIKE ? OR c.phone = ?)");
             params.push(`${filter}%`, filter);
         }
 
@@ -93,7 +103,7 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
         //
         // This is display-only. No customer row is written, moved or merged —
         // each business keeps its own record, exactly as before.
-        const identity = "COALESCE(NULLIF(TRIM(phone), ''), NULLIF(TRIM(email), ''), CONCAT('#', phone))";
+        const identity = "COALESCE(NULLIF(TRIM(c.phone), ''), NULLIF(TRIM(c.email), ''), CONCAT('#', c.phone))";
 
         // conn.query (NOT conn.execute): the prepared-statement protocol does
         // not expand an array into an IN list, so `IN (?)` under execute()
@@ -101,27 +111,53 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
         const [customers] = isConsolidated
             ? await conn.query(
                 `SELECT
-                    MIN(phone) AS phone,
-                    MIN(name) AS name,
-                    MIN(email) AS email,
-                    MIN(birth_date) AS birth_date,
-                    MIN(gender) AS gender,
-                    MAX(is_member) AS is_member,
-                    MAX(points_balance) AS points_balance,
-                    MAX(lifetime_points_earned) AS lifetime_points_earned,
-                    MAX(membership_tier) AS membership_tier,
-                    MIN(created_at) AS created_at,
-                    COUNT(DISTINCT tenant_id) AS business_count,
-                    GROUP_CONCAT(DISTINCT tenant_id) AS business_tenant_ids
-                 FROM customers ${whereSql}
+                    MIN(c.phone) AS phone,
+                    MIN(c.name) AS name,
+                    MIN(c.email) AS email,
+                    MIN(c.birth_date) AS birth_date,
+                    MIN(c.gender) AS gender,
+                    MAX(c.is_member) AS is_member,
+                    MAX(c.customer_group_id) AS customer_group_id,
+                    MAX(cg.name) AS customer_group_name,
+                    MAX(cg.code) AS customer_group_code,
+                    MAX(cg.color) AS customer_group_color,
+                    MAX(cg.discount_type) AS group_discount_type,
+                    MAX(cg.discount_value) AS group_discount_value,
+                    MAX(cg.apply_to) AS group_apply_to,
+                    MAX(cg.target_category_ids) AS group_target_category_ids,
+                    MAX(cg.min_order_amount) AS group_min_order_amount,
+                    MAX(cg.max_discount_cap) AS group_max_discount_cap,
+                    MAX(c.points_balance) AS points_balance,
+                    MAX(c.lifetime_points_earned) AS lifetime_points_earned,
+                    MAX(c.membership_tier) AS membership_tier,
+                    MIN(c.created_at) AS created_at,
+                    COUNT(DISTINCT c.tenant_id) AS business_count,
+                    GROUP_CONCAT(DISTINCT c.tenant_id) AS business_tenant_ids
+                 FROM customers c
+                 LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
+                 ${whereSql}
                  GROUP BY ${identity}
-                 ${sortedBy.replace(/\b(name|phone|email|birth_date|created_at)\b/, "MIN($1)")}
+                 ${sortedBy.replace(/\b(name|phone|email|birth_date|created_at)\b/, "MIN(c.$1)")}
                  LIMIT ? OFFSET ?`,
                 [...params, limit, offset]
             )
             : await conn.query(
-                `SELECT phone, name, email, birth_date, gender, is_member, points_balance, lifetime_points_earned, membership_tier, created_at
-                 FROM customers ${whereSql} ${sortedBy} LIMIT ? OFFSET ?`,
+                `SELECT 
+                    c.phone, c.name, c.email, c.birth_date, c.gender, c.is_member,
+                    c.customer_group_id,
+                    cg.name AS customer_group_name,
+                    cg.code AS customer_group_code,
+                    cg.color AS customer_group_color,
+                    cg.discount_type AS group_discount_type,
+                    cg.discount_value AS group_discount_value,
+                    cg.apply_to AS group_apply_to,
+                    cg.target_category_ids AS group_target_category_ids,
+                    cg.min_order_amount AS group_min_order_amount,
+                    cg.max_discount_cap AS group_max_discount_cap,
+                    c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at
+                 FROM customers c
+                 LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
+                 ${whereSql} ${sortedBy.replace(/\b(name|phone|email|birth_date|created_at)\b/, "c.$1")} LIMIT ? OFFSET ?`,
                 [...params, limit, offset]
             );
 
@@ -129,8 +165,8 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
         // collapsed list rather than the underlying row count.
         const [totalCustomers] = await conn.query(
             isConsolidated
-                ? `SELECT COUNT(DISTINCT ${identity}) AS total FROM customers ${whereSql}`
-                : `SELECT COUNT(*) AS total FROM customers ${whereSql}`,
+                ? `SELECT COUNT(DISTINCT ${identity}) AS total FROM customers c ${whereSql}`
+                : `SELECT COUNT(*) AS total FROM customers c ${whereSql}`,
             params
         );
 
@@ -155,18 +191,28 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
 exports.getAllCustomersDB = async(scope) => {
     const conn = await getMySqlPromiseConnection();
     try {
-        const { sql: tenantSql, params } = tenantFilter(scope);
+        const { sql: tenantSql, params } = tenantFilter(scope, "c");
         // Feeds the CSV download, so a consolidated export carries the owning
         // business exactly like the on-screen list.
-        const businessColumn = scope?.mode === "all" ? ", tenant_id AS business_tenant_id" : "";
+        const businessColumn = scope?.mode === "all" ? ", c.tenant_id AS business_tenant_id" : "";
 
         const sql = `
-        SELECT phone, name, email, birth_date, gender, is_member, points_balance, lifetime_points_earned, membership_tier, created_at${businessColumn} FROM customers
+        SELECT 
+            c.phone, c.name, c.email, c.birth_date, c.gender, c.is_member,
+            c.customer_group_id,
+            cg.name AS customer_group_name,
+            cg.code AS customer_group_code,
+            cg.color AS customer_group_color,
+            cg.discount_type AS group_discount_type,
+            cg.discount_value AS group_discount_value,
+            c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at${businessColumn} 
+        FROM customers c
+        LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
         WHERE
             ${tenantSql}
         ORDER BY
-            created_at DESC
-        `
+            c.created_at DESC
+        `;
         const [result] = await conn.query(sql, params);
 
         return result;
@@ -183,16 +229,16 @@ exports.uploadBulkCustomersDB = async(customers) => {
     try {
         const sql = `
         INSERT INTO customers 
-        (phone, name, email, birth_date, gender, tenant_id) 
+        (phone, name, email, birth_date, gender, customer_group_id, tenant_id) 
         VALUES
         ?
         ON DUPLICATE KEY UPDATE
         name = VALUES(name),
         email = VALUES(email),
         birth_date = VALUES(birth_date),
-        gender = VALUES(gender);
-
-        `
+        gender = VALUES(gender),
+        customer_group_id = COALESCE(VALUES(customer_group_id), customers.customer_group_id);
+        `;
         const [result] = await conn.query(sql, [customers]);
 
         return result;
@@ -207,10 +253,23 @@ exports.uploadBulkCustomersDB = async(customers) => {
 exports.getCustomerDB = async(phone, tenantId) => {
     const conn = await getMySqlPromiseConnection();
     try {
-
-        const [result] = await conn.execute(
-            `SELECT phone, name, email, birth_date, gender, is_member, points_balance, lifetime_points_earned, membership_tier, created_at FROM customers
-            WHERE phone = ? AND tenant_id = ?
+        const [result] = await conn.query(
+            `SELECT 
+                c.phone, c.name, c.email, c.birth_date, c.gender, c.is_member,
+                c.customer_group_id,
+                cg.name AS customer_group_name,
+                cg.code AS customer_group_code,
+                cg.color AS customer_group_color,
+                cg.discount_type AS group_discount_type,
+                cg.discount_value AS group_discount_value,
+                cg.apply_to AS group_apply_to,
+                cg.target_category_ids AS group_target_category_ids,
+                cg.min_order_amount AS group_min_order_amount,
+                cg.max_discount_cap AS group_max_discount_cap,
+                c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at 
+            FROM customers c
+            LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
+            WHERE c.phone = ? AND c.tenant_id = ?
             LIMIT 1;`,
             [phone, tenantId]
         );
@@ -227,16 +286,30 @@ exports.getCustomerDB = async(phone, tenantId) => {
 exports.searchCustomerDB = async(searchString, scope) => {
     const conn = await getMySqlPromiseConnection();
     try {
-        const { sql: tenantSql, params: tenantParams } = tenantFilter(scope);
-        const businessColumn = scope?.mode === "all" ? ", tenant_id AS business_tenant_id" : "";
+        const { sql: tenantSql, params: tenantParams } = tenantFilter(scope, "c");
+        const businessColumn = scope?.mode === "all" ? ", c.tenant_id AS business_tenant_id" : "";
 
         // conn.query, not conn.execute: the prepared-statement protocol does not
         // expand an array into an IN list, so `IN (?)` under execute() matches
         // nothing and returns an empty result with no error.
         const [result] = await conn.query(
             `
-            SELECT phone, name, email, birth_date, gender, is_member, points_balance, lifetime_points_earned, membership_tier, created_at${businessColumn} FROM customers
-            WHERE (phone LIKE ? OR name LIKE ?) AND ${tenantSql}
+            SELECT 
+                c.phone, c.name, c.email, c.birth_date, c.gender, c.is_member,
+                c.customer_group_id,
+                cg.name AS customer_group_name,
+                cg.code AS customer_group_code,
+                cg.color AS customer_group_color,
+                cg.discount_type AS group_discount_type,
+                cg.discount_value AS group_discount_value,
+                cg.apply_to AS group_apply_to,
+                cg.target_category_ids AS group_target_category_ids,
+                cg.min_order_amount AS group_min_order_amount,
+                cg.max_discount_cap AS group_max_discount_cap,
+                c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at${businessColumn} 
+            FROM customers c
+            LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
+            WHERE (c.phone LIKE ? OR c.name LIKE ?) AND ${tenantSql}
             LIMIT 10
             ;`,
             [`${searchString}%`, `%${searchString}%`, ...tenantParams]
@@ -251,18 +324,25 @@ exports.searchCustomerDB = async(searchString, scope) => {
     }
 }
 
-exports.updateCustomerDB = async (phone, name, email, birthDate, gender, tenantId) => {
+exports.updateCustomerDB = async (phone, name, email, birthDate, gender, tenantId, customerGroupId = undefined) => {
     const conn = await getMySqlPromiseConnection();
     try {
-
-        const sql = `
+        let sql = `
         UPDATE customers
         SET
         name = ?, email = ?, birth_date = ?, gender = ?
-        WHERE phone = ? AND tenant_id = ?
         `;
+        const params = [name, email, birthDate, gender];
 
-        await conn.query(sql, [name, email, birthDate, gender, phone, tenantId]);
+        if (customerGroupId !== undefined) {
+            sql += `, customer_group_id = ?`;
+            params.push(customerGroupId ? Number(customerGroupId) : null);
+        }
+
+        sql += ` WHERE phone = ? AND tenant_id = ?`;
+        params.push(phone, tenantId);
+
+        await conn.query(sql, params);
         return;
     } catch (error) {
         console.error(error);

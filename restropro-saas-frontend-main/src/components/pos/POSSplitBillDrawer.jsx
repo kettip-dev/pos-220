@@ -27,6 +27,7 @@ import {
   settleSubInvoice,
   cancelSplitPlan,
 } from '../../controllers/orders.controller';
+import POSPaymentDrawer from './POSPaymentDrawer';
 
 export default function POSSplitBillDrawer({
   isOpen,
@@ -34,6 +35,7 @@ export default function POSSplitBillDrawer({
   order,
   currency = '$',
   paymentTypes = [],
+  exchangeRateUsdToKhr = 4100,
   onPaymentComplete,
   onPrintSubReceipt,
 }) {
@@ -46,11 +48,10 @@ export default function POSSplitBillDrawer({
   const [activeSubInvoices, setActiveSubInvoices] = useState([]);
   const [selectedSubForPayment, setSelectedSubForPayment] = useState(null);
 
-  // Settlement sub-modal state
+  // Settlement drawer state
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
-  const [tipPercentage, setTipPercentage] = useState(0);
-  const [customTip, setCustomTip] = useState('');
-  const [settleNotes, setSettleNotes] = useState('');
+  const [tenderedAmount, setTenderedAmount] = useState('');
+  const [customExchangeRate, setCustomExchangeRate] = useState(null);
 
   // Local state for interactive item allocation: list of sub-checks
   // Each: { id: 1, label: 'Guest 1', items: [ { order_item_id, item_title, price, quantity, maxQty } ] }
@@ -102,6 +103,13 @@ export default function POSSplitBillDrawer({
   useEffect(() => {
     if (isOpen && order?.id) {
       fetchSubInvoices();
+      setItemChecks([
+        { id: 1, label: `${t('split_bill.guest', 'Guest')} 1`, items: [] },
+        { id: 2, label: `${t('split_bill.guest', 'Guest')} 2`, items: [] },
+      ]);
+      setActiveCheckIndex(0);
+      setEvenGuestCount(2);
+      setSelectedSubForPayment(null);
       if (paymentTypes.length > 0) {
         setSelectedPaymentType(paymentTypes[0].id);
       }
@@ -181,14 +189,14 @@ export default function POSSplitBillDrawer({
   // Add guest check column
   const handleAddGuestCheck = () => {
     const nextId = itemChecks.length + 1;
-    setItemChecks((prev) => [...prev, { id: nextId, label: `Guest ${nextId}`, items: [] }]);
+    setItemChecks((prev) => [...prev, { id: nextId, label: `${t('split_bill.guest', 'Guest')} ${nextId}`, items: [] }]);
     setActiveCheckIndex(itemChecks.length);
   };
 
   // Remove check column
   const handleRemoveGuestCheck = (idx) => {
     if (itemChecks.length <= 2) {
-      toast.error(t('min_two_checks_required', 'Minimum 2 checks required'));
+      toast.error(t('split_bill.min_two_checks', 'Minimum 2 checks required'));
       return;
     }
     setItemChecks((prev) => prev.filter((_, i) => i !== idx));
@@ -209,7 +217,7 @@ export default function POSSplitBillDrawer({
         // Validate all items assigned
         const unassignedRemaining = unassignedItems.some((it) => it.remainingQty > 0);
         if (unassignedRemaining) {
-          toast.error(t('assign_all_items_first', 'Please assign all items to guests before creating checks'));
+          toast.error(t('split_bill.assign_all_first', 'Please assign all items to guests before creating checks'));
           setLoading(false);
           return;
         }
@@ -222,7 +230,7 @@ export default function POSSplitBillDrawer({
           const tax = Number((checkSubtotal * taxRate).toFixed(2));
           const service = Number((checkSubtotal * serviceRate).toFixed(2));
           return {
-            seatLabel: chk.label || `Guest ${i + 1}`,
+            seatLabel: chk.label || `${t('split_bill.guest', 'Guest')} ${i + 1}`,
             subtotal: checkSubtotal,
             taxTotal: tax,
             serviceChargeTotal: service,
@@ -232,18 +240,23 @@ export default function POSSplitBillDrawer({
         });
       } else if (splitMode === 'evenly') {
         const count = Math.max(2, evenGuestCount);
-        const subPerGuest = Number((masterSubtotal / count).toFixed(2));
+        const baseSub = Math.floor((masterSubtotal / count) * 100) / 100;
+        const remainderSubCents = Math.round((masterSubtotal - (baseSub * count)) * 100);
+
         const totalTax = Number(order.tax_total || 0);
+        const baseTax = Math.floor((totalTax / count) * 100) / 100;
+        const remainderTaxCents = Math.round((totalTax - (baseTax * count)) * 100);
+
         const totalService = Number(order.service_charge_total || 0);
-        const taxPerGuest = Number((totalTax / count).toFixed(2));
-        const servicePerGuest = Number((totalService / count).toFixed(2));
+        const baseService = Math.floor((totalService / count) * 100) / 100;
+        const remainderServiceCents = Math.round((totalService - (baseService * count)) * 100);
 
         for (let i = 0; i < count; i++) {
           splitsPayload.push({
-            seatLabel: `Guest ${i + 1}`,
-            subtotal: subPerGuest,
-            taxTotal: taxPerGuest,
-            serviceChargeTotal: servicePerGuest,
+            seatLabel: `${t('split_bill.guest', 'Guest')} ${i + 1}`,
+            subtotal: Number((baseSub + (i < remainderSubCents ? 0.01 : 0)).toFixed(2)),
+            taxTotal: Number((baseTax + (i < remainderTaxCents ? 0.01 : 0)).toFixed(2)),
+            serviceChargeTotal: Number((baseService + (i < remainderServiceCents ? 0.01 : 0)).toFixed(2)),
             discountTotal: 0,
             items: [],
           });
@@ -252,11 +265,11 @@ export default function POSSplitBillDrawer({
 
       const res = await createSplitSubInvoices(order.id, splitMode, splitsPayload);
       if (res.data?.success) {
-        toast.success(t('split_checks_created', 'Split checks created successfully!'));
+        toast.success(t('split_bill.checks_created_success', 'Split checks created successfully!'));
         await fetchSubInvoices();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to create split checks');
+      toast.error(err.response?.data?.message || err.message || t('split_bill.failed_create', 'Failed to create split checks'));
     } finally {
       setLoading(false);
     }
@@ -269,48 +282,59 @@ export default function POSSplitBillDrawer({
       setLoading(true);
       const res = await cancelSplitPlan(order.id);
       if (res.data?.success) {
-        toast.success(t('split_plan_reverted', 'Split plan reverted'));
+        toast.success(t('split_bill.plan_reverted_success', 'Split plan reverted'));
         setActiveSubInvoices([]);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Cannot revert split plan');
+      toast.error(err.response?.data?.message || err.message || t('split_bill.cannot_revert', 'Cannot revert split plan'));
     } finally {
       setLoading(false);
     }
   };
 
-  // Settle Sub Invoice
-  const handleSettleCheck = async () => {
+  // Settle Sub Invoice with POS-grade tender data
+  const handleSettleCheck = async (tenderData) => {
     if (!selectedSubForPayment) return;
     try {
       setLoading(true);
-      const tip = customTip !== '' ? Number(customTip) : Number(((selectedSubForPayment.payable_total * tipPercentage) / 100).toFixed(2));
-      const paymentObj = paymentTypes.find((p) => p.id === selectedPaymentType);
+      const paymentTypeId = selectedPaymentType || tenderData?.paymentTypeId || (paymentTypes[0]?.id ?? null);
+      const paymentObj = paymentTypes.find((p) => p.id === paymentTypeId);
+      const tip = 0;
+      const notes = tenderData?.referenceCode || '';
 
       const res = await settleSubInvoice(
         selectedSubForPayment.id,
-        selectedPaymentType,
+        paymentTypeId,
         paymentObj?.title || 'Cash',
         tip,
-        settleNotes
+        notes
       );
 
       if (res.data?.success) {
         toast.success(
           res.data.data?.isFullyCompleted
-            ? t('all_checks_paid_completed', 'Check settled! All checks paid & order completed.')
-            : t('check_settled_successfully', 'Check settled successfully!')
+            ? t('split_bill.all_settled_completed', 'Check settled! All checks paid & order completed.')
+            : t('split_bill.check_settled_success', 'Check settled successfully!')
         );
+        const settledSub = {
+          ...selectedSubForPayment,
+          payment_type_title: paymentObj?.title || 'Cash',
+          payment_status: 'paid',
+          paid_at: new Date().toISOString(),
+        };
         setSelectedSubForPayment(null);
-        setCustomTip('');
-        setTipPercentage(0);
+        setTenderedAmount('');
         await fetchSubInvoices();
         if (onPaymentComplete) {
           onPaymentComplete(res.data.data);
         }
+        if (onPrintSubReceipt) {
+          onPrintSubReceipt(settledSub, order, 'receipt');
+        }
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to settle sub-check');
+      console.error(err);
+      toast.error(err.response?.data?.message || err.message || t('split_bill.failed_settle', 'Failed to settle sub-check'));
     } finally {
       setLoading(false);
     }
@@ -331,7 +355,7 @@ export default function POSSplitBillDrawer({
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 {t('split_bill.title', 'Split Bill & Settle')}
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
-                  {order?.table_title ? `${order.table_title}` : `Order #${order?.token_no || order?.id}`}
+                  {order?.table_title ? `${order.table_title}` : t('split_bill.order_num', { token: order?.token_no || order?.id, defaultValue: `Order #${order?.token_no || order?.id}` })}
                 </span>
               </h2>
               <p className="text-xs text-slate-500">
@@ -356,22 +380,42 @@ export default function POSSplitBillDrawer({
               <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 p-4 rounded-xl">
                 <div>
                   <h3 className="text-sm font-bold text-blue-900 dark:text-blue-300">
-                    {t('active_split_in_progress', 'Split Checks In Progress')}
+                    {t('split_bill.in_progress', 'Split Checks In Progress')}
                   </h3>
                   <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
-                    {activeSubInvoices.filter((s) => s.payment_status === 'paid').length} of {activeSubInvoices.length} checks settled
+                    {t('split_bill.checks_settled', {
+                      paid: activeSubInvoices.filter((s) => s.payment_status === 'paid').length,
+                      total: activeSubInvoices.length,
+                      defaultValue: `${activeSubInvoices.filter((s) => s.payment_status === 'paid').length} of ${activeSubInvoices.length} checks settled`,
+                    })}
                   </p>
                 </div>
-                {activeSubInvoices.every((s) => s.payment_status !== 'paid') && (
-                  <button
-                    type="button"
-                    onClick={handleCancelSplitPlan}
-                    className="h-[42px] px-4 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
-                  >
-                    <IconRotateClockwise size={16} stroke={iconStroke} />
-                    {t('revert_split', 'Revert Split')}
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {onPrintSubReceipt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        activeSubInvoices.forEach((s) => {
+                          onPrintSubReceipt(s, order, s.payment_status === 'paid' ? 'receipt' : 'pre_bill');
+                        });
+                      }}
+                      className="h-[42px] px-3.5 rounded-xl text-xs font-bold border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100/60 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <IconPrinter size={16} stroke={iconStroke} />
+                      <span>{t('split_bill.print_all', 'Print All Checks')}</span>
+                    </button>
+                  )}
+                  {activeSubInvoices.every((s) => s.payment_status !== 'paid') && (
+                    <button
+                      type="button"
+                      onClick={handleCancelSplitPlan}
+                      className="h-[42px] px-4 rounded-xl text-xs font-semibold border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition active:scale-95 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <IconRotateClockwise size={16} stroke={iconStroke} />
+                      {t('split_bill.revert_split', 'Revert Split')}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Sub Invoices Cards */}
@@ -404,7 +448,7 @@ export default function POSSplitBillDrawer({
                                 : 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300'
                             )}
                           >
-                            {isPaid ? t('paid', 'Paid') : t('pending', 'Pending')}
+                            {isPaid ? t('split_bill.status_paid', 'Paid') : t('split_bill.status_pending', 'Pending')}
                           </span>
                         </div>
 
@@ -427,23 +471,23 @@ export default function POSSplitBillDrawer({
                         {/* Financial summary */}
                         <div className="text-xs space-y-1 text-slate-500 pt-1">
                           <div className="flex justify-between">
-                            <span>{t('subtotal', 'Subtotal')}</span>
+                            <span>{t('split_bill.subtotal', 'Subtotal')}</span>
                             <span>{currency}{Number(sub.subtotal).toFixed(2)}</span>
                           </div>
                           {Number(sub.tax_total) > 0 && (
                             <div className="flex justify-between">
-                              <span>{t('tax', 'Tax')}</span>
+                              <span>{t('split_bill.tax', 'Tax')}</span>
                               <span>{currency}{Number(sub.tax_total).toFixed(2)}</span>
                             </div>
                           )}
                           {Number(sub.tip_amount) > 0 && (
                             <div className="flex justify-between text-emerald-600 font-medium">
-                              <span>{t('tip', 'Tip')}</span>
+                              <span>{t('split_bill.tip', 'Tip')}</span>
                               <span>+{currency}{Number(sub.tip_amount).toFixed(2)}</span>
                             </div>
                           )}
                           <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white pt-1 border-t border-slate-200 dark:border-slate-700">
-                            <span>{t('total', 'Payable')}</span>
+                            <span>{t('split_bill.payable', 'Payable')}</span>
                             <span className="text-primary font-mono text-base">
                               {currency}{Number(sub.payable_total).toFixed(2)}
                             </span>
@@ -456,11 +500,11 @@ export default function POSSplitBillDrawer({
                         {onPrintSubReceipt && (
                           <button
                             type="button"
-                            onClick={() => onPrintSubReceipt(sub, order)}
-                            className="h-[42px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                            onClick={() => onPrintSubReceipt(sub, order, isPaid ? 'receipt' : 'pre_bill')}
+                            className="h-[42px] px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
                           >
                             <IconPrinter size={16} stroke={iconStroke} />
-                            {t('print', 'Receipt')}
+                            <span>{isPaid ? t('split_bill.print_payment_receipt', 'Receipt') : t('split_bill.print_bill_check', 'Bill Check')}</span>
                           </button>
                         )}
                         {!isPaid && (
@@ -470,7 +514,7 @@ export default function POSSplitBillDrawer({
                             className="h-[42px] flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
                           >
                             <IconCash size={17} stroke={iconStroke} />
-                            {t('pay_check', 'Pay Check')}
+                            <span>{t('split_bill.settle_check', 'Settle Check')}</span>
                           </button>
                         )}
                       </div>
@@ -495,7 +539,7 @@ export default function POSSplitBillDrawer({
                   )}
                 >
                   <IconArrowsSplit2 size={18} stroke={iconStroke} />
-                  {t('split_by_items', 'Split by Items')}
+                  {t('split_bill.split_by_items', 'Split by Items')}
                 </button>
                 <button
                   type="button"
@@ -508,7 +552,7 @@ export default function POSSplitBillDrawer({
                   )}
                 >
                   <IconUsers size={18} stroke={iconStroke} />
-                  {t('split_evenly', 'Split Evenly')}
+                  {t('split_bill.split_evenly', 'Split Evenly')}
                 </button>
               </div>
 
@@ -516,7 +560,7 @@ export default function POSSplitBillDrawer({
                 /* Even Split Configuration */
                 <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl text-center space-y-4">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    {t('select_guest_count', 'Select Number of Guests')}
+                    {t('split_bill.select_guest_count', 'Select Number of Guests')}
                   </span>
                   <div className="flex justify-center gap-2">
                     {[2, 3, 4, 5, 6].map((count) => (
@@ -532,18 +576,18 @@ export default function POSSplitBillDrawer({
                         )}
                       >
                         <span>{count}</span>
-                        <span className="text-2xs font-normal opacity-80">{t('guests', 'guests')}</span>
+                        <span className="text-2xs font-normal opacity-80">{t('split_bill.guests', 'guests')}</span>
                       </button>
                     ))}
                   </div>
 
                   <div className="pt-4 border-t border-slate-200 dark:border-slate-700/60 max-w-sm mx-auto">
                     <div className="flex justify-between text-sm py-1">
-                      <span className="text-slate-500">{t('total_bill', 'Total Bill')}:</span>
+                      <span className="text-slate-500">{t('split_bill.total_bill', 'Total Bill')}:</span>
                       <span className="font-bold">{currency}{Number(order?.total || masterSubtotal).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-base py-1 font-bold text-primary">
-                      <span>{t('per_guest_amount', 'Each Guest Pays')}:</span>
+                      <span>{t('split_bill.per_guest_amount', 'Each Guest Pays')}:</span>
                       <span className="text-lg">
                         {currency}{(Number(order?.total || masterSubtotal) / evenGuestCount).toFixed(2)}
                       </span>
@@ -557,10 +601,10 @@ export default function POSSplitBillDrawer({
                   <div className="md:col-span-5 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/50">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        {t('unassigned_items', 'Unassigned Items')}
+                        {t('split_bill.unassigned_items', 'Unassigned Items')}
                       </h4>
                       <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {unassignedItems.reduce((acc, it) => acc + it.remainingQty, 0)} left
+                        {unassignedItems.reduce((acc, it) => acc + it.remainingQty, 0)} {t('split_bill.items_left', 'left')}
                       </span>
                     </div>
                     <div className="space-y-2">
@@ -579,7 +623,7 @@ export default function POSSplitBillDrawer({
                         >
                           <div>
                             <div className="text-xs font-bold leading-tight">{item.item_title || item.title}</div>
-                            <div className="text-2xs text-slate-500">{currency}{Number(item.price).toFixed(2)} each</div>
+                            <div className="text-2xs text-slate-500">{currency}{Number(item.price).toFixed(2)} {t('split_bill.each', 'each')}</div>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700">
@@ -620,7 +664,7 @@ export default function POSSplitBillDrawer({
                         className="h-[42px] px-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:text-primary transition active:scale-95 cursor-pointer flex items-center gap-1 text-xs font-bold"
                       >
                         <IconPlus size={16} stroke={iconStroke} />
-                        {t('add_check', 'Add')}
+                        {t('split_bill.add_guest', 'Add')}
                       </button>
                     </div>
 
@@ -628,7 +672,10 @@ export default function POSSplitBillDrawer({
                     <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-4 bg-white dark:bg-slate-800">
                       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60 mb-3">
                         <span className="text-xs font-bold text-slate-800 dark:text-white">
-                          {itemChecks[activeCheckIndex]?.label} Items
+                          {t('split_bill.guest_items', {
+                            label: itemChecks[activeCheckIndex]?.label || `${t('split_bill.guest', 'Guest')} ${activeCheckIndex + 1}`,
+                            defaultValue: `${itemChecks[activeCheckIndex]?.label || `Guest ${activeCheckIndex + 1}`} Items`,
+                          })}
                         </span>
                         {itemChecks.length > 2 && (
                           <button
@@ -637,14 +684,14 @@ export default function POSSplitBillDrawer({
                             className="text-2xs text-rose-500 hover:underline flex items-center gap-1"
                           >
                             <IconTrash size={14} />
-                            {t('remove_check', 'Remove Guest')}
+                            {t('split_bill.remove_guest', 'Remove Guest')}
                           </button>
                         )}
                       </div>
 
                       {itemChecks[activeCheckIndex]?.items.length === 0 ? (
                         <div className="text-center py-8 text-slate-400 text-xs">
-                          {t('tap_items_on_left', 'Tap items from the left column to assign to this check')}
+                          {t('split_bill.tap_items_on_left', 'Tap items from the left column to assign to this check')}
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -685,8 +732,14 @@ export default function POSSplitBillDrawer({
           <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
             <span className="text-xs text-slate-500">
               {splitMode === 'evenly'
-                ? `${evenGuestCount} Equal Sub-Checks`
-                : `${itemChecks.length} Guest Checks configured`}
+                ? t('split_bill.equal_sub_checks', {
+                    count: evenGuestCount,
+                    defaultValue: `${evenGuestCount} Equal Sub-Checks`,
+                  })
+                : t('split_bill.guest_checks_configured', {
+                    count: itemChecks.length,
+                    defaultValue: `${itemChecks.length} Guest Checks configured`,
+                  })}
             </span>
             <button
               type="button"
@@ -695,113 +748,45 @@ export default function POSSplitBillDrawer({
               className="h-[46px] min-h-[46px] px-6 rounded-xl bg-primary hover:bg-primary-focus text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer shadow-md disabled:opacity-50"
             >
               <IconCheck size={18} stroke={iconStroke} />
-              {t('confirm_split_checks', 'Confirm & Create Split Checks')}
+              {t('split_bill.confirm_create', 'Confirm & Create Split Checks')}
             </button>
           </div>
         )}
 
-        {/* Modal: Settle Individual Sub-Check with Tip Attribution */}
-        {selectedSubForPayment && (
-          <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div>
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                    {t('settle_check', 'Settle Check')}: {selectedSubForPayment.seat_label}
-                  </h3>
-                  <span className="text-2xs text-slate-500 font-mono">
-                    {selectedSubForPayment.sub_invoice_number}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedSubForPayment(null)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <IconX size={18} />
-                </button>
-              </div>
-
-              {/* Amount Due */}
-              <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-4 text-center">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  {t('check_payable_total', 'Amount Due')}
-                </span>
-                <div className="text-3xl font-extrabold text-primary mt-0.5">
-                  {currency}{Number(selectedSubForPayment.payable_total).toFixed(2)}
-                </div>
-              </div>
-
-              {/* Tip Selection Chips */}
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {t('server_tip', 'Server Tip')}
-                </span>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[0, 10, 15, 18, 20].map((tip) => (
-                    <button
-                      key={tip}
-                      type="button"
-                      onClick={() => {
-                        setTipPercentage(tip);
-                        setCustomTip('');
-                      }}
-                      className={clsx(
-                        'h-[42px] rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer border flex flex-col items-center justify-center',
-                        tipPercentage === tip && customTip === ''
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                      )}
-                    >
-                      <span>{tip}%</span>
-                      {tip > 0 && (
-                        <span className="text-3xs opacity-80">
-                          {currency}{((selectedSubForPayment.payable_total * tip) / 100).toFixed(2)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Payment Type Selection */}
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {t('payment_method', 'Payment Method')}
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {paymentTypes.map((pt) => (
-                    <button
-                      key={pt.id}
-                      type="button"
-                      onClick={() => setSelectedPaymentType(pt.id)}
-                      className={clsx(
-                        'h-[42px] px-3 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer border flex items-center gap-2',
-                        selectedPaymentType === pt.id
-                          ? 'bg-primary text-white border-primary shadow-xs'
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                      )}
-                    >
-                      <IconCreditCard size={16} />
-                      <span className="truncate">{pt.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit Settle */}
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handleSettleCheck}
-                className="w-full h-[46px] rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer shadow-md disabled:opacity-50 mt-2"
-              >
-                <IconCheck size={18} stroke={iconStroke} />
-                {t('complete_payment', 'Confirm & Settle')}
-              </button>
-            </div>
-          </div>
-        )}
+      {/* POS-Grade Dual-Currency Payment Drawer for Sub-Check Settlement */}
+      {selectedSubForPayment && (
+        <POSPaymentDrawer
+          isOpen={Boolean(selectedSubForPayment)}
+          onClose={() => {
+            setSelectedSubForPayment(null);
+            setTenderedAmount('');
+          }}
+          paymentTypes={paymentTypes}
+          selectedPaymentType={selectedPaymentType}
+          onSelectPaymentType={setSelectedPaymentType}
+          payableTotal={Number(selectedSubForPayment.payable_total || 0)}
+          itemsTotal={Number(selectedSubForPayment.subtotal || selectedSubForPayment.payable_total || 0)}
+          taxTotal={Number(selectedSubForPayment.tax_total || 0)}
+          serviceChargeTotal={Number(selectedSubForPayment.service_charge_total || 0)}
+          discountAmount={Number(selectedSubForPayment.discount_total || 0)}
+          discountType="fixed"
+          discountValue={0}
+          currency={currency}
+          exchangeRateUsdToKhr={customExchangeRate || exchangeRateUsdToKhr || 4100}
+          onUpdateExchangeRate={setCustomExchangeRate}
+          tenderedAmount={tenderedAmount}
+          onTenderedAmountChange={setTenderedAmount}
+          onPayAndComplete={handleSettleCheck}
+          isProcessing={loading}
+          tableTitle={`${order?.table_title ? order.table_title + ' • ' : ''}${selectedSubForPayment.seat_label} (${selectedSubForPayment.sub_invoice_number})`}
+          cartItems={(selectedSubForPayment.items || []).map((it) => ({
+            title: it.item_title,
+            price: it.price,
+            quantity: it.quantity,
+          }))}
+          diningOption="dinein"
+        />
+      )}
       </div>
     </div>
   );

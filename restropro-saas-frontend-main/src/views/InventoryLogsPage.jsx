@@ -23,7 +23,7 @@ import {
 } from "@tabler/icons-react";
 import toast from "react-hot-toast";
 import { iconStroke } from "../config/config";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import clsx from "clsx";
 import { useInventoryLogs } from "../controllers/inventory.controller";
 import moment from "moment";
@@ -54,13 +54,27 @@ export default function InventoryLogsPage() {
     .toString()
     .padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
 
+  const [searchParams] = useSearchParams();
+  const searchParamVal = searchParams.get("search") || "";
+
   const [state, setState] = useState({
-    filter: filters[0].key,
+    filter: searchParamVal ? "this_month" : filters[0].key,
     fromDate: null,
     toDate: null,
     warehouseId: "",
-    search: ""
+    search: searchParamVal
   });
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null) {
+      setState((prev) => ({
+        ...prev,
+        search: q,
+        filter: q ? "this_month" : prev.filter,
+      }));
+    }
+  }, [searchParams]);
 
   const { APIURL, data, error, isLoading } = useInventoryLogs({
     type: state.filter,
@@ -623,12 +637,10 @@ export default function InventoryLogsPage() {
       <div className="w-full">
         {paginatedLogs.length === 0 ? (
           <div className="flex flex-col justify-center items-center text-center p-14 bg-white dark:bg-[#18181b] rounded-2xl border border-slate-200 dark:border-neutral-800">
-            <img
-              src="/assets/illustrations/orders-not-found.webp"
-              alt={t("inventory.no_stock_movements_image_alt")}
-              className="w-1/2 md:w-60 mb-3"
-            />
-            <p className='text-sm text-slate-500'>{t("inventory.no_stock_movements_message")}</p>
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 shadow-xs">
+              <IconBox size={32} stroke={iconStroke} />
+            </div>
+            <p className='text-sm font-semibold text-slate-700 dark:text-slate-300'>{t("inventory.no_stock_movements_message")}</p>
           </div>
         ) : (
           <div>

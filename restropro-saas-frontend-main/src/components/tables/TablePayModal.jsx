@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
+import { IconArrowsSplit2 } from "@tabler/icons-react";
 import { getCompleteOrderPaymentSummary, payAndCompleteKitchenOrder } from "../../controllers/orders.controller";
 import { triggerPrintReceipt } from "../../helpers/ReceiptHelper";
 import POSPaymentDrawer from "../pos/POSPaymentDrawer";
@@ -78,6 +79,42 @@ export default function TablePayModal({
   }, [isOpen]);
 
   if (!isOpen || !table) return null;
+
+  const isSplitInProgress =
+    (table.active_split_status || table.split_status) === "split_in_progress" ||
+    summaryData?.kitchenOrders?.[0]?.split_status === "split_in_progress";
+
+  if (isSplitInProgress) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
+        <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-purple-200 dark:border-purple-800 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center mx-auto">
+            <IconArrowsSplit2 size={28} />
+          </div>
+          <div>
+            <h3 className="text-base font-black text-slate-900 dark:text-white">
+              {t("tables.split_checks_active", "Split Checks In Progress")}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {t(
+                "tables.split_checks_settle_guidance",
+                "This table has active split guest checks. Please settle each guest check through the Split Settlement view."
+              )}
+            </p>
+          </div>
+          <div className="pt-2 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-[42px] px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md transition active:scale-95 cursor-pointer"
+            >
+              {t("common.close", "Close")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const totalPayable  = Number(summaryData?.total            || table?.order_total || 0);
   const subtotal      = Number(summaryData?.subtotal         || table?.order_total || 0);

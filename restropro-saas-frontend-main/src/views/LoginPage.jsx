@@ -13,6 +13,7 @@ import {
 import { SCOPES } from "../config/scopes";
 import { useTranslation } from "react-i18next";
 import LanguageChanger from "../components/LanguageChanger";
+import ManagerPinModal from "../components/common/ManagerPinModal";
 import { signInWithPopup } from "firebase/auth";
 import { getGoogleAuthClient } from "../config/firebase";
 import ApiClient from "../helpers/ApiClient";
@@ -37,6 +38,9 @@ export default function LoginPage() {
   const [googleAuthClient, setGoogleAuthClient] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showManagerPinModal, setShowManagerPinModal] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState(null);
+  const [shiftRestrictedMessage, setShiftRestrictedMessage] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -205,6 +209,18 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error(error);
+      if (error?.response?.status === 403 && error?.response?.data?.shift_restricted) {
+        setPendingCredentials({ username, password });
+        setShiftRestrictedMessage(
+          error?.response?.data?.message ||
+          t("shift_roster.shift_login_restricted", "Login restricted: You are not scheduled for an active shift. Enter Manager PIN to authorize.")
+        );
+        setShowManagerPinModal(true);
+        toast.dismiss();
+        toast.error(error?.response?.data?.message || t("shift_roster.shift_login_restricted"));
+        return;
+      }
+
       const message =
         error?.response?.data?.message ||
         t("login.error_message");
@@ -213,6 +229,33 @@ export default function LoginPage() {
       toast.error(message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleManagerOverrideSuccess = async (pin) => {
+    if (!pendingCredentials) return;
+    try {
+      setIsLoading(true);
+      const res = await signIn(pendingCredentials.username, pendingCredentials.password, pin);
+      if (res.status === 200) {
+        toast.dismiss();
+        toast.success(t("shift_roster.manager_override_success", "Manager override authorized! Logging in..."));
+
+        const result = res.data.user;
+        const user = {
+          ...result,
+          planFeautures: result.features ? JSON.parse(result.features) : null,
+          features_description: result.features_description ? JSON.parse(result.features_description) : null,
+        };
+        saveUserDetailsInLocalStorage(user);
+        routeAuthenticatedUser();
+      }
+    } catch (err) {
+      toast.dismiss();
+      toast.error(err?.response?.data?.message || t("shift_roster.override_failed", "Manager override failed"));
+    } finally {
+      setIsLoading(false);
+      setPendingCredentials(null);
     }
   };
 
@@ -499,6 +542,18 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Manager Override PIN Modal */}
+      <ManagerPinModal
+        isOpen={showManagerPinModal}
+        onClose={() => {
+          setShowManagerPinModal(false);
+          setPendingCredentials(null);
+        }}
+        onSuccess={handleManagerOverrideSuccess}
+        title={t("shift_roster.shift_restriction_title", "Shift Login Restriction")}
+        description={shiftRestrictedMessage || t("shift_roster.shift_restriction_desc", "You are not scheduled for an active shift. Enter Manager PIN to override.")}
+      />
     </div>
   );
 }

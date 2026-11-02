@@ -331,7 +331,7 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const { orderIds, subTotal, taxTotal, serviceChargeTotal, total, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerId } = req.body;
+    const { orderIds, subTotal, taxTotal, serviceChargeTotal, total, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerId, customerGroupId, customerGroupName, customerGroupDiscountTotal } = req.body;
 
     if(!orderIds || orderIds?.length == 0) {
       return res.status(400).json({
@@ -349,9 +349,9 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
     // get invoice id
-    const invoiceId = await createInvoiceDB(subTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, orderIds[0] || null);
+    const invoiceId = await createInvoiceDB(subTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, orderIds[0] || null, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
 
-    await completeOrdersAndSaveInvoiceIdDB(orderIds, invoiceId, tenantId);
+    await completeOrdersAndSaveInvoiceIdDB(orderIds, invoiceId, tenantId, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
 
     // get encrypted invoice id and customer id.
     const result = await getEncryptedInvoiceIdDB(invoiceId, tenantId);
@@ -632,6 +632,7 @@ exports.settleSubInvoice = async (req, res) => {
       io.to(String(tenantId)).emit("table_status_update", {
         action: "sub_invoice_settled",
         subInvoiceId,
+        orderId: result.orderId,
         isFullyCompleted: result.isFullyCompleted,
       });
       io.to(String(tenantId)).emit("order_update", { subInvoiceId });

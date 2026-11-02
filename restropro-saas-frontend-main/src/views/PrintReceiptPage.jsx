@@ -93,7 +93,12 @@ export default function PrintReceiptPage() {
       {show_customer_details == 1 ? (
         <>
           <div className="border-b border-dashed"></div>
-          <p className='text-center text-xs mt-1'>{customerType}{customer && <span>, {customer?.name}</span>}</p>
+          <p className='text-center text-xs mt-1'>
+            {customerType}{customer && <span>, {customer?.name}</span>}
+            {(customer?.customer_group_name || receiptDetails.customer_group_name || receiptDetails.customerGroupName) && (
+              <span className="font-semibold"> [{customer?.customer_group_name || receiptDetails.customer_group_name || receiptDetails.customerGroupName}]</span>
+            )}
+          </p>
           <p className='mt-0.5 text-xs'>{t("print_receipt.order_type")}: {deliveryType}</p>
         </>
       ) : null}
@@ -148,6 +153,22 @@ export default function PrintReceiptPage() {
             {discountType === 'percentage' && discountValue ? ` (${discountValue}%)` : ''}:
           </p>
           <p className="font-mono">-{currency}{Number(discountAmount).toFixed(2)}</p>
+        </div>
+      )}
+      {Number(promotionDiscountTotal || 0) > 0 && (
+        <div className="flex justify-between text-xs py-0.5">
+          <p>{t("pos.promotions", "Promotions")}: </p>
+          <p className="font-mono">-{currency}{Number(promotionDiscountTotal).toFixed(2)}</p>
+        </div>
+      )}
+      {Number(receiptDetails.customer_group_discount || receiptDetails.customerGroupDiscountTotal || 0) > 0 && (
+        <div className="flex justify-between text-xs py-0.5">
+          <p>
+            {receiptDetails.customer_group_name || receiptDetails.customerGroupName
+              ? `${receiptDetails.customer_group_name || receiptDetails.customerGroupName} (${t("pos.customer_group_discount", "Group Discount")})`
+              : t("pos.customer_group_discount", "Group Discount")}:
+          </p>
+          <p className="font-mono">-{currency}{Number(receiptDetails.customer_group_discount || receiptDetails.customerGroupDiscountTotal).toFixed(2)}</p>
         </div>
       )}
       {Number(loyaltyDiscountAmount || 0) > 0 && (

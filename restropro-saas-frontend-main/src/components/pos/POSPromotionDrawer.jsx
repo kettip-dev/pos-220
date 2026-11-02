@@ -147,8 +147,8 @@ export default function POSPromotionDrawer({
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {appliedPromotions.length > 0
-                    ? `${appliedPromotions.length} special(s) active on cart`
-                    : "Tap to apply coupons or specials"}
+                    ? t("pos.specials_active", { count: appliedPromotions.length, defaultValue: `${appliedPromotions.length} special(s) active on cart` })
+                    : t("pos.tap_to_apply", "Tap to apply coupons or specials")}
                 </p>
               </div>
             </div>
@@ -169,14 +169,16 @@ export default function POSPromotionDrawer({
                 <div className="flex items-center justify-between text-xs font-bold mb-1">
                   <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
                     <IconFlame size={16} className="text-orange-500 animate-pulse" />
-                    <span>Spend More to Unlock</span>
+                    <span>{t("pos.spend_more_to_unlock", "Spend More to Unlock")}</span>
                   </div>
                   <span className="font-mono text-amber-700 dark:text-amber-300">
                     {formatPrice(rawSubtotal)} / {formatPrice(unlockablePromo.min_order_amount)}
                   </span>
                 </div>
                 <p className="text-xs text-gray-700 dark:text-gray-200">
-                  Add <strong className="text-amber-600 dark:text-amber-400 font-mono font-black">{formatPrice(shortfall)}</strong> more items to unlock{" "}
+                  {t("pos.add_more_to_unlock_prefix", "Add")}{" "}
+                  <strong className="text-amber-600 dark:text-amber-400 font-mono font-black">{formatPrice(shortfall)}</strong>{" "}
+                  {t("pos.add_more_to_unlock_middle", "more items to unlock")}{" "}
                   <strong>{unlockablePromo.title}</strong>!
                 </p>
                 <div className="w-full bg-gray-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden mt-2.5 shadow-inner">
@@ -198,7 +200,7 @@ export default function POSPromotionDrawer({
                     Quick 1-Tap Codes
                   </span>
                   <span className="text-[10px] text-gray-400">
-                    Tap to apply code instantly
+                    {t("pos.tap_to_apply_code", "Tap to apply code instantly")}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -234,14 +236,14 @@ export default function POSPromotionDrawer({
                   className="min-h-[38px] px-3 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 flex items-center gap-1.5 hover:bg-gray-100 transition active:scale-95 shadow-xs"
                 >
                   <IconKeyboard size={16} />
-                  {showKeypad ? "Hide Keyboard" : "Tablet Keyboard"}
+                  {showKeypad ? t("pos.hide_keyboard", "Hide Keyboard") : t("pos.tablet_keyboard", "Tablet Keyboard")}
                 </button>
               </div>
 
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. SAVE20"
+                  placeholder={t("pos.promo_code_placeholder", "e.g. SAVE20")}
                   value={codeInput}
                   onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => {
@@ -256,7 +258,7 @@ export default function POSPromotionDrawer({
                   className="min-h-[46px] px-5 rounded-xl bg-restro-green text-white text-xs font-bold hover:bg-restro-green/90 transition shadow-xs active:scale-95 flex items-center gap-1.5"
                 >
                   <IconCheck size={16} />
-                  Apply
+                  {t("pos.apply", "Apply")}
                 </button>
               </div>
 
@@ -265,7 +267,7 @@ export default function POSPromotionDrawer({
                 <div className="pt-2 border-t border-gray-200 dark:border-slate-700 space-y-2.5 animate-fadeIn">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                      Virtual Touch Keypad
+                      {t("pos.virtual_touch_keypad", "Virtual Touch Keypad")}
                     </span>
                     <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-800">
                       <button
@@ -442,8 +444,8 @@ export default function POSPromotionDrawer({
                       <IconTrendingUp size={20} />
                     </span>
                     <div>
-                      <span className="text-xs text-gray-400 block font-medium">Customer Savings</span>
-                      <span className="text-xs font-bold">Total Promo Discount</span>
+                      <span className="text-xs text-gray-400 block font-medium">{t("pos.customer_savings", "Customer Savings")}</span>
+                      <span className="text-xs font-bold">{t("pos.total_promo_discount", "Total Promo Discount")}</span>
                     </div>
                   </div>
                   <span className="text-lg font-black text-emerald-400 font-mono">
@@ -457,7 +459,7 @@ export default function POSPromotionDrawer({
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Scheduled Specials Today ({eligiblePromotions.length})
+                  {t("pos.scheduled_specials_today", "Scheduled Specials Today")} ({eligiblePromotions.length})
                 </h3>
               </div>
 
@@ -471,7 +473,7 @@ export default function POSPromotionDrawer({
                     type="text"
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Search deals by name or code..."
+                    placeholder={t("pos.search_deals_placeholder", "Search deals by name or code...")}
                     className="w-full min-h-[42px] pl-9 pr-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-background text-xs focus:outline-restro-green"
                   />
                 </div>
@@ -481,9 +483,9 @@ export default function POSPromotionDrawer({
                 <div className="p-8 text-center text-xs text-gray-400 border border-dashed border-gray-200 dark:border-slate-800 rounded-2xl space-y-1">
                   <IconTag size={28} className="mx-auto text-gray-300 dark:text-slate-700 mb-1" />
                   <p className="font-semibold">
-                    {searchFilter ? "No promotions match your search." : "No promotions scheduled right now."}
+                    {searchFilter ? t("pos.no_promotions_match", "No promotions match your search.") : t("pos.no_promotions_scheduled", "No promotions scheduled right now.")}
                   </p>
-                  <p className="text-[11px]">Deals configured in Backoffice will automatically appear here.</p>
+                  <p className="text-[11px]">{t("pos.deals_configured_hint", "Deals configured in Backoffice will automatically appear here.")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -515,24 +517,24 @@ export default function POSPromotionDrawer({
                             <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[11px]">
                               <span className="font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                 {isBogo
-                                  ? "BOGO Free"
+                                  ? t("pos.bogo_free", "BOGO Free")
                                   : isPercent
-                                  ? `${promo.discount_value}% Off`
-                                  : `$${Number(promo.discount_value).toFixed(2)} Off`}
+                                  ? `${promo.discount_value}% ${t("pos.off", "Off")}`
+                                  : `${formatPrice(promo.discount_value)} ${t("pos.off", "Off")}`}
                               </span>
                               {promo.min_order_amount > 0 && (
                                 <span className="text-gray-500 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-medium">
-                                  Min: ${Number(promo.min_order_amount).toFixed(2)}
+                                  {t("pos.min_spend", "Min: ")} {formatPrice(promo.min_order_amount)}
                                 </span>
                               )}
                               {promo.max_discount_cap > 0 && (
                                 <span className="text-gray-500 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-medium">
-                                  Max Cap: ${Number(promo.max_discount_cap).toFixed(2)}
+                                  {t("pos.max_cap", "Max Cap: ")} {formatPrice(promo.max_discount_cap)}
                                 </span>
                               )}
                               {promo.is_stackable && (
                                 <span className="text-purple-600 bg-purple-50 dark:bg-purple-950/60 dark:text-purple-300 px-1.5 py-0.5 rounded-md font-semibold text-[10px]">
-                                  Stackable
+                                  {t("pos.stackable", "Stackable")}
                                 </span>
                               )}
                             </div>
@@ -542,7 +544,7 @@ export default function POSPromotionDrawer({
                             {isAlreadyApplied ? (
                               <span className="min-h-[42px] px-3.5 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 text-xs font-bold flex items-center gap-1.5 shadow-xs">
                                 <IconCheck size={16} />
-                                Active
+                                {t("pos.active", "Active")}
                               </span>
                             ) : promo.promo_code ? (
                               <button
@@ -556,7 +558,7 @@ export default function POSPromotionDrawer({
                             ) : (
                               <span className="min-h-[38px] px-3 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center gap-1">
                                 <IconSparkles size={14} />
-                                Auto-Cart
+                                {t("pos.auto_cart", "Auto-Cart")}
                               </span>
                             )}
                           </div>
@@ -577,7 +579,7 @@ export default function POSPromotionDrawer({
               className="w-full min-h-[50px] rounded-2xl bg-restro-green text-white text-sm font-bold hover:bg-restro-green/90 transition shadow-md shadow-emerald-600/20 active:scale-98 flex items-center justify-center gap-2"
             >
               <IconCheck size={18} />
-              Done
+              {t("pos.done", "Done")}
             </button>
           </div>
         </div>

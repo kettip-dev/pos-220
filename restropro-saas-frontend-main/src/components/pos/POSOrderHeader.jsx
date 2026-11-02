@@ -237,6 +237,21 @@ export default function POSOrderHeader({
                       ? t('pos.assign_customer', 'Assign Customer')
                       : t('pos.walkin_customer', 'Walk-in')}
                   </p>
+                  {isAttached && customer?.customer_group_name && (
+                    <div className="flex items-center mt-0.5">
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-white text-[9px] font-bold shadow-2xs max-w-full truncate"
+                        style={{ backgroundColor: customer.customer_group_color || "#6366f1" }}
+                      >
+                        {customer.customer_group_name}
+                        {customer.group_discount_value > 0 && (
+                          <span>
+                            {customer.group_discount_type === "PERCENTAGE" ? `${customer.group_discount_value}%` : `$${customer.group_discount_value}`} Off
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {isAttached ? (
                   <button

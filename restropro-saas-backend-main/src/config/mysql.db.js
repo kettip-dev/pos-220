@@ -14,6 +14,9 @@ const { ensureSupplierManagementSchema } = require("../utils/supplierManagementM
 const { ensurePromotionSchema } = require("../utils/promotionMigration");
 const { ensureLoyaltyProgramSchema } = require("../utils/loyaltyMigration");
 const { ensureSplitBillSchema } = require("../utils/splitBillMigration");
+const { ensureShiftRosterSchema } = require("../utils/shiftRosterMigration");
+const { ensureInventoryAdjustmentsAndTransfersSchema } = require("../utils/inventoryAdjustmentsAndTransfersMigration");
+const { ensureCustomerGroupSchema } = require("../utils/customerGroupMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -83,6 +86,18 @@ ensureLoyaltyProgramSchema(pool).catch((err) => {
 
 ensureSplitBillSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring bill splitting schema:", err);
+});
+
+ensureShiftRosterSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring shift & roster schema:", err);
+});
+
+ensureInventoryAdjustmentsAndTransfersSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring inventory adjustments & transfers schema:", err);
+});
+
+ensureCustomerGroupSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring customer groups schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

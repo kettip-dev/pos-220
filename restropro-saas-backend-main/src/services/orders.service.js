@@ -20,7 +20,11 @@ exports.getOrdersDB = async (tenantId) => {
       st. \`floor\`,
       o.status,
       o.payment_status,
-      o.token_no
+      o.split_status,
+      o.token_no,
+      o.customer_group_id,
+      o.customer_group_name,
+      o.customer_group_discount_total
     FROM
       orders o
       LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = o.tenant_id
@@ -111,11 +115,32 @@ exports.getOrdersDB = async (tenantId) => {
         addons = addonsResult || [];
       }
     }
+    let subInvoices = [];
+    const splitOrderIds = kitchenOrders.filter((o) => o.split_status === "split_in_progress").map((o) => o.id);
+    if (splitOrderIds.length > 0) {
+      const [subs] = await conn.query(
+        `SELECT * FROM order_sub_invoices WHERE order_id IN (?) AND tenant_id = ? ORDER BY id ASC`,
+        [splitOrderIds, tenantId]
+      );
+      if (subs.length > 0) {
+        const subIds = subs.map((s) => s.id);
+        const [subItems] = await conn.query(
+          `SELECT * FROM order_sub_invoice_items WHERE order_sub_invoice_id IN (?) AND tenant_id = ?`,
+          [subIds, tenantId]
+        );
+        subInvoices = subs.map((s) => ({
+          ...s,
+          items: subItems.filter((it) => it.order_sub_invoice_id === s.id),
+        }));
+      }
+    }
+
     return {
       kitchenOrders,
       kitchenOrdersItems,
-      addons
-    }
+      addons,
+      subInvoices,
+    };
 
   } catch (error) {
     console.error(error);
@@ -370,7 +395,11 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
       st. \`floor\`,
       o.status,
       o.payment_status,
-      o.token_no
+      o.split_status,
+      o.token_no,
+      o.customer_group_id,
+      o.customer_group_name,
+      o.customer_group_discount_total
     FROM
       orders o
       LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = o.tenant_id
@@ -469,11 +498,32 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
     }
 
 
+    let subInvoices = [];
+    const splitOrderIds = kitchenOrders.filter((o) => o.split_status === "split_in_progress").map((o) => o.id);
+    if (splitOrderIds.length > 0) {
+      const [subs] = await conn.query(
+        `SELECT * FROM order_sub_invoices WHERE order_id IN (?) AND tenant_id = ? ORDER BY id ASC`,
+        [splitOrderIds, tenantId]
+      );
+      if (subs.length > 0) {
+        const subIds = subs.map((s) => s.id);
+        const [subItems] = await conn.query(
+          `SELECT * FROM order_sub_invoice_items WHERE order_sub_invoice_id IN (?) AND tenant_id = ?`,
+          [subIds, tenantId]
+        );
+        subInvoices = subs.map((s) => ({
+          ...s,
+          items: subItems.filter((it) => it.order_sub_invoice_id === s.id),
+        }));
+      }
+    }
+
     return {
       kitchenOrders,
       kitchenOrdersItems,
-      addons
-    }
+      addons,
+      subInvoices,
+    };
 
   } catch (error) {
     console.error(error);
@@ -483,7 +533,7 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
 }
 };
 
-exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username = null, discountType = null, discountValue = 0, discountTotal = null, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerPhone = null, orderId = null) => {
+exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username = null, discountType = null, discountValue = 0, discountTotal = null, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerPhone = null, orderId = null, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0) => {
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
@@ -501,6 +551,7 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
     const tax = Number(taxTotal || 0);
     const service = Number(serviceChargeTotal || 0);
     const promoDiscount = Number(promotionDiscountTotal || 0);
+    const groupDiscount = Number(customerGroupDiscountTotal || 0);
 
     if (discountType === 'fixed') {
       calcDiscountTotal = Math.min(Math.max(dVal, 0), sub);
@@ -515,8 +566,8 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       discountType = null;
     }
 
-    // Verify and recalculate total = subtotal + taxTotal + serviceChargeTotal - discountTotal - promoDiscount
-    const allDiscounts = calcDiscountTotal + promoDiscount;
+    // Verify and recalculate total = subtotal + taxTotal + serviceChargeTotal - discountTotal - promoDiscount - groupDiscount
+    const allDiscounts = calcDiscountTotal + promoDiscount + groupDiscount;
     const expectedTotal = Math.max(0, sub + tax + service - allDiscounts);
     const verifiedTotal = Number(expectedTotal.toFixed(2));
 
@@ -548,9 +599,9 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
 
     const sql = `
     INSERT INTO invoices
-    (id, sub_total, tax_total, service_charge_total, discount_type, discount_value, discount_total, applied_promotions, promotion_discount_total, loyalty_points_redeemed, loyalty_discount_amount, loyalty_points_earned, total, created_at, payment_type_id, tenant_id, created_by)
+    (id, sub_total, tax_total, service_charge_total, discount_type, discount_value, discount_total, applied_promotions, promotion_discount_total, customer_group_id, customer_group_name, customer_group_discount_total, loyalty_points_redeemed, loyalty_discount_amount, loyalty_points_earned, total, created_at, payment_type_id, tenant_id, created_by, customer_phone)
     VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await conn.query(sql, [
@@ -563,6 +614,9 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       calcDiscountTotal,
       cleanAppliedPromos,
       promoDiscount,
+      customerGroupId ? Number(customerGroupId) : null,
+      customerGroupName || null,
+      groupDiscount,
       pointsRedeemed,
       loyaltyDiscount,
       pointsEarned,
@@ -570,7 +624,8 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       date,
       selectedPaymentType,
       tenantId,
-      username
+      username,
+      customerPhone || null,
     ]);
 
     await conn.query("INSERT INTO invoice_sequences ( sequence_no, tenant_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no);", [invoiceId, tenantId]);
@@ -587,19 +642,31 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
   }
 }
 
-exports.completeOrdersAndSaveInvoiceIdDB = async (orderIds, invoiceId, tenantId) => {
+exports.completeOrdersAndSaveInvoiceIdDB = async (orderIds, invoiceId, tenantId, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0) => {
   const conn = await getMySqlPromiseConnection();
   try {
 
     const orderIdsText = orderIds.join(",");
 
-    const sql = `
+    let sql = `
     UPDATE orders SET
     status = 'completed', payment_status = 'paid', invoice_id = ?
-    WHERE id IN (${orderIdsText}) AND tenant_id = ?;
     `;
+    const params = [invoiceId];
 
-    await conn.query(sql, [invoiceId, tenantId]);
+    if (customerGroupId || customerGroupName || Number(customerGroupDiscountTotal) > 0) {
+      sql += `, customer_group_id = ?, customer_group_name = ?, customer_group_discount_total = ?`;
+      params.push(
+        customerGroupId ? Number(customerGroupId) : null,
+        customerGroupName || null,
+        Number(customerGroupDiscountTotal || 0)
+      );
+    }
+
+    sql += ` WHERE id IN (${orderIdsText}) AND tenant_id = ?;`;
+    params.push(tenantId);
+
+    await conn.query(sql, params);
     await rotateTablePinsByOrderIdsDB(tenantId, orderIds);
     await autoUnlinkTablesByOrderIdsDB(tenantId, orderIds, conn);
 
@@ -937,6 +1004,44 @@ exports.createSplitSubInvoicesDB = async (tenantId, orderId, splitMode, splits =
       );
     }
 
+    // Strict penny balancing & totals validation
+    if (splitMode === "evenly" && splits.length > 0) {
+      const splitsSubtotal = splits.reduce(
+        (sum, s) => sum + Number(s.subtotal || 0),
+        0
+      );
+      const [orderItemsRows] = await conn.query(
+        `SELECT price, quantity FROM order_items WHERE order_id = ? AND tenant_id = ? AND status NOT IN ('cancelled')`,
+        [orderId, tenantId]
+      );
+      const rawDbSubtotal = orderItemsRows.reduce(
+        (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 1),
+        0
+      );
+      const orderItemsSubtotal = splitsSubtotal > 0 ? splitsSubtotal : rawDbSubtotal;
+
+      const count = splits.length;
+      if (orderItemsSubtotal > 0) {
+        const baseSub = Math.floor((orderItemsSubtotal / count) * 100) / 100;
+        const remainderSubCents = Math.round((orderItemsSubtotal - (baseSub * count)) * 100);
+
+        const totalTax = splits.reduce((sum, s) => sum + Number(s.taxTotal || 0), 0);
+        const baseTax = Math.floor((totalTax / count) * 100) / 100;
+        const remainderTaxCents = Math.round((totalTax - (baseTax * count)) * 100);
+
+        const totalService = splits.reduce((sum, s) => sum + Number(s.serviceChargeTotal || 0), 0);
+        const baseService = Math.floor((totalService / count) * 100) / 100;
+        const remainderServiceCents = Math.round((totalService - (baseService * count)) * 100);
+
+        for (let i = 0; i < count; i++) {
+          splits[i].subtotal = Number((baseSub + (i < remainderSubCents ? 0.01 : 0)).toFixed(2));
+          splits[i].taxTotal = Number((baseTax + (i < remainderTaxCents ? 0.01 : 0)).toFixed(2));
+          splits[i].serviceChargeTotal = Number((baseService + (i < remainderServiceCents ? 0.01 : 0)).toFixed(2));
+          splits[i].discountTotal = 0;
+        }
+      }
+    }
+
     const createdSubInvoices = [];
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -1126,7 +1231,8 @@ exports.settleSubInvoiceDB = async (
     } else {
       await conn.query(
         `UPDATE orders SET
-           payment_status = 'partially_paid'
+           payment_status = 'pending',
+           split_status = 'split_in_progress'
          WHERE id = ? AND tenant_id = ?`,
         [subInvoice.order_id, tenantId]
       );
@@ -1136,6 +1242,7 @@ exports.settleSubInvoiceDB = async (
     return {
       success: true,
       subInvoiceId,
+      orderId: subInvoice.order_id,
       isFullyCompleted,
       allPaid,
       tipAmount: tip,

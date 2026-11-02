@@ -38,6 +38,7 @@ export function evaluateCartPromotions({
   cartItems = [],
   diningOption = "dinein",
   enteredCode = null,
+  customerGroupId = null,
   now = new Date(),
 }) {
   const normalizedCode = (enteredCode || "").trim().toUpperCase();
@@ -102,6 +103,19 @@ export function evaluateCartPromotions({
         const normalizedDine = (diningOption || "dinein").toLowerCase();
         const matches = diningOpts.map((d) => String(d).toLowerCase()).includes(normalizedDine);
         if (!matches) return false;
+      }
+    }
+
+    // Customer Group eligibility
+    if (promo.applicable_customer_group_ids) {
+      let allowedGroups = promo.applicable_customer_group_ids;
+      if (typeof allowedGroups === "string") {
+        try { allowedGroups = JSON.parse(allowedGroups); } catch { allowedGroups = null; }
+      }
+      if (Array.isArray(allowedGroups) && allowedGroups.length > 0) {
+        if (!customerGroupId || !allowedGroups.map(Number).includes(Number(customerGroupId))) {
+          return false;
+        }
       }
     }
 
@@ -291,5 +305,144 @@ export function evaluateCartPromotions({
       is_automatic: Boolean(p.is_automatic),
       is_stackable: Boolean(p.is_stackable),
     })),
+  };
+}
+
+/**
+ * Calculates direct customer group discount based on rules.
+ */
+export function calculateCustomerGroupDiscount({
+  customerGroup = null,
+  cartItems = [],
+}) {
+  if (!customerGroup || !customerGroup.is_active) {
+    return { discountTotal: 0, eligibleSubtotal: 0 };
+  }
+
+  const cleanCart = (Array.isArray(cartItems) ? cartItems : []).filter(
+    (item) => Number(item?.quantity) > 0 && Number(item?.price) >= 0
+  );
+
+  const rawSubtotal = cleanCart.reduce((sum, item) => {
+    return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+  }, 0);
+
+  // Check min order spend
+  const minOrder = Number(customerGroup.min_order_amount || 0);
+  if (minOrder > 0 && rawSubtotal < minOrder) {
+    return { discountTotal: 0, eligibleSubtotal: 0, reason: "MIN_ORDER_NOT_MET" };
+  }
+
+  let eligibleSubtotal = rawSubtotal;
+  let targetCatIds = customerGroup.target_category_ids;
+  if (typeof targetCatIds === "string") {
+    try { targetCatIds = JSON.parse(targetCatIds); } catch { targetCatIds = []; }
+  }
+
+  if (customerGroup.apply_to === "CATEGORY" && Array.isArray(targetCatIds) && targetCatIds.length > 0) {
+    const catSet = new Set(targetCatIds.map(Number));
+    eligibleSubtotal = cleanCart.reduce((sum, item) => {
+      const catId = Number(item.category_id || item.categoryId);
+      if (catSet.has(catId)) {
+        return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+      }
+      return sum;
+    }, 0);
+  }
+
+  if (eligibleSubtotal <= 0) {
+    return { discountTotal: 0, eligibleSubtotal: 0 };
+  }
+
+  let discount = 0;
+  const val = Number(customerGroup.discount_value || 0);
+  if (customerGroup.discount_type === "PERCENTAGE") {
+    discount = (eligibleSubtotal * Math.min(val, 100)) / 100;
+  } else {
+    // FIXED
+    discount = Math.min(val, eligibleSubtotal);
+  }
+
+  // Max cap check
+  const maxCap = customerGroup.max_discount_cap != null ? Number(customerGroup.max_discount_cap) : null;
+  if (maxCap != null && maxCap > 0) {
+    discount = Math.min(discount, maxCap);
+  }
+
+  discount = Number(discount.toFixed(2));
+  return {
+    discountTotal: Math.max(0, discount),
+    eligibleSubtotal: Number(eligibleSubtotal.toFixed(2)),
+  };
+}
+
+/**
+ * Resolves conflict / stacking between customer group discount and promotions.
+ */
+export function combineCartDiscounts({
+  groupDiscount = 0,
+  promoDiscount = 0,
+  appliedPromotions = [],
+  customerGroupDisabled = false,
+}) {
+  const effectiveGroupDiscount = customerGroupDisabled ? 0 : Number(groupDiscount || 0);
+  const effectivePromoDiscount = Number(promoDiscount || 0);
+
+  if (effectiveGroupDiscount <= 0 && effectivePromoDiscount <= 0) {
+    return {
+      groupDiscountApplied: 0,
+      promoDiscountApplied: 0,
+      totalDiscountApplied: 0,
+      appliedPromotions: [],
+    };
+  }
+
+  if (effectiveGroupDiscount <= 0) {
+    return {
+      groupDiscountApplied: 0,
+      promoDiscountApplied: effectivePromoDiscount,
+      totalDiscountApplied: effectivePromoDiscount,
+      appliedPromotions,
+    };
+  }
+
+  if (effectivePromoDiscount <= 0) {
+    return {
+      groupDiscountApplied: effectiveGroupDiscount,
+      promoDiscountApplied: 0,
+      totalDiscountApplied: effectiveGroupDiscount,
+      appliedPromotions: [],
+    };
+  }
+
+  // If promotions exist, check if they can stack
+  const hasStackable = appliedPromotions.some((p) => Boolean(p.is_stackable));
+  if (hasStackable) {
+    const total = Number((effectiveGroupDiscount + effectivePromoDiscount).toFixed(2));
+    return {
+      groupDiscountApplied: effectiveGroupDiscount,
+      promoDiscountApplied: effectivePromoDiscount,
+      totalDiscountApplied: total,
+      appliedPromotions,
+    };
+  }
+
+  // If non-stackable, best value wins
+  if (effectiveGroupDiscount > effectivePromoDiscount) {
+    return {
+      groupDiscountApplied: effectiveGroupDiscount,
+      promoDiscountApplied: 0,
+      totalDiscountApplied: effectiveGroupDiscount,
+      appliedPromotions: [],
+      winner: "CUSTOMER_GROUP",
+    };
+  }
+
+  return {
+    groupDiscountApplied: 0,
+    promoDiscountApplied: effectivePromoDiscount,
+    totalDiscountApplied: effectivePromoDiscount,
+    appliedPromotions,
+    winner: "PROMOTION",
   };
 }

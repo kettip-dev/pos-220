@@ -54,7 +54,7 @@ exports.getAllUsersDB = async (scope) => {
         const businessColumn = scope?.mode === "all" ? ", tenant_id AS business_tenant_id" : "";
 
         const sql = `
-        SELECT username, name, role, photo, designation, phone, email, scope${businessColumn} FROM users
+        SELECT username, name, role, photo, designation, phone, email, scope, enforce_shift_roster, (quick_pin IS NOT NULL) AS has_quick_pin${businessColumn} FROM users
         WHERE ${tenantSql}
         ORDER BY role, name;
         `;

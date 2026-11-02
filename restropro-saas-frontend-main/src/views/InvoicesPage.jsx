@@ -682,6 +682,9 @@ export default function InvoicesPage() {
           discountAmount: discountTotal || 0,
           appliedPromotions: typeof applied_promotions === "string" ? JSON.parse(applied_promotions) : applied_promotions,
           promotionDiscountTotal: promotion_discount_total || 0,
+          customer_group_id: firstOrder.customer_group_id || null,
+          customer_group_name: firstOrder.customer_group_name || null,
+          customer_group_discount: Number(firstOrder.customer_group_discount_total || 0),
           taxTotal: taxTotal,
           serviceChargeTotal: serviceChargeTotal,
           payableTotal: total,
@@ -1257,13 +1260,13 @@ export default function InvoicesPage() {
                 />
               </th>
 
-              {/* Name (Invoice ID) */}
+              {/* Invoice ID */}
               <th
                 onClick={() => handleSort("invoice_id")}
                 className="px-3 py-3 cursor-pointer select-none hover:text-emerald-700 transition"
               >
                 <div className="flex items-center gap-1">
-                  <span>Name</span>
+                  <span>{t("invoices.invoice_id", "Invoice ID")}</span>
                   {sorting.field === "invoice_id" && (
                     <span className="text-xs">
                       {sorting.direction === "asc" ? "↑" : "↓"}
@@ -1279,13 +1282,13 @@ export default function InvoicesPage() {
                 </th>
               )}
 
-              {/* Account Type with sort arrow ↑ and BAL badge preview */}
+              {/* Order Type with sort arrow */}
               <th
                 onClick={() => handleSort("delivery_type")}
                 className="px-3 py-3 cursor-pointer select-none hover:text-emerald-700 transition"
               >
                 <div className="flex items-center gap-1">
-                  <span>Account type</span>
+                  <span>{t("invoices.delivery_type", "Order Type")}</span>
                   <span className="text-xs">
                     {sorting.field === "delivery_type"
                       ? sorting.direction === "asc"
@@ -1301,14 +1304,14 @@ export default function InvoicesPage() {
                 <th className="px-3 py-3">Tokens</th>
               )}
 
-              {/* Detail type (Customer Name / Walk-in) */}
+              {/* Customer Name / Walk-in */}
               {visibleColumns.customer && (
                 <th
                   onClick={() => handleSort("name")}
                   className="px-3 py-3 cursor-pointer select-none hover:text-emerald-700 transition"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Detail type</span>
+                    <span>{t("invoices.customer", "Customer")}</span>
                     {sorting.field === "name" && (
                       <span className="text-xs">
                         {sorting.direction === "asc" ? "↑" : "↓"}
@@ -1318,14 +1321,14 @@ export default function InvoicesPage() {
                 </th>
               )}
 
-              {/* Subtotal (QuickBooks b...) */}
+              {/* Subtotal */}
               {visibleColumns.subtotal && (
                 <th
                   onClick={() => handleSort("sub_total")}
                   className="px-3 py-3 text-right cursor-pointer select-none hover:text-emerald-700 transition"
                 >
                   <div className="flex items-center justify-end gap-1">
-                    <span>QuickBooks b...</span>
+                    <span>{t("invoices.subtotal", "Subtotal")}</span>
                     {sorting.field === "sub_total" && (
                       <span className="text-xs">
                         {sorting.direction === "asc" ? "↑" : "↓"}
@@ -1350,13 +1353,13 @@ export default function InvoicesPage() {
                 <th className="px-3 py-3 text-right">Discount</th>
               )}
 
-              {/* Bank Balance (Total Amount) */}
+              {/* Total Amount */}
               <th
                 onClick={() => handleSort("total")}
                 className="px-3 py-3 text-right cursor-pointer select-none hover:text-emerald-700 transition"
               >
                 <div className="flex items-center justify-end gap-1">
-                  <span>Bank balance</span>
+                  <span>{t("invoices.total", "Total")}</span>
                   {sorting.field === "total" && (
                     <span className="text-xs">
                       {sorting.direction === "asc" ? "↑" : "↓"}
@@ -1501,7 +1504,7 @@ export default function InvoicesPage() {
                       </td>
                     )}
 
-                    {/* Account Type + QuickBooks BAL Pill Badge */}
+                    {/* Order Type + Status Badge (PAID / VOID) */}
                     <td
                       className={clsx(
                         "px-3 whitespace-nowrap",
@@ -1514,17 +1517,16 @@ export default function InvoicesPage() {
                           {table_title ? ` - ${table_title}` : ""}
                         </span>
 
-                        {/* Distinctive QuickBooks Green Pill Badge BAL / PAID / VOID */}
                         {isVoid ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-[#fee2e2] text-[#991b1b] dark:bg-rose-950/60 dark:text-rose-400 border border-[#fecaca] dark:border-rose-800 uppercase">
-                            VOID
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800 uppercase">
+                            {t("invoices.void_badge", "VOID")}
                           </span>
                         ) : (
                           <span
-                            title="Balance settled / Paid"
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-[#dcfce7] text-[#15803d] dark:bg-emerald-950/70 dark:text-emerald-400 border border-[#bbf7d0] dark:border-emerald-800 uppercase"
+                            title={t("invoices.paid_badge", "Paid")}
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800 uppercase"
                           >
-                            BAL
+                            {t("invoices.paid_badge", "PAID")}
                           </span>
                         )}
                       </div>

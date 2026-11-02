@@ -260,12 +260,10 @@ export default function InventoryDashboardPage() {
               </table>
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-slate-400 text-xs sm:text-sm">
-                <img
-                  src="/assets/illustrations/top-selling-not-found.webp"
-                  alt={t("inventory.no_data_image_alt")}
-                  className="w-32 sm:w-40 mb-3 opacity-90"
-                />
-                <span className="font-medium text-slate-500">{t("inventory.no_inventory_movements_message")}</span>
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-neutral-800 border border-slate-200/80 dark:border-neutral-700 flex items-center justify-center text-slate-400 dark:text-neutral-500 mb-3 shadow-xs">
+                  <IconBox size={28} stroke={iconStroke} />
+                </div>
+                <span className="font-medium text-slate-500 dark:text-neutral-400">{t("inventory.no_inventory_movements_message")}</span>
               </div>
             )}
           </div>
@@ -347,12 +345,10 @@ export default function InventoryDashboardPage() {
               </table>
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-slate-400 text-xs sm:text-sm">
-                <img
-                  src="/assets/illustrations/kitchen-order-not-found.webp"
-                  alt={t("inventory.no_data_image_alt")}
-                  className="w-32 sm:w-40 mb-3 opacity-90"
-                />
-                <span className="font-medium text-slate-500">{t("inventory.no_usage_vs_stock_message")}</span>
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-neutral-800 border border-slate-200/80 dark:border-neutral-700 flex items-center justify-center text-slate-400 dark:text-neutral-500 mb-3 shadow-xs">
+                  <IconBox size={28} stroke={iconStroke} />
+                </div>
+                <span className="font-medium text-slate-500 dark:text-neutral-400">{t("inventory.no_usage_vs_stock_message")}</span>
               </div>
             )}
           </div>

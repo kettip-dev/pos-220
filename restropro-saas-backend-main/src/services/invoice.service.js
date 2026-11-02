@@ -44,6 +44,9 @@ exports.getInvoicesDB = async (type, from, to, scope) => {
             i.loyalty_points_redeemed,
             i.loyalty_discount_amount,
             i.loyalty_points_earned,
+            i.customer_group_id,
+            i.customer_group_name,
+            i.customer_group_discount_total,
             i.total,
             i.status,
             i.voided_at,
@@ -153,6 +156,9 @@ exports.searchInvoicesDB = async (search, scope) => {
       i.discount_total,
       i.applied_promotions,
       i.promotion_discount_total,
+      i.customer_group_id,
+      i.customer_group_name,
+      i.customer_group_discount_total,
       i.total,
       i.status,
       i.voided_at,
@@ -237,7 +243,10 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
         st. \`floor\`,
         o.status,
         o.payment_status,
-        o.token_no
+        o.token_no,
+        o.customer_group_id,
+        o.customer_group_name,
+        o.customer_group_discount_total
       FROM
         orders o
         LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = o.tenant_id
@@ -366,6 +375,9 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
               i.loyalty_points_redeemed,
               i.loyalty_discount_amount,
               i.loyalty_points_earned,
+              i.customer_group_id,
+              i.customer_group_name,
+              i.customer_group_discount_total,
               i.total,
               i.payment_type_id,
               i.status,

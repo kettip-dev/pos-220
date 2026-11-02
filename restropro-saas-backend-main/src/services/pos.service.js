@@ -3,7 +3,7 @@ const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
 
-exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0) => {
+exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0) => {
   const conn = await getMySqlPromiseConnection();
 
   try {
@@ -34,10 +34,11 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
       ? JSON.stringify(appliedPromotions)
       : null;
     const promoDiscount = Number(promotionDiscountTotal || 0);
+    const groupDiscount = Number(customerGroupDiscountTotal || 0);
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (delivery_type, customer_type, customer_id, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [deliveryType, customerType, customerId, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username]
+      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username]
     );
 
     const orderId = orderResult.insertId;

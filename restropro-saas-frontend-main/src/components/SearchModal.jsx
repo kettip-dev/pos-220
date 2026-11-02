@@ -18,6 +18,7 @@ import {
   IconSearch,
   IconToolsKitchen3,
   IconUser,
+  IconUsers,
   IconUsersGroup,
   IconX,
 } from "@tabler/icons-react";
@@ -105,6 +106,14 @@ export default function SearchModal() {
       description: "",
       icon: <IconFriends stroke={iconStroke} />,
       link: "/dashboard/customers",
+      scopes: [SCOPES.CUSTOMERS],
+      features: [PLAN_FEATURES.CUSTOMERS],
+    },
+    {
+      title: t("navbar.customer_groups", "Customer Groups"),
+      description: t("customer_groups.title", "Customer Groups & Discounts"),
+      icon: <IconUsers stroke={iconStroke} />,
+      link: "/dashboard/customer-groups",
       scopes: [SCOPES.CUSTOMERS],
       features: [PLAN_FEATURES.CUSTOMERS],
     },

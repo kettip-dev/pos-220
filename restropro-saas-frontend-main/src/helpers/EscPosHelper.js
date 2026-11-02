@@ -161,7 +161,8 @@ export function buildReceiptEscPos(receiptDetails) {
   }
 
   if (customer?.name && (printSettings.show_customer_details != 0 && printSettings.showCustomerDetails != 0)) {
-    out += `Customer: ${customer.name} (${customerType || "Guest"})\n`;
+    const grpTag = (customer.customer_group_name || receiptDetails.customer_group_name) ? ` [${customer.customer_group_name || receiptDetails.customer_group_name}]` : "";
+    out += `Customer: ${customer.name}${grpTag} (${customerType || "Guest"})\n`;
   }
 
   // 3. Item List Header
@@ -211,6 +212,12 @@ export function buildReceiptEscPos(receiptDetails) {
       const pLabel = p.promo_code ? `Promo (${p.promo_code}):` : `Promo: ${(p.title || 'Deal').substring(0, 16)}:`;
       out += formatTwoColumns(pLabel, `-${currency}${Number(p.discount_amount || 0).toFixed(2)}`, width) + "\n";
     });
+  }
+
+  const customerGroupDiscount = Number(receiptDetails.customer_group_discount || receiptDetails.customerGroupDiscountTotal || 0);
+  if (customerGroupDiscount > 0) {
+    const grpName = (receiptDetails.customer_group_name || receiptDetails.customerGroupName || "Group").substring(0, 16);
+    out += formatTwoColumns(`${grpName} Disc:`, `-${currency}${customerGroupDiscount.toFixed(2)}`, width) + "\n";
   }
 
   if (loyaltyDiscountAmount > 0) {

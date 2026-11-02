@@ -634,6 +634,19 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
             o.date AS active_order_date,
             o.status AS active_order_status,
             o.payment_status AS active_payment_status,
+            o.split_status AS active_split_status,
+            COALESCE(
+                (SELECT COUNT(*) FROM order_sub_invoices osi WHERE osi.order_id = o.id AND osi.tenant_id = st.tenant_id),
+                0
+            ) AS split_total_checks,
+            COALESCE(
+                (SELECT COUNT(*) FROM order_sub_invoices osi WHERE osi.order_id = o.id AND osi.tenant_id = st.tenant_id AND osi.payment_status = 'paid'),
+                0
+            ) AS split_paid_checks,
+            COALESCE(
+                (SELECT SUM(osi.payable_total) FROM order_sub_invoices osi WHERE osi.order_id = o.id AND osi.tenant_id = st.tenant_id AND osi.payment_status != 'paid'),
+                0
+            ) AS split_remaining_payable,
             c.name AS customer_name,
             c.phone AS customer_phone,
             COALESCE(
@@ -722,6 +735,10 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
                         secondary.active_order_guests = master.active_order_guests;
                         secondary.customer_name = master.customer_name;
                         secondary.customer_phone = master.customer_phone;
+                        secondary.active_split_status = master.active_split_status;
+                        secondary.split_total_checks = master.split_total_checks;
+                        secondary.split_paid_checks = master.split_paid_checks;
+                        secondary.split_remaining_payable = master.split_remaining_payable;
                     }
                 }
             }

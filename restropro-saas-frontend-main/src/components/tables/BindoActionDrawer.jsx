@@ -146,12 +146,17 @@ export default function BindoActionDrawer({
   if (!isOpen) return null;
 
   const orderItemsList = (activeOrderSummary?.orders || []).flatMap((ord) => ord.items || []);
-  const totalPayable = Number(
-    activeOrderSummary?.total ||
-      selectedTable?.active_order_total ||
-      selectedTable?.order_total ||
-      0
-  );
+  const isSplitInProgress =
+    (selectedTable?.active_split_status || selectedTable?.split_status) === "split_in_progress" ||
+    activeOrderSummary?.kitchenOrders?.[0]?.split_status === "split_in_progress";
+  const totalPayable = isSplitInProgress && Number(selectedTable?.split_remaining_payable) > 0
+    ? Number(selectedTable.split_remaining_payable)
+    : Number(
+        activeOrderSummary?.total ||
+          selectedTable?.active_order_total ||
+          selectedTable?.order_total ||
+          0
+      );
   const totalItemsCount =
     orderItemsList.reduce((acc, i) => acc + Number(i.quantity || 1), 0) ||
     selectedTable?.order_items_count ||
@@ -628,15 +633,29 @@ export default function BindoActionDrawer({
 
                       <button
                         type="button"
-                        onClick={() => onPayTable(selectedTable)}
-                        className="w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-black text-xs sm:text-sm shadow-sm hover:shadow-md transition active:scale-98 cursor-pointer"
+                        onClick={() => {
+                          if (isSplitInProgress) {
+                            onSplitChecks(selectedTable);
+                          } else {
+                            onPayTable(selectedTable);
+                          }
+                        }}
+                        className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl ${
+                          isSplitInProgress
+                            ? "bg-purple-600 hover:bg-purple-700"
+                            : "bg-[#0ea5e9] hover:bg-[#0284c7]"
+                        } text-white font-black text-xs sm:text-sm shadow-sm hover:shadow-md transition active:scale-98 cursor-pointer`}
                       >
                         <span className="flex items-center gap-2 truncate">
                           <IconCash size={18} className="shrink-0" />
-                          <span className="truncate">{t("tables.settle_bill", "Pay / Settle Bill")}</span>
+                          <span className="truncate">
+                            {isSplitInProgress
+                              ? `${t("tables.settle_split", "Settle Split Checks")} (${selectedTable?.split_paid_checks || 0}/${selectedTable?.split_total_checks || 2})`
+                              : t("tables.settle_bill", "Pay / Settle Bill")}
+                          </span>
                         </span>
-                        <span className="text-[11px] font-semibold bg-sky-700 px-2 py-0.5 rounded-lg opacity-90 shrink-0">
-                          {t("tables.pay_now", "Pay Now")}
+                        <span className="text-[11px] font-semibold bg-black/20 px-2 py-0.5 rounded-lg opacity-90 shrink-0">
+                          {isSplitInProgress ? t("tables.split_checks", "Split Checks") : t("tables.pay_now", "Pay Now")}
                         </span>
                       </button>
                     </div>
@@ -831,15 +850,27 @@ export default function BindoActionDrawer({
 
                   <button
                     type="button"
-                    onClick={() => onPayTable(selectedTable)}
-                    className="w-full min-h-[44px] flex items-center justify-between px-4 py-3 rounded-xl bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-black text-sm shadow-md hover:shadow-lg transition active:scale-98 cursor-pointer"
+                    onClick={() => {
+                      if (isSplitInProgress) {
+                        onSplitChecks(selectedTable);
+                      } else {
+                        onPayTable(selectedTable);
+                      }
+                    }}
+                    className={`w-full min-h-[44px] flex items-center justify-between px-4 py-3 rounded-xl ${
+                      isSplitInProgress
+                        ? "bg-purple-600 hover:bg-purple-700"
+                        : "bg-[#0ea5e9] hover:bg-[#0284c7]"
+                    } text-white font-black text-sm shadow-md hover:shadow-lg transition active:scale-98 cursor-pointer`}
                   >
                     <span className="flex items-center gap-2">
                       <IconCash size={18} />
-                      {t("tables.settle_bill", "Pay / Settle Bill")}
+                      {isSplitInProgress
+                        ? `${t("tables.settle_split", "Settle Split Checks")} (${selectedTable?.split_paid_checks || 0}/${selectedTable?.split_total_checks || 2})`
+                        : t("tables.settle_bill", "Pay / Settle Bill")}
                     </span>
-                    <span className="text-xs font-semibold bg-sky-700 px-2 py-0.5 rounded-lg opacity-90">
-                      {t("tables.pay_now", "Pay Now")}
+                    <span className="text-xs font-semibold bg-black/20 px-2 py-0.5 rounded-lg opacity-90">
+                      {isSplitInProgress ? t("tables.split_checks", "Split Checks") : t("tables.pay_now", "Pay Now")}
                     </span>
                   </button>
                 </div>

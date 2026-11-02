@@ -1,6 +1,7 @@
-import React, { useRef , useEffect } from "react";
+import React, { useRef , useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { addCustomer } from "../controllers/customers.controller";
+import { useCustomerGroups } from "../controllers/customer_groups.controller";
 import { mutate } from "swr";
 import { validateEmail } from "../utils/emailValidator";
 import { validatePhone } from "../utils/phoneValidator";
@@ -14,7 +15,9 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
   const emailRef = useRef();
   const genderRef = useRef();
   const birthDateRef = useRef();
+  const groupRef = useRef();
   const { theme } = useTheme();
+  const { customerGroups = [] } = useCustomerGroups();
 
   useEffect(()=>{
     if(/^\d+$/.test(defaultValue)) {
@@ -33,6 +36,7 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
     const email = emailRef.current.value || null;
     const gender = genderRef.current.value || null;
     const birthDate = birthDateRef.current.value || null;
+    const customerGroupId = groupRef.current?.value ? Number(groupRef.current.value) : null;
 
     if(!phone) {
       toast.error(t("customers.please_provide_phone"));
@@ -57,7 +61,7 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
 
     try {
       toast.loading(t("toast.please_wait"));
-      const res = await addCustomer(phone, name, email, birthDate, gender);
+      const res = await addCustomer(phone, name, email, birthDate, gender, customerGroupId);
 
       if(res.status == 200) {
         phoneRef.current.value = null;
@@ -65,6 +69,7 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
         emailRef.current.value = null;
         genderRef.current.value = null;
         birthDateRef.current.value = null;
+        if (groupRef.current) groupRef.current.value = "";
 
         if(APIURL){
           await mutate(APIURL);
@@ -130,6 +135,24 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
             className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
             placeholder={t("customers.email_placeholder")}
           />
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="customer_group" className="mb-1 block text-slate-500 dark:text-slate-400 text-xs font-medium">
+            {t("customer_groups.customer_group")}
+          </label>
+          <select
+            ref={groupRef}
+            name="customer_group"
+            className="text-xs sm:text-sm w-full rounded-lg px-3.5 py-2 border border-slate-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+          >
+            <option value="">{t("customer_groups.select_group")}</option>
+            {customerGroups.map((grp) => (
+              <option key={grp.id} value={grp.id}>
+                {grp.name} {grp.is_default ? `(${t("common.default", "Default")})` : ""} {grp.discount_value > 0 ? `• ${grp.discount_type === "PERCENTAGE" ? `${grp.discount_value}%` : `$${grp.discount_value}`} Off` : ""}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex gap-4 w-full my-4">

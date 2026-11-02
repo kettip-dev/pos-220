@@ -125,15 +125,21 @@ function TableCard({
   const hasItems = Number(table.order_items_count || 0) > 0;
   const seatingCap = table.seating_capacity || 2;
 
+  const isSplitInProgress = (table.active_split_status || table.split_status) === "split_in_progress";
   const formattedAmount = useMemo(() => {
-    if (table.active_order_total == null) return null;
-    const num = Number(table.active_order_total);
+    const rawNum = isSplitInProgress && Number(table.split_remaining_payable) > 0
+      ? Number(table.split_remaining_payable)
+      : table.active_order_total != null
+      ? Number(table.active_order_total)
+      : null;
+    if (rawNum == null) return null;
+    const num = Number(rawNum);
     if (Number.isNaN(num)) return null;
     return `${currency} ${num.toLocaleString(undefined, {
       minimumFractionDigits: num % 1 === 0 ? 0 : 2,
       maximumFractionDigits: 2,
     })}`;
-  }, [table.active_order_total, currency]);
+  }, [table.active_order_total, table.split_remaining_payable, isSplitInProgress, currency]);
 
   return (
     <div
@@ -230,15 +236,21 @@ function TableCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (onPayTable) onPayTable(table);
+                if (isSplitInProgress) {
+                  if (onSplitChecks) onSplitChecks(table);
+                } else {
+                  if (onPayTable) onPayTable(table);
+                }
               }}
-              title={t("tables.settle_bill", "Settle Bill")}
+              title={isSplitInProgress ? t("tables.settle_split", "Settle Split Checks") : t("tables.settle_bill", "Settle Bill")}
               className={`
                 col-span-3 min-h-[42px] px-3 rounded-xl font-bold text-xs
                 flex items-center justify-center gap-1.5 text-white transition-all
                 cursor-pointer active:scale-95 shadow-xs
                 ${
-                  statusKey === "ck_dropped"
+                  isSplitInProgress
+                    ? "bg-purple-600 hover:bg-purple-700"
+                    : statusKey === "ck_dropped"
                     ? "bg-amber-500 hover:bg-amber-600"
                     : statusKey === "paid"
                     ? "bg-emerald-600 hover:bg-emerald-700"
@@ -248,7 +260,9 @@ function TableCard({
             >
               <IconCreditCard size={15} />
               <span>
-                {statusKey === "paid"
+                {isSplitInProgress
+                  ? `${t("tables.split_badge", "Split")} (${table.split_paid_checks || 0}/${table.split_total_checks || 2})`
+                  : statusKey === "paid"
                   ? t("tables.paid", "Paid")
                   : statusKey === "ck_dropped"
                   ? t("tables.pay_bill", "Pay Bill")

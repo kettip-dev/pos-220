@@ -10,6 +10,7 @@ exports.addCustomer = async (req, res) => {
         const birthDate = req.body.birthDate || null;
         const gender = req.body.gender || null;
         const isMember = req.body.isMember ? 1 : 0;
+        const customerGroupId = req.body.customerGroupId || req.body.customer_group_id || null;
 
         if(!(phone && name)) {
             return res.status(400).json({
@@ -27,7 +28,7 @@ exports.addCustomer = async (req, res) => {
             });
         }
 
-        await addCustomerDB(phone, name, email, birthDate, gender, isMember, tenantId);
+        await addCustomerDB(phone, name, email, birthDate, gender, isMember, tenantId, customerGroupId);
 
         return res.status(200).json({
             success: true,
@@ -128,6 +129,7 @@ exports.uploadBulkCustomers = async (req, res) => {
             const email = item[2] || null
             const birth_date = item[3] || null
             const gender = item[4] || null
+            const customer_group_id = item[5] ? Number(item[5]) : null
 
             if(gender) {
                 const g = new String(gender).toLowerCase();
@@ -136,7 +138,7 @@ exports.uploadBulkCustomers = async (req, res) => {
                 }
             }
 
-            return [phone, name, email, birth_date, gender, tenantId];
+            return [phone, name, email, birth_date, gender, customer_group_id, tenantId];
         })
 
         await uploadBulkCustomersDB(formattedResult);
@@ -163,6 +165,7 @@ exports.updateCustomer = async (req, res) => {
         const email = req.body.email ? req.body.email.toString().trim() : null;
         const birthDate = req.body.birthDate || null;
         const gender = req.body.gender || null;
+        const customerGroupId = req.body.customerGroupId !== undefined ? req.body.customerGroupId : req.body.customer_group_id;
 
         if(!(phone && name)) {
             return res.status(400).json({
@@ -171,7 +174,7 @@ exports.updateCustomer = async (req, res) => {
             });
         }
 
-        await updateCustomerDB(phone, name, email, birthDate, gender, tenantId);
+        await updateCustomerDB(phone, name, email, birthDate, gender, tenantId, customerGroupId);
 
         return res.status(200).json({
             success: true,

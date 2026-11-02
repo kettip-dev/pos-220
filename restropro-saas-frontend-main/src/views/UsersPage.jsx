@@ -43,6 +43,7 @@ import {
 } from "../controllers/users.controller";
 import { validateEmail } from "../utils/emailValidator";
 import { useTranslation } from "react-i18next";
+import { setUserQuickPin, toggleShiftEnforcement } from "../controllers/shift_roster.controller";
 import { useTheme } from "../contexts/ThemeContext";
 import PermissionSelector from "../components/PermissionSelector";
 
@@ -112,6 +113,34 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [userToDelete, setUserToDelete] = useState(null);
   const [viewingPermissionsUser, setViewingPermissionsUser] = useState(null);
+  const [pinModalUser, setPinModalUser] = useState(null);
+  const [quickPinInput, setQuickPinInput] = useState("");
+
+  const handleSetQuickPin = async () => {
+    if (quickPinInput && (quickPinInput.length < 4 || quickPinInput.length > 6 || !/^\d+$/.test(quickPinInput))) {
+      toast.error(t("shift_roster.pin_digit_error", "PIN must be between 4 and 6 numbers"));
+      return;
+    }
+    try {
+      await setUserQuickPin({ username: pinModalUser, pin: quickPinInput });
+      toast.success(t("shift_roster.pin_updated", "Quick PIN updated successfully"));
+      setPinModalUser(null);
+      setQuickPinInput("");
+      mutate(APIURL);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || t("common.error_occurred", "Failed to update PIN"));
+    }
+  };
+
+  const handleToggleShiftEnforcement = async (username, currentVal) => {
+    try {
+      await toggleShiftEnforcement({ username, enforceShiftRoster: !currentVal });
+      toast.success(t("shift_roster.enforcement_toggled", "Shift enforcement updated"));
+      mutate(APIURL);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || t("common.error_occurred", "Failed to toggle enforcement"));
+    }
+  };
 
   const nameRef = useRef();
   const usernameRef = useRef();
@@ -615,6 +644,31 @@ export default function UsersPage() {
                               <span>{t("users.reset_password")}</span>
                             </button>
                           </li>
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPinModalUser(username);
+                                setQuickPinInput("");
+                              }}
+                              className="flex items-center gap-2 py-2 text-slate-700 dark:text-neutral-200 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-lg cursor-pointer"
+                            >
+                              <IconLock size={16} className="text-purple-500" />
+                              <span>{t("shift_roster.set_manager_pin", "Manager Quick PIN")}</span>
+                            </button>
+                          </li>
+                          {!isAdmin && (
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleShiftEnforcement(username, user.enforce_shift_roster !== 0)}
+                                className="flex items-center gap-2 py-2 text-slate-700 dark:text-neutral-200 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-lg cursor-pointer"
+                              >
+                                <IconShieldCheck size={16} className="text-blue-500" />
+                                <span>{user.enforce_shift_roster !== 0 ? t("shift_roster.disable_shift_restriction", "Disable Shift Restriction") : t("shift_roster.enable_shift_restriction", "Enable Shift Restriction")}</span>
+                              </button>
+                            </li>
+                          )}
                           <div className="my-1 border-t border-slate-100 dark:border-neutral-800" />
                           <li>
                             <button
@@ -1202,6 +1256,64 @@ export default function UsersPage() {
           </div>
         </div>
       </dialog>
+
+      {/* ── Modal: Set Manager Quick PIN ── */}
+      {Boolean(pinModalUser) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <IconLock className="text-purple-500" size={20} />
+                <span>{t("shift_roster.set_quick_pin_title", "Set Manager Quick PIN")}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPinModalUser(null)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t("shift_roster.set_quick_pin_desc", "Set a 4 to 6 digit numeric PIN for {{username}} to quickly authorize POS manager overrides.", {
+                username: pinModalUser,
+              })}
+            </p>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {t("shift_roster.numeric_pin", "4-6 Digit Quick PIN")}
+              </label>
+              <input
+                type="password"
+                maxLength={6}
+                placeholder="••••"
+                value={quickPinInput}
+                onChange={(e) => setQuickPinInput(e.target.value.replace(/\D/g, ""))}
+                className="w-full h-12 px-4 rounded-2xl bg-slate-50 dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 font-mono text-center text-2xl font-bold tracking-widest text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPinModalUser(null)}
+                className="flex-1 h-11 rounded-2xl border border-slate-200 dark:border-neutral-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-neutral-800 transition active:scale-95 cursor-pointer"
+              >
+                {t("common.cancel", "Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleSetQuickPin}
+                className="flex-1 h-11 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-md shadow-purple-500/20"
+              >
+                {t("common.save_pin", "Save PIN")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Delete Confirmation ── */}
       <DeleteModal
