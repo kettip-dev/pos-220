@@ -461,7 +461,7 @@ export default function KitchenPage() {
     });
 
     return (
-      <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap gap-1.5 items-center">
+      <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
           Other Stations:
         </span>
@@ -473,8 +473,8 @@ export default function KitchenPage() {
               className={clsx(
                 "text-[11px] font-medium px-2 py-0.5 rounded-lg flex items-center gap-1.5 border transition-all",
                 allDone
-                  ? "bg-emerald-950/40 text-emerald-300 border-emerald-800/60"
-                  : "bg-slate-900/80 text-slate-300 border-slate-800"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-slate-50 text-slate-600 border-slate-200"
               )}
             >
               <span
@@ -495,28 +495,28 @@ export default function KitchenPage() {
   const enabledStations = stations.filter((s) => s.is_enabled);
 
   return (
-    <Page className="h-full flex flex-col bg-[#0b0c10] text-slate-100 overflow-hidden select-none p-3 sm:p-5 relative font-sans">
+    <Page className="h-full flex flex-col bg-slate-50 text-slate-900 overflow-hidden select-none p-3 sm:p-5 relative font-sans">
       {/* ── TOP CONTROL BAR: Title, Live Count, Station Lock, Recall, Sound, Fullscreen, Refresh ── */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80 shrink-0">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold shadow-inner">
+          <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold shadow-sm">
             <IconToolsKitchen2 size={24} stroke={iconStroke} />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
                 <span>{t("kitchen.title", "Kitchen KDS")}</span>
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500 text-slate-950 shadow-sm">
                 {displayOrders.length} {displayOrders.length === 1 ? "Ticket" : "Tickets"}
               </span>
               {isStationLocked && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 flex items-center gap-1">
                   <IconLock size={12} stroke={iconStroke} /> Locked
                 </span>
               )}
             </div>
-            <p className="text-[11px] font-medium text-slate-400 mt-0.5">
+            <p className="text-[11px] font-medium text-slate-500 mt-0.5">
               Real-time multi-station kitchen display system
             </p>
           </div>
@@ -527,13 +527,13 @@ export default function KitchenPage() {
           {/* Recall Drawer Button */}
           <button
             onClick={() => setIsRecallOpen(true)}
-            className="h-10 px-3.5 rounded-xl bg-[#171821] hover:bg-slate-800 border border-slate-700/80 text-slate-200 hover:text-white font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+            className="h-10 px-3.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             title="Recall recently completed tickets"
           >
             <IconHistory size={16} stroke={iconStroke} />
             <span>Recall</span>
             {completedOrders.length > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-700 text-slate-200">
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
                 {completedOrders.length}
               </span>
             )}
@@ -545,8 +545,8 @@ export default function KitchenPage() {
             className={clsx(
               "h-10 px-3 rounded-xl border font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm",
               soundEnabled
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                : "bg-[#171821] text-slate-400 border-slate-800 hover:bg-slate-800"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                : "bg-white text-slate-500 border-slate-200 hover:bg-slate-100"
             )}
             title={soundEnabled ? "Mute order sound chime" : "Enable order sound chime"}
           >
@@ -566,7 +566,7 @@ export default function KitchenPage() {
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="h-10 px-3 rounded-xl bg-[#171821] hover:bg-slate-800 border border-slate-700/80 text-slate-200 hover:text-white font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+            className="h-10 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen (Kiosk Mode)"}
           >
             {isFullscreen ? (
@@ -588,8 +588,8 @@ export default function KitchenPage() {
             className={clsx(
               "h-10 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm border",
               isStationLocked
-                ? "bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-rose-900/40"
-                : "bg-[#171821] hover:bg-slate-800 text-slate-300 border-slate-700/80"
+                ? "bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-rose-200"
+                : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
             )}
             title={
               isStationLocked
@@ -614,14 +614,14 @@ export default function KitchenPage() {
           <button
             type="button"
             onClick={btnRefresh}
-            className="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 flex items-center justify-center transition active:scale-95 shadow-sm shrink-0"
+            className="h-10 w-10 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition active:scale-95 shadow-sm shrink-0"
             title={t("kitchen.refresh", "Refresh")}
             aria-label={t("kitchen.refresh", "Refresh")}
           >
             <IconRefresh
               size={17}
               stroke={iconStroke}
-              className={clsx(state.isLoading && "animate-spin text-emerald-400")}
+              className={clsx(state.isLoading && "animate-spin text-emerald-600")}
             />
           </button>
         </div>
@@ -637,8 +637,8 @@ export default function KitchenPage() {
             className={clsx(
               "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-bold shrink-0 transition-all border shadow-md active:scale-95",
               selectedStationId === "all"
-                ? "bg-white text-slate-950 border-white shadow-lg"
-                : "bg-[#161722] text-slate-300 border-slate-800 hover:bg-[#1e1f2d] hover:text-white",
+                ? "bg-slate-900 text-white border-slate-900 shadow-lg"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900",
               isStationLocked && selectedStationId !== "all" && "opacity-35 cursor-not-allowed"
             )}
           >
@@ -648,8 +648,8 @@ export default function KitchenPage() {
               className={clsx(
                 "px-2 py-0.5 rounded-full text-[11px] font-black",
                 selectedStationId === "all"
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-800 text-slate-300"
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 text-slate-600"
               )}
             >
               {stationCounts.all}
@@ -670,7 +670,7 @@ export default function KitchenPage() {
                   "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-bold shrink-0 transition-all border shadow-md active:scale-95",
                   isSelected
                     ? "text-white shadow-lg border-transparent scale-[1.02]"
-                    : "bg-[#161722] text-slate-300 border-slate-800 hover:bg-[#1e1f2d] hover:text-white",
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900",
                   isStationLocked && !isSelected && "opacity-35 cursor-not-allowed"
                 )}
                 style={{
@@ -690,7 +690,7 @@ export default function KitchenPage() {
                     "px-2 py-0.5 rounded-full text-[11px] font-black",
                     isSelected
                       ? "bg-black/30 text-white"
-                      : "bg-slate-800 text-slate-300"
+                      : "bg-slate-100 text-slate-600"
                   )}
                 >
                   {count}
@@ -708,12 +708,12 @@ export default function KitchenPage() {
                 "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-bold shrink-0 transition-all border shadow-md active:scale-95",
                 selectedStationId === "unassigned"
                   ? "bg-slate-700 text-white border-slate-600 shadow-lg"
-                  : "bg-[#161722] text-slate-300 border-slate-800 hover:bg-[#1e1f2d]",
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100",
                 isStationLocked && selectedStationId !== "unassigned" && "opacity-35 cursor-not-allowed"
               )}
             >
               <span>Unassigned</span>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-800 text-slate-200">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-700">
                 {stationCounts.unassigned}
               </span>
             </button>
@@ -724,7 +724,7 @@ export default function KitchenPage() {
       {/* ── TICKETS CONTENT AREA (Full-height Scrollable Grid) ── */}
       <main className="mt-3 flex-1 overflow-y-auto no-scrollbar pb-6">
         {isLoading && (
-          <div className="flex flex-col items-center justify-center p-20 text-slate-400 gap-3">
+          <div className="flex flex-col items-center justify-center p-20 text-slate-500 gap-3">
             <span className="loading loading-spinner loading-lg text-amber-500"></span>
             <span className="text-sm font-semibold tracking-wide">
               {t("kitchen.loading_message", "Loading kitchen tickets...")}
@@ -734,10 +734,10 @@ export default function KitchenPage() {
 
         {!isLoading && displayOrders?.length === 0 && (
           <div className="w-full h-full min-h-[380px] flex flex-col items-center justify-center text-center p-8">
-            <div className="w-20 h-20 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 mb-4 shadow-xl">
+            <div className="w-20 h-20 rounded-3xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 mb-4 shadow-sm">
               <IconToolsKitchen2 size={40} stroke={iconStroke} />
             </div>
-            <h3 className="font-extrabold text-lg text-slate-200">
+            <h3 className="font-extrabold text-lg text-slate-800">
               {selectedStationId === "all"
                 ? "All caught up! No pending tickets"
                 : "No pending orders for this station"}
@@ -795,13 +795,13 @@ export default function KitchenPage() {
                   aria-label={`Order ticket #${token_no}`}
                   key={orderId || orderIndex}
                   className={clsx(
-                    "flex flex-col justify-between rounded-2xl bg-[#14151e] border-2 shadow-2xl transition-all duration-200 overflow-hidden relative",
+                    "flex flex-col justify-between rounded-2xl bg-white border-2 shadow-md transition-all duration-200 overflow-hidden relative",
                     isUrgent
-                      ? "border-rose-500/80 shadow-rose-950/30"
+                      ? "border-rose-500 shadow-rose-100"
                       : isWarning
-                      ? "border-amber-500/80 shadow-amber-950/20"
-                      : "border-slate-800 shadow-slate-950/40",
-                    isAllDisplayItemsCompleted && "opacity-60 border-slate-800"
+                      ? "border-amber-400 shadow-amber-100"
+                      : "border-slate-200 shadow-slate-200/60",
+                    isAllDisplayItemsCompleted && "opacity-60 border-slate-200"
                   )}
                 >
                   {/* Top Urgency Accent Bar */}
@@ -817,7 +817,7 @@ export default function KitchenPage() {
                   />
 
                   {/* ── CARD HEADER ── */}
-                  <div className="p-3.5 pb-2.5 border-b border-slate-800/80">
+                  <div className="p-3.5 pb-2.5 border-b border-slate-100">
                     <div className="flex items-center justify-between gap-2">
                       {/* Left: Dining Type & Table / Customer */}
                       <div className="flex items-center gap-2 min-w-0">
@@ -825,8 +825,8 @@ export default function KitchenPage() {
                           className={clsx(
                             "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold",
                             delivery_type === "dinein"
-                              ? "bg-sky-500/15 text-sky-400 border border-sky-500/30"
-                              : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                              ? "bg-sky-50 text-sky-600 border border-sky-200"
+                              : "bg-purple-50 text-purple-600 border border-purple-200"
                           )}
                         >
                           {delivery_type === "dinein" ? (
@@ -837,10 +837,10 @@ export default function KitchenPage() {
                         </div>
 
                         <div className="truncate">
-                          <p className="font-black text-sm text-white truncate leading-tight">
+                          <p className="font-black text-sm text-slate-900 truncate leading-tight">
                             {table_id ? table_title : (customer_name || `${delivery_type}`).toUpperCase()}
                           </p>
-                          <p className="text-[10px] font-semibold text-slate-400 truncate">
+                          <p className="text-[10px] font-semibold text-slate-500 truncate">
                             {floor ? floor : `${delivery_type} • ${customer_type || "Guest"}`}
                           </p>
                         </div>
@@ -849,7 +849,7 @@ export default function KitchenPage() {
                       {/* Right: Ticket Token # & Live Timer Pill */}
                       <div className="flex items-center gap-1.5 shrink-0">
                         {/* Token Badge */}
-                        <span className="px-2 py-1 rounded-lg font-black text-xs bg-slate-800 text-white border border-slate-700 shadow-sm">
+                        <span className="px-2 py-1 rounded-lg font-black text-xs bg-slate-900 text-white border border-slate-900 shadow-sm">
                           #{token_no}
                         </span>
 
@@ -860,8 +860,8 @@ export default function KitchenPage() {
                             isUrgent
                               ? "bg-rose-500 text-white border-rose-600 animate-pulse"
                               : isWarning
-                              ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                              : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                              ? "bg-amber-50 text-amber-700 border-amber-300"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
                           )}
                         >
                           <IconClock size={13} stroke={iconStroke} />
@@ -873,7 +873,7 @@ export default function KitchenPage() {
 
                   {/* ── CARD BODY (ORDER ITEMS) ── */}
                   <div className="p-3.5 flex-1 flex flex-col justify-between">
-                    <div className="flex flex-col divide-y divide-slate-800/60">
+                    <div className="flex flex-col divide-y divide-slate-100">
                       {displayItems.map((item, itemIdx) => {
                         const {
                           id: orderItemId,
@@ -920,10 +920,10 @@ export default function KitchenPage() {
                               className={clsx(
                                 "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition active:scale-90 border mt-0.5",
                                 isCompleted
-                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-300"
                                   : isPreparing
-                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/50 animate-pulse"
-                                  : "bg-slate-800 hover:bg-slate-700 text-slate-400 border-slate-700 hover:border-slate-500"
+                                  ? "bg-amber-50 text-amber-600 border-amber-300 animate-pulse"
+                                  : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-300 hover:border-slate-400"
                               )}
                               title={
                                 isCreated
@@ -940,7 +940,7 @@ export default function KitchenPage() {
                                 <IconClock size={16} stroke={iconStroke} />
                               )}
                               {isCreated && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-slate-600" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
                               )}
                             </button>
 
@@ -958,15 +958,15 @@ export default function KitchenPage() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
                                   className={clsx(
-                                    "font-bold text-xs text-slate-100",
-                                    isCompleted && "line-through text-slate-500"
+                                    "font-bold text-xs text-slate-900",
+                                    isCompleted && "line-through text-slate-400"
                                   )}
                                 >
                                   {item_title}
                                   {variant_title ? ` (${variant_title})` : ""}
                                 </span>
 
-                                <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-slate-800 text-amber-400 border border-slate-700">
+                                <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-amber-50 text-amber-700 border border-amber-200">
                                   x{quantity}
                                 </span>
 
@@ -977,7 +977,7 @@ export default function KitchenPage() {
                                     style={{
                                       backgroundColor: `${station_color || "#3b82f6"}22`,
                                       borderColor: `${station_color || "#3b82f6"}55`,
-                                      color: station_color || "#60a5fa",
+                                      color: station_color || "#2563eb",
                                     }}
                                   >
                                     <span
@@ -991,14 +991,14 @@ export default function KitchenPage() {
 
                               {/* Modifiers / Addons */}
                               {addonsText && (
-                                <p className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
                                   + {addonsText}
                                 </p>
                               )}
 
                               {/* Kitchen Notes / Allergy Alert */}
                               {notes && (
-                                <div className="mt-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-bold inline-flex items-center gap-1">
+                                <div className="mt-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-bold inline-flex items-center gap-1">
                                   <IconAlertCircle size={12} stroke={iconStroke} />
                                   <span>Note: {notes}</span>
                                 </div>
@@ -1011,7 +1011,7 @@ export default function KitchenPage() {
                                 <button
                                   type="button"
                                   onClick={() => btnStartPreparingOrderItem(orderItemId)}
-                                  className="h-7 px-2 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
+                                  className="h-7 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
                                 >
                                   Start
                                 </button>
@@ -1020,7 +1020,7 @@ export default function KitchenPage() {
                                 <button
                                   type="button"
                                   onClick={() => btnCompletePreparingOrderItem(orderItemId)}
-                                  className="h-7 px-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
+                                  className="h-7 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
                                 >
                                   Done
                                 </button>
@@ -1036,7 +1036,7 @@ export default function KitchenPage() {
                   </div>
 
                   {/* ── CARD FOOTER (PRO BUMPER BAR ≥ 48px) ── */}
-                  <div className="p-3 bg-[#111219] border-t border-slate-800/80 flex items-center gap-2">
+                  <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
                     {/* Quick Start All (if unstarted items exist) */}
                     {hasUnstartedItems && (
                       <button
@@ -1044,7 +1044,7 @@ export default function KitchenPage() {
                         onClick={() =>
                           btnMarkOrderAllItems(orderId, "preparing", ["created"])
                         }
-                        className="h-12 px-3.5 rounded-xl bg-amber-600/25 hover:bg-amber-600/35 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shrink-0"
+                        className="h-12 px-3.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-800 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shrink-0"
                         title="Start making all items on this ticket"
                       >
                         <IconPlayerPlay size={16} stroke={iconStroke} />
@@ -1062,13 +1062,13 @@ export default function KitchenPage() {
                             "preparing",
                           ])
                         }
-                        className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition active:scale-[0.98] border border-emerald-500/50"
+                        className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 transition active:scale-[0.98] border border-emerald-500/50"
                       >
                         <IconCheck size={20} stroke={iconStroke} />
                         <span>BUMP TICKET</span>
                       </button>
                     ) : (
-                      <div className="flex-1 h-12 rounded-xl bg-slate-800/60 border border-slate-700/60 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5">
+                      <div className="flex-1 h-12 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center gap-1.5">
                         <IconChecks size={18} stroke={iconStroke} />
                         <span>Ticket Completed</span>
                       </div>
@@ -1083,17 +1083,17 @@ export default function KitchenPage() {
 
       {/* ── RECALL SLIDE-OUT DRAWER ── */}
       {isRecallOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm transition-opacity">
-          <div className="w-full max-w-md bg-[#13141c] border-l border-slate-800 h-full flex flex-col shadow-2xl p-4 md:p-6 text-slate-100">
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm transition-opacity">
+          <div className="w-full max-w-md bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl p-4 md:p-6 text-slate-900">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-amber-400">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                   <IconHistory size={20} stroke={iconStroke} />
                 </div>
                 <div>
-                  <h2 className="font-black text-base text-white">Recall Tickets</h2>
-                  <p className="text-xs text-slate-400">
+                  <h2 className="font-black text-base text-slate-900">Recall Tickets</h2>
+                  <p className="text-xs text-slate-500">
                     Recently completed kitchen orders
                   </p>
                 </div>
@@ -1102,7 +1102,7 @@ export default function KitchenPage() {
               <button
                 type="button"
                 onClick={() => setIsRecallOpen(false)}
-                className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition"
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition"
               >
                 <IconX size={18} stroke={iconStroke} />
               </button>
@@ -1123,14 +1123,14 @@ export default function KitchenPage() {
                   return (
                     <div
                       key={cOrder.id}
-                      className="p-3.5 rounded-xl bg-[#1a1b26] border border-slate-800 flex flex-col gap-2.5 shadow-md"
+                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5 shadow-sm"
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-sm text-white">
+                          <span className="font-bold text-sm text-slate-900">
                             {cOrder.table_id ? cOrder.table_title : cOrder.delivery_type.toUpperCase()}
                           </span>
-                          <span className="ml-2 font-black text-xs text-amber-400">
+                          <span className="ml-2 font-black text-xs text-amber-600">
                             #{cOrder.token_no}
                           </span>
                         </div>
@@ -1149,13 +1149,13 @@ export default function KitchenPage() {
                       </div>
 
                       {/* Items Summary */}
-                      <div className="text-xs text-slate-400 border-t border-slate-800/80 pt-2 flex flex-col gap-1">
+                      <div className="text-xs text-slate-500 border-t border-slate-200 pt-2 flex flex-col gap-1">
                         {cOrder.items.map((it, idx) => (
                           <div key={idx} className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-300">
+                            <span className="text-slate-700">
                               {it.quantity}x {it.item_title}
                             </span>
-                            <span className="text-emerald-400 font-semibold text-[10px]">
+                            <span className="text-emerald-600 font-semibold text-[10px]">
                               Completed
                             </span>
                           </div>
