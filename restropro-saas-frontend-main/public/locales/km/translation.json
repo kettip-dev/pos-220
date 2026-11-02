@@ -896,7 +896,15 @@
     "coupons_and_offers": "ប្រូម៉ូសិន និងការផ្តល់ជូនពិសេស",
     "promotions_discount": "ការបញ្ចុះតម្លៃប្រូម៉ូសិន",
     "socket_connected": "ការតភ្ជាប់បន្តផ្ទាល់សកម្ម",
-    "socket_connecting": "កំពុងភ្ជាប់..."
+    "socket_connecting": "កំពុងភ្ជាប់...",
+    "live": "ផ្ទាល់",
+    "offline": "ក្រៅបណ្ដាញ",
+    "longest_wait_metric": "រង់ចាំយូរបំផុត",
+    "items_ready": "{{done}}/{{total}} រួចរាល់",
+    "sort_oldest": "ចាស់ជាងគេមុន",
+    "sort_newest": "ថ្មីជាងគេមុន",
+    "more_actions": "បន្ថែម",
+    "elapsed_time": "រយៈពេលតាំងពីកុម្ម៉ង់"
   },
   "no_access": {
     "title": "គ្មានសិទ្ធិចូលប្រើប្រាស់ទេ",

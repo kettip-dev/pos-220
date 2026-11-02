@@ -847,7 +847,15 @@
     "total": "Total Payable",
     "void_item": "Void / Cancel item",
     "socket_connected": "Live Socket Sync Active",
-    "socket_connecting": "Connecting..."
+    "socket_connecting": "Connecting...",
+    "live": "Live",
+    "offline": "Offline",
+    "longest_wait_metric": "Longest Wait",
+    "items_ready": "{{done}}/{{total}} ready",
+    "sort_oldest": "Oldest first",
+    "sort_newest": "Newest first",
+    "more_actions": "More",
+    "elapsed_time": "Time since order"
   },
   "no_access": {
     "title": "Oops! You don't have access to this area! Relogin to check again.",
