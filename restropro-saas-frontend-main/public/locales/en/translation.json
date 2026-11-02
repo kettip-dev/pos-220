@@ -255,6 +255,21 @@
     "special_notes": "Special Requests & Notes",
     "notes_placeholder": "Dietary allergies, high chair, birthday, window preference...",
     "saving": "Saving...",
+    "drawer": {
+      "subtitle": "Book a table for upcoming restaurant dining",
+      "editing_subtitle": "Editing reservation #{{code}}",
+      "customer_placeholder": "Search name or phone...",
+      "customer_hint": "Select an existing customer or type to add.",
+      "create_customer": "Add new customer \"{{name}}\"",
+      "add_new_customer": "Add New",
+      "pick_date": "Pick a date",
+      "time": "Time",
+      "other_time": "Other time",
+      "decrease_guests": "Fewer guests",
+      "increase_guests": "More guests",
+      "no_table": "No table yet",
+      "capacity_warning": "Party size ({{people}}) exceeds table capacity ({{capacity}})."
+    },
     "filters": {
       "today": "Today",
       "yesterday": "Yesterday",
