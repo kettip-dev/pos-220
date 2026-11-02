@@ -27,8 +27,9 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
   const { data: storeSettingsData } = useStoreSettings();
   const storeLogo = storeSettingsData?.storeImage;
   const storeName = storeSettingsData?.storeName;
+  const isKitchenEnabled = storeSettingsData?.isKitchenEnabled !== false;
 
-  const operationalNavTabs = [
+  const rawNavTabs = [
     {
       id: "tables",
       shortLabel: t("navbar.tables_short", "Tables"),
@@ -65,6 +66,11 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
       path: "/dashboard/reservation",
     },
   ];
+
+  const operationalNavTabs = rawNavTabs.filter((tab) => {
+    if (tab.id === "kitchen" && !isKitchenEnabled) return false;
+    return true;
+  });
 
   const isTabActive = (itemPath) => {
     return location.pathname.startsWith(itemPath);

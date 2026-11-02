@@ -48,6 +48,7 @@ exports.getStoreDetails = async (req, res) => {
             businessType: result?.business_type || 'restaurant',
             exchangeRateUsdToKhr: Number(result?.exchange_rate_usd_to_khr || 4100),
             posPaymentMode: result?.pos_payment_mode || 'flexible',
+            isKitchenEnabled: result?.is_kitchen_enabled !== 0 && result?.is_kitchen_enabled !== false,
             image: result?.image || null,
             isQRMenuEnabled: result?.is_qr_menu_enabled || false,
             isQROrderEnabled: result?.is_qr_order_enabled || false,
@@ -82,15 +83,16 @@ exports.setStoreDetails = async (req, res) => {
         const isFeedbackEnabled = req.body.isFeedbackEnabled;
         const exchangeRateUsdToKhr = req.body.exchangeRateUsdToKhr ? Number(req.body.exchangeRateUsdToKhr) : 4100;
         const posPaymentMode = req.body.posPaymentMode || 'flexible';
+        const isKitchenEnabled = req.body.isKitchenEnabled !== undefined ? Boolean(req.body.isKitchenEnabled) : true;
 
         const uniqueQRCode = nanoid();
 
         const qrCodeExists = await getQRMenuCodeDB(tenantId);
         if(qrCodeExists) {
-            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr, isQROrderAutoKitchen, posPaymentMode);
+            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr, isQROrderAutoKitchen, posPaymentMode, isKitchenEnabled);
         } else {
             await updateQRMenuCodeDB(uniqueQRCode, tenantId);
-            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr, isQROrderAutoKitchen, posPaymentMode);
+            await setStoreSettingDB(storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr, isQROrderAutoKitchen, posPaymentMode, isKitchenEnabled);
         }
 
         return res.status(200).json({

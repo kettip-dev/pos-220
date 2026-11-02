@@ -64,6 +64,7 @@ export default function MenuItemViewPage() {
   // Store settings for currency
   const { data: storeSettings } = useStoreSettings();
   const currency = storeSettings?.currency || "$";
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
 
   const formatPrice = (val) => {
     const num = Number(val);
@@ -1231,39 +1232,41 @@ export default function MenuItemViewPage() {
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="kitchenStation"
-                  className="text-xs font-bold uppercase tracking-wide mb-1.5 block text-gray-500 flex items-center gap-1.5"
-                >
-                  <IconChefHat size={15} stroke={iconStroke} />
-                  Kitchen Station
-                </label>
-                <select
-                  id="kitchenStation"
-                  value={formKitchenStationId}
-                  onChange={(e) => setFormKitchenStationId(e.target.value)}
-                  name="kitchenStation"
-                  className="min-h-[44px] text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray"
-                >
-                  <option value="">
-                    {category_kitchen_station_name
-                      ? `Category Default (${category_kitchen_station_name})`
-                      : "Category Default (Auto-routes by category)"}
-                  </option>
-                  {stations
-                    ?.filter((s) => s.is_enabled)
-                    ?.map((station) => (
-                      <option value={String(station.id)} key={station.id}>
-                        {station.name}
-                      </option>
-                    ))}
-                </select>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Override kitchen station routing for this item, or leave as
-                  Category Default.
-                </p>
-              </div>
+              {isKitchenEnabled && (
+                <div>
+                  <label
+                    htmlFor="kitchenStation"
+                    className="text-xs font-bold uppercase tracking-wide mb-1.5 block text-gray-500 flex items-center gap-1.5"
+                  >
+                    <IconChefHat size={15} stroke={iconStroke} />
+                    Kitchen Station
+                  </label>
+                  <select
+                    id="kitchenStation"
+                    value={formKitchenStationId}
+                    onChange={(e) => setFormKitchenStationId(e.target.value)}
+                    name="kitchenStation"
+                    className="min-h-[44px] text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray"
+                  >
+                    <option value="">
+                      {category_kitchen_station_name
+                        ? `Category Default (${category_kitchen_station_name})`
+                        : "Category Default (Auto-routes by category)"}
+                    </option>
+                    {stations
+                      ?.filter((s) => s.is_enabled)
+                      ?.map((station) => (
+                        <option value={String(station.id)} key={station.id}>
+                          {station.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Override kitchen station routing for this item, or leave as
+                    Category Default.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

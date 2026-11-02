@@ -1,5 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useStoreSettings } from "../controllers/settings.controller";
 import Page from "../components/Page";
 import { iconStroke } from "../config/config";
 import {
@@ -67,8 +69,18 @@ const formatElapsedTime = (totalSeconds) => {
 
 export default function KitchenPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = getUserDetailsInLocalStorage();
   const { socket, isSocketConnected } = useContext(SocketContext);
+
+  const { data: storeSettings, isLoading: isSettingsLoading } = useStoreSettings();
+
+  useEffect(() => {
+    if (!isSettingsLoading && storeSettings && storeSettings.isKitchenEnabled === false) {
+      toast.error(t("kitchen.disabled_notice", "Kitchen / KDS workflow is disabled for this store."));
+      navigate("/dashboard/pos", { replace: true });
+    }
+  }, [storeSettings, isSettingsLoading, navigate]);
 
   // Kitchen Stations hook
   const { data: stations = [] } = useKitchenStations();

@@ -3,7 +3,7 @@ const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
 
-exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0) => {
+exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created') => {
   const conn = await getMySqlPromiseConnection();
 
   try {
@@ -37,8 +37,8 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     const groupDiscount = Number(customerGroupDiscountTotal || 0);
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username]
+      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created']
     );
 
     const orderId = orderResult.insertId;
@@ -67,9 +67,11 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
       });
     }
 
+    const itemStatus = orderStatus === 'completed' ? 'completed' : 'created';
+
     const sqlOrderItems = `
     INSERT INTO order_items
-    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id)
+    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status)
     VALUES ?
     `;
 
@@ -89,7 +91,8 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
                 ? JSON.stringify(item.addons.map(a => typeof a === 'object' && a !== null ? a.id : a).filter(Boolean))
                 : null),
           tenantId,
-          stationId ? Number(stationId) : null
+          stationId ? Number(stationId) : null,
+          itemStatus
         ];
       })
     ]);

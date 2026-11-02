@@ -193,6 +193,11 @@ export async function triggerPrintReceipt(details) {
  * 3. 'browser': Standard browser print popup.
  */
 export async function triggerPrintToken(details) {
+  if (details?.storeSettings?.isKitchenEnabled === false || details?.storeSettings?.is_kitchen_enabled === 0) {
+    // Kitchen workflow is disabled for this store: suppress Kitchen Order Tickets
+    return;
+  }
+
   setDetailsForReceiptPrint(details);
 
   const printSettings = details?.printSettings || {};

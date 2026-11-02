@@ -80,7 +80,8 @@ export function useQBOAccess() {
   return { hasAccess, userRole, userScopes, userPlanFeatures };
 }
 
-export function getQBOAppCategories(t) {
+export function getQBOAppCategories(t, options = {}) {
+  const isKitchenEnabled = options.isKitchenEnabled !== false;
   return [
     {
       id: "dashboard",
@@ -393,12 +394,12 @@ export function getQBOAppCategories(t) {
           scopes: [SCOPES.SETTINGS],
           features: [PLAN_FEATURES.SETTINGS],
         },
-        {
+        ...(isKitchenEnabled ? [{
           label: t("navbar.kitchen_stations", "Kitchen Stations"),
           path: "/dashboard/settings/kitchen-stations",
           scopes: [SCOPES.SETTINGS],
           features: [PLAN_FEATURES.SETTINGS],
-        },
+        }] : []),
         {
           label: t("navbar.tables_settings", "Tables & Floor Setup"),
           path: "/dashboard/settings/tables",
@@ -486,7 +487,8 @@ export default function QBONavigation({ children }) {
   const { hasAccess } = useQBOAccess();
   const user = getUserDetailsInLocalStorage();
 
-  const rawCategories = useMemo(() => getQBOAppCategories(t), [t]);
+  const isKitchenEnabled = storeSettingsData?.isKitchenEnabled !== false;
+  const rawCategories = useMemo(() => getQBOAppCategories(t, { isKitchenEnabled }), [t, isKitchenEnabled]);
 
   // Filter categories and subitems strictly by active tenant permissions
   const categories = useMemo(() => {

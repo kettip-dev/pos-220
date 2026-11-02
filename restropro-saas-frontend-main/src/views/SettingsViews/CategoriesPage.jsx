@@ -15,6 +15,7 @@ import {
   deleteCategory,
   updateCategory,
   useCategories,
+  useStoreSettings,
   changeCategoryVisibilty,
 } from "../../controllers/settings.controller";
 import { useMenuItems } from "../../controllers/menu_item.controller";
@@ -50,6 +51,8 @@ export default function CategoriesPage() {
   const { APIURL, data: categories, error, isLoading } = useCategories();
   const { data: menuItems } = useMenuItems();
   const { data: stations } = useKitchenStations();
+  const { data: storeSettings } = useStoreSettings();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
 
   // Count items per category
   const itemCounts = useMemo(() => {
@@ -254,7 +257,7 @@ export default function CategoriesPage() {
                     {is_enabled ? t("menu_items.active", "Visible") : t("menu_items.hidden", "Hidden")}
                   </span>
                   {/* Station badge */}
-                  {kitchen_station_name && (
+                  {isKitchenEnabled && kitchen_station_name && (
                     <span
                       className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border border-black/5 dark:border-white/10"
                       style={{
@@ -337,26 +340,28 @@ export default function CategoriesPage() {
                 placeholder={t("categories.enter_category_title")}
               />
             </div>
-            <div className="mb-4">
-              <label className="mb-1 block text-gray-500 text-sm font-medium">
-                Kitchen Station
-              </label>
-              <select
-                value={addStationId}
-                onChange={(e) => setAddStationId(e.target.value)}
-                className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
-              >
-                <option value="">Default (Master Kitchen)</option>
-                {(Array.isArray(stations) ? stations : []).filter(s => s.is_enabled)?.map((station) => (
-                  <option key={station.id} value={station.id}>
-                    {station.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-gray-400 mt-1">
-                Items in this category route to this station by default.
-              </p>
-            </div>
+            {isKitchenEnabled && (
+              <div className="mb-4">
+                <label className="mb-1 block text-gray-500 text-sm font-medium">
+                  Kitchen Station
+                </label>
+                <select
+                  value={addStationId}
+                  onChange={(e) => setAddStationId(e.target.value)}
+                  className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
+                >
+                  <option value="">Default (Master Kitchen)</option>
+                  {(Array.isArray(stations) ? stations : []).filter(s => s.is_enabled)?.map((station) => (
+                    <option key={station.id} value={station.id}>
+                      {station.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Items in this category route to this station by default.
+                </p>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setIsAddOpen(false)}
@@ -406,26 +411,28 @@ export default function CategoriesPage() {
                 placeholder={t("categories.enter_category_title")}
               />
             </div>
-            <div className="mb-4">
-              <label className="mb-1 block text-gray-500 text-sm font-medium">
-                Kitchen Station
-              </label>
-              <select
-                value={editStationId}
-                onChange={(e) => setEditStationId(e.target.value)}
-                className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
-              >
-                <option value="">Default (Master Kitchen)</option>
-                {(Array.isArray(stations) ? stations : []).filter(s => s.is_enabled)?.map((station) => (
-                  <option key={station.id} value={station.id}>
-                    {station.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-gray-400 mt-1">
-                Items in this category route to this station by default.
-              </p>
-            </div>
+            {isKitchenEnabled && (
+              <div className="mb-4">
+                <label className="mb-1 block text-gray-500 text-sm font-medium">
+                  Kitchen Station
+                </label>
+                <select
+                  value={editStationId}
+                  onChange={(e) => setEditStationId(e.target.value)}
+                  className="text-sm w-full rounded-xl px-3 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green min-h-[42px]"
+                >
+                  <option value="">Default (Master Kitchen)</option>
+                  {(Array.isArray(stations) ? stations : []).filter(s => s.is_enabled)?.map((station) => (
+                    <option key={station.id} value={station.id}>
+                      {station.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Items in this category route to this station by default.
+                </p>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setEditCategory(null)}

@@ -220,7 +220,7 @@ exports.placeOrderViaQrMenu = async (req, res) => {
     let kitchenOrderId = null;
     let tokenNo = null;
 
-    if (Boolean(storeSettings?.is_qr_order_auto_kitchen)) {
+    if (Boolean(storeSettings?.is_qr_order_auto_kitchen) && storeSettings?.is_kitchen_enabled !== 0 && storeSettings?.is_kitchen_enabled !== false) {
       const approved = await approveQROrderDB(tenantId, result.orderId, null);
       autoSentToKitchen = true;
       kitchenOrderId = approved.orderId;

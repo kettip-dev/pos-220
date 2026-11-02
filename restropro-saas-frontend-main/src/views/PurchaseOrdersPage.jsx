@@ -30,6 +30,12 @@ import {
   IconArrowLeft,
   IconDownload,
   IconSettings,
+  IconBuildingStore,
+  IconPhone,
+  IconUser,
+  IconSparkles,
+  IconPackage,
+  IconMail,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import toast from "react-hot-toast";
@@ -177,8 +183,326 @@ export default function PurchaseOrdersPage() {
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [poItems, setPoItems] = useState([
-    { inventory_item_id: "", name: "", unit: "pc", quantity: 1, unit_cost: 0 },
+    { inventory_item_id: "", name: "", unit: "pc", current_stock: null, min_quantity_threshold: null, quantity: 1, unit_cost: 0 },
   ]);
+
+  // Supplier Combobox State
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [isSupplierOpen, setIsSupplierOpen] = useState(false);
+
+  // Item Drop Table List State
+  const [itemSearch, setItemSearch] = useState("");
+  const [isItemPickerOpen, setIsItemPickerOpen] = useState(false);
+  const [itemFilterTab, setItemFilterTab] = useState("all"); // "all" | "low" | "out"
+
+  // Selected supplier object from directory
+  const selectedSupplier = useMemo(() => {
+    if (!selectedVendorId) return null;
+    return (suppliers || []).find((s) => String(s.id) === String(selectedVendorId)) || null;
+  }, [suppliers, selectedVendorId]);
+
+  // Filtered suppliers based on search query
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearch.trim()) return suppliers || [];
+    const q = supplierSearch.toLowerCase().trim();
+    return (suppliers || []).filter(
+      (s) =>
+        s.name?.toLowerCase().includes(q) ||
+        s.contact_person?.toLowerCase().includes(q) ||
+        s.phone?.toLowerCase().includes(q) ||
+        s.email?.toLowerCase().includes(q)
+    );
+  }, [suppliers, supplierSearch]);
+
+  const handleSelectSupplier = (s) => {
+    setSelectedVendorId(String(s.id));
+    setVendorName(s.name || "");
+    setContactPerson(s.contact_person || "");
+    setPhone(s.phone || "");
+    setSupplierSearch("");
+    setIsSupplierOpen(false);
+  };
+
+  const handleSetCustomSupplier = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSelectedVendorId("");
+    setVendorName(trimmed);
+    setSupplierSearch("");
+    setIsSupplierOpen(false);
+  };
+
+  const handleClearSupplier = () => {
+    setSelectedVendorId("");
+    setVendorName("");
+    setContactPerson("");
+    setPhone("");
+    setSupplierSearch("");
+  };
+
+  // Counts for catalog tabs
+  const catalogCounts = useMemo(() => {
+    const all = (inventoryItems || []).length;
+    let low = 0;
+    let out = 0;
+    for (const it of inventoryItems || []) {
+      const q = parseFloat(it.quantity || 0);
+      const th = parseFloat(it.min_quantity_threshold || 0);
+      if (q <= 0) out++;
+      else if (q <= th) low++;
+    }
+    return { all, low, out };
+  }, [inventoryItems]);
+
+  // Filtered catalog items for drop table list
+  const filteredCatalog = useMemo(() => {
+    let list = inventoryItems || [];
+
+    if (itemFilterTab === "low") {
+      list = list.filter((i) => {
+        const q = parseFloat(i.quantity || 0);
+        const th = parseFloat(i.min_quantity_threshold || 0);
+        return q <= th && q > 0;
+      });
+    } else if (itemFilterTab === "out") {
+      list = list.filter((i) => parseFloat(i.quantity || 0) <= 0);
+    }
+
+    if (itemSearch.trim()) {
+      const q = itemSearch.toLowerCase().trim();
+      list = list.filter(
+        (i) =>
+          i.title?.toLowerCase().includes(q) ||
+          i.unit?.toLowerCase().includes(q) ||
+          String(i.id).includes(q)
+      );
+    }
+
+    return list;
+  }, [inventoryItems, itemFilterTab, itemSearch]);
+
+  // Add catalog item to poItems
+  const handleAddCatalogItem = (catItem) => {
+    setPoItems((prev) => {
+      const existingIdx = prev.findIndex(
+        (it) => String(it.inventory_item_id) === String(catItem.id)
+      );
+      if (existingIdx >= 0) {
+        const copy = [...prev];
+        const curQty = parseFloat(copy[existingIdx].quantity || 0);
+        copy[existingIdx] = {
+          ...copy[existingIdx],
+          quantity: Math.round((curQty + 1) * 100) / 100,
+        };
+        toast.success(`Incremented ${catItem.title} quantity to ${copy[existingIdx].quantity}`);
+        return copy;
+      }
+
+      const curStock = parseFloat(catItem.quantity || 0);
+      const threshold = parseFloat(catItem.min_quantity_threshold || 0);
+      const newItem = {
+        inventory_item_id: catItem.id,
+        name: catItem.title,
+        unit: catItem.unit || "pc",
+        current_stock: curStock,
+        min_quantity_threshold: threshold,
+        quantity: 1,
+        unit_cost: 0,
+      };
+
+      if (prev.length === 1 && !prev[0].name && !prev[0].inventory_item_id) {
+        toast.success(`Added ${catItem.title}`);
+        return [newItem];
+      }
+
+      toast.success(`Added ${catItem.title}`);
+      return [...prev, newItem];
+    });
+  };
+
+  // Add custom item from search input
+  const handleAddCustomItem = () => {
+    if (!itemSearch.trim()) return;
+    const name = itemSearch.trim();
+    setPoItems((prev) => {
+      const newItem = {
+        inventory_item_id: "",
+        name,
+        unit: "pc",
+        current_stock: null,
+        min_quantity_threshold: null,
+        quantity: 1,
+        unit_cost: 0,
+      };
+      if (prev.length === 1 && !prev[0].name && !prev[0].inventory_item_id) {
+        return [newItem];
+      }
+      return [...prev, newItem];
+    });
+    toast.success(`Added "${name}" as custom restock item`);
+    setItemSearch("");
+    setIsItemPickerOpen(false);
+  };
+
+  // Add empty custom item line directly
+  const handleAddEmptyCustomRow = () => {
+    setPoItems((prev) => [
+      ...prev,
+      {
+        inventory_item_id: "",
+        name: "",
+        unit: "pc",
+        current_stock: null,
+        min_quantity_threshold: null,
+        quantity: 1,
+        unit_cost: 0,
+      },
+    ]);
+  };
+
+  // Auto-Add all low stock or depleted items
+  const handleAutoAddLowStock = () => {
+    const lowItems = (inventoryItems || []).filter((item) => {
+      const q = parseFloat(item.quantity || 0);
+      const th = parseFloat(item.min_quantity_threshold || 0);
+      return q <= th;
+    });
+
+    if (lowItems.length === 0) {
+      toast("No low-stock or depleted items in inventory catalog.", { icon: "ℹ️" });
+      return;
+    }
+
+    setPoItems((prev) => {
+      const existingIds = new Set(
+        prev.filter((i) => i.inventory_item_id).map((i) => String(i.inventory_item_id))
+      );
+
+      const itemsToAdd = lowItems
+        .filter((item) => !existingIds.has(String(item.id)))
+        .map((item) => {
+          const curStock = parseFloat(item.quantity || 0);
+          const threshold = parseFloat(item.min_quantity_threshold || 0);
+          const targetQty = Math.max(1, Math.ceil(threshold > 0 ? threshold * 2 - curStock : 10));
+
+          return {
+            inventory_item_id: item.id,
+            name: item.title,
+            unit: item.unit || "pc",
+            current_stock: curStock,
+            min_quantity_threshold: threshold,
+            quantity: targetQty,
+            unit_cost: 0,
+          };
+        });
+
+      if (itemsToAdd.length === 0) {
+        toast("All low stock items are already added to this purchase order.", { icon: "ℹ️" });
+        return prev;
+      }
+
+      toast.success(`Added ${itemsToAdd.length} low-stock items to order!`);
+      const cleanPrev = prev.filter((i) => i.name || i.inventory_item_id);
+      return [...cleanPrev, ...itemsToAdd];
+    });
+  };
+
+  const handleRemoveItemRow = (index) => {
+    if (poItems.length === 1) {
+      setPoItems([
+        {
+          inventory_item_id: "",
+          name: "",
+          unit: "pc",
+          current_stock: null,
+          min_quantity_threshold: null,
+          quantity: 1,
+          unit_cost: 0,
+        },
+      ]);
+      return;
+    }
+    setPoItems((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    setPoItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  // Stock badge rendering helper
+  const renderStockBadge = (stockQty, threshold) => {
+    if (stockQty === null || stockQty === undefined) {
+      return <span className="text-gray-400 font-mono text-xs">—</span>;
+    }
+    const q = parseFloat(stockQty);
+    const th = parseFloat(threshold || 0);
+
+    if (q <= 0) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40">
+          Out ({q})
+        </span>
+      );
+    }
+    if (q <= th) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+          Low ({q})
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
+        {q} in stock
+      </span>
+    );
+  };
+
+  // Live order calculations
+  const orderSummary = useMemo(() => {
+    const validLines = poItems.filter((i) => (i.name && i.name.trim()) || i.inventory_item_id);
+    let totalUnits = 0;
+    let totalCost = 0;
+    for (const it of validLines) {
+      const q = parseFloat(it.quantity) || 0;
+      const c = parseFloat(it.unit_cost) || 0;
+      totalUnits += q;
+      totalCost += q * c;
+    }
+    return {
+      lineCount: validLines.length,
+      totalUnits: Math.round(totalUnits * 100) / 100,
+      totalCost,
+    };
+  }, [poItems]);
+
+  const resetCreateForm = () => {
+    setSelectedVendorId("");
+    setVendorName("");
+    setContactPerson("");
+    setPhone("");
+    setNotes("");
+    setSupplierSearch("");
+    setIsSupplierOpen(false);
+    setItemSearch("");
+    setIsItemPickerOpen(false);
+    setItemFilterTab("all");
+    setPoItems([
+      {
+        inventory_item_id: "",
+        name: "",
+        unit: "pc",
+        current_stock: null,
+        min_quantity_threshold: null,
+        quantity: 1,
+        unit_cost: 0,
+      },
+    ]);
+  };
 
   // Check URL query parameters for pre-selected vendor or action
   useEffect(() => {
@@ -201,71 +525,6 @@ export default function PurchaseOrdersPage() {
     }
   }, [location.search, suppliers]);
 
-  const handleVendorSelect = (vId) => {
-    setSelectedVendorId(vId);
-    const found = suppliers.find((s) => String(s.id) === String(vId));
-    if (found) {
-      setVendorName(found.name);
-      setContactPerson(found.contact_person || "");
-      setPhone(found.phone || "");
-    } else {
-      setVendorName("");
-      setContactPerson("");
-      setPhone("");
-    }
-  };
-
-  const handleAddItemRow = () => {
-    setPoItems((prev) => [
-      ...prev,
-      { inventory_item_id: "", name: "", unit: "pc", quantity: 1, unit_cost: 0 },
-    ]);
-  };
-
-  const handleRemoveItemRow = (index) => {
-    if (poItems.length === 1) return;
-    setPoItems((prev) => prev.filter((_, idx) => idx !== index));
-  };
-
-  const handleItemSelect = (index, invItemId) => {
-    const found = inventoryItems.find((i) => String(i.id) === String(invItemId));
-    setPoItems((prev) => {
-      const copy = [...prev];
-      if (found) {
-        copy[index] = {
-          ...copy[index],
-          inventory_item_id: found.id,
-          name: found.title,
-          unit: found.unit || "pc",
-        };
-      } else {
-        copy[index] = {
-          ...copy[index],
-          inventory_item_id: "",
-          name: "",
-          unit: "pc",
-        };
-      }
-      return copy;
-    });
-  };
-
-  const handleItemChange = (index, field, value) => {
-    setPoItems((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: value };
-      return copy;
-    });
-  };
-
-  const calculatedTotal = useMemo(() => {
-    return poItems.reduce((sum, item) => {
-      const q = parseFloat(item.quantity) || 0;
-      const c = parseFloat(item.unit_cost) || 0;
-      return sum + q * c;
-    }, 0);
-  }, [poItems]);
-
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
 
@@ -274,7 +533,8 @@ export default function PurchaseOrdersPage() {
       return;
     }
 
-    if (poItems.length === 0 || !poItems[0].name) {
+    const validItems = poItems.filter((it) => it.name && it.name.trim());
+    if (validItems.length === 0) {
       toast.error(t("purchase_orders.item_required", "Please add at least one item to the purchase order."));
       return;
     }
@@ -283,18 +543,16 @@ export default function PurchaseOrdersPage() {
       setIsSubmitting(true);
       await createPurchaseOrder({
         vendorId: selectedVendorId ? Number(selectedVendorId) : null,
-        vendorName,
-        contactPerson,
-        phone,
-        notes,
-        items: poItems,
+        vendorName: vendorName.trim(),
+        contactPerson: contactPerson.trim(),
+        phone: phone.trim(),
+        notes: notes.trim(),
+        items: validItems,
       });
 
       toast.success(t("purchase_orders.created_success", "Purchase Order created successfully!"));
       setIsCreateModalOpen(false);
-      // Reset form
-      setPoItems([{ inventory_item_id: "", name: "", unit: "pc", quantity: 1, unit_cost: 0 }]);
-      setNotes("");
+      resetCreateForm();
       mutate();
     } catch (err) {
       console.error(err);
@@ -911,197 +1169,648 @@ export default function PurchaseOrdersPage() {
 
       {/* Create Purchase Order Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl border border-gray-100 dark:border-neutral-800 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-4xl lg:max-w-5xl max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 dark:border-neutral-800 overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <IconReceipt2 size={20} className="text-emerald-600" />
-                <span>{t("purchase_orders.create_title", "Create Purchase Order to Supplier")}</span>
-              </h2>
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-neutral-800 flex items-center justify-between bg-slate-50/50 dark:bg-neutral-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <IconReceipt2 size={22} stroke={iconStroke} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    {t("purchase_orders.create_title", "Create Purchase Order to Supplier")}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t("purchase_orders.create_subtitle", "Search catalog items, review live inventory stock, and dispatch PO to vendor.")}
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 transition"
+                type="button"
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  resetCreateForm();
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-neutral-800 transition"
               >
                 <IconX size={18} />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    {t("purchase_orders.form_select_supplier", "Select Supplier from Directory")}
-                  </label>
-                  <select
-                    value={selectedVendorId}
-                    onChange={(e) => handleVendorSelect(e.target.value)}
-                    className="w-full min-h-[42px] px-3 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="">-- Choose Supplier or type name below --</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.phone || "No phone"})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                    {t("purchase_orders.form_supplier_name", "Supplier Name")} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={vendorName}
-                    onChange={(e) => setVendorName(e.target.value)}
-                    placeholder="e.g. CP Cambodia, Lucky Farm"
-                    className="w-full min-h-[42px] px-3.5 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              {/* Items Table Section */}
-              <div className="pt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                    {t("purchase_orders.form_items", "Restock Items & Ingredients")}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleAddItemRow}
-                    className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    <IconPlus size={14} />
-                    <span>{t("purchase_orders.add_line_item", "Add Item Line")}</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {poItems.map((row, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-xl border border-gray-100 dark:border-neutral-800 bg-gray-50/70 dark:bg-neutral-800/40 grid grid-cols-12 gap-2 items-center"
+            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+              {/* Section 1: Supplier & Delivery Details */}
+              <div className="bg-slate-50/70 dark:bg-neutral-800/40 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-neutral-700/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <IconBuildingStore size={16} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>{t("purchase_orders.supplier_details", "Supplier Information")}</span>
+                  </span>
+                  {(selectedVendorId || vendorName) && (
+                    <button
+                      type="button"
+                      onClick={handleClearSupplier}
+                      className="text-xs text-slate-500 hover:text-rose-600 transition flex items-center gap-1"
                     >
-                      <div className="col-span-12 sm:col-span-5">
-                        <select
-                          value={row.inventory_item_id || ""}
-                          onChange={(e) => handleItemSelect(idx, e.target.value)}
-                          className="w-full min-h-[38px] px-2.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs text-gray-900 dark:text-white"
-                        >
-                          <option value="">-- Catalog Item or Custom below --</option>
-                          {inventoryItems.map((inv) => (
-                            <option key={inv.id} value={inv.id}>
-                              {inv.title} (Stock: {parseFloat(inv.quantity || 0)} {inv.unit})
-                            </option>
-                          ))}
-                        </select>
-                        {!row.inventory_item_id && (
-                          <input
-                            type="text"
-                            value={row.name}
-                            onChange={(e) => handleItemChange(idx, "name", e.target.value)}
-                            placeholder="Custom item name"
-                            className="mt-1.5 w-full min-h-[36px] px-2.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs text-gray-900 dark:text-white"
-                          />
-                        )}
-                      </div>
+                      <IconX size={13} />
+                      <span>{t("common.clear", "Change Supplier")}</span>
+                    </button>
+                  )}
+                </div>
 
-                      <div className="col-span-4 sm:col-span-2">
-                        <label className="text-[10px] text-gray-400 sm:hidden">Qty</label>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0.01"
-                          required
-                          value={row.quantity}
-                          onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
-                          placeholder="Qty"
-                          className="w-full min-h-[38px] px-2.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs text-gray-900 dark:text-white"
-                        />
-                      </div>
-
-                      <div className="col-span-3 sm:col-span-2">
-                        <label className="text-[10px] text-gray-400 sm:hidden">Unit</label>
-                        <select
-                          value={row.unit}
-                          onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
-                          className="w-full min-h-[38px] px-2 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs text-gray-900 dark:text-white"
-                        >
-                          <option value="kg">kg</option>
-                          <option value="g">g</option>
-                          <option value="pc">pc</option>
-                          <option value="l">l</option>
-                          <option value="ml">ml</option>
-                        </select>
-                      </div>
-
-                      <div className="col-span-4 sm:col-span-2">
-                        <label className="text-[10px] text-gray-400 sm:hidden">Price ($)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={row.unit_cost}
-                          onChange={(e) => handleItemChange(idx, "unit_cost", e.target.value)}
-                          placeholder="Cost ($)"
-                          className="w-full min-h-[38px] px-2.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-xs text-gray-900 dark:text-white"
-                        />
-                      </div>
-
-                      <div className="col-span-1 flex justify-center">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  {/* Supplier Search Combobox */}
+                  <div className="md:col-span-6 relative">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {t("purchase_orders.supplier_combobox_label", "Select or Search Supplier")} *
+                    </label>
+                    <div className="relative">
+                      <IconBuildingStore
+                        size={18}
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={isSupplierOpen ? supplierSearch : vendorName || supplierSearch}
+                        onFocus={() => {
+                          setIsSupplierOpen(true);
+                          setSupplierSearch(vendorName);
+                        }}
+                        onChange={(e) => {
+                          setSupplierSearch(e.target.value);
+                          setVendorName(e.target.value);
+                          setIsSupplierOpen(true);
+                        }}
+                        placeholder={t("purchase_orders.search_supplier_placeholder", "Search supplier by name, phone, or contact...")}
+                        className="w-full min-h-[42px] pl-10 pr-9 text-sm rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                      {(vendorName || supplierSearch) && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveItemRow(idx)}
-                          disabled={poItems.length === 1}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 disabled:opacity-20"
+                          onClick={handleClearSupplier}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                         >
-                          <IconTrash size={16} />
+                          <IconX size={15} />
                         </button>
-                      </div>
+                      )}
                     </div>
-                  ))}
+
+                    {/* Supplier Dropdown Popover */}
+                    {isSupplierOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-30"
+                          onClick={() => setIsSupplierOpen(false)}
+                        />
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl shadow-2xl z-40 max-h-64 overflow-y-auto">
+                          {filteredSuppliers.length === 0 ? (
+                            <div className="p-3.5 text-xs text-slate-400 text-center">
+                              {t("purchase_orders.no_suppliers_found", "No registered suppliers match your search.")}
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-slate-100 dark:divide-neutral-700/60">
+                              {filteredSuppliers.map((s) => (
+                                <div
+                                  key={s.id}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectSupplier(s);
+                                  }}
+                                  className="p-3 hover:bg-emerald-50/70 dark:hover:bg-neutral-700/70 cursor-pointer transition flex items-center justify-between"
+                                >
+                                  <div>
+                                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                                      {s.name}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                                      {s.contact_person && <span>{s.contact_person}</span>}
+                                      {s.phone && (
+                                        <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                                          {s.phone}
+                                        </span>
+                                      )}
+                                      {s.city && <span>• {s.city}</span>}
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300">
+                                    Select
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {supplierSearch.trim() &&
+                            !filteredSuppliers.some(
+                              (s) => s.name?.toLowerCase() === supplierSearch.toLowerCase().trim()
+                            ) && (
+                              <div
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSetCustomSupplier(supplierSearch);
+                                }}
+                                className="p-3 border-t border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-900/60 hover:bg-emerald-50 dark:hover:bg-neutral-700/80 cursor-pointer transition text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
+                              >
+                                <IconPlus size={14} />
+                                <span>
+                                  {t("purchase_orders.use_custom_supplier", "Use \"{{name}}\" as new supplier", {
+                                    name: supplierSearch.trim(),
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Contact Person */}
+                  <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {t("purchase_orders.form_contact_person", "Contact Person")}
+                    </label>
+                    <div className="relative">
+                      <IconUser
+                        size={17}
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        type="text"
+                        value={contactPerson}
+                        onChange={(e) => setContactPerson(e.target.value)}
+                        placeholder="e.g. Sales Rep / Manager"
+                        className="w-full min-h-[42px] pl-10 pr-3 text-sm rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone */}
+                  <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {t("purchase_orders.form_phone", "Phone / Telegram")}
+                    </label>
+                    <div className="relative">
+                      <IconPhone
+                        size={17}
+                        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        type="text"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="e.g. +855 12 345 678"
+                        className="w-full min-h-[42px] pl-10 pr-3 text-sm rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Subtotal preview */}
-                <div className="mt-3 flex justify-end items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                  <span className="text-gray-500 font-normal">{t("common.subtotal", "Est. Total:")}</span>
-                  <span className="text-base font-bold text-emerald-600">${calculatedTotal.toFixed(2)}</span>
+                {/* Selected Supplier Live Card (if from directory) */}
+                {selectedSupplier && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-neutral-800 border border-emerald-200 dark:border-emerald-800/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                        <IconBuildingStore size={15} className="text-emerald-600" />
+                        {selectedSupplier.name}
+                      </span>
+                      {selectedSupplier.contact_person && (
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <IconUser size={13} /> {selectedSupplier.contact_person}
+                        </span>
+                      )}
+                      {selectedSupplier.phone && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1">
+                          <IconPhone size={13} /> {selectedSupplier.phone}
+                        </span>
+                      )}
+                      {selectedSupplier.email && (
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <IconMail size={13} /> {selectedSupplier.email}
+                        </span>
+                      )}
+                      {selectedSupplier.tax_id_no && (
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Tax ID: {selectedSupplier.tax_id_no}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/50">
+                      Directory Supplier
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 2: Restock Items & Drop Table List */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      {t("purchase_orders.form_items", "Restock Items & Ingredients")}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-300">
+                      {orderSummary.lineCount} {orderSummary.lineCount === 1 ? "line" : "lines"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAutoAddLowStock}
+                      className="min-h-[36px] px-3 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+                    >
+                      <IconSparkles size={15} className="text-amber-600 dark:text-amber-400" />
+                      <span>{t("purchase_orders.btn_auto_add_low_stock", "Auto-Add Low Stock Items")}</span>
+                      {catalogCounts.low + catalogCounts.out > 0 && (
+                        <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100">
+                          {catalogCounts.low + catalogCounts.out}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAddEmptyCustomRow}
+                      className="min-h-[36px] px-3 rounded-xl border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1 transition active:scale-95"
+                    >
+                      <IconPlus size={14} />
+                      <span>{t("purchase_orders.add_custom_line", "Add Blank Row")}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Global Search Bar + Drop Table List */}
+                <div className="relative">
+                  <div className="relative">
+                    <IconSearch
+                      size={18}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="text"
+                      value={itemSearch}
+                      onFocus={() => setIsItemPickerOpen(true)}
+                      onChange={(e) => {
+                        setItemSearch(e.target.value);
+                        setIsItemPickerOpen(true);
+                      }}
+                      placeholder={t(
+                        "purchase_orders.search_catalog_placeholder",
+                        "Search catalog item to add (or type custom item name)..."
+                      )}
+                      className="w-full min-h-[42px] pl-10 pr-9 text-sm rounded-xl border border-slate-200 dark:border-neutral-700 bg-slate-50/50 dark:bg-neutral-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    />
+                    {itemSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setItemSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <IconX size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Drop Table List Popover */}
+                  {isItemPickerOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-20"
+                        onClick={() => setIsItemPickerOpen(false)}
+                      />
+                      <div className="absolute top-full left-0 right-0 sm:left-auto sm:right-0 sm:w-[600px] mt-1.5 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl shadow-2xl z-30 overflow-hidden flex flex-col">
+                        {/* Dropdown Filter Tabs */}
+                        <div className="px-3.5 py-2 border-b border-slate-100 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-900/60 flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setItemFilterTab("all")}
+                              className={clsx(
+                                "px-2.5 py-1 rounded-lg text-xs font-semibold transition",
+                                itemFilterTab === "all"
+                                  ? "bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-xs"
+                                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                              )}
+                            >
+                              All ({catalogCounts.all})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setItemFilterTab("low")}
+                              className={clsx(
+                                "px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1",
+                                itemFilterTab === "low"
+                                  ? "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 shadow-xs"
+                                  : "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              )}
+                            >
+                              Low Stock ({catalogCounts.low})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setItemFilterTab("out")}
+                              className={clsx(
+                                "px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1",
+                                itemFilterTab === "out"
+                                  ? "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 shadow-xs"
+                                  : "text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              )}
+                            >
+                              Out of Stock ({catalogCounts.out})
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsItemPickerOpen(false)}
+                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          >
+                            <IconX size={15} />
+                          </button>
+                        </div>
+
+                        {/* Dropdown Catalog Table */}
+                        <div className="max-h-72 overflow-y-auto">
+                          {filteredCatalog.length === 0 ? (
+                            <div className="p-6 text-center text-xs text-slate-400">
+                              {t("purchase_orders.no_catalog_items_match", "No catalog items match your search.")}
+                            </div>
+                          ) : (
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead className="bg-slate-50/80 dark:bg-neutral-900/80 sticky top-0 border-b border-slate-100 dark:border-neutral-700/60 text-slate-500 uppercase tracking-wider font-semibold z-10 text-[10px]">
+                                <tr>
+                                  <th className="py-2 px-3.5">Catalog Item</th>
+                                  <th className="py-2 px-2 text-center w-16">Unit</th>
+                                  <th className="py-2 px-3 text-right w-28">Live Stock</th>
+                                  <th className="py-2 px-3 text-center w-16"></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-neutral-700/60">
+                                {filteredCatalog.map((item) => (
+                                  <tr
+                                    key={item.id}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleAddCatalogItem(item);
+                                    }}
+                                    className="hover:bg-emerald-50/70 dark:hover:bg-neutral-700/60 transition cursor-pointer group"
+                                  >
+                                    <td className="py-2.5 px-3.5 font-medium text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
+                                      {item.title}
+                                    </td>
+                                    <td className="py-2.5 px-2 text-center">
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-neutral-900 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                                        {item.unit}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right">
+                                      {renderStockBadge(item.quantity, item.min_quantity_threshold)}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <span className="min-h-[26px] px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white text-[11px] font-semibold transition flex items-center justify-center gap-1">
+                                        <IconPlus size={12} stroke={2.5} />
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+
+                        {/* Custom Item Fallback Action */}
+                        {itemSearch.trim() && (
+                          <div
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleAddCustomItem();
+                            }}
+                            className="p-3 border-t border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-900/60 hover:bg-emerald-50 dark:hover:bg-neutral-700/80 cursor-pointer transition text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-between"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <IconPlus size={15} />
+                              <span>
+                                {t("purchase_orders.add_custom_item", "Add \"{{name}}\" as custom restock item", {
+                                  name: itemSearch.trim(),
+                                })}
+                              </span>
+                            </span>
+                            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300">
+                              Custom Row
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* 7-Column Line Items Table */}
+                <div className="border border-slate-200 dark:border-neutral-800 rounded-2xl overflow-hidden bg-white dark:bg-neutral-900">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                      <thead className="bg-slate-50 dark:bg-neutral-800/80 border-b border-slate-200 dark:border-neutral-800 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
+                        <tr>
+                          <th className="py-3 px-3 w-10 text-center">#</th>
+                          <th className="py-3 px-3">{t("purchase_orders.table_item", "Item Description")}</th>
+                          <th className="py-3 px-3 w-28 text-center">{t("purchase_orders.table_stock", "Current Stock")}</th>
+                          <th className="py-3 px-3 w-28 text-center">{t("purchase_orders.table_qty", "Order Qty")} *</th>
+                          <th className="py-3 px-3 w-24 text-center">{t("purchase_orders.table_unit", "Unit")}</th>
+                          <th className="py-3 px-3 w-32 text-right">{t("purchase_orders.table_cost", "Unit Cost ($)")}</th>
+                          <th className="py-3 px-3 w-32 text-right">{t("purchase_orders.table_line_total", "Line Total ($)")}</th>
+                          <th className="py-3 px-3 w-12 text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-neutral-800">
+                        {poItems.map((row, idx) => {
+                          const qty = parseFloat(row.quantity) || 0;
+                          const cost = parseFloat(row.unit_cost) || 0;
+                          const lineTotal = qty * cost;
+
+                          return (
+                            <tr
+                              key={idx}
+                              className="hover:bg-slate-50/60 dark:hover:bg-neutral-800/50 transition"
+                            >
+                              {/* Row index */}
+                              <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                                {idx + 1}
+                              </td>
+
+                              {/* Item Description */}
+                              <td className="py-2.5 px-3">
+                                {row.inventory_item_id ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-slate-900 dark:text-white text-xs">
+                                      {row.name}
+                                    </span>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+                                      Catalog
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      required
+                                      value={row.name}
+                                      onChange={(e) => handleItemChange(idx, "name", e.target.value)}
+                                      placeholder="Custom item name..."
+                                      className="w-full min-h-[34px] px-2.5 text-xs rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    />
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-neutral-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-neutral-700 shrink-0">
+                                      Custom
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Current Stock */}
+                              <td className="py-2.5 px-3 text-center">
+                                {row.inventory_item_id
+                                  ? renderStockBadge(row.current_stock, row.min_quantity_threshold)
+                                  : <span className="text-slate-400 font-mono text-xs">—</span>}
+                              </td>
+
+                              {/* Order Qty */}
+                              <td className="py-2.5 px-3 text-center">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  min="0.01"
+                                  required
+                                  value={row.quantity}
+                                  onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                                  className="w-full min-h-[36px] px-2 text-center text-xs font-bold rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              </td>
+
+                              {/* Unit */}
+                              <td className="py-2.5 px-3 text-center">
+                                <select
+                                  value={row.unit}
+                                  onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
+                                  className="w-full min-h-[36px] px-1.5 text-center text-xs rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                >
+                                  <option value="kg">kg</option>
+                                  <option value="g">g</option>
+                                  <option value="pc">pc</option>
+                                  <option value="l">l</option>
+                                  <option value="ml">ml</option>
+                                  <option value="box">box</option>
+                                  <option value="bottle">bottle</option>
+                                  <option value="pack">pack</option>
+                                  <option value="can">can</option>
+                                </select>
+                              </td>
+
+                              {/* Unit Cost */}
+                              <td className="py-2.5 px-3 text-right">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={row.unit_cost}
+                                  onChange={(e) => handleItemChange(idx, "unit_cost", e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-full min-h-[36px] px-2 text-right font-mono text-xs rounded-lg border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                              </td>
+
+                              {/* Line Total */}
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                ${lineTotal.toFixed(2)}
+                              </td>
+
+                              {/* Action */}
+                              <td className="py-2.5 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItemRow(idx)}
+                                  disabled={poItems.length === 1 && !poItems[0].name}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-20 transition"
+                                >
+                                  <IconTrash size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Table Sub-bar: Summary & Fast Row Add */}
+                  <div className="p-3.5 bg-slate-50 dark:bg-neutral-800/60 border-t border-slate-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddEmptyCustomRow}
+                        className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                      >
+                        <IconPlus size={14} />
+                        <span>{t("purchase_orders.add_line_item", "Add Another Line")}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs font-semibold">
+                      <div className="text-slate-500 dark:text-slate-400">
+                        {t("purchase_orders.total_units", "Total Units:")}{" "}
+                        <span className="font-bold text-slate-900 dark:text-white font-mono">
+                          {orderSummary.totalUnits}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <span className="text-slate-500 dark:text-slate-400 font-normal">
+                          {t("common.subtotal", "Est. Total:")}
+                        </span>
+                        <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                          ${orderSummary.totalCost.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
+              {/* Order Notes / Supplier Instructions */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  {t("purchase_orders.form_notes", "Notes / Instructions for Supplier")}
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {t("purchase_orders.form_notes", "Notes & Delivery Instructions for Supplier")}
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. Please deliver before 10:00 AM, invoice on delivery."
-                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. Please deliver before 10:00 AM, send commercial invoice on delivery."
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 />
               </div>
 
-              {/* Footer */}
-              <div className="pt-4 border-t border-gray-100 dark:border-neutral-800 flex items-center justify-end gap-2.5">
+              {/* Footer Actions */}
+              <div className="pt-4 border-t border-slate-200 dark:border-neutral-800 flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="min-h-[42px] px-4 rounded-xl border border-gray-200 dark:border-neutral-700 hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-700 dark:text-gray-300 text-sm font-medium transition"
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    resetCreateForm();
+                  }}
+                  className="min-h-[42px] px-5 rounded-xl border border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-700 dark:text-slate-300 text-sm font-medium transition"
                 >
                   {t("common.cancel", "Cancel")}
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="min-h-[42px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium shadow-sm transition active:scale-95"
+                  disabled={isSubmitting || !vendorName.trim() || orderSummary.lineCount === 0}
+                  className="min-h-[42px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold shadow-sm transition active:scale-95 flex items-center gap-2"
                 >
-                  {isSubmitting
-                    ? t("common.saving", "Saving...")
-                    : t("purchase_orders.submit_order", "Create & Send PO")}
+                  <IconReceipt2 size={18} />
+                  <span>
+                    {isSubmitting
+                      ? t("common.saving", "Saving Order...")
+                      : t("purchase_orders.submit_order", "Create & Dispatch PO")}
+                  </span>
                 </button>
               </div>
             </form>

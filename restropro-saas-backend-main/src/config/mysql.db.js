@@ -17,6 +17,7 @@ const { ensureSplitBillSchema } = require("../utils/splitBillMigration");
 const { ensureShiftRosterSchema } = require("../utils/shiftRosterMigration");
 const { ensureInventoryAdjustmentsAndTransfersSchema } = require("../utils/inventoryAdjustmentsAndTransfersMigration");
 const { ensureCustomerGroupSchema } = require("../utils/customerGroupMigration");
+const { ensureKitchenModeSchema } = require("../utils/kitchenModeMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -98,6 +99,10 @@ ensureInventoryAdjustmentsAndTransfersSchema(pool).catch((err) => {
 
 ensureCustomerGroupSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring customer groups schema:", err);
+});
+
+ensureKitchenModeSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring kitchen mode schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

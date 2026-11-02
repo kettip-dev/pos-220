@@ -84,7 +84,7 @@ exports.getStoreSettingDB = async (tenantId) => {
 
         try {
             const sql = `
-            SELECT tenant_id, store_image, store_name, address, phone, email, currency, exchange_rate_usd_to_khr, is_qr_menu_enabled, unique_qr_code, is_qr_order_enabled, is_qr_order_auto_kitchen, is_feedback_enabled, pos_payment_mode, unique_id, business_type FROM store_details
+            SELECT tenant_id, store_image, store_name, address, phone, email, currency, exchange_rate_usd_to_khr, is_qr_menu_enabled, unique_qr_code, is_qr_order_enabled, is_qr_order_auto_kitchen, is_kitchen_enabled, is_feedback_enabled, pos_payment_mode, unique_id, business_type FROM store_details
             WHERE tenant_id = ?
             LIMIT 1;
             `;
@@ -101,7 +101,7 @@ exports.getStoreSettingDB = async (tenantId) => {
     });
 };
 
-exports.setStoreSettingDB = async (storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled , uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr = 4100, isQROrderAutoKitchen = false, posPaymentMode = 'flexible') => {
+exports.setStoreSettingDB = async (storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled , uniqueQRCode, isFeedbackEnabled, tenantId, exchangeRateUsdToKhr = 4100, isQROrderAutoKitchen = false, posPaymentMode = 'flexible', isKitchenEnabled = true) => {
     const conn = await getMySqlPromiseConnection();
 
     const validModes = ['flexible', 'prepaid', 'postpaid'];
@@ -109,9 +109,9 @@ exports.setStoreSettingDB = async (storeName, address, phone, email, currency, i
 
     try {
         const sql = `
-        INSERT INTO store_details ( store_name, address, phone, email, currency, is_qr_menu_enabled, is_qr_order_enabled, is_qr_order_auto_kitchen, unique_qr_code, is_feedback_enabled, tenant_id, exchange_rate_usd_to_khr, pos_payment_mode)
+        INSERT INTO store_details ( store_name, address, phone, email, currency, is_qr_menu_enabled, is_qr_order_enabled, is_qr_order_auto_kitchen, unique_qr_code, is_feedback_enabled, tenant_id, exchange_rate_usd_to_khr, pos_payment_mode, is_kitchen_enabled)
         VALUES
-        ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
         store_name = VALUES(store_name),
         is_qr_menu_enabled = VALUES(is_qr_menu_enabled),
@@ -124,10 +124,11 @@ exports.setStoreSettingDB = async (storeName, address, phone, email, currency, i
         is_qr_order_auto_kitchen = VALUES(is_qr_order_auto_kitchen),
         is_feedback_enabled = VALUES(is_feedback_enabled),
         exchange_rate_usd_to_khr = VALUES(exchange_rate_usd_to_khr),
-        pos_payment_mode = VALUES(pos_payment_mode);
+        pos_payment_mode = VALUES(pos_payment_mode),
+        is_kitchen_enabled = VALUES(is_kitchen_enabled);
         `;
 
-        await conn.query(sql, [storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, isQROrderAutoKitchen ? 1 : 0, uniqueQRCode, isFeedbackEnabled, tenantId, Number(exchangeRateUsdToKhr) || 4100, safeMode]);
+        await conn.query(sql, [storeName, address, phone, email, currency, isQRMenuEnabled, isQROrderEnabled, isQROrderAutoKitchen ? 1 : 0, uniqueQRCode, isFeedbackEnabled, tenantId, Number(exchangeRateUsdToKhr) || 4100, safeMode, isKitchenEnabled ? 1 : 0]);
 
         await invalidateTenantSettings(tenantId);
         if (uniqueQRCode) {

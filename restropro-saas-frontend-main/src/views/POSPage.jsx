@@ -242,6 +242,7 @@ export default function POSPage() {
   const posBillingMode = storeSettings?.pos_payment_mode || storeSettings?.posPaymentMode || "flexible";
   const isPrepaidOnly = posBillingMode === "prepaid";
   const isPostpaidOnly = posBillingMode === "postpaid";
+  const isKitchenEnabled = storeSettings?.is_kitchen_enabled !== 0 && storeSettings?.is_kitchen_enabled !== false && storeSettings?.isKitchenEnabled !== false;
 
   // Check if cart has duplicate identical lines that can be merged
   const hasDuplicateLines = React.useMemo(() => {
@@ -2338,27 +2339,32 @@ export default function POSPage() {
           triggerPrintReceipt(receiptPayload);
         }
 
-        // Sleek non-blocking success notification with fast Print KOT shortcut
+        // Sleek non-blocking success notification with fast Print KOT shortcut (if kitchen enabled)
         toast.success(
           (tObj) => (
             <div className="flex items-center justify-between gap-3 min-w-[240px]">
               <div className="flex items-center gap-2">
 
                 <span className="font-bold text-xs">
-                  {t('pos.order_sent_to_kitchen', 'Sent to Kitchen')} #{data.tokenNo}
+                  {isKitchenEnabled
+                    ? `${t('pos.order_sent_to_kitchen', 'Sent to Kitchen')} #${data.tokenNo}`
+                    : `${t('pos.order_placed', 'Order Placed')} #${data.tokenNo}`
+                  }
                   {tableLabel ? ` (Table ${tableLabel})` : ""}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  toast.dismiss(tObj.id);
-                  triggerPrintToken(receiptPayload);
-                }}
-                className="px-2 py-1 bg-white dark:bg-zinc-800 text-restro-green text-[11px] font-extrabold rounded-md border border-restro-green/40 hover:bg-restro-green hover:text-white transition active:scale-95 shadow-2xs cursor-pointer"
-              >
-                {t('pos.print_token', 'Print KOT')}
-              </button>
+              {isKitchenEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.dismiss(tObj.id);
+                    triggerPrintToken(receiptPayload);
+                  }}
+                  className="px-2 py-1 bg-white dark:bg-zinc-800 text-restro-green text-[11px] font-extrabold rounded-md border border-restro-green/40 hover:bg-restro-green hover:text-white transition active:scale-95 shadow-2xs cursor-pointer"
+                >
+                  {t('pos.print_token', 'Print KOT')}
+                </button>
+              )}
             </div>
           ),
           { duration: 4500 }
@@ -3344,7 +3350,7 @@ export default function POSPage() {
                 <span className="text-xs font-bold hidden xs:inline">{t('pos.draft', 'Draft')}</span>
               </button>
 
-              {/* 2. Send to Kitchen Button (Hidden in Prepaid Only mode) */}
+              {/* 2. Send to Kitchen / Place Order Button (Hidden in Prepaid Only mode) */}
               {!isPrepaidOnly && (
                 <button 
                   type="button"
@@ -3360,11 +3366,15 @@ export default function POSPage() {
                   <span className="flex items-center gap-1.5 truncate">
                     {isSendingToKitchen ? (
                       <IconLoader2 size={16} className="animate-spin text-white shrink-0" />
-                    ) : (
+                    ) : isKitchenEnabled ? (
                       <IconChefHat size={16} stroke={iconStroke} className="shrink-0" />
+                    ) : (
+                      <IconCheck size={16} stroke={iconStroke} className="shrink-0" />
                     )}
                     <span className="text-xs font-bold truncate">
-                      {isSendingToKitchen ? t('pos.sending', 'Sending...') : t('pos.kitchen', 'Kitchen')}
+                      {isSendingToKitchen 
+                        ? (isKitchenEnabled ? t('pos.sending', 'Sending...') : t('pos.saving', 'Saving...')) 
+                        : (isKitchenEnabled ? t('pos.kitchen', 'Kitchen') : t('pos.place_order', 'Place Order'))}
                     </span>
                   </span>
                   <span className="text-[10px] font-mono font-semibold px-1 py-0.5 rounded bg-white/15 text-white/80 shrink-0 hidden sm:inline">
@@ -3373,7 +3383,7 @@ export default function POSPage() {
                 </button>
               )}
 
-              {/* 3. Pay & Settle Button (Hidden in Postpaid Only mode) */}
+              {/* 3. Pay & Settle / Pay & Complete Button (Hidden in Postpaid Only mode) */}
               {!isPostpaidOnly && (
                 <button 
                   type="button"
@@ -3389,7 +3399,9 @@ export default function POSPage() {
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <IconCash size={17} stroke={iconStroke} className="shrink-0" />
-                    <span className="truncate">{t('pos.pay', 'Pay')}</span>
+                    <span className="truncate">
+                      {isKitchenEnabled ? t('pos.pay', 'Pay') : t('pos.pay_complete', 'Pay & Complete')}
+                    </span>
                     <span className="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-white/20 text-white shrink-0 hidden sm:inline">
                       F4
                     </span>

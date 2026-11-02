@@ -90,6 +90,7 @@ export default function MenuItemsSettingsPage() {
 
   const { APIURL, data: menuItems, error, isLoading } = useMenuItems();
   const { data: stations } = useKitchenStations();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
 
   // View & Filter state
   const [viewMode, setViewMode] = useState(() => {
@@ -864,25 +865,27 @@ export default function MenuItemsSettingsPage() {
           </div>
 
           {/* Kitchen Station Filter */}
-          <div className="relative">
-            <select
-              aria-label={t("menu_items.all_kitchen_stations", "Filter by Kitchen Station")}
-              value={stationFilter}
-              onChange={(e) => setStationFilter(e.target.value)}
-              className="min-h-[42px] text-xs font-medium rounded-xl px-3.5 py-2 border border-restro-border-green dark:bg-black bg-restro-gray text-restro-text focus:outline-restro-border-green cursor-pointer"
-            >
-              <option value="all">{t("menu_items.all_kitchen_stations", "All Kitchen Stations")}</option>
-              <option value="override">{t("menu_items.station_overrides_only", "Station Overrides Only")}</option>
-              <option value="unassigned">{t("menu_items.unassigned_station", "Default / Unassigned Station")}</option>
-              {stations
-                ?.filter((s) => s.is_enabled)
-                ?.map((st) => (
-                  <option key={st.id} value={String(st.id)}>
-                    {t("menu_items.station_prefix", "Station: {{name}}", { name: st.name })}
-                  </option>
-                ))}
-            </select>
-          </div>
+          {isKitchenEnabled && (
+            <div className="relative">
+              <select
+                aria-label={t("menu_items.all_kitchen_stations", "Filter by Kitchen Station")}
+                value={stationFilter}
+                onChange={(e) => setStationFilter(e.target.value)}
+                className="min-h-[42px] text-xs font-medium rounded-xl px-3.5 py-2 border border-restro-border-green dark:bg-black bg-restro-gray text-restro-text focus:outline-restro-border-green cursor-pointer"
+              >
+                <option value="all">{t("menu_items.all_kitchen_stations", "All Kitchen Stations")}</option>
+                <option value="override">{t("menu_items.station_overrides_only", "Station Overrides Only")}</option>
+                <option value="unassigned">{t("menu_items.unassigned_station", "Default / Unassigned Station")}</option>
+                {stations
+                  ?.filter((s) => s.is_enabled)
+                  ?.map((st) => (
+                    <option key={st.id} value={String(st.id)}>
+                      {t("menu_items.station_prefix", "Station: {{name}}", { name: st.name })}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
 
           {/* Sort Dropdown */}
           <div className="relative flex items-center">
@@ -1185,7 +1188,7 @@ export default function MenuItemsSettingsPage() {
                     <span className="text-[11px] text-white font-semibold truncate">
                       {category_title || t("menu_items.uncategorized", "Uncategorized")}
                     </span>
-                    {effective_kitchen_station_name && (
+                    {isKitchenEnabled && effective_kitchen_station_name && (
                       <span
                         className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 bg-black/65 text-white border border-white/15 shrink-0"
                         title={
@@ -1325,7 +1328,9 @@ export default function MenuItemsSettingsPage() {
                 </th>
                 <th className="py-3 px-3">{t("menu_items.col_item", "Menu item")}</th>
                 <th className="py-3 px-3">{t("menu_items.col_category", "Category")}</th>
-                <th className="py-3 px-3">{t("menu_items.col_station", "Kitchen station")}</th>
+                {isKitchenEnabled && (
+                  <th className="py-3 px-3">{t("menu_items.col_station", "Kitchen station")}</th>
+                )}
                 <th className="py-3 px-3">{t("menu_items.col_modifiers", "Modifiers")}</th>
                 <th className="py-3 px-3">{t("menu_items.col_price_tax", "Price / Tax")}</th>
                 <th className="py-3 px-3">{t("menu_items.col_status", "POS status")}</th>
@@ -1425,37 +1430,39 @@ export default function MenuItemsSettingsPage() {
                       </td>
 
                       {/* Kitchen Station */}
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        {effective_kitchen_station_name ? (
-                          <span
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-black/5 dark:border-white/10"
-                            style={{
-                              backgroundColor: `${
-                                effective_kitchen_station_color || "#f97316"
-                              }20`,
-                              color: effective_kitchen_station_color || "#f97316",
-                            }}
-                          >
+                      {isKitchenEnabled && (
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          {effective_kitchen_station_name ? (
                             <span
-                              className="w-2 h-2 rounded-full"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-black/5 dark:border-white/10"
                               style={{
-                                backgroundColor:
-                                  effective_kitchen_station_color || "#f97316",
+                                backgroundColor: `${
+                                  effective_kitchen_station_color || "#f97316"
+                                }20`,
+                                color: effective_kitchen_station_color || "#f97316",
                               }}
-                            />
-                            <span>{effective_kitchen_station_name}</span>
-                            {kitchen_station_id && (
-                              <span className="text-[10px] opacity-80 font-normal">
-                                ({t("menu_items.override", "Override")})
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">
-                            {t("menu_items.default_kitchen", "Default Kitchen")}
-                          </span>
-                        )}
-                      </td>
+                            >
+                              <span
+                                className="w-2 h-2 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    effective_kitchen_station_color || "#f97316",
+                                }}
+                              />
+                              <span>{effective_kitchen_station_name}</span>
+                              {kitchen_station_id && (
+                                <span className="text-[10px] opacity-80 font-normal">
+                                  ({t("menu_items.override", "Override")})
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              {t("menu_items.default_kitchen", "Default Kitchen")}
+                            </span>
+                          )}
+                        </td>
+                      )}
 
                       {/* Modifiers */}
                       <td className="py-3 px-3 whitespace-nowrap">
@@ -1866,29 +1873,31 @@ export default function MenuItemsSettingsPage() {
           </div>
 
           {/* Kitchen Station */}
-          <div>
-            <label className="mb-1.5 block text-gray-500 text-xs font-bold uppercase tracking-wide flex items-center gap-1.5">
-              <IconChefHat size={15} stroke={iconStroke} />
-              {t("menu_items.station_routing", "Kitchen Station Routing")}
-            </label>
-            <select
-              value={formKitchenStationId}
-              onChange={(e) => setFormKitchenStationId(e.target.value)}
-              className="min-h-[44px] text-sm w-full rounded-xl px-3.5 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green cursor-pointer"
-            >
-              <option value="">{t("menu_items.station_category_default", "Category Default (Auto-routes by category)")}</option>
-              {stations
-                ?.filter((s) => s.is_enabled)
-                ?.map((station) => (
-                  <option value={String(station.id)} key={station.id}>
-                    {station.name}
-                  </option>
-                ))}
-            </select>
-            <p className="text-[11px] text-gray-400 mt-1">
-              {t("menu_items.station_routing_hint", "Override prep station routing for this specific item, or leave as Category Default.")}
-            </p>
-          </div>
+          {isKitchenEnabled && (
+            <div>
+              <label className="mb-1.5 block text-gray-500 text-xs font-bold uppercase tracking-wide flex items-center gap-1.5">
+                <IconChefHat size={15} stroke={iconStroke} />
+                {t("menu_items.station_routing", "Kitchen Station Routing")}
+              </label>
+              <select
+                value={formKitchenStationId}
+                onChange={(e) => setFormKitchenStationId(e.target.value)}
+                className="min-h-[44px] text-sm w-full rounded-xl px-3.5 py-2.5 border border-restro-border-green dark:bg-black bg-restro-gray focus:outline-restro-border-green cursor-pointer"
+              >
+                <option value="">{t("menu_items.station_category_default", "Category Default (Auto-routes by category)")}</option>
+                {stations
+                  ?.filter((s) => s.is_enabled)
+                  ?.map((station) => (
+                    <option value={String(station.id)} key={station.id}>
+                      {station.name}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {t("menu_items.station_routing_hint", "Override prep station routing for this specific item, or leave as Category Default.")}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Sticky Drawer Footer */}

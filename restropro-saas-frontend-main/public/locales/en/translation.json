@@ -337,7 +337,8 @@
     "actions": "Actions",
     "booked_on": "Booked on",
     "reserved_for": "Reserved for",
-    "table_number": "Table Number"
+    "table_number": "Table Number",
+    "unassigned": "Unassigned"
   },
   "reports": {
     "title": "Reports",
@@ -844,7 +845,9 @@
     "take_away": "Take Away",
     "order": "Order",
     "total": "Total Payable",
-    "void_item": "Void / Cancel item"
+    "void_item": "Void / Cancel item",
+    "socket_connected": "Live Socket Sync Active",
+    "socket_connecting": "Connecting..."
   },
   "no_access": {
     "title": "Oops! You don't have access to this area! Relogin to check again.",
@@ -1937,7 +1940,29 @@
     "update_table": "Edit Table",
     "print_qr": "Print QR",
     "more_actions": "More Actions",
-    "copy_pin": "Copy PIN"
+    "copy_pin": "Copy PIN",
+    "view_cards": "Cards View",
+    "view_table": "Table View",
+    "cards": "Cards",
+    "table": "Table",
+    "export_csv": "Export CSV",
+    "print_table": "Print Table",
+    "rows_per_page": "Rows per page",
+    "table_selected": "table selected",
+    "tables_selected": "tables selected",
+    "print_selected_qr": "Print Selected QR Slips",
+    "export_selected_csv": "Export Selected CSV",
+    "deselect_all": "Deselect All",
+    "exported_csv": "Tables exported to CSV",
+    "no_tables_to_export": "No tables to export",
+    "col_table": "Table",
+    "col_floor": "Floor / Zone",
+    "col_capacity": "Capacity",
+    "col_shape": "Shape",
+    "col_pin": "Security PIN",
+    "col_qr": "QR Ordering",
+    "col_actions": "Actions",
+    "qr": "QR"
   },
   "print_settings": {
     "title": "Print Settings",
@@ -2558,6 +2583,10 @@
     "promotions_discount": "Promotions & Offers",
     "collect_payment_send_to_kitchen": "Collect Payment & Send order to Kitchen",
     "order_sent_to_kitchen": "Order sent to Kitchen!",
+    "order_placed": "Order Placed!",
+    "place_order": "Place Order",
+    "pay_complete": "Pay & Complete",
+    "saving": "Saving...",
     "order_id": "Order ID",
     "print_token": "Print Token",
     "qr_orders": "QR Orders",

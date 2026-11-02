@@ -17,12 +17,15 @@ import {
 import { iconStroke } from "../../config/config";
 import Page from "../../components/Page";
 import { useTranslation } from "react-i18next";
+import { useStoreSettings } from "../../controllers/settings.controller";
 
 export default function SettingsHomePage() {
   const {t} = useTranslation();
   const navigate = useNavigate();
+  const { data: storeSettings } = useStoreSettings();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
 
-  const settingsCards = [
+  const rawSettingsCards = [
     {
       id: "store-details",
       title: t("settings.store_details", "Store Details"),
@@ -156,6 +159,13 @@ export default function SettingsHomePage() {
       icon: <IconCreditCard stroke={iconStroke} className="w-6 h-6" />,
     },
   ];
+
+  const settingsCards = rawSettingsCards.filter((card) => {
+    if (card.id === "kitchen-stations" && !isKitchenEnabled) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <Page className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">

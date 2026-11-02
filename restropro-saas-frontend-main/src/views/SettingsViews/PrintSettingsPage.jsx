@@ -5,6 +5,7 @@ import Page from "../../components/Page";
 import {
   savePrintSettings,
   usePrintSettings,
+  useStoreSettings,
 } from "../../controllers/settings.controller";
 import { testPrint80mm } from "../../helpers/EscPosHelper";
 import { toast } from "react-hot-toast";
@@ -42,6 +43,8 @@ export default function PrintSettingsPage() {
   const { theme } = useTheme();
 
   const { APIURL, data, error, isLoading } = usePrintSettings();
+  const { data: storeSettings } = useStoreSettings();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
 
   useEffect(() => {
     if (data?.printMode) {
@@ -110,7 +113,7 @@ export default function PrintSettingsPage() {
     const headerVal = headerRef.current.value;
     const footerVal = footerRef.current.value;
     const showNotesVal = showNotesRef.current.checked;
-    const printTokenVal = printTokenRef.current.checked;
+    const printTokenVal = printTokenRef.current ? printTokenRef.current.checked : false;
     const autoCutVal = autoCutRef.current ? autoCutRef.current.checked : true;
     const cashDrawerKickVal = cashDrawerKickRef.current ? cashDrawerKickRef.current.checked : true;
 
@@ -456,25 +459,27 @@ export default function PrintSettingsPage() {
           </label>
         </div>
 
-        {/* Print Token Switch */}
-        <div className="mt-4 w-full flex items-center justify-between">
-          <label htmlFor="printToken" className="flex items-center gap-2">
-            {t('print_settings.print_token', 'Auto-Print Kitchen Token on Checkout')}
-            <Popover text={t('print_settings.print_token_tooltip', 'Prompt or auto-print kitchen order ticket when an order is finalized.')} />
-          </label>
+        {/* Print Token Switch (Hidden when Kitchen workflow is disabled) */}
+        {isKitchenEnabled && (
+          <div className="mt-4 w-full flex items-center justify-between">
+            <label htmlFor="printToken" className="flex items-center gap-2">
+              {t('print_settings.print_token', 'Auto-Print Kitchen Token on Checkout')}
+              <Popover text={t('print_settings.print_token_tooltip', 'Prompt or auto-print kitchen order ticket when an order is finalized.')} />
+            </label>
 
-          <label className="relative inline-flex items-center cursor-pointer no-drag">
-            <input
-              ref={printTokenRef}
-              defaultChecked={printToken}
-              type="checkbox"
-              name="printToken"
-              id="printToken"
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-100 after:border-restro-bg-gray after:border after:rounded-full after:h-5 after:w-5 after:transition-all bg-restro-checkbox peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-restro-ring-light peer-checked:bg-restro-green peer-checked:after:border-restro-border-green"></div>
-          </label>
-        </div>
+            <label className="relative inline-flex items-center cursor-pointer no-drag">
+              <input
+                ref={printTokenRef}
+                defaultChecked={printToken}
+                type="checkbox"
+                name="printToken"
+                id="printToken"
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-100 after:border-restro-bg-gray after:border after:rounded-full after:h-5 after:w-5 after:transition-all bg-restro-checkbox peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-restro-ring-light peer-checked:bg-restro-green peer-checked:after:border-restro-border-green"></div>
+            </label>
+          </div>
+        )}
 
         {/* Header Text */}
         <div className="mt-6">

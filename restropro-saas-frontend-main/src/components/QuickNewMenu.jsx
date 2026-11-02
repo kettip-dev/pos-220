@@ -19,11 +19,14 @@ import {
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { useTranslation } from "react-i18next";
+import { useStoreSettings } from "../controllers/settings.controller";
 
 export default function QuickNewMenu({ isCollapsed = false, compact = false, qboRail = false }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
+  const { data: storeSettings } = useStoreSettings();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
 
   // Close on outside click
   useEffect(() => {
@@ -77,8 +80,9 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
           path: "/dashboard/kitchen",
           icon: <IconChefHat size={18} stroke={iconStroke} />,
           iconBg: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white",
+          hidden: !isKitchenEnabled,
         },
-      ],
+      ].filter(item => !item.hidden),
     },
     {
       title: t("quick_new.billing_reports", "Billing & Customers"),

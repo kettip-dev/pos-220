@@ -37,6 +37,7 @@ import AppBarDropdown from "./AppBarDropdown";
 import BusinessSwitcher from "./BusinessSwitcher";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
+import { useStoreSettings } from "../controllers/settings.controller";
 
 export default function AppBar() {
   const { t } = useTranslation();
@@ -85,7 +86,10 @@ export default function AppBar() {
     document.getElementById("search-modal").showModal();
   };
 
-  const searchItems = [
+  const { data: storeSettings } = useStoreSettings();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
+
+  const rawSearchItems = [
     {
       title: t("appbar.dashboard"),
       description: "",
@@ -238,6 +242,11 @@ export default function AppBar() {
       features: [],
     },
   ];
+
+  const searchItems = rawSearchItems.filter((item) => {
+    if (item.link === "/dashboard/kitchen" && !isKitchenEnabled) return false;
+    return true;
+  });
 
   return (
     <>

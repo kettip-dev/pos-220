@@ -385,7 +385,8 @@
     "actions": "សកម្មភាព",
     "booked_on": "កក់នៅថ្ងៃ",
     "reserved_for": "កក់សម្រាប់ថ្ងៃ",
-    "table_number": "លេខតុ"
+    "table_number": "លេខតុ",
+    "unassigned": "មិនទាន់កំណត់តុ"
   },
   "reports": {
     "title": "របាយការណ៍",
@@ -893,7 +894,9 @@
     "total": "សរុបត្រូវទូទាត់",
     "void_item": "លុប / បោះបង់មុខម្ហូប",
     "coupons_and_offers": "ប្រូម៉ូសិន និងការផ្តល់ជូនពិសេស",
-    "promotions_discount": "ការបញ្ចុះតម្លៃប្រូម៉ូសិន"
+    "promotions_discount": "ការបញ្ចុះតម្លៃប្រូម៉ូសិន",
+    "socket_connected": "ការតភ្ជាប់បន្តផ្ទាល់សកម្ម",
+    "socket_connecting": "កំពុងភ្ជាប់..."
   },
   "no_access": {
     "title": "គ្មានសិទ្ធិចូលប្រើប្រាស់ទេ",

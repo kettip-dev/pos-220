@@ -39,11 +39,14 @@ import AppBarDropdown from "./AppBarDropdown";
 import BusinessSwitcher from "./BusinessSwitcher";
 import { showSearchModal } from "./SearchModal";
 import QuickNewMenu from "./QuickNewMenu";
+import { useStoreSettings } from "../controllers/settings.controller";
 
 /**
  * Grouped Navigation Architecture matching user-requested menu structure
  */
-export const getNavGroups = (t) => [
+export const getNavGroups = (t, options = {}) => {
+  const isKitchenEnabled = options.isKitchenEnabled !== false;
+  return [
   {
     id: "dashboard",
     type: "link",
@@ -289,12 +292,12 @@ export const getNavGroups = (t) => [
         scopes: [SCOPES.SETTINGS],
         features: [PLAN_FEATURES.SETTINGS],
       },
-      {
+      ...(isKitchenEnabled ? [{
         text: t("navbar.kitchen_stations", "Kitchen Stations"),
         path: "/dashboard/settings/kitchen-stations",
         scopes: [SCOPES.SETTINGS],
         features: [PLAN_FEATURES.SETTINGS],
-      },
+      }] : []),
       {
         text: t("navbar.thermal_printers", "Thermal Printers"),
         path: "/dashboard/settings/thermal-printers",
@@ -392,7 +395,9 @@ export default function Navbar() {
   const { theme } = useTheme();
   const [isNavbarCollapsed, setIsNavbarCollapsed] = useContext(NavbarContext);
 
-  const navGroups = getNavGroups(t);
+  const { data: storeSettings } = useStoreSettings();
+  const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
+  const navGroups = getNavGroups(t, { isKitchenEnabled });
 
   // Group accordion state
   const [collapsedGroups, setCollapsedGroups] = useState({
