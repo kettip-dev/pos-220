@@ -473,7 +473,7 @@ export default function RosterShiftsPage() {
                       {/* Day Columns */}
                       {weekInfo.days.map((day) => {
                         const assignments = roster.filter(
-                          (r) => r.username === staff.username && r.roster_date === day.date
+                          (r) => r.username === staff.username && (r.roster_date === day.date || r.roster_date?.slice(0, 10) === day.date)
                         );
 
                         return (

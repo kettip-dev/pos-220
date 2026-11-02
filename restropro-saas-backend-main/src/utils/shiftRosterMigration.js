@@ -34,7 +34,7 @@ exports.ensureShiftRosterSchema = async (pool) => {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_shifts_tenant (tenant_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
       // 2. Create staff_rosters table
@@ -51,7 +51,7 @@ exports.ensureShiftRosterSchema = async (pool) => {
           INDEX idx_roster_tenant_date (tenant_id, roster_date),
           INDEX idx_roster_user_date (tenant_id, username, roster_date),
           UNIQUE KEY unique_user_shift_date (tenant_id, username, shift_id, roster_date)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
       // 3. Create staff_attendance table
@@ -71,7 +71,7 @@ exports.ensureShiftRosterSchema = async (pool) => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_attendance_tenant_user (tenant_id, username),
           INDEX idx_attendance_clock_in (tenant_id, clock_in_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
       // 4. Create shift_settings table
@@ -83,10 +83,47 @@ exports.ensureShiftRosterSchema = async (pool) => {
           is_shift_enforcement_enabled TINYINT(1) NOT NULL DEFAULT 1,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
-      // 5. Extend users table with quick_pin and enforce_shift_roster
+      // 5. Ensure collation of shift/roster tables matches users table to prevent illegal mix of collations in JOINs
+      try {
+        const [userCol] = await conn.query(`
+          SELECT COLLATION_NAME, CHARACTER_SET_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'users'
+            AND COLUMN_NAME = 'username'
+          LIMIT 1;
+        `);
+
+        if (userCol.length > 0 && userCol[0].COLLATION_NAME) {
+          const targetCollation = userCol[0].COLLATION_NAME;
+          const targetCharset = userCol[0].CHARACTER_SET_NAME || "utf8mb4";
+
+          const [rosterCol] = await conn.query(`
+            SELECT COLLATION_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'staff_rosters'
+              AND COLUMN_NAME = 'username'
+            LIMIT 1;
+          `);
+
+          if (rosterCol.length > 0 && rosterCol[0].COLLATION_NAME !== targetCollation) {
+            console.log(`[Migration] Aligning shift table collations from ${rosterCol[0].COLLATION_NAME} to ${targetCollation}...`);
+            await conn.query(`ALTER TABLE staff_rosters CONVERT TO CHARACTER SET ${targetCharset} COLLATE ${targetCollation};`);
+            await conn.query(`ALTER TABLE staff_attendance CONVERT TO CHARACTER SET ${targetCharset} COLLATE ${targetCollation};`);
+            await conn.query(`ALTER TABLE shifts CONVERT TO CHARACTER SET ${targetCharset} COLLATE ${targetCollation};`);
+            await conn.query(`ALTER TABLE shift_settings CONVERT TO CHARACTER SET ${targetCharset} COLLATE ${targetCollation};`);
+            console.log("[Migration] Shift & roster table collations aligned successfully.");
+          }
+        }
+      } catch (collatErr) {
+        console.warn("[Migration] Collation alignment check note:", collatErr.message);
+      }
+
+      // 6. Extend users table with quick_pin and enforce_shift_roster
       if (!(await hasColumn("users", "quick_pin"))) {
         await conn.query(`
           ALTER TABLE users 
