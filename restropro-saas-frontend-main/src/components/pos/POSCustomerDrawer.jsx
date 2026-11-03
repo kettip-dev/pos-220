@@ -262,7 +262,8 @@ export default function POSCustomerDrawer({
           if (recentApiUrl) await mutate(recentApiUrl);
           toast.success(res.data?.message || t('customers.added', 'Customer created & attached'));
           handlePickCustomer({
-            phone,
+            // The server stores the number in its normalised form
+            phone: res.data?.phone || phone,
             name,
             email,
             birth_date: birthDate,

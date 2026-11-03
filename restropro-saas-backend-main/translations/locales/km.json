@@ -23,6 +23,7 @@
 	"cant_retrieve_product_subscription_try_later": "មិនអាចទាញយកការជាវផលិតផលបានទេនៅពេលនេះ! សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ!",
 	"customer_provide_required_details": "សូមផ្តល់ព័ត៌មានលម្អិតដែលត្រូវការ៖ ឈ្មោះ, លេខទូរស័ព្ទ!",
 	"customer_already_exists": "អតិថិជនដែលមានលេខទូរស័ព្ទ៖ {{phone}} មានរួចហើយ!",
+	"customer_invalid_phone": "សូមបញ្ចូលលេខទូរស័ព្ទឱ្យបានត្រឹមត្រូវ។",
 	"customer_added": "អតិថិជន៖ {{phone}} ត្រូវបានបន្ថែម។",
 	"empty_file_provided": "ឯកសារទទេ!",
 	"invalid_gender_value": "តម្លៃភេទមិនត្រឹមត្រូវនៅជួរ {{row}} សម្រាប់លេខទូរស័ព្ទ៖ {{phone}}",

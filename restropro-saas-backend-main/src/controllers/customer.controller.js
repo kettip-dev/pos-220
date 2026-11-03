@@ -1,10 +1,14 @@
-const { doCustomerExistDB, addCustomerDB, getCustomersDB, updateCustomerDB, deleteCustomerDB, getCustomerDB, searchCustomerDB, getAllCustomersDB, uploadBulkCustomersDB, getCustomerInsightsDB, getCustomerInvoicesDB } = require("../services/customer.service");
+const { findCustomerPhoneDB, addCustomerDB, getCustomersDB, updateCustomerDB, deleteCustomerDB, getCustomerDB, searchCustomerDB, getAllCustomersDB, uploadBulkCustomersDB, getCustomerInsightsDB, getCustomerInvoicesDB } = require("../services/customer.service");
+const { normalizePhone } = require("../utils/phone");
+
+// Shortest national number plus country code, e.g. "+855" + 8 digits
+const MIN_PHONE_DIGITS = 8;
 
 exports.addCustomer = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
 
-        const phone = req.body.phone?.toString()?.trim();
+        const phone = normalizePhone(req.body.phone);
         const name = req.body.name?.toString()?.trim();
         const email = req.body.email ? req.body.email.toString().trim() : null;
         const birthDate = req.body.birthDate || null;
@@ -19,12 +23,20 @@ exports.addCustomer = async (req, res) => {
             });
         }
 
-        const doCustomerExist = await doCustomerExistDB(phone, tenantId);
-
-        if(doCustomerExist) {
+        if(phone.replace(/\D/g, "").length < MIN_PHONE_DIGITS) {
             return res.status(400).json({
                 success: false,
-                message: req.__("customer_already_exists", { phone }) // Translate message
+                message: req.__("customer_invalid_phone")
+            });
+        }
+
+        // Matches the number in any stored format, so "012…" and "+85512…" are one customer
+        const existingPhone = await findCustomerPhoneDB(phone, tenantId);
+
+        if(existingPhone) {
+            return res.status(400).json({
+                success: false,
+                message: req.__("customer_already_exists", { phone: existingPhone }) // Translate message
             });
         }
 
@@ -32,6 +44,7 @@ exports.addCustomer = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+            phone,
             message: req.__("customer_added", { phone }) // Translate message
         });
 
@@ -124,7 +137,7 @@ exports.uploadBulkCustomers = async (req, res) => {
         }
 
         const formattedResult = customers.map((item, i)=>{
-            const phone = item[0]
+            const phone = normalizePhone(item[0])
             const name = item[1]
             const email = item[2] || null
             const birth_date = item[3] || null
@@ -218,7 +231,9 @@ exports.getCustomer = async (req, res) => {
 
         const phone = req.params.id;
 
-        const result = await getCustomerDB(phone, tenantId);
+        // Accept any format of the number ("077…" or "+85577…")
+        const storedPhone = (await findCustomerPhoneDB(phone, tenantId)) || phone;
+        const result = await getCustomerDB(storedPhone, tenantId);
 
         if(result) {
             return res.status(200).json(result);

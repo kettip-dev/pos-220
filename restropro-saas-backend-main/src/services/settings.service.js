@@ -7,6 +7,7 @@ const {
     invalidateTenantCatalog,
     invalidateQRCodeCache
 } = require("../utils/cache.util");
+const { resolveCustomerPhone } = require("../utils/phone");
 
 function generateRandomPin(excludePin = null) {
     let pin = String(Math.floor(1000 + Math.random() * 9000));
@@ -1291,6 +1292,11 @@ exports.placeOrderViaQrMenuDB = async (tenantId, deliveryType, cartItems, custom
       // start transaction
       await conn.beginTransaction();
 
+      // Typed number → the existing customer's stored phone, or its normalised form
+      if (customerId) {
+        customerId = await resolveCustomerPhone(conn, customerId, tenantId);
+      }
+
       // step 1: save data to qr_orders table
       const [orderResult] = await conn.query(
         `INSERT INTO qr_orders (delivery_type, customer_type, customer_id, table_id, payment_status, tenant_id) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -1500,6 +1506,9 @@ exports.saveFeedbackDB = async (tenantId, invoiceId, customerId, phone, name, em
       // start transaction
       await conn.beginTransaction();
 
+    // Typed number → the existing customer's stored phone, or its normalised form
+    if (customerId) customerId = await resolveCustomerPhone(conn, customerId, tenantId);
+    if (phone) phone = await resolveCustomerPhone(conn, phone, tenantId);
 
     const sqlIsExistingCustomer = `SELECT 1 from customers where phone = ? AND tenant_id = ?`
 

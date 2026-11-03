@@ -26,6 +26,7 @@ import {
   IconX,
   IconMail,
   IconCheck,
+  IconShoppingCart,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import DialogAddCustomer from "../components/DialogAddCustomer";
@@ -70,9 +71,17 @@ export default function CustomersPage({ initialTab = "customers" }) {
     }
   }
 
+  const isPOSAllowed =
+    role === "admin" || hasFullBusinessAccess(role) || userScopes.includes(SCOPES.POS);
+
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // Open POS with this customer attached (their group discount and favourites load there)
+  const btnStartOrder = (customer) => {
+    navigate("/dashboard/pos", { state: { attachCustomer: customer } });
+  };
 
   const isGroupsRoute =
     initialTab === "groups" ||
@@ -1398,6 +1407,19 @@ export default function CustomersPage({ initialTab = "customers" }) {
                         </span>
                       ) : (
                         <div className="flex items-center justify-end gap-1">
+                          {isPOSAllowed && (
+                            <button
+                              type="button"
+                              onClick={() => btnStartOrder(customer)}
+                              title={t("customers.start_order", "Start order")}
+                              className="h-8 px-2.5 mr-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+                            >
+                              <IconShoppingCart size={15} stroke={iconStroke} />
+                              <span className="hidden lg:inline">
+                                {t("customers.start_order", "Start order")}
+                              </span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => navigate(`${phone}/insights`)}

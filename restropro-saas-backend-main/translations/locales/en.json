@@ -23,6 +23,7 @@
 	"cant_retrieve_product_subscription_try_later": "Can't retrieve product subscription right now! Please try after sometime!",
 	"customer_provide_required_details": "Please provide required details: Name, Phone!",
 	"customer_already_exists": "Customer with Phone: {{phone}} Already exists!",
+	"customer_invalid_phone": "Please enter a valid phone number.",
 	"customer_added": "Customer: {{phone}} added.",
 	"empty_file_provided": "Empty file provided!",
 	"invalid_gender_value": "Invalid Gender value provided at row {{row}} for phone: {{phone}}",
