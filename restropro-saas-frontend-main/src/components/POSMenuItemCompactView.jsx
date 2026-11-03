@@ -116,7 +116,7 @@ const POSMenuItemCompactView = ({
         <div
           ref={containerRef}
           onScroll={onScroll}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 auto-rows-max gap-2.5 sm:gap-3 w-full z-0 px-3.5 sm:px-4 pt-1.5 pb-6 rounded-b-xl overflow-y-auto h-full content-start"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 auto-rows-max gap-2 sm:gap-3 w-full z-0 px-2 sm:px-4 pt-1 sm:pt-1.5 pb-24 md:pb-6 rounded-b-xl overflow-y-auto h-full content-start"
         >
           {filteredMenuItems.map((menuItem, i) => {
             const { title, id, price, image, category_title, addons, variants } = menuItem;
@@ -170,7 +170,7 @@ const POSMenuItemCompactView = ({
                 onMouseEnter={() => onItemHover && onItemHover(id)}
                 onMouseLeave={() => onItemHover && onItemHover(null)}
                 onClick={triggerPrimaryAction}
-                className={`group relative aspect-[5/4] overflow-hidden rounded-xl bg-[#0D233A] select-none transition-all duration-150 ${
+                className={`group relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden rounded-xl bg-[#0D233A] select-none transition-all duration-150 ${
                   inCartCount > 0
                     ? 'ring-[3px] ring-[#F97316] shadow-[0_8px_20px_-10px_rgba(249,115,22,0.7)]'
                     : isHovered

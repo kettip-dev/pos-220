@@ -66,7 +66,7 @@ const POSMenuItemDetailedView = ({
         <div
           ref={containerRef}
           onScroll={onScroll}
-          className="grid grid-cols-1 lg:grid-cols-2 auto-rows-max gap-3 w-full z-0 px-3.5 sm:px-4 pt-1.5 pb-6 rounded-b-xl overflow-y-auto h-full content-start"
+          className="grid grid-cols-1 lg:grid-cols-2 auto-rows-max gap-3 w-full z-0 px-2 sm:px-4 pt-1 sm:pt-1.5 pb-24 md:pb-6 rounded-b-xl overflow-y-auto h-full content-start"
         >
           {filteredMenuItems.map((menuItem, i) => {
             const { title, description, id, price, image, category_title, addons, variants } = menuItem;

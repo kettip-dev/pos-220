@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   IconArmchair2, 
@@ -19,6 +19,21 @@ import {
 } from '@tabler/icons-react';
 import { iconStroke } from '../../config/config';
 import { clsx } from 'clsx';
+
+// Phones get a stacked header instead of one horizontally-scrolling row
+const MOBILE_QUERY = '(max-width: 767px)';
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = (e) => setIsMobile(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
 
 export default function POSOrderHeader({
   isNavCollapsed = false,
@@ -48,12 +63,253 @@ export default function POSOrderHeader({
   onOpenRegister,
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
 
   const diningOptions = [
     { key: 'dinein', label: t('pos.dinein', 'Dine-In'), icon: IconToolsKitchen2, badgeBg: 'bg-[#008489]' },
     { key: 'takeaway', label: t('pos.takeaway', 'Takeaway'), icon: IconShoppingBag, badgeBg: 'bg-[#0077C5]' },
     { key: 'delivery', label: t('pos.delivery', 'Delivery'), icon: IconTruckDelivery, badgeBg: 'bg-[#EA580C]' }
   ];
+
+  const renderCustomerChip = ({ className = '', fluid = false } = {}) => {
+    const isAttached = customerType !== 'WALKIN' && Boolean(customer);
+    const isDeliveryNeedsCustomer = selectedDiningOption === 'delivery' && !isAttached;
+    const rawName = customer?.name || customer?.label || '';
+    const cleanName =
+      customer?.phone && rawName.endsWith(` - (${customer.phone})`)
+        ? rawName.slice(0, -` - (${customer.phone})`.length).trim()
+        : rawName;
+
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpenCustomerSearch}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenCustomerSearch && onOpenCustomerSearch();
+          }
+        }}
+        className={clsx(
+          "flex items-center min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl border cursor-pointer transition active:scale-95 shadow-2xs gap-1.5 sm:gap-2 select-none shrink-0 touch-manipulation",
+          className,
+          isAttached
+            ? "bg-[#00A699]/10 dark:bg-[#00A699]/15 border-[#00A699] text-gray-900 dark:text-white"
+            : isDeliveryNeedsCustomer
+            ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-200 animate-pulse"
+            : "border-[#D4D7DC] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-[#F4F5F8] dark:hover:bg-slate-800"
+        )}
+        title={t('pos.customer_shortcut', 'Customer & Loyalty (F3)')}
+      >
+        <div
+          className={clsx(
+            "w-6 h-6 rounded-full text-white flex items-center justify-center shrink-0 text-[10px] font-black",
+            isAttached
+              ? "bg-[#00A699]"
+              : isDeliveryNeedsCustomer
+              ? "bg-[#EA580C]"
+              : "bg-gray-500 dark:bg-slate-700"
+          )}
+        >
+          {isAttached && cleanName ? (
+            cleanName.trim().slice(0, 2).toUpperCase()
+          ) : (
+            <IconUser size={13} stroke={2.2} />
+          )}
+        </div>
+        <div className={clsx("text-left leading-tight min-w-0", fluid ? "flex-1" : "max-w-[80px] sm:max-w-[105px] md:max-w-[130px]")}>
+          <p
+            className={clsx(
+              "text-[10px] uppercase font-bold tracking-wider leading-none truncate",
+              isAttached
+                ? "text-[#00A699] font-mono"
+                : isDeliveryNeedsCustomer
+                ? "text-[#EA580C]"
+                : "text-gray-500"
+            )}
+          >
+            {isAttached && customer?.phone
+              ? customer.phone
+              : isDeliveryNeedsCustomer
+              ? t('pos.required', 'Required')
+              : t('pos.customer', 'Customer')}
+          </p>
+          <p className="text-xs font-bold text-gray-800 dark:text-slate-100 truncate mt-0.5">
+            {isAttached
+              ? cleanName || customer?.phone
+              : isDeliveryNeedsCustomer
+              ? t('pos.assign_customer', 'Assign Customer')
+              : t('pos.walkin_customer', 'Walk-in')}
+          </p>
+          {isAttached && customer?.customer_group_name && (
+            <div className="flex items-center mt-0.5">
+              <span
+                className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-white text-[9px] font-bold shadow-2xs max-w-full truncate"
+                style={{ backgroundColor: customer.customer_group_color || "#6366f1" }}
+              >
+                {customer.customer_group_name}
+                {customer.group_discount_value > 0 && (
+                  <span>
+                    {customer.group_discount_type === "PERCENTAGE" ? `${customer.group_discount_value}%` : `$${customer.group_discount_value}`} Off
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+        {isAttached ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClearCustomer();
+            }}
+            className="w-5 h-5 rounded-full hover:bg-red-500/15 text-gray-400 hover:text-red-500 flex items-center justify-center transition active:scale-90"
+            title={t('pos.reset_walkin', 'Reset to Walk-in')}
+          >
+            <IconX size={13} stroke={2.5} />
+          </button>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F4F5F8] dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 font-semibold hidden xl:inline">
+            {t('pos.add', '+ Add')}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  if (isMobile) {
+    const iconBtn = "relative w-[42px] h-[42px] rounded-xl border border-[#D4D7DC] dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-700 dark:text-slate-200 flex items-center justify-center active:scale-95 transition touch-manipulation cursor-pointer shrink-0";
+    return (
+      <header className="w-full bg-white dark:bg-[#0D1829] border-b border-[#E3E5E8] dark:border-slate-800 px-1 pt-1 pb-2 space-y-2 select-none shrink-0">
+        {/* Row 1: Dining type (full labels) + New ticket */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 grid grid-cols-3 p-1 rounded-2xl bg-[#F4F5F8] dark:bg-slate-800/80 border border-[#E3E5E8] dark:border-slate-700 gap-1">
+            {diningOptions.map(({ key, label, icon: IconComponent, badgeBg }) => {
+              const isActive = selectedDiningOption === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onSelectDiningOption(key)}
+                  aria-pressed={isActive}
+                  className={clsx(
+                    "min-h-[42px] min-w-0 px-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer",
+                    isActive
+                      ? "bg-[#0D233A] text-white shadow-xs font-bold"
+                      : "text-gray-700 dark:text-slate-300"
+                  )}
+                >
+                  <span className={clsx("w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0", badgeBg)}>
+                    <IconComponent size={13} stroke={2.2} />
+                  </span>
+                  <span className="truncate">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={onInitNewOrder}
+            className="w-[50px] h-[50px] rounded-2xl bg-[#2CA01C] hover:bg-[#248417] text-white flex items-center justify-center shadow-2xs active:scale-95 transition touch-manipulation cursor-pointer shrink-0"
+            title={t('pos.new_order', 'New Ticket')}
+            aria-label={t('pos.new_order', 'New Ticket')}
+          >
+            <IconPlus size={22} stroke={2.5} />
+          </button>
+        </div>
+
+        {/* Row 2: Table + Customer + quick actions */}
+        <div className="flex items-center gap-2">
+          {selectedDiningOption === 'dinein' && (
+            <button
+              type="button"
+              onClick={onOpenTablePicker}
+              className={clsx(
+                "flex-1 min-w-0 min-h-[42px] px-2.5 py-1.5 rounded-xl border flex items-center gap-2 active:scale-95 transition touch-manipulation cursor-pointer",
+                currentSelectedTable
+                  ? "bg-[#F4F5F8] dark:bg-slate-800 border-[#0D233A] dark:border-emerald-500 text-gray-900 dark:text-white"
+                  : "bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 text-gray-700 dark:text-slate-200"
+              )}
+            >
+              <IconArmchair2 size={18} className={clsx("shrink-0", currentSelectedTable ? "text-[#008489]" : "text-gray-400")} stroke={iconStroke} />
+              <div className="text-left leading-tight min-w-0">
+                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-none">{t('pos.table', 'Table')}</p>
+                <p className="text-xs font-bold truncate mt-0.5">
+                  {currentSelectedTable
+                    ? `${currentSelectedTable.table_title} (${currentSelectedTable.seating_capacity}s)`
+                    : t('pos.select_table', 'Select Table')}
+                </p>
+              </div>
+            </button>
+          )}
+
+          {renderCustomerChip({ className: 'flex-1 min-w-0', fluid: true })}
+
+          <button type="button" onClick={onOpenDrafts} className={iconBtn} title={t('pos.drafts_list', 'Held Orders & Drafts')}>
+            <IconNotes size={19} stroke={iconStroke} />
+            {draftsCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center">
+                {draftsCount}
+              </span>
+            )}
+          </button>
+          <button type="button" onClick={onOpenQrOrders} className={iconBtn} title={t('pos.qr_menu_orders', 'QR Menu Orders')}>
+            <IconQrcode size={19} stroke={iconStroke} />
+            {qrOrdersCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#E11D48] text-white text-[10px] font-black flex items-center justify-center animate-pulse">
+                {qrOrdersCount}
+              </span>
+            )}
+          </button>
+          {onOpenRegister && (
+            <button
+              type="button"
+              onClick={onOpenRegister}
+              className={clsx(
+                iconBtn,
+                registerSession
+                  ? "!border-emerald-200 dark:!border-emerald-500/30 !bg-emerald-50 dark:!bg-emerald-500/10 !text-emerald-800 dark:!text-emerald-200"
+                  : isRegisterEnforced
+                    ? "!border-rose-300 !bg-rose-50 dark:!bg-rose-500/10 !text-rose-700 dark:!text-rose-300 animate-pulse"
+                    : ""
+              )}
+              title={registerSession ? registerSession.register_name : t('register.closed', 'Register closed')}
+            >
+              <IconCashRegister size={19} stroke={iconStroke} />
+              <span className={clsx("absolute top-1.5 right-1.5 w-2 h-2 rounded-full", registerSession ? "bg-emerald-500" : "bg-rose-500")} />
+            </button>
+          )}
+        </div>
+
+        {/* Row 3: Full-width menu search */}
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+            <IconSearch size={17} stroke={2} />
+          </span>
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={t('pos.search_items_placeholder', 'Search menu items...')}
+            className="w-full pl-10 pr-11 min-h-[44px] rounded-xl text-sm font-medium border border-transparent focus:border-[#008489] bg-[#F4F5F8] dark:bg-slate-800 text-gray-800 dark:text-slate-100 placeholder-gray-500 outline-none transition [&::-webkit-search-cancel-button]:hidden"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-[42px] h-[42px] rounded-xl text-gray-500 flex items-center justify-center active:scale-90"
+              aria-label={t('pos.clear_search', 'Clear search')}
+            >
+              <IconX size={16} stroke={iconStroke} />
+            </button>
+          )}
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="w-full bg-white dark:bg-[#0D1829] border-b border-[#E3E5E8] dark:border-slate-800 px-2 sm:px-3 py-1.5 select-none shrink-0">
@@ -171,112 +427,7 @@ export default function POSOrderHeader({
           )}
 
           {/* Customer Quick Chip */}
-          {(() => {
-            const isAttached = customerType !== 'WALKIN' && Boolean(customer);
-            const isDeliveryNeedsCustomer = selectedDiningOption === 'delivery' && !isAttached;
-            const rawName = customer?.name || customer?.label || '';
-            const cleanName =
-              customer?.phone && rawName.endsWith(` - (${customer.phone})`)
-                ? rawName.slice(0, -` - (${customer.phone})`.length).trim()
-                : rawName;
-
-            return (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={onOpenCustomerSearch}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onOpenCustomerSearch && onOpenCustomerSearch();
-                  }
-                }}
-                className={clsx(
-                  "flex items-center min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl border cursor-pointer transition active:scale-95 shadow-2xs gap-1.5 sm:gap-2 select-none shrink-0 touch-manipulation",
-                  isAttached
-                    ? "bg-[#00A699]/10 dark:bg-[#00A699]/15 border-[#00A699] text-gray-900 dark:text-white"
-                    : isDeliveryNeedsCustomer
-                    ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-200 animate-pulse"
-                    : "border-[#D4D7DC] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-[#F4F5F8] dark:hover:bg-slate-800"
-                )}
-                title={t('pos.customer_shortcut', 'Customer & Loyalty (F3)')}
-              >
-                <div
-                  className={clsx(
-                    "w-6 h-6 rounded-full text-white flex items-center justify-center shrink-0 text-[10px] font-black",
-                    isAttached
-                      ? "bg-[#00A699]"
-                      : isDeliveryNeedsCustomer
-                      ? "bg-[#EA580C]"
-                      : "bg-gray-500 dark:bg-slate-700"
-                  )}
-                >
-                  {isAttached && cleanName ? (
-                    cleanName.trim().slice(0, 2).toUpperCase()
-                  ) : (
-                    <IconUser size={13} stroke={2.2} />
-                  )}
-                </div>
-                <div className="text-left leading-tight min-w-0 max-w-[80px] sm:max-w-[105px] md:max-w-[130px]">
-                  <p
-                    className={clsx(
-                      "text-[10px] uppercase font-bold tracking-wider leading-none truncate",
-                      isAttached
-                        ? "text-[#00A699] font-mono"
-                        : isDeliveryNeedsCustomer
-                        ? "text-[#EA580C]"
-                        : "text-gray-500"
-                    )}
-                  >
-                    {isAttached && customer?.phone
-                      ? customer.phone
-                      : isDeliveryNeedsCustomer
-                      ? t('pos.required', 'Required')
-                      : t('pos.customer', 'Customer')}
-                  </p>
-                  <p className="text-xs font-bold text-gray-800 dark:text-slate-100 truncate mt-0.5">
-                    {isAttached
-                      ? cleanName || customer?.phone
-                      : isDeliveryNeedsCustomer
-                      ? t('pos.assign_customer', 'Assign Customer')
-                      : t('pos.walkin_customer', 'Walk-in')}
-                  </p>
-                  {isAttached && customer?.customer_group_name && (
-                    <div className="flex items-center mt-0.5">
-                      <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-white text-[9px] font-bold shadow-2xs max-w-full truncate"
-                        style={{ backgroundColor: customer.customer_group_color || "#6366f1" }}
-                      >
-                        {customer.customer_group_name}
-                        {customer.group_discount_value > 0 && (
-                          <span>
-                            {customer.group_discount_type === "PERCENTAGE" ? `${customer.group_discount_value}%` : `$${customer.group_discount_value}`} Off
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {isAttached ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClearCustomer();
-                    }}
-                    className="w-5 h-5 rounded-full hover:bg-red-500/15 text-gray-400 hover:text-red-500 flex items-center justify-center transition active:scale-90"
-                    title={t('pos.reset_walkin', 'Reset to Walk-in')}
-                  >
-                    <IconX size={13} stroke={2.5} />
-                  </button>
-                ) : (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#F4F5F8] dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 font-semibold hidden xl:inline">
-                    {t('pos.add', '+ Add')}
-                  </span>
-                )}
-              </div>
-            );
-          })()}
+          {renderCustomerChip()}
         </div>
 
         {/* Center / Right Segment: Responsive Search & Register Controls */}

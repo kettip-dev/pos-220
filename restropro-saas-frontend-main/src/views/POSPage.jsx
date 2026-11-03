@@ -2493,7 +2493,7 @@ export default function POSPage() {
   const currentSelectedTable = storeTables.find(t => String(t.id) === String(tableRef.current?.value));
 
   return (
-    <Page className='px-2 sm:px-3 pt-2 pb-2.5 flex flex-col min-h-0 h-full flex-1 overflow-hidden select-none'>
+    <Page className='px-1.5 sm:px-3 pt-1 sm:pt-2 pb-1.5 sm:pb-2.5 flex flex-col min-h-0 h-full flex-1 overflow-hidden select-none'>
       {/* Hidden legacy select elements to preserve 100% backend, print, and ref compatibility */}
       <select ref={diningOptionRef} className="hidden" value={selectedDiningOption} onChange={() => broadcastOrderMeta()}>
         <option value="">{t('pos.select_dining_option')}</option>
@@ -2600,17 +2600,17 @@ export default function POSPage() {
       />
 
       {/* Main Split Layout: Catalog (Left) + Cart Sidebar (Right) - Fluid Edge-to-Edge Tablet Height */}
-      <div className='mt-2 flex-1 min-h-0 h-full flex flex-col md:flex-row gap-2.5 sm:gap-3 overflow-hidden'>
+      <div className='mt-1.5 sm:mt-2 flex-1 min-h-0 h-full flex flex-col md:flex-row gap-2.5 sm:gap-3 overflow-hidden'>
 
         {/* Catalog Panel (70%) */}
         <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-xl border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
           {/* Sub-bar: Full-Width Category Rail + View Switcher */}
-          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-3 sm:px-4 py-2 border-b border-[#E3E5E8] dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
             {/* QBO Style Category horizontal pill bar with counts */}
-            <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5 touch-pan-x custom-scroll-div-horizon-smooth">
+            <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 touch-pan-x scroll-smooth">
               <button
                 type="button"
-                className={`flex-shrink-0 min-w-fit min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
+                className={`flex-shrink-0 min-w-fit min-h-[42px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
                   selectedCategory === "all" 
                     ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
                     : 'bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-[#D4D7DC] dark:border-slate-700'
@@ -2637,7 +2637,7 @@ export default function POSPage() {
                   <button
                     key={index}
                     type="button"
-                    className={`flex-shrink-0 min-w-fit min-h-[38px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
+                    className={`flex-shrink-0 min-w-fit min-h-[42px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
                       isSelected 
                         ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
                         : 'bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-[#D4D7DC] dark:border-slate-700'
@@ -2665,7 +2665,7 @@ export default function POSPage() {
               <button
                 type="button"
                 className={clsx(
-                  "min-h-[38px] min-w-[38px] p-2 rounded-lg border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer",
+                  "min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer",
                   state.view === "compact" 
                     ? "text-[#0D233A] dark:text-white bg-[#F4F5F8] dark:bg-slate-800 border-[#0D233A] dark:border-slate-600" 
                     : "text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
@@ -2723,7 +2723,7 @@ export default function POSPage() {
         {cartItemsCount > 0 && !isMobileCartOpen && (
           <button
             onClick={() => setIsMobileCartOpen(true)}
-            className="md:hidden fixed bottom-20 inset-x-4 z-30 flex items-center justify-between gap-2 rounded-xl px-4 py-3 text-white bg-[#2CA01C] hover:bg-[#248417] shadow-xl transition active:scale-95 border border-white/20"
+            className="md:hidden fixed bottom-[calc(70px+env(safe-area-inset-bottom))] inset-x-3 z-30 min-h-[52px] flex items-center justify-between gap-2 rounded-2xl px-4 py-3 text-white bg-[#2CA01C] hover:bg-[#248417] shadow-xl transition active:scale-95 border border-white/20"
           >
             <span className="flex items-center gap-2.5">
               <span className="relative flex items-center justify-center">
