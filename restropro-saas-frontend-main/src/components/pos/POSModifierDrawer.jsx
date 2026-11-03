@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  IconX, 
-  IconCheck, 
-  IconPlus, 
-  IconMinus, 
-  IconNote, 
-  IconCoffee 
+import {
+  IconX,
+  IconCheck,
+  IconPlus,
+  IconMinus,
+  IconNote,
+  IconCoffee
 } from '@tabler/icons-react';
 import { getImageURL } from '../../helpers/ImageHelper';
 import { clsx } from 'clsx';
@@ -164,19 +164,19 @@ export default function POSModifierDrawer({
   const hasAddons = Boolean(item.addons && item.addons.length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 lg:p-6 overflow-hidden">
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 lg:p-6 overflow-hidden">
       {/* Native Frosted Backdrop */}
-      <div 
+      <div
         onClick={onClose}
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
       />
 
       {/* Sheet Container: Bottom Sheet on Mobile, 2-Column Responsive Modal on Tablet/Desktop */}
-      <div 
+      <div
         className={clsx(
-          "relative w-full bg-background rounded-t-[28px] md:rounded-3xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl z-10 flex flex-col max-h-[92vh] md:max-h-[85vh] animate-in slide-in-from-bottom-6 duration-200 ease-out",
-          hasAddons 
-            ? "md:max-w-4xl lg:max-w-5xl" 
+          "relative w-full bg-background rounded-t-[28px] md:rounded-3xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl z-10 flex flex-col max-h-[92dvh] md:max-h-[85vh] animate-in slide-in-from-bottom-6 duration-200 ease-out",
+          hasAddons
+            ? "md:max-w-4xl lg:max-w-5xl"
             : "md:max-w-lg"
         )}
         role="dialog"
@@ -191,10 +191,10 @@ export default function POSModifierDrawer({
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 dark:border-zinc-800/80 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {itemImage ? (
-              <img 
-                src={itemImage} 
-                alt={item.title} 
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover border border-zinc-200/80 dark:border-zinc-700/80 shadow-xs shrink-0" 
+              <img
+                src={itemImage}
+                alt={item.title}
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl object-cover border border-zinc-200/80 dark:border-zinc-700/80 shadow-xs shrink-0"
               />
             ) : (
               <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
@@ -235,23 +235,22 @@ export default function POSModifierDrawer({
 
         {/* Modal Main Body: 2-Column Split Layout on Tablet, Single Column Scroll on Mobile */}
         <div className={clsx(
-          "flex-1 overflow-y-auto md:overflow-hidden",
-          hasAddons 
-            ? "flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-zinc-100 dark:divide-zinc-800/80" 
+          "flex-1 min-h-0 overflow-y-auto overscroll-contain md:overflow-hidden",
+          hasAddons
+            ? "flex flex-col md:flex-row md:divide-x divide-zinc-100 dark:divide-zinc-800/80"
             : "flex flex-col p-4 sm:p-5"
         )}>
-          
+
           {/* Column 1 (Left on Tablet): Variants & Kitchen Notes */}
           <div className={clsx(
-            "flex flex-col overflow-y-auto no-scrollbar",
-            hasAddons 
-              ? "w-full md:w-[42%] lg:w-[38%] p-4 sm:p-5 space-y-4 shrink-0" 
-              : "w-full space-y-4"
+            hasAddons
+              ? "contents md:flex md:flex-col md:overflow-y-auto no-scrollbar md:w-[42%] lg:w-[38%] md:p-5 md:space-y-4 md:shrink-0"
+              : "flex flex-col w-full space-y-4"
           )}>
-            
+
             {/* Section: Size / Variant */}
             {hasVariants && (
-              <div className="space-y-2">
+              <div className={clsx("space-y-2", hasAddons && "order-1 md:order-none px-4 pt-4 md:p-0")}>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                     {t('pos.select_variant', 'Select Size / Variant')}
@@ -305,7 +304,7 @@ export default function POSModifierDrawer({
             )}
 
             {/* Section: Kitchen Instructions & Quick Presets */}
-            <div className="space-y-2 pt-1">
+            <div className={clsx("space-y-2", hasAddons ? "order-3 md:order-none px-4 pt-4 pb-5 md:p-0 md:pt-1 border-t md:border-t-0 border-zinc-100 dark:border-zinc-800/80 mt-4 md:mt-0" : "pt-1")}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
                   <IconNote size={13} stroke={iconStroke} />
@@ -379,7 +378,10 @@ export default function POSModifierDrawer({
 
           {/* Column 2 (Right on Tablet): Add-ons & Extras Grid */}
           {hasAddons && (
-            <div className="flex-1 flex flex-col p-4 sm:p-5 overflow-hidden min-w-0">
+            <div className={clsx(
+              "order-2 md:order-none flex flex-col px-4 md:p-5 min-w-0 md:flex-1 md:overflow-hidden",
+              hasVariants ? "pt-5" : "pt-4"
+            )}>
               <div className="flex items-center justify-between pb-2.5 shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
@@ -402,7 +404,7 @@ export default function POSModifierDrawer({
               </div>
 
               {/* Touch Cards Grid: full names wrap to 2 lines instead of truncating */}
-              <div className="flex-1 overflow-y-auto no-scrollbar pr-0.5">
+              <div className="md:flex-1 md:overflow-y-auto no-scrollbar md:pr-0.5">
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                   {item.addons.map((addon) => {
                     const isChecked = selectedAddons.some(a => a.id === addon.id);
@@ -453,8 +455,8 @@ export default function POSModifierDrawer({
         </div>
 
         {/* Full-Width Bottom Action Bar */}
-        <div className="px-5 py-3 border-t border-zinc-100 dark:border-zinc-800/80 bg-background/95 backdrop-blur-md flex items-center justify-between gap-4 shrink-0">
-          
+        <div className="px-4 md:px-5 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] md:pb-3 border-t border-zinc-100 dark:border-zinc-800/80 bg-background/95 backdrop-blur-md flex items-center justify-between gap-4 shrink-0">
+
           {/* Tactile Quantity Stepper */}
           <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl p-1 select-none shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
             <button
