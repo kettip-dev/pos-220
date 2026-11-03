@@ -264,6 +264,13 @@ export default function POSPage() {
 
   const { categories, menuItems, paymentTypes, printSettings, storeSettings, storeTables, currency, cartItems, searchQuery, selectedCategory, selectedItemId, drafts, customer, customerType, isLoading } = state;
 
+  // Keep the selected category pill fully visible (centred) in the horizontal rail
+  const categoryRailRef = useRef(null);
+  useEffect(() => {
+    const pill = categoryRailRef.current?.querySelector(`[data-category-id="${selectedCategory}"]`);
+    pill?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [selectedCategory]);
+
   const posBillingMode = storeSettings?.pos_payment_mode || storeSettings?.posPaymentMode || "flexible";
   const isPrepaidOnly = posBillingMode === "prepaid";
   const isPostpaidOnly = posBillingMode === "postpaid";
@@ -2607,9 +2614,13 @@ export default function POSPage() {
           {/* Sub-bar: Full-Width Category Rail + View Switcher */}
           <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
             {/* QBO Style Category horizontal pill bar with counts */}
-            <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 touch-pan-x scroll-smooth">
+            <div
+              ref={categoryRailRef}
+              className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 pr-6 touch-pan-x scroll-smooth [mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)]"
+            >
               <button
                 type="button"
+                data-category-id="all"
                 className={`flex-shrink-0 min-w-fit min-h-[42px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
                   selectedCategory === "all" 
                     ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
@@ -2637,6 +2648,7 @@ export default function POSPage() {
                   <button
                     key={index}
                     type="button"
+                    data-category-id={category.id}
                     className={`flex-shrink-0 min-w-fit min-h-[42px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
                       isSelected 
                         ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
