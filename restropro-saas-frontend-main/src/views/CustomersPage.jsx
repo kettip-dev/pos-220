@@ -189,15 +189,20 @@ export default function CustomersPage({ initialTab = "customers" }) {
     currentPage = 1,
     totalPages = 1,
     totalCustomers = 0,
+    summary,
   } = data || {};
 
+  // Prefer the server's page-independent totals; fall back to the current
+  // page if an older backend doesn't send `summary`.
   const loyaltyMembersCount = useMemo(() => {
+    if (summary) return Number(summary.loyaltyMembers || 0);
     return customers.filter((c) => c.is_member || c.membership_tier).length;
-  }, [customers]);
+  }, [summary, customers]);
 
   const totalRewardPoints = useMemo(() => {
+    if (summary) return Number(summary.totalPoints || 0);
     return customers.reduce((sum, c) => sum + Number(c.points_balance || 0), 0);
-  }, [customers]);
+  }, [summary, customers]);
 
   // Client-side sort fallback / refinement
   const sortedCustomers = [...customers].sort((a, b) => {
@@ -475,222 +480,324 @@ export default function CustomersPage({ initialTab = "customers" }) {
     totalCustomerCount
   );
 
+  const isGroupsTab = activeMainTab === "groups";
+  const listedCount = customers.length;
+  // Denominator matches the source of the numerator: all customers when the
+  // server sent a summary, otherwise just this page.
+  const summaryBase = summary ? totalCustomerCount : listedCount;
+  const loyaltyPercent = summaryBase
+    ? Math.round((loyaltyMembersCount / summaryBase) * 100)
+    : 0;
+  const avgPoints = summaryBase
+    ? Math.round((totalRewardPoints / summaryBase) * 10) / 10
+    : 0;
+
+  const summaryStats = [
+    {
+      key: "total",
+      icon: IconUsers,
+      iconClass: "text-emerald-600 dark:text-emerald-400",
+      label: t("customers.total_customers", "Total Customers"),
+      value: totalCustomerCount,
+      hint: t("customers.stat_groups_hint", {
+        count: customerGroups.length,
+        defaultValue: "{{count}} customer groups",
+      }),
+    },
+    {
+      key: "loyalty",
+      icon: IconAward,
+      iconClass: "text-amber-500",
+      label: t("customers.loyalty_members", "Loyalty Members"),
+      value: loyaltyMembersCount,
+      progress: loyaltyPercent,
+      hint: t("customers.stat_loyalty_hint", {
+        percent: loyaltyPercent,
+        defaultValue: "{{percent}}% of customers",
+      }),
+    },
+    {
+      key: "points",
+      icon: IconCoins,
+      iconClass: "text-indigo-500 dark:text-indigo-400",
+      label: t("customers.points_pool", "Reward Points"),
+      value: totalRewardPoints,
+      hint: t("customers.stat_points_hint", {
+        avg: avgPoints.toLocaleString(),
+        defaultValue: "≈ {{avg}} pts per customer",
+      }),
+    },
+    {
+      key: "page",
+      icon: IconUserCheck,
+      iconClass: "text-sky-600 dark:text-sky-400",
+      label: t("customers.active_page", "Active on Page"),
+      value: listedCount,
+      hint: t("customers.stat_page_hint", {
+        total: totalCustomerCount.toLocaleString(),
+        defaultValue: "of {{total}} total",
+      }),
+    },
+  ];
+
   return (
     <Page>
-      {/* ── Breadcrumb ── */}
-      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-neutral-400 font-normal mb-1">
-        <span>Customers & CRM</span>
-        <span className="text-slate-300 dark:text-neutral-600">/</span>
-        <span className="text-slate-700 dark:text-neutral-300 font-medium">
-          {activeMainTab === "groups"
-            ? (t("customer_groups.title") || "Customer Groups")
-            : (t("customers.title") || "Customers")}
-        </span>
-      </div>
-
-      {/* ── Page Header & Primary Actions ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
-        <div>
-          <h1 className="text-2xl sm:text-[28px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-            {activeMainTab === "groups"
+      {/* ── Page Header ── */}
+      <header className="mb-5">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-neutral-400 mb-2"
+        >
+          <span>Customers & CRM</span>
+          <IconChevronRight
+            size={12}
+            stroke={iconStroke}
+            className="text-slate-300 dark:text-neutral-600"
+          />
+          <span className="text-slate-700 dark:text-neutral-200 font-medium">
+            {isGroupsTab
               ? t("customer_groups.title", "Customer Groups")
               : t("customers.title", "Customers")}
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
-            {activeMainTab === "groups"
-              ? t("customer_groups.subtitle", "Organize customer tiers, apply automated discounts and manage membership")
-              : t("customers.subtitle", "Manage customer accounts, contact details and insights")}
-          </p>
-        </div>
-
-        {/* Top Right Header Action Buttons */}
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {activeMainTab === "customers" ? (
-            <>
-              {/* Actions Dropdown */}
-              <div className="relative" ref={actionsBtnRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowActionsDropdown((p) => !p)}
-                  className="min-h-[42px] px-3.5 py-2 rounded-lg border border-slate-300 dark:border-neutral-700 bg-white dark:bg-[#18181b] hover:bg-slate-50 dark:hover:bg-[#202020] text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium flex items-center gap-1.5 active:scale-95 transition"
-                >
-                  <span>{t("customers.actions") || "Actions"}</span>
-                  <IconChevronDown size={14} stroke={iconStroke} />
-                </button>
-
-                {showActionsDropdown && (
-                  <ul className="absolute right-0 top-12 z-[100] p-1.5 shadow-xl bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-neutral-700 rounded-xl w-48 text-xs font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowActionsDropdown(false);
-                          btnDownloadCustomerDataVisible();
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
-                      >
-                        <IconDownload size={15} stroke={iconStroke} />
-                        <span>{t("customers.download_visible")}</span>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowActionsDropdown(false);
-                          btnDownloadCustomerAllData();
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
-                      >
-                        <IconFileSpreadsheet
-                          size={15}
-                          stroke={iconStroke}
-                          className="text-emerald-600"
-                        />
-                        <span>{t("customers.download_all")}</span>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowActionsDropdown(false);
-                          navigate("import");
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
-                      >
-                        <IconTableImport size={15} stroke={iconStroke} />
-                        <span>{t("customers.import")}</span>
-                      </button>
-                    </li>
-                  </ul>
-                )}
-              </div>
-
-              {/* QuickBooks Signature Green New Customer Button */}
-              {isManageAllowed && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    document.getElementById("modal-add-customer")?.showModal()
-                  }
-                  className="min-h-[42px] px-4 py-2 rounded-lg bg-[#107c41] hover:bg-[#0c6634] text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-xs"
-                >
-                  <IconPlus size={16} stroke={iconStroke} />
-                  <span>{t("customers.new") || "New customer"}</span>
-                </button>
-              )}
-            </>
-          ) : (
-            isManageAllowed && (
-              <button
-                type="button"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent("open-add-customer-group"));
-                }}
-                className="min-h-[42px] px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition shadow-xs"
-              >
-                <IconPlus size={16} stroke={iconStroke} />
-                <span>{t("customer_groups.new_group", "New Customer Group")}</span>
-              </button>
-            )
-          )}
-        </div>
-      </div>
-
-      {/* ── Main Tab Navigation: Customers vs Customer Groups ── */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-neutral-800 mb-5">
-        <button
-          type="button"
-          onClick={() => handleTabChange("customers")}
-          className={`min-h-[42px] px-5 py-2.5 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 active:scale-95 ${
-            activeMainTab === "customers"
-              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-          }`}
-        >
-          <IconUser size={18} stroke={iconStroke} />
-          <span>{t("customer_groups.tab_customers", "Customers")}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange("groups")}
-          className={`min-h-[42px] px-5 py-2.5 font-semibold text-sm border-b-2 transition-all flex items-center gap-2 active:scale-95 ${
-            activeMainTab === "groups"
-              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
-              : "border-transparent text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-          }`}
-        >
-          <IconUsers size={18} stroke={iconStroke} />
-          <span>{t("customer_groups.tab_groups", "Customer Groups")}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold font-mono">
-            {customerGroups.length}
           </span>
-        </button>
+        </nav>
+
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-[30px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                {isGroupsTab
+                  ? t("customer_groups.title", "Customer Groups")
+                  : t("customers.title", "Customers")}
+              </h1>
+              {!isLoading && (
+                <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-200 dark:ring-emerald-800 px-2.5 py-0.5 text-sm font-semibold tabular-nums">
+                  {(isGroupsTab
+                    ? customerGroups.length
+                    : totalCustomerCount
+                  ).toLocaleString()}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-500 dark:text-neutral-400 mt-1">
+              {isGroupsTab
+                ? t(
+                    "customer_groups.subtitle",
+                    "Organize customer tiers, apply automated discounts and manage membership"
+                  )
+                : t(
+                    "customers.subtitle",
+                    "Manage customer accounts, contact details and insights"
+                  )}
+            </p>
+          </div>
+
+          {/* Primary actions */}
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            {!isGroupsTab ? (
+              <>
+                <div className="relative" ref={actionsBtnRef}>
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={showActionsDropdown}
+                    onClick={() => setShowActionsDropdown((p) => !p)}
+                    className="min-h-[42px] px-4 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#18181b] hover:bg-slate-50 dark:hover:bg-[#202020] text-slate-700 dark:text-slate-200 text-sm font-medium flex items-center gap-2 active:scale-95 transition shadow-xs"
+                  >
+                    <span>{t("customers.actions") || "Actions"}</span>
+                    <IconChevronDown
+                      size={15}
+                      stroke={iconStroke}
+                      className={clsx(
+                        "text-slate-400 transition-transform",
+                        showActionsDropdown && "rotate-180"
+                      )}
+                    />
+                  </button>
+
+                  {showActionsDropdown && (
+                    <ul
+                      role="menu"
+                      className="absolute right-0 top-12 z-[100] p-1.5 shadow-xl bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-neutral-700 rounded-xl w-56 text-sm font-medium space-y-0.5 animate-in fade-in zoom-in-95 duration-100"
+                    >
+                      <li>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowActionsDropdown(false);
+                            btnDownloadCustomerDataVisible();
+                          }}
+                          className="flex w-full min-h-[42px] items-center gap-2.5 px-3 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+                        >
+                          <IconDownload size={16} stroke={iconStroke} className="text-slate-400" />
+                          <span>{t("customers.download_visible")}</span>
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowActionsDropdown(false);
+                            btnDownloadCustomerAllData();
+                          }}
+                          className="flex w-full min-h-[42px] items-center gap-2.5 px-3 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+                        >
+                          <IconFileSpreadsheet size={16} stroke={iconStroke} className="text-emerald-600" />
+                          <span>{t("customers.download_all")}</span>
+                        </button>
+                      </li>
+                      <li className="my-1 border-t border-slate-100 dark:border-neutral-800" aria-hidden="true" />
+                      <li>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowActionsDropdown(false);
+                            navigate("import");
+                          }}
+                          className="flex w-full min-h-[42px] items-center gap-2.5 px-3 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition active:scale-95"
+                        >
+                          <IconTableImport size={16} stroke={iconStroke} className="text-slate-400" />
+                          <span>{t("customers.import")}</span>
+                        </button>
+                      </li>
+                    </ul>
+                  )}
+                </div>
+
+                {isManageAllowed && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document.getElementById("modal-add-customer")?.showModal()
+                    }
+                    className="min-h-[42px] pl-3.5 pr-4 rounded-xl bg-[#107c41] hover:bg-[#0c6634] text-white text-sm font-semibold flex items-center gap-2 active:scale-95 transition shadow-sm"
+                  >
+                    <IconPlus size={18} stroke={2.25} />
+                    <span>{t("customers.new") || "New customer"}</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              isManageAllowed && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("open-add-customer-group"));
+                  }}
+                  className="min-h-[42px] pl-3.5 pr-4 rounded-xl bg-[#107c41] hover:bg-[#0c6634] text-white text-sm font-semibold flex items-center gap-2 active:scale-95 transition shadow-sm"
+                >
+                  <IconPlus size={18} stroke={2.25} />
+                  <span>{t("customer_groups.new_group", "New Customer Group")}</span>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Section switcher: Customers vs Customer Groups ── */}
+      <div
+        role="tablist"
+        aria-label={t("customers.title", "Customers")}
+        className="inline-flex max-w-full overflow-x-auto items-center gap-1 p-1 mb-5 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200/70 dark:border-neutral-800"
+      >
+        {[
+          {
+            key: "customers",
+            icon: IconUser,
+            label: t("customer_groups.tab_customers", "Customers"),
+            count: totalCustomerCount,
+          },
+          {
+            key: "groups",
+            icon: IconUsers,
+            label: t("customer_groups.tab_groups", "Customer Groups"),
+            count: customerGroups.length,
+          },
+        ].map(({ key, icon: TabIcon, label, count }) => {
+          const isActive = activeMainTab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => handleTabChange(key)}
+              className={clsx(
+                "min-h-[42px] px-4 rounded-lg text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition active:scale-95",
+                isActive
+                  ? "bg-white dark:bg-neutral-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/70 dark:ring-neutral-700"
+                  : "text-slate-500 dark:text-neutral-400 hover:text-slate-800 dark:hover:text-neutral-200"
+              )}
+            >
+              <TabIcon
+                size={18}
+                stroke={iconStroke}
+                className={isActive ? "text-[#107c41] dark:text-emerald-400" : ""}
+              />
+              <span>{label}</span>
+              <span
+                className={clsx(
+                  "min-w-[22px] text-center text-xs px-1.5 py-0.5 rounded-md font-semibold tabular-nums",
+                  isActive
+                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                    : "bg-slate-200/70 dark:bg-neutral-800 text-slate-600 dark:text-neutral-400"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {activeMainTab === "groups" ? (
+      {isGroupsTab ? (
         <CustomerGroupsTab isManageAllowed={isManageAllowed} />
       ) : (
         <>
-          {/* ── Summary KPI Metric Cards (table-design-system Standard) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t("customers.total_customers", "Total Customers")}
-            </span>
-            <span className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <IconUsers size={16} stroke={iconStroke} />
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
-            {totalCustomerCount.toLocaleString()}
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t("customers.loyalty_members", "Loyalty Members")}
-            </span>
-            <span className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <IconAward size={16} stroke={iconStroke} />
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
-            {loyaltyMembersCount.toLocaleString()}
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t("customers.points_pool", "Reward Points")}
-            </span>
-            <span className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-              <IconCoins size={16} stroke={iconStroke} />
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
-            {totalRewardPoints.toLocaleString()}
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200/80 dark:border-neutral-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t("customers.active_page", "Active on Page")}
-            </span>
-            <span className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <IconUserCheck size={16} stroke={iconStroke} />
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 tabular-nums">
-            {customers.length}
-          </div>
-        </div>
-      </div>
+          {/* ── Summary strip: one surface, four metrics ── */}
+          <section
+            aria-label={t("customers.summary", "Customer summary")}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-px mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-neutral-800 bg-slate-200 dark:bg-neutral-800 shadow-xs"
+          >
+            {summaryStats.map((stat) => {
+              const StatIcon = stat.icon;
+              return (
+                <div
+                  key={stat.key}
+                  className="bg-white dark:bg-neutral-900 p-4 sm:p-5 flex flex-col"
+                >
+                  <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 dark:text-neutral-400">
+                    <StatIcon size={16} stroke={iconStroke} className={stat.iconClass} />
+                    <span className="truncate">{stat.label}</span>
+                  </div>
+                  <div className="mt-3 text-[28px] sm:text-[32px] font-bold leading-none tracking-tight text-slate-900 dark:text-white tabular-nums">
+                    {isLoading ? (
+                      <span className="inline-block h-7 w-12 rounded-md bg-slate-100 dark:bg-neutral-800 animate-pulse" />
+                    ) : (
+                      stat.value.toLocaleString()
+                    )}
+                  </div>
+                  {typeof stat.progress === "number" && (
+                    <div
+                      className="mt-3 h-1.5 w-full rounded-full bg-slate-100 dark:bg-neutral-800 overflow-hidden"
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="h-full rounded-full bg-amber-500 transition-all"
+                        style={{ width: `${stat.progress}%` }}
+                      />
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400 truncate">
+                    {stat.hint}
+                  </p>
+                </div>
+              );
+            })}
+          </section>
 
       {/* ── Selection Action Banner (When rows are checked) ── */}
       {selectedCustomers.size > 0 && (

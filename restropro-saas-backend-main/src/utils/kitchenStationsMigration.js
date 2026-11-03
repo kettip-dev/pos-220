@@ -71,6 +71,24 @@ exports.ensureKitchenStationsSchema = async (pool) => {
         console.log("[Migration] Added station_id to printer_configs");
       }
 
+      // 6. KDS prep timing: when an item was started / bumped on the kitchen screen.
+      //    Used for recall ordering ("bumped 3m ago") and average ticket time.
+      if (!(await hasColumn("order_items", "started_at"))) {
+        await conn.query(`
+          ALTER TABLE order_items 
+          ADD COLUMN started_at DATETIME NULL
+        `);
+        console.log("[Migration] Added started_at to order_items");
+      }
+
+      if (!(await hasColumn("order_items", "completed_at"))) {
+        await conn.query(`
+          ALTER TABLE order_items 
+          ADD COLUMN completed_at DATETIME NULL
+        `);
+        console.log("[Migration] Added completed_at to order_items");
+      }
+
       console.log("[Migration] Kitchen stations schema verified successfully.");
     } finally {
       conn.release();

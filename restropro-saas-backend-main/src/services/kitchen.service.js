@@ -60,6 +60,8 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.date,
         oi.addons,
         oi.notes,
+        oi.started_at,
+        oi.completed_at,
         oi.kitchen_station_id,
         ks.name AS station_name,
         ks.color AS station_color,
@@ -133,6 +135,24 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
   }
 };
 
+// Keeps KDS prep timestamps in step with the item status:
+//  preparing  -> stamp started_at once, clear completed_at (recall / undo)
+//  completed  -> stamp completed_at, backfill started_at if the item was bumped straight from new
+//  created    -> clear both
+// Expressed as a SQL fragment so it can be appended to any `SET oi.status = ?` update.
+const statusTimestampSql = (status) => {
+  if (status === "preparing") {
+    return `, oi.started_at = COALESCE(oi.started_at, NOW()), oi.completed_at = NULL`;
+  }
+  if (status === "completed") {
+    return `, oi.started_at = COALESCE(oi.started_at, NOW()), oi.completed_at = NOW()`;
+  }
+  if (status === "created") {
+    return `, oi.started_at = NULL, oi.completed_at = NULL`;
+  }
+  return "";
+};
+
 exports.updateOrderItemStatusDB = async (tenantId, orderItemId, status) => {
   const conn = await getMySqlPromiseConnection();
   try {
@@ -140,7 +160,7 @@ exports.updateOrderItemStatusDB = async (tenantId, orderItemId, status) => {
     const sql = `
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
-    SET oi.status = ?
+    SET oi.status = ?${statusTimestampSql(status)}
     WHERE oi.id = ? AND o.tenant_id = ?;
     `;
 
@@ -177,7 +197,7 @@ exports.bulkUpdateOrderItemStatusDB = async (tenantId, orderItemIds, status) => 
     const sql = `
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
-    SET oi.status = ?
+    SET oi.status = ?${statusTimestampSql(status)}
     WHERE oi.id IN (?) AND o.tenant_id = ?;
     `;
 
@@ -198,7 +218,7 @@ exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatus
     let sql = `
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
-    SET oi.status = ?
+    SET oi.status = ?${statusTimestampSql(status)}
     WHERE oi.order_id = ? AND o.tenant_id = ?
     `;
 

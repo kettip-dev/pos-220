@@ -1,44 +1,25 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useStoreSettings } from "../controllers/settings.controller";
-import Page from "../components/Page";
-import { iconStroke } from "../config/config";
+import clsx from "clsx";
+import { toast } from "react-hot-toast";
 import {
-  IconArmchair,
-  IconBoxSeam,
-  IconCheck,
-  IconChecks,
-  IconClock,
-  IconDotsVertical,
-  IconRefresh,
-  IconX,
-  IconLock,
-  IconLockOpen,
-  IconToolsKitchen2,
-  IconChefHat,
-  IconVolume,
-  IconVolumeOff,
   IconArrowsMaximize,
   IconArrowsMinimize,
+  IconChefHat,
   IconHistory,
-  IconAlertCircle,
-  IconFlame,
+  IconLock,
+  IconLockOpen,
+  IconRefresh,
+  IconSettings,
+  IconToolsKitchen2,
+  IconVolume,
+  IconVolumeOff,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 
-// Safe inline SVG helpers for player play & undo
-const IconPlayerPlay = ({ size = 16, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className}>
-    <polygon points="6 4 20 12 6 20 6 4" />
-  </svg>
-);
-
-const IconArrowBackUp = ({ size = 15, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M9 14l-4-4 4-4" />
-    <path d="M5 10h11a4 4 0 1 1 0 8h-1" />
-  </svg>
-);
+import Page from "../components/Page";
+import { useStoreSettings } from "../controllers/settings.controller";
 import {
   bulkUpdateKitchenOrderItemStatus,
   getKitchenOrders,
@@ -46,1129 +27,781 @@ import {
   updateKitchenOrderItemStatus,
 } from "../controllers/kitchen.controller";
 import { useKitchenStations } from "../controllers/kitchen_stations.controller";
-import { toast } from "react-hot-toast";
 import { SocketContext } from "../contexts/SocketContext";
 import { initSocket } from "../utils/socket";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
-import { parseOrderDate } from "../helpers/DateHelper";
-import clsx from "clsx";
 
-// Helpers for live elapsed timers
-const getElapsedSeconds = (orderDate, nowMs) => {
-  if (!orderDate) return 0;
-  const parsed = parseOrderDate(orderDate);
-  if (!parsed || isNaN(parsed.getTime())) return 0;
-  return Math.max(0, Math.floor((nowMs - parsed.getTime()) / 1000));
+import KdsTicketCard from "../components/kitchen/KdsTicketCard";
+import KdsRecallDrawer from "../components/kitchen/KdsRecallDrawer";
+import KdsSettingsPopover from "../components/kitchen/KdsSettingsPopover";
+import {
+  DINING_TYPES,
+  filterCompanionItems,
+  filterItemsForStation,
+  formatDuration,
+  getTicketStartMs,
+  getUrgency,
+  isItemActive,
+  isItemDone,
+  loadKdsSettings,
+  saveKdsSettings,
+  toMs,
+} from "../components/kitchen/kdsUtils";
+
+const GRID_MIN_WIDTH = { sm: 280, md: 330, lg: 400 };
+
+const readLS = (key, fallback) => {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v;
+  } catch (e) {
+    return fallback;
+  }
 };
-
-const formatElapsedTime = (totalSeconds) => {
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+const writeLS = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    /* ignore */
+  }
 };
 
 export default function KitchenPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const user = getUserDetailsInLocalStorage();
   const { socket, isSocketConnected } = useContext(SocketContext);
-
   const { data: storeSettings, isLoading: isSettingsLoading } = useStoreSettings();
+  const { data: stations = [] } = useKitchenStations();
 
   useEffect(() => {
     if (!isSettingsLoading && storeSettings && storeSettings.isKitchenEnabled === false) {
       toast.error(t("kitchen.disabled_notice", "Kitchen / KDS workflow is disabled for this store."));
       navigate("/dashboard/pos", { replace: true });
     }
-  }, [storeSettings, isSettingsLoading, navigate]);
+  }, [storeSettings, isSettingsLoading, navigate, t]);
 
-  // Kitchen Stations hook
-  const { data: stations = [] } = useKitchenStations();
+  // ── View state (persisted per device so each kitchen tablet remembers its role) ──
+  const [selectedStationId, setSelectedStationId] = useState(() => readLS("kds_selected_station_id", "all"));
+  const [isStationLocked, setIsStationLocked] = useState(() => readLS("kds_is_station_locked", "false") === "true");
+  const [soundEnabled, setSoundEnabled] = useState(() => readLS("kds_sound_enabled", "true") !== "false");
+  const [diningFilter, setDiningFilter] = useState(() => readLS("kds_dining_filter", "all"));
+  const [settings, setSettings] = useState(loadKdsSettings);
 
-  // Active Station Tab & Lock State (Persisted in localStorage)
-  const [selectedStationId, setSelectedStationId] = useState(() => {
-    return localStorage.getItem("kds_selected_station_id") || "all";
-  });
-  const [isStationLocked, setIsStationLocked] = useState(() => {
-    return localStorage.getItem("kds_is_station_locked") === "true";
-  });
-
-  // Sound Notification State
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    return localStorage.getItem("kds_sound_enabled") !== "false";
-  });
-
-  // Fullscreen State
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // Recall Slide-out Drawer State
   const [isRecallOpen, setIsRecallOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
+  const [now, setNow] = useState(Date.now());
 
-  // Live Clock for ticking elapsed order timers
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+  const lastBumpRef = useRef(null);
 
-  const [state, setState] = useState({
-    kitchenOrders: [],
-    isLoading: true,
-  });
+  const enabledStations = useMemo(() => stations.filter((s) => s.is_enabled), [stations]);
+  const isExpo = selectedStationId === "all";
+  const stationParam = isExpo ? null : selectedStationId;
 
-  // Ticking timer effect every 1 second
+  // If the remembered station was deleted or disabled, fall back to Expo.
   useEffect(() => {
-    const timerInterval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
-    return () => clearInterval(timerInterval);
-  }, []);
-
-  // Fullscreen event listener
-  useEffect(() => {
-    const handleFsChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    };
-    document.addEventListener("fullscreenchange", handleFsChange);
-    return () => document.removeEventListener("fullscreenchange", handleFsChange);
-  }, []);
-
-  useEffect(() => {
-    _init();
-    _initSocket();
-
-    return () => {
-      socket.off("new_order");
-      socket.off("order_update");
-    };
-  }, []);
-
-  const { kitchenOrders, isLoading } = state;
-
-  const _init = async () => {
-    try {
-      const res = await getKitchenOrders();
-      if (res.status === 200) {
-        const orders = res?.data || [];
-        setState({
-          ...state,
-          kitchenOrders: orders || [],
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast.dismiss();
-      toast.error(t("kitchen.error_loading_orders", "Error loading kitchen orders"));
-      setState({
-        ...state,
-        isLoading: false,
-      });
+    if (!stations.length || selectedStationId === "all" || selectedStationId === "unassigned") return;
+    if (!enabledStations.some((s) => String(s.id) === String(selectedStationId))) {
+      setSelectedStationId("all");
+      writeLS("kds_selected_station_id", "all");
     }
-  };
+  }, [stations, enabledStations, selectedStationId]);
 
-  const _initSocket = () => {
+  // ── Clock ──
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  // ── Data ──
+  // `t` is read through a ref so a language switch never re-creates `refresh`
+  // (which would re-run the initial load, socket binding and polling effects).
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  const refresh = useCallback(
+    async ({ silent = true } = {}) => {
+      if (!silent) setIsRefreshing(true);
+      try {
+        const res = await getKitchenOrders();
+        if (res.status === 200) setOrders(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        console.error(error);
+        if (!silent) toast.error(tRef.current("kitchen.error_loading_orders", "Error loading kitchen orders"));
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    refresh({ silent: false });
+  }, [refresh]);
+
+  // Socket: new orders chime + refresh; any order update refreshes.
+  useEffect(() => {
+    const user = getUserDetailsInLocalStorage();
     const audio = new Audio("/new_order_sound.mp3");
 
-    const handleNewOrder = (payload) => {
-      console.log("New order received:", payload);
-      try {
-        const isSoundOn = localStorage.getItem("kds_sound_enabled") !== "false";
-        if (isSoundOn) {
-          audio.play().catch(() => {});
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      btnRefresh();
+    const onNewOrder = () => {
+      if (soundEnabledRef.current) audio.play().catch(() => {});
+      refresh();
     };
+    const onOrderUpdate = () => refresh();
 
-    const handleOrderUpdate = () => {
-      console.log("Order update received");
-      btnRefresh();
+    if (!socket.connected) initSocket();
+    if (user?.tenant_id) socket.emit("authenticate", user.tenant_id);
+    socket.on("new_order", onNewOrder);
+    socket.on("order_update", onOrderUpdate);
+    return () => {
+      socket.off("new_order", onNewOrder);
+      socket.off("order_update", onOrderUpdate);
     };
+  }, [socket, refresh]);
 
-    if (isSocketConnected) {
-      socket.emit("authenticate", user.tenant_id);
-      socket.on("new_order", handleNewOrder);
-      socket.on("order_update", handleOrderUpdate);
-    } else {
-      initSocket();
-      socket.emit("authenticate", user.tenant_id);
-      socket.on("new_order", handleNewOrder);
-      socket.on("order_update", handleOrderUpdate);
-    }
+  // Safety-net polling: fast when the socket is down, slow otherwise.
+  useEffect(() => {
+    const id = setInterval(() => refresh(), isSocketConnected ? 60000 : 15000);
+    return () => clearInterval(id);
+  }, [isSocketConnected, refresh]);
+
+  const broadcastUpdate = () => {
+    const user = getUserDetailsInLocalStorage();
+    if (!socket.connected) initSocket();
+    socket.emit("order_update_backend", {}, user?.tenant_id);
   };
 
-  const sendOrderUpdateEvent = () => {
-    const u = getUserDetailsInLocalStorage();
-    if (isSocketConnected) {
-      socket.emit("order_update_backend", {}, u.tenant_id);
-    } else {
-      initSocket();
-      socket.emit("order_update_backend", {}, u.tenant_id);
-    }
+  // ── Optimistic status changes ──
+  const patchLocalItems = (shouldPatch, status) => {
+    const stamp = new Date().toISOString();
+    setOrders((prev) =>
+      prev.map((o) => ({
+        ...o,
+        items: o.items.map((i) => {
+          if (!shouldPatch(i, o)) return i;
+          return {
+            ...i,
+            status,
+            started_at: status === "created" ? null : i.started_at || stamp,
+            completed_at: status === "completed" ? stamp : null,
+          };
+        }),
+      }))
+    );
   };
 
-  async function btnRefresh() {
+  const runAction = async (optimistic, request, errorMessage) => {
+    optimistic();
     try {
-      const res = await getKitchenOrders();
-      if (res.status === 200) {
-        const orders = res?.data || [];
-        setState((prev) => ({
-          ...prev,
-          kitchenOrders: orders || [],
-          isLoading: false,
-        }));
-      }
+      await request();
+      broadcastUpdate();
     } catch (error) {
       console.error(error);
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-      }));
+      toast.error(error?.response?.data?.message || errorMessage || t("kitchen.error_processing_request", "Could not update the ticket"));
+    } finally {
+      refresh();
     }
-  }
+  };
 
-  const handleStationChange = (stationId) => {
-    if (isStationLocked && stationId !== selectedStationId) {
-      toast.error("Station view is locked. Unlock it to switch stations.");
+  const inScope = useCallback(
+    (item) => {
+      if (selectedStationId === "all") return true;
+      if (selectedStationId === "unassigned") return !item.kitchen_station_id;
+      return Number(item.kitchen_station_id) === Number(selectedStationId);
+    },
+    [selectedStationId]
+  );
+
+  const advanceItem = (item) => {
+    const next = item.status === "created" ? "preparing" : item.status === "preparing" ? "completed" : null;
+    if (!next) return;
+    runAction(
+      () => patchLocalItems((i) => i.id === item.id, next),
+      () => updateKitchenOrderItemStatus(item.id, next)
+    );
+  };
+
+  const undoItem = (item) => {
+    runAction(
+      () => patchLocalItems((i) => i.id === item.id, "preparing"),
+      () => updateKitchenOrderItemStatus(item.id, "preparing")
+    );
+  };
+
+  const startAll = (order) => {
+    runAction(
+      () => patchLocalItems((i, o) => o.id === order.id && inScope(i) && i.status === "created", "preparing"),
+      () => markOrderAllItemsStatus(order.id, "preparing", ["created"], stationParam)
+    );
+  };
+
+  const undoBump = async (bump = lastBumpRef.current) => {
+    if (!bump) return;
+    lastBumpRef.current = null;
+    toast.dismiss(`bump-${bump.orderId}`);
+    const byStatus = {};
+    bump.items.forEach((i) => {
+      (byStatus[i.status] = byStatus[i.status] || []).push(i.id);
+    });
+    await runAction(
+      () =>
+        setOrders((prev) =>
+          prev.map((o) => ({
+            ...o,
+            items: o.items.map((i) => {
+              const was = bump.items.find((b) => b.id === i.id);
+              return was ? { ...i, status: was.status, completed_at: null } : i;
+            }),
+          }))
+        ),
+      () => Promise.all(Object.entries(byStatus).map(([status, ids]) => bulkUpdateKitchenOrderItemStatus(ids, status)))
+    );
+    toast.success(`Ticket #${bump.token} is back on the rail`);
+  };
+
+  const bumpTicket = (order) => {
+    const bumpedItems = order.items.filter((i) => inScope(i) && isItemActive(i)).map((i) => ({ id: i.id, status: i.status }));
+    if (bumpedItems.length === 0) return;
+    const bump = { orderId: order.id, token: order.token_no ?? order.id, items: bumpedItems };
+    lastBumpRef.current = bump;
+
+    runAction(
+      () => patchLocalItems((i, o) => o.id === order.id && inScope(i) && isItemActive(i), "completed"),
+      () => markOrderAllItemsStatus(order.id, "completed", ["created", "preparing"], stationParam)
+    );
+
+    toast(
+      (tt) => (
+        <span className="flex items-center gap-3">
+          <span>
+            Ticket <b>#{bump.token}</b> bumped
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              toast.dismiss(tt.id);
+              undoBump(bump);
+            }}
+            className="h-9 px-3 rounded-lg bg-slate-900 text-white text-xs font-bold active:scale-95"
+          >
+            Undo
+          </button>
+        </span>
+      ),
+      { id: `bump-${order.id}`, duration: 6000 }
+    );
+  };
+
+  const recallTicket = (order) => {
+    runAction(
+      () => patchLocalItems((i, o) => o.id === order.id && inScope(i) && i.status === "completed", "preparing"),
+      () => markOrderAllItemsStatus(order.id, "preparing", ["completed"], stationParam),
+      "Failed to recall ticket"
+    );
+    toast.success(`Ticket #${order.token_no ?? order.id} recalled`);
+  };
+
+  // ── Derived views ──
+  const stationCounts = useMemo(() => {
+    const counts = { all: 0, unassigned: 0 };
+    orders.forEach((o) => {
+      const active = o.items.filter(isItemActive);
+      if (active.length === 0) return;
+      counts.all += 1;
+      const ids = new Set(active.map((i) => i.kitchen_station_id || "unassigned"));
+      ids.forEach((id) => {
+        counts[id] = (counts[id] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [orders]);
+
+  const scopedTickets = useMemo(() => {
+    return orders
+      .map((order) => {
+        const displayItems = filterItemsForStation(order.items, selectedStationId);
+        if (!displayItems.some(isItemActive)) return null;
+        const startMs = getTicketStartMs(order, displayItems);
+        return {
+          order,
+          displayItems,
+          companionItems: filterCompanionItems(order.items, selectedStationId),
+          startMs,
+        };
+      })
+      .filter(Boolean);
+  }, [orders, selectedStationId]);
+
+  const diningCounts = useMemo(() => {
+    const c = { all: scopedTickets.length };
+    scopedTickets.forEach(({ order }) => {
+      c[order.delivery_type] = (c[order.delivery_type] || 0) + 1;
+    });
+    return c;
+  }, [scopedTickets]);
+
+  const tickets = useMemo(() => {
+    const list = scopedTickets
+      .filter(({ order }) => diningFilter === "all" || order.delivery_type === diningFilter)
+      .map((tk) => {
+        const elapsedSec = Math.max(0, Math.floor((now - tk.startMs) / 1000));
+        return { ...tk, elapsedSec, urgency: getUrgency(elapsedSec, settings) };
+      });
+    list.sort((a, b) => (settings.sortOrder === "newest" ? b.startMs - a.startMs : a.startMs - b.startMs));
+    return list;
+  }, [scopedTickets, diningFilter, now, settings]);
+
+  const recallEntries = useMemo(() => {
+    return orders
+      .map((order) => {
+        const items = filterItemsForStation(order.items, selectedStationId);
+        if (items.length === 0 || items.some(isItemActive)) return null;
+        if (!items.some((i) => i.status === "completed" || i.status === "delivered")) return null;
+        const doneTimes = items.map((i) => toMs(i.completed_at)).filter(Boolean);
+        const bumpedAtMs = doneTimes.length ? Math.max(...doneTimes) : null;
+        const startMs = getTicketStartMs(order, items);
+        return {
+          order,
+          items,
+          bumpedAtMs,
+          durationSec: bumpedAtMs ? Math.max(0, Math.round((bumpedAtMs - startMs) / 1000)) : null,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.bumpedAtMs || 0) - (a.bumpedAtMs || 0));
+  }, [orders, selectedStationId]);
+
+  const stats = useMemo(() => {
+    const newCount = tickets.filter((tk) => tk.displayItems.filter(isItemActive).every((i) => i.status === "created")).length;
+    const cookingCount = tickets.filter((tk) => tk.displayItems.some((i) => i.status === "preparing")).length;
+    const lateCount = tickets.filter((tk) => tk.urgency === "late").length;
+    const recent = recallEntries.filter((e) => e.durationSec != null && e.bumpedAtMs && now - e.bumpedAtMs < 60 * 60 * 1000);
+    const avgSec = recent.length ? Math.round(recent.reduce((s, e) => s + e.durationSec, 0) / recent.length) : null;
+    return { newCount, cookingCount, lateCount, avgSec, avgSample: recent.length };
+  }, [tickets, recallEntries, now]);
+
+  const scopeLabel = useMemo(() => {
+    if (selectedStationId === "all") return "All stations";
+    if (selectedStationId === "unassigned") return "Unassigned items";
+    return enabledStations.find((s) => String(s.id) === String(selectedStationId))?.name || "Station";
+  }, [selectedStationId, enabledStations]);
+
+  // Keep the keyboard selection on a ticket that still exists.
+  useEffect(() => {
+    if (selectedTicketId && !tickets.some((tk) => tk.order.id === selectedTicketId)) setSelectedTicketId(null);
+  }, [tickets, selectedTicketId]);
+
+  // ── Controls ──
+  const changeStation = (id) => {
+    if (isStationLocked && String(id) !== String(selectedStationId)) {
+      toast.error("Screen is locked to this station. Unlock to switch.");
       return;
     }
-    setSelectedStationId(stationId);
-    localStorage.setItem("kds_selected_station_id", stationId);
+    setSelectedStationId(String(id));
+    writeLS("kds_selected_station_id", String(id));
+    setSelectedTicketId(null);
   };
 
-  const handleToggleLock = () => {
-    const nextLocked = !isStationLocked;
-    setIsStationLocked(nextLocked);
-    localStorage.setItem("kds_is_station_locked", String(nextLocked));
-    if (nextLocked) {
-      toast.success(
-        `KDS locked to ${
-          selectedStationId === "all"
-            ? "Expo / All Stations"
-            : stations.find((s) => String(s.id) === String(selectedStationId))?.name || "Station"
-        }`
-      );
-    } else {
-      toast("KDS unlocked — station switching enabled");
-    }
+  const changeDining = (id) => {
+    setDiningFilter(id);
+    writeLS("kds_dining_filter", id);
   };
 
-  const toggleFullscreen = () => {
-    try {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
+  const toggleLock = () => {
+    const next = !isStationLocked;
+    setIsStationLocked(next);
+    writeLS("kds_is_station_locked", String(next));
+    if (next) toast.success(`Screen locked to ${scopeLabel}`);
+    else toast("Station switching unlocked");
   };
 
   const toggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
-    localStorage.setItem("kds_sound_enabled", String(next));
-    if (next) {
-      toast.success("KDS order chime enabled");
-      try {
-        new Audio("/new_order_sound.mp3").play().catch(() => {});
-      } catch (e) {}
-    } else {
-      toast("KDS order chime muted");
-    }
+    writeLS("kds_sound_enabled", String(next));
+    if (next) new Audio("/new_order_sound.mp3").play().catch(() => {});
   };
 
-  const btnStartPreparingOrderItem = async (orderItemId) => {
-    try {
-      toast.loading(t("kitchen.loading_message", "Updating item..."));
-      const res = await updateKitchenOrderItemStatus(orderItemId, "preparing");
-      toast.dismiss();
-      if (res.status === 200) {
-        await btnRefresh();
-        sendOrderUpdateEvent();
-        toast.success(res.data.message || "Item started");
-      }
-    } catch (error) {
-      const message = error?.response?.data?.message || t("kitchen.error_processing_request", "Error updating item");
-      toast.dismiss();
-      console.error(error);
-      toast.error(message);
-    }
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.().catch(() => {});
   };
 
-  const btnCompletePreparingOrderItem = async (orderItemId) => {
-    try {
-      toast.loading(t("kitchen.loading_message", "Completing item..."));
-      const res = await updateKitchenOrderItemStatus(orderItemId, "completed");
-      toast.dismiss();
-      if (res.status === 200) {
-        sendOrderUpdateEvent();
-        await btnRefresh();
-        toast.success(res.data.message || "Item completed");
-      }
-    } catch (error) {
-      const message = error?.response?.data?.message || t("kitchen.error_processing_request", "Error completing item");
-      toast.dismiss();
-      console.error(error);
-      toast.error(message);
-    }
+  const updateSettings = (next) => {
+    setSettings(next);
+    saveKdsSettings(next);
   };
 
-  const btnMarkOrderAllItems = async (orderId, targetStatus, fromStatuses) => {
-    try {
-      toast.loading(t("kitchen.loading_message", "Updating order..."));
-      const stationParam = selectedStationId === "all" ? null : selectedStationId;
-      const res = await markOrderAllItemsStatus(orderId, targetStatus, fromStatuses, stationParam);
-      toast.dismiss();
-      if (res.status === 200) {
-        sendOrderUpdateEvent();
-        await btnRefresh();
-        toast.success(res.data.message || "Order updated");
+  // ── Bump-bar / keyboard shortcuts ──
+  const keyStateRef = useRef({});
+  keyStateRef.current = { tickets, selectedTicketId, isRecallOpen, isSettingsOpen };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const { tickets: list, selectedTicketId: sel, isRecallOpen: recallOpen, isSettingsOpen: settingsOpen } = keyStateRef.current;
+      if (recallOpen || settingsOpen) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const idx = list.findIndex((tk) => tk.order.id === sel);
+      const selected = idx >= 0 ? list[idx] : null;
+
+      if (/^[1-9]$/.test(e.key)) {
+        const target = list[Number(e.key) - 1];
+        if (target) setSelectedTicketId(target.order.id);
+        return;
       }
-    } catch (error) {
-      const message = error?.response?.data?.message || t("kitchen.error_processing_request", "Error processing request");
-      toast.dismiss();
-      console.error(error);
-      toast.error(message);
-    }
-  };
-
-  // Restore / Recall an accidentally bumped order
-  const btnRecallOrder = async (orderId) => {
-    try {
-      toast.loading("Restoring order to kitchen...");
-      const stationParam = selectedStationId === "all" ? null : selectedStationId;
-      const res = await markOrderAllItemsStatus(orderId, "preparing", ["completed"], stationParam);
-      toast.dismiss();
-      if (res.status === 200) {
-        sendOrderUpdateEvent();
-        await btnRefresh();
-        toast.success("Order recalled back to kitchen queue!");
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        if (list.length) setSelectedTicketId(list[Math.min(list.length - 1, idx + 1)].order.id);
+        return;
       }
-    } catch (error) {
-      toast.dismiss();
-      toast.error("Failed to restore order");
-    }
-  };
-
-  // Filter orders that have pending items
-  const activeOrders = useMemo(() => {
-    return kitchenOrders.filter((order) => {
-      return !order.items.every(
-        (item) => item.status === "completed" || item.status === "delivered" || item.status === "cancelled"
-      );
-    });
-  }, [kitchenOrders]);
-
-  // Orders that are fully completed (available for Recall)
-  const completedOrders = useMemo(() => {
-    return kitchenOrders.filter((order) => {
-      return (
-        order.items.length > 0 &&
-        order.items.every(
-          (item) => item.status === "completed" || item.status === "delivered" || item.status === "cancelled"
-        )
-      );
-    });
-  }, [kitchenOrders]);
-
-  // Compute pending ticket count per station for badges
-  const stationCounts = useMemo(() => {
-    const counts = { all: activeOrders.length, unassigned: 0 };
-    stations.forEach((s) => {
-      counts[s.id] = 0;
-    });
-
-    activeOrders.forEach((order) => {
-      const stationSet = new Set();
-      let hasUnassigned = false;
-
-      order.items.forEach((item) => {
-        if (item.status === "created" || item.status === "preparing") {
-          if (item.kitchen_station_id) {
-            stationSet.add(item.kitchen_station_id);
-          } else {
-            hasUnassigned = true;
-          }
-        }
-      });
-
-      stationSet.forEach((stId) => {
-        if (counts[stId] !== undefined) counts[stId] += 1;
-      });
-      if (hasUnassigned) counts.unassigned += 1;
-    });
-
-    return counts;
-  }, [activeOrders, stations]);
-
-  // Split items into displayItems vs companionItems based on active station filter
-  const displayOrders = useMemo(() => {
-    return activeOrders
-      .map((order) => {
-        if (selectedStationId === "all") {
-          return {
-            ...order,
-            displayItems: order.items,
-            companionItems: [],
-          };
-        }
-
-        const isUnassignedFilter = selectedStationId === "unassigned";
-        const stationIdNum = Number(selectedStationId);
-
-        const displayItems = order.items.filter((item) => {
-          if (isUnassignedFilter) return !item.kitchen_station_id;
-          return item.kitchen_station_id === stationIdNum;
-        });
-
-        const companionItems = order.items.filter((item) => {
-          if (isUnassignedFilter) return Boolean(item.kitchen_station_id);
-          return item.kitchen_station_id !== stationIdNum;
-        });
-
-        return {
-          ...order,
-          displayItems,
-          companionItems,
-        };
-      })
-      .filter((order) => {
-        if (selectedStationId === "all") return true;
-        return order.displayItems.length > 0;
-      });
-  }, [activeOrders, selectedStationId]);
-
-  // Helper to summarize companion items by station
-  const renderCompanionBadge = (companionItems) => {
-    if (!companionItems || companionItems.length === 0) return null;
-
-    const grouped = {};
-    companionItems.forEach((item) => {
-      const name = item.station_name || "General Kitchen";
-      const color = item.station_color || "#3b82f6";
-      if (!grouped[name]) {
-        grouped[name] = { count: 0, completed: 0, preparing: 0, color };
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (list.length) setSelectedTicketId(list[Math.max(0, idx - 1)].order.id);
+        return;
       }
-      grouped[name].count += item.quantity || 1;
-      if (item.status === "completed" || item.status === "delivered") {
-        grouped[name].completed += item.quantity || 1;
-      } else if (item.status === "preparing") {
-        grouped[name].preparing += item.quantity || 1;
+      if (e.key === "Enter" && selected) {
+        e.preventDefault();
+        bumpTicket(selected.order);
+        return;
       }
-    });
+      if (e.key === " " && selected) {
+        e.preventDefault();
+        startAll(selected.order);
+        return;
+      }
+      if (e.key === "u" || e.key === "U") {
+        undoBump();
+        return;
+      }
+      if (e.key === "r" || e.key === "R") {
+        setIsRecallOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // handlers read fresh state through keyStateRef
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStationId]);
 
-    return (
-      <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Other Stations:
-        </span>
-        {Object.entries(grouped).map(([stationName, info]) => {
-          const allDone = info.completed === info.count;
-          return (
-            <span
-              key={stationName}
-              className={clsx(
-                "text-[11px] font-medium px-2 py-0.5 rounded-lg flex items-center gap-1.5 border transition-all",
-                allDone
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-slate-50 text-slate-600 border-slate-200"
-              )}
-            >
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: info.color }}
-              />
-              <span className="font-semibold">{stationName}</span>
-              <span className="text-[10px] opacity-80">
-                ({info.completed}/{info.count} done)
-              </span>
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const enabledStations = stations.filter((s) => s.is_enabled);
+  const clock = new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const otherStationsBusy = !isExpo && stationCounts.all > 0;
 
   return (
-    <Page className="h-full flex flex-col bg-slate-50 text-slate-900 overflow-hidden select-none p-3 sm:p-5 relative font-sans">
-      {/* ── TOP CONTROL BAR: Title, Live Count, Station Lock, Recall, Sound, Fullscreen, Refresh ── */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold shadow-sm">
-            <IconToolsKitchen2 size={24} stroke={iconStroke} />
+    <Page className="h-full flex flex-col bg-[#0b0c10] text-slate-100 overflow-hidden select-none relative font-sans">
+      <style>{`
+        @keyframes kdsFresh { 0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,0) } 50% { box-shadow: 0 0 0 4px rgba(56,189,248,0.35) } }
+        .kds-fresh { animation: kdsFresh 1.6s ease-in-out 3; }
+        @keyframes kdsSlideIn { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+        .kds-slide-in { animation: kdsSlideIn .18s ease-out; }
+      `}</style>
+
+      {/* ── Top bar ── */}
+      <header className="shrink-0 px-4 sm:px-5 pt-4 pb-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
+            <IconToolsKitchen2 size={22} stroke={2} />
           </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-                <span>{t("kitchen.title", "Kitchen KDS")}</span>
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500 text-slate-950 shadow-sm">
-                {displayOrders.length} {displayOrders.length === 1 ? "Ticket" : "Tickets"}
-              </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black tracking-tight text-white truncate">{t("kitchen.title", "Kitchen")}</h1>
               {isStationLocked && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 flex items-center gap-1">
-                  <IconLock size={12} stroke={iconStroke} /> Locked
+                <span className="h-6 px-2 rounded-md bg-amber-400/15 text-amber-300 border border-amber-400/30 text-[11px] font-bold flex items-center gap-1">
+                  <IconLock size={12} stroke={2.4} /> Locked
                 </span>
               )}
             </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-              Real-time multi-station kitchen display system
-            </p>
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400 font-medium">
+              <span className={clsx("flex items-center gap-1.5", isSocketConnected ? "text-emerald-400" : "text-amber-300")}>
+                <span className={clsx("w-1.5 h-1.5 rounded-full", isSocketConnected ? "bg-emerald-400" : "bg-amber-300 animate-pulse")} />
+                {isSocketConnected ? "Live" : "Reconnecting…"}
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="truncate">{scopeLabel}</span>
+              <span className="text-slate-600">•</span>
+              <span className="tabular-nums">{clock}</span>
+            </div>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Recall Drawer Button */}
-          <button
-            onClick={() => setIsRecallOpen(true)}
-            className="h-10 px-3.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
-            title="Recall recently completed tickets"
-          >
-            <IconHistory size={16} stroke={iconStroke} />
-            <span>Recall</span>
-            {completedOrders.length > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
-                {completedOrders.length}
+        {/* Stats */}
+        <div className="flex items-center gap-2 order-3 lg:order-none w-full lg:w-auto lg:flex-1 lg:justify-center overflow-x-auto no-scrollbar">
+          <Stat label="Open" value={tickets.length} tone="white" />
+          <Stat label="New" value={stats.newCount} tone="sky" />
+          <Stat label="Cooking" value={stats.cookingCount} tone="amber" />
+          <Stat label="Late" value={stats.lateCount} tone={stats.lateCount > 0 ? "rose" : "muted"} />
+          <Stat
+            label="Avg time"
+            value={stats.avgSec != null ? formatDuration(stats.avgSec) : "—"}
+            tone="muted"
+            title={stats.avgSample ? `Average of ${stats.avgSample} ticket(s) bumped in the last hour` : "No tickets bumped in the last hour"}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 ml-auto">
+          <ToolButton onClick={() => setIsRecallOpen(true)} title="Recall bumped tickets (R)">
+            <IconHistory size={19} stroke={2} />
+            <span className="hidden xl:inline">Recall</span>
+            {recallEntries.length > 0 && (
+              <span className="min-w-[20px] h-5 px-1 rounded-full bg-white/10 text-[11px] font-black tabular-nums flex items-center justify-center">
+                {recallEntries.length}
               </span>
             )}
-          </button>
-
-          {/* Sound Alert Toggle */}
-          <button
-            onClick={toggleSound}
-            className={clsx(
-              "h-10 px-3 rounded-xl border font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm",
-              soundEnabled
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                : "bg-white text-slate-500 border-slate-200 hover:bg-slate-100"
-            )}
-            title={soundEnabled ? "Mute order sound chime" : "Enable order sound chime"}
-          >
-            {soundEnabled ? (
-              <>
-                <IconVolume size={16} stroke={iconStroke} />
-                <span className="hidden md:inline">Sound On</span>
-              </>
-            ) : (
-              <>
-                <IconVolumeOff size={16} stroke={iconStroke} />
-                <span className="hidden md:inline">Muted</span>
-              </>
-            )}
-          </button>
-
-          {/* Fullscreen Toggle */}
-          <button
-            onClick={toggleFullscreen}
-            className="h-10 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen (Kiosk Mode)"}
-          >
-            {isFullscreen ? (
-              <>
-                <IconArrowsMinimize size={16} stroke={iconStroke} />
-                <span className="hidden md:inline">Exit Full</span>
-              </>
-            ) : (
-              <>
-                <IconArrowsMaximize size={16} stroke={iconStroke} />
-                <span className="hidden md:inline">Fullscreen</span>
-              </>
-            )}
-          </button>
-
-          {/* Lock Screen Toggle */}
-          <button
-            onClick={handleToggleLock}
-            className={clsx(
-              "h-10 px-3.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm border",
-              isStationLocked
-                ? "bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-rose-200"
-                : "bg-white hover:bg-slate-100 text-slate-700 border-slate-200"
-            )}
-            title={
-              isStationLocked
-                ? "Unlock to switch kitchen stations"
-                : "Lock current station on this screen"
-            }
-          >
-            {isStationLocked ? (
-              <>
-                <IconLock size={15} stroke={iconStroke} />
-                <span>Station Locked</span>
-              </>
-            ) : (
-              <>
-                <IconLockOpen size={15} stroke={iconStroke} />
-                <span>Lock View</span>
-              </>
-            )}
-          </button>
-
-          {/* Refresh Button (Icon Only with Tooltip) */}
-          <button
-            type="button"
-            onClick={btnRefresh}
-            className="h-10 w-10 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition active:scale-95 shadow-sm shrink-0"
-            title={t("kitchen.refresh", "Refresh")}
-            aria-label={t("kitchen.refresh", "Refresh")}
-          >
-            <IconRefresh
-              size={17}
-              stroke={iconStroke}
-              className={clsx(state.isLoading && "animate-spin text-emerald-600")}
-            />
-          </button>
+          </ToolButton>
+          <ToolButton onClick={toggleSound} active={soundEnabled} title={soundEnabled ? "Mute new-order chime" : "Turn on new-order chime"}>
+            {soundEnabled ? <IconVolume size={19} stroke={2} /> : <IconVolumeOff size={19} stroke={2} />}
+          </ToolButton>
+          <ToolButton onClick={toggleLock} warn={isStationLocked} title={isStationLocked ? "Unlock station switching" : "Lock this screen to the current station"}>
+            {isStationLocked ? <IconLock size={19} stroke={2} /> : <IconLockOpen size={19} stroke={2} />}
+          </ToolButton>
+          <ToolButton onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "Full screen"}>
+            {isFullscreen ? <IconArrowsMinimize size={19} stroke={2} /> : <IconArrowsMaximize size={19} stroke={2} />}
+          </ToolButton>
+          <ToolButton onClick={() => refresh({ silent: false })} title={t("kitchen.refresh", "Refresh")}>
+            <IconRefresh size={19} stroke={2} className={clsx(isRefreshing && "animate-spin")} />
+          </ToolButton>
+          <div className="relative">
+            <ToolButton data-kds-settings-toggle onClick={() => setIsSettingsOpen((v) => !v)} active={isSettingsOpen} title="Screen settings">
+              <IconSettings size={19} stroke={2} />
+            </ToolButton>
+            <KdsSettingsPopover open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onChange={updateSettings} />
+          </div>
         </div>
       </header>
 
-      {/* ── HORIZONTAL STATION BAR: Station Pills with Count Badges ── */}
-      {enabledStations.length > 0 && (
-        <nav aria-label="Kitchen Stations" className="mt-3 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-1 shrink-0">
-          {/* Expo Master Tab */}
-          <button
-            disabled={isStationLocked && selectedStationId !== "all"}
-            onClick={() => handleStationChange("all")}
-            className={clsx(
-              "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-bold shrink-0 transition-all border shadow-md active:scale-95",
-              selectedStationId === "all"
-                ? "bg-slate-900 text-white border-slate-900 shadow-lg"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900",
-              isStationLocked && selectedStationId !== "all" && "opacity-35 cursor-not-allowed"
-            )}
-          >
-            <IconChefHat size={18} stroke={iconStroke} />
-            <span>All Stations (Expo)</span>
-            <span
-              className={clsx(
-                "px-2 py-0.5 rounded-full text-[11px] font-black",
-                selectedStationId === "all"
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 text-slate-600"
-              )}
-            >
-              {stationCounts.all}
-            </span>
-          </button>
-
-          {/* Individual Station Pills */}
-          {enabledStations.map((station) => {
-            const isSelected = String(selectedStationId) === String(station.id);
-            const count = stationCounts[station.id] || 0;
-
-            return (
-              <button
-                key={station.id}
-                disabled={isStationLocked && !isSelected}
-                onClick={() => handleStationChange(String(station.id))}
-                className={clsx(
-                  "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-bold shrink-0 transition-all border shadow-md active:scale-95",
-                  isSelected
-                    ? "text-white shadow-lg border-transparent scale-[1.02]"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900",
-                  isStationLocked && !isSelected && "opacity-35 cursor-not-allowed"
-                )}
-                style={{
-                  backgroundColor: isSelected ? station.color || "#f97316" : undefined,
-                  borderColor: isSelected ? station.color || "#f97316" : undefined,
-                }}
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
-                  style={{
-                    backgroundColor: isSelected ? "#ffffff" : station.color || "#f97316",
-                  }}
-                />
-                <span>{station.name}</span>
-                <span
-                  className={clsx(
-                    "px-2 py-0.5 rounded-full text-[11px] font-black",
-                    isSelected
-                      ? "bg-black/30 text-white"
-                      : "bg-slate-100 text-slate-600"
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* Unassigned Items Tab */}
-          {stationCounts.unassigned > 0 && (
-            <button
+      {/* ── Station rail + dining filter ── */}
+      <div className="shrink-0 px-4 sm:px-5 py-3 flex items-center gap-3 border-b border-white/[0.06]">
+        <nav aria-label="Kitchen stations" className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar touch-pan-x">
+          <StationTab
+            label="All stations"
+            sublabel="Expo"
+            icon={<IconChefHat size={18} stroke={2} />}
+            count={stationCounts.all}
+            selected={isExpo}
+            disabled={isStationLocked && !isExpo}
+            onClick={() => changeStation("all")}
+          />
+          {enabledStations.map((st) => (
+            <StationTab
+              key={st.id}
+              label={st.name}
+              color={st.color || "#f97316"}
+              count={stationCounts[st.id] || 0}
+              selected={String(selectedStationId) === String(st.id)}
+              disabled={isStationLocked && String(selectedStationId) !== String(st.id)}
+              onClick={() => changeStation(st.id)}
+            />
+          ))}
+          {(stationCounts.unassigned > 0 || selectedStationId === "unassigned") && (
+            <StationTab
+              label="Unassigned"
+              color="#64748b"
+              count={stationCounts.unassigned}
+              selected={selectedStationId === "unassigned"}
               disabled={isStationLocked && selectedStationId !== "unassigned"}
-              onClick={() => handleStationChange("unassigned")}
-              className={clsx(
-                "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-bold shrink-0 transition-all border shadow-md active:scale-95",
-                selectedStationId === "unassigned"
-                  ? "bg-slate-700 text-white border-slate-600 shadow-lg"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100",
-                isStationLocked && selectedStationId !== "unassigned" && "opacity-35 cursor-not-allowed"
-              )}
-            >
-              <span>Unassigned</span>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-700">
-                {stationCounts.unassigned}
-              </span>
-            </button>
+              onClick={() => changeStation("unassigned")}
+            />
           )}
         </nav>
-      )}
 
-      {/* ── TICKETS CONTENT AREA (Full-height Scrollable Grid) ── */}
-      <main className="mt-3 flex-1 overflow-y-auto no-scrollbar pb-6">
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center p-20 text-slate-500 gap-3">
-            <span className="loading loading-spinner loading-lg text-amber-500"></span>
-            <span className="text-sm font-semibold tracking-wide">
-              {t("kitchen.loading_message", "Loading kitchen tickets...")}
-            </span>
+        <div className="hidden md:flex items-center p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] shrink-0">
+          {DINING_TYPES.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => changeDining(d.id)}
+              className={clsx(
+                "h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition active:scale-95",
+                diningFilter === d.id ? "bg-white text-slate-950" : "text-slate-400 hover:text-white"
+              )}
+            >
+              {d.label}
+              <span className={clsx("tabular-nums", diningFilter === d.id ? "text-slate-500" : "text-slate-600")}>{diningCounts[d.id] || 0}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Ticket rail ── */}
+      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 sm:px-5 py-4" onClick={() => setSelectedTicketId(null)}>
+        {isLoading ? (
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
+            <span className="loading loading-spinner loading-lg text-amber-400" />
+            <span className="text-sm font-semibold">{t("kitchen.loading_message", "Loading tickets…")}</span>
           </div>
-        )}
-
-        {!isLoading && displayOrders?.length === 0 && (
-          <div className="w-full h-full min-h-[380px] flex flex-col items-center justify-center text-center p-8">
-            <div className="w-20 h-20 rounded-3xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 mb-4 shadow-sm">
-              <IconToolsKitchen2 size={40} stroke={iconStroke} />
+        ) : tickets.length === 0 ? (
+          <div className="h-full min-h-[360px] flex flex-col items-center justify-center text-center px-6">
+            <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5">
+              <IconCircleCheck size={40} stroke={1.6} />
             </div>
-            <h3 className="font-extrabold text-lg text-slate-800">
-              {selectedStationId === "all"
-                ? "All caught up! No pending tickets"
-                : "No pending orders for this station"}
+            <h3 className="text-xl font-black text-white">
+              {diningFilter !== "all" && scopedTickets.length > 0 ? "No tickets for this order type" : "All caught up"}
             </h3>
-            <p className="text-xs text-slate-500 max-w-sm mt-1">
-              {selectedStationId === "all"
-                ? "New orders placed in POS or QR dining will appear here automatically with real-time sound alert."
-                : "Switch to 'All Stations (Expo)' or wait for new orders routed to this station."}
+            <p className="text-sm text-slate-400 mt-1.5 max-w-md">
+              {diningFilter !== "all" && scopedTickets.length > 0
+                ? `${scopedTickets.length} other ticket(s) are hidden by the order-type filter.`
+                : isExpo
+                ? "New orders from POS and QR ordering land here instantly, with a chime."
+                : `Nothing waiting at ${scopeLabel}. Items routed here will appear automatically.`}
             </p>
-          </div>
-        )}
-
-        {!isLoading && displayOrders?.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {displayOrders.map((order, orderIndex) => {
-              const {
-                id: orderId,
-                date: orderDate,
-                delivery_type,
-                customer_type,
-                customer_name,
-                table_id,
-                table_title,
-                floor,
-                token_no,
-                displayItems = [],
-                companionItems = [],
-              } = order;
-
-              // Elapsed time calculation
-              const elapsedSec = getElapsedSeconds(orderDate, currentTime);
-              const elapsedFormatted = formatElapsedTime(elapsedSec);
-
-              // Urgency thresholds
-              // < 5m: Normal (Emerald) | 5-10m: Warning (Amber) | >= 10m: Urgent (Red)
-              const isUrgent = elapsedSec >= 600;
-              const isWarning = elapsedSec >= 300 && elapsedSec < 600;
-
-              const isAllDisplayItemsCompleted = displayItems.every(
-                (i) =>
-                  i.status === "completed" ||
-                  i.status === "delivered" ||
-                  i.status === "cancelled"
-              );
-
-              const hasUnstartedItems = displayItems.some(
-                (i) => i.status === "created"
-              );
-              const hasActiveItems = displayItems.some(
-                (i) => i.status === "created" || i.status === "preparing"
-              );
-
-              return (
-                <article
-                  aria-label={`Order ticket #${token_no}`}
-                  key={orderId || orderIndex}
-                  className={clsx(
-                    "flex flex-col justify-between rounded-2xl bg-white border-2 shadow-md transition-all duration-200 overflow-hidden relative",
-                    isUrgent
-                      ? "border-rose-500 shadow-rose-100"
-                      : isWarning
-                      ? "border-amber-400 shadow-amber-100"
-                      : "border-slate-200 shadow-slate-200/60",
-                    isAllDisplayItemsCompleted && "opacity-60 border-slate-200"
-                  )}
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {diningFilter !== "all" && scopedTickets.length > 0 && (
+                <button type="button" onClick={() => changeDining("all")} className="h-11 px-5 rounded-xl bg-white text-slate-950 font-bold text-sm active:scale-95 transition">
+                  Show all order types
+                </button>
+              )}
+              {otherStationsBusy && !isStationLocked && (
+                <button
+                  type="button"
+                  onClick={() => changeStation("all")}
+                  className="h-11 px-5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-slate-100 font-bold text-sm active:scale-95 transition"
                 >
-                  {/* Top Urgency Accent Bar */}
-                  <div
-                    className={clsx(
-                      "h-1.5 w-full shrink-0",
-                      isUrgent
-                        ? "bg-rose-500 animate-pulse"
-                        : isWarning
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                    )}
-                  />
-
-                  {/* ── CARD HEADER ── */}
-                  <div className="p-3.5 pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center justify-between gap-2">
-                      {/* Left: Dining Type & Table / Customer */}
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div
-                          className={clsx(
-                            "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold",
-                            delivery_type === "dinein"
-                              ? "bg-sky-50 text-sky-600 border border-sky-200"
-                              : "bg-purple-50 text-purple-600 border border-purple-200"
-                          )}
-                        >
-                          {delivery_type === "dinein" ? (
-                            <IconArmchair size={18} stroke={iconStroke} />
-                          ) : (
-                            <IconBoxSeam size={18} stroke={iconStroke} />
-                          )}
-                        </div>
-
-                        <div className="truncate">
-                          <p className="font-black text-sm text-slate-900 truncate leading-tight">
-                            {table_id ? table_title : (customer_name || `${delivery_type}`).toUpperCase()}
-                          </p>
-                          <p className="text-[10px] font-semibold text-slate-500 truncate">
-                            {floor ? floor : `${delivery_type} • ${customer_type || "Guest"}`}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Right: Ticket Token # & Live Timer Pill */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Token Badge */}
-                        <span className="px-2 py-1 rounded-lg font-black text-xs bg-slate-900 text-white border border-slate-900 shadow-sm">
-                          #{token_no}
-                        </span>
-
-                        {/* Urgency Timer Pill */}
-                        <div
-                          className={clsx(
-                            "flex items-center gap-1 px-2 py-1 rounded-lg font-black text-xs border tracking-wider shadow-sm",
-                            isUrgent
-                              ? "bg-rose-500 text-white border-rose-600 animate-pulse"
-                              : isWarning
-                              ? "bg-amber-50 text-amber-700 border-amber-300"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          )}
-                        >
-                          <IconClock size={13} stroke={iconStroke} />
-                          <span>{elapsedFormatted}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── CARD BODY (ORDER ITEMS) ── */}
-                  <div className="p-3.5 flex-1 flex flex-col justify-between">
-                    <div className="flex flex-col divide-y divide-slate-100">
-                      {displayItems.map((item, itemIdx) => {
-                        const {
-                          id: orderItemId,
-                          item_title,
-                          variant_title,
-                          quantity,
-                          status,
-                          addons,
-                          notes,
-                          station_name,
-                          station_color,
-                        } = item;
-
-                        const isCompleted =
-                          status === "completed" ||
-                          status === "delivered" ||
-                          status === "cancelled";
-                        const isPreparing = status === "preparing";
-                        const isCreated = status === "created";
-
-                        const addonsText =
-                          addons?.length > 0
-                            ? addons.map((a) => a.title).join(", ")
-                            : null;
-
-                        return (
-                          <div
-                            key={orderItemId || itemIdx}
-                            className={clsx(
-                              "py-2.5 flex items-start gap-2.5 transition-all rounded-lg",
-                              isCompleted && "opacity-45"
-                            )}
-                          >
-                            {/* Tap-to-Progress Status Button (min 42px touch target) */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isCreated) {
-                                  btnStartPreparingOrderItem(orderItemId);
-                                } else if (isPreparing) {
-                                  btnCompletePreparingOrderItem(orderItemId);
-                                }
-                              }}
-                              className={clsx(
-                                "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition active:scale-90 border mt-0.5",
-                                isCompleted
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-300"
-                                  : isPreparing
-                                  ? "bg-amber-50 text-amber-600 border-amber-300 animate-pulse"
-                                  : "bg-slate-50 hover:bg-slate-100 text-slate-500 border-slate-300 hover:border-slate-400"
-                              )}
-                              title={
-                                isCreated
-                                  ? "Tap to Start making"
-                                  : isPreparing
-                                  ? "Tap to Complete item"
-                                  : "Completed"
-                              }
-                            >
-                              {isCompleted && (
-                                <IconCheck size={16} stroke={iconStroke} />
-                              )}
-                              {isPreparing && (
-                                <IconClock size={16} stroke={iconStroke} />
-                              )}
-                              {isCreated && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                              )}
-                            </button>
-
-                            {/* Item Details */}
-                            <div
-                              className="flex-1 min-w-0 cursor-pointer"
-                              onClick={() => {
-                                if (isCreated) {
-                                  btnStartPreparingOrderItem(orderItemId);
-                                } else if (isPreparing) {
-                                  btnCompletePreparingOrderItem(orderItemId);
-                                }
-                              }}
-                            >
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span
-                                  className={clsx(
-                                    "font-bold text-xs text-slate-900",
-                                    isCompleted && "line-through text-slate-400"
-                                  )}
-                                >
-                                  {item_title}
-                                  {variant_title ? ` (${variant_title})` : ""}
-                                </span>
-
-                                <span className="px-1.5 py-0.5 rounded-md font-black text-[11px] bg-amber-50 text-amber-700 border border-amber-200">
-                                  x{quantity}
-                                </span>
-
-                                {/* Station chip in Expo view */}
-                                {selectedStationId === "all" && station_name && (
-                                  <span
-                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border"
-                                    style={{
-                                      backgroundColor: `${station_color || "#3b82f6"}22`,
-                                      borderColor: `${station_color || "#3b82f6"}55`,
-                                      color: station_color || "#2563eb",
-                                    }}
-                                  >
-                                    <span
-                                      className="w-1.5 h-1.5 rounded-full"
-                                      style={{ backgroundColor: station_color || "#3b82f6" }}
-                                    />
-                                    <span>{station_name}</span>
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Modifiers / Addons */}
-                              {addonsText && (
-                                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                                  + {addonsText}
-                                </p>
-                              )}
-
-                              {/* Kitchen Notes / Allergy Alert */}
-                              {notes && (
-                                <div className="mt-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-bold inline-flex items-center gap-1">
-                                  <IconAlertCircle size={12} stroke={iconStroke} />
-                                  <span>Note: {notes}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Item Action Quick Chip */}
-                            <div className="shrink-0">
-                              {isCreated && (
-                                <button
-                                  type="button"
-                                  onClick={() => btnStartPreparingOrderItem(orderItemId)}
-                                  className="h-7 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
-                                >
-                                  Start
-                                </button>
-                              )}
-                              {isPreparing && (
-                                <button
-                                  type="button"
-                                  onClick={() => btnCompletePreparingOrderItem(orderItemId)}
-                                  className="h-7 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
-                                >
-                                  Done
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Companion Station Items (when filtered by station) */}
-                    {selectedStationId !== "all" && renderCompanionBadge(companionItems)}
-                  </div>
-
-                  {/* ── CARD FOOTER (PRO BUMPER BAR ≥ 48px) ── */}
-                  <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-                    {/* Quick Start All (if unstarted items exist) */}
-                    {hasUnstartedItems && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          btnMarkOrderAllItems(orderId, "preparing", ["created"])
-                        }
-                        className="h-12 px-3.5 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-800 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shrink-0"
-                        title="Start making all items on this ticket"
-                      >
-                        <IconPlayerPlay size={16} stroke={iconStroke} />
-                        <span>Start All</span>
-                      </button>
-                    )}
-
-                    {/* Primary Bumper Button (COMPLETE ALL / BUMP) */}
-                    {hasActiveItems ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          btnMarkOrderAllItems(orderId, "completed", [
-                            "created",
-                            "preparing",
-                          ])
-                        }
-                        className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-200 transition active:scale-[0.98] border border-emerald-500/50"
-                      >
-                        <IconCheck size={20} stroke={iconStroke} />
-                        <span>BUMP TICKET</span>
-                      </button>
-                    ) : (
-                      <div className="flex-1 h-12 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 font-bold text-xs flex items-center justify-center gap-1.5">
-                        <IconChecks size={18} stroke={iconStroke} />
-                        <span>Ticket Completed</span>
-                      </div>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+                  View all stations · {stationCounts.all}
+                </button>
+              )}
+              {recallEntries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsRecallOpen(true)}
+                  className="h-11 px-5 rounded-xl text-slate-400 hover:text-white font-bold text-sm flex items-center gap-2 active:scale-95 transition"
+                >
+                  <IconHistory size={17} stroke={2} /> Recall ({recallEntries.length})
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="grid gap-4 items-start"
+            style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${GRID_MIN_WIDTH[settings.textSize] || 330}px), 1fr))` }}
+          >
+            {tickets.map((tk, index) => (
+              <KdsTicketCard
+                key={tk.order.id}
+                order={tk.order}
+                index={index}
+                displayItems={tk.displayItems}
+                companionItems={tk.companionItems}
+                elapsedSec={tk.elapsedSec}
+                urgency={tk.urgency}
+                isExpo={isExpo}
+                size={settings.textSize}
+                isSelected={selectedTicketId === tk.order.id}
+                onSelect={(e) => {
+                  e?.stopPropagation?.();
+                  setSelectedTicketId(tk.order.id);
+                }}
+                onAdvanceItem={advanceItem}
+                onUndoItem={undoItem}
+                onStartAll={() => startAll(tk.order)}
+                onBump={() => bumpTicket(tk.order)}
+              />
+            ))}
           </div>
         )}
       </main>
 
-      {/* ── RECALL SLIDE-OUT DRAWER ── */}
-      {isRecallOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm transition-opacity">
-          <div className="w-full max-w-md bg-white border-l border-slate-200 h-full flex flex-col shadow-2xl p-4 md:p-6 text-slate-900">
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                  <IconHistory size={20} stroke={iconStroke} />
-                </div>
-                <div>
-                  <h2 className="font-black text-base text-slate-900">Recall Tickets</h2>
-                  <p className="text-xs text-slate-500">
-                    Recently completed kitchen orders
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsRecallOpen(false)}
-                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition"
-              >
-                <IconX size={18} stroke={iconStroke} />
-              </button>
-            </div>
-
-            {/* Completed Orders List */}
-            <div className="mt-4 flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3">
-              {completedOrders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-500">
-                  <IconHistory size={36} stroke={iconStroke} className="opacity-40 mb-2" />
-                  <p className="text-sm font-semibold">No completed tickets yet</p>
-                  <p className="text-xs mt-0.5">
-                    Orders bumped from the active screen will appear here so you can recall them.
-                  </p>
-                </div>
-              ) : (
-                completedOrders.map((cOrder) => {
-                  return (
-                    <div
-                      key={cOrder.id}
-                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5 shadow-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-sm text-slate-900">
-                            {cOrder.table_id ? cOrder.table_title : cOrder.delivery_type.toUpperCase()}
-                          </span>
-                          <span className="ml-2 font-black text-xs text-amber-600">
-                            #{cOrder.token_no}
-                          </span>
-                        </div>
-
-                        {/* Recall / Un-bump Button */}
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await btnRecallOrder(cOrder.id);
-                          }}
-                          className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm"
-                        >
-                          <IconArrowBackUp size={15} stroke={iconStroke} />
-                          <span>Recall</span>
-                        </button>
-                      </div>
-
-                      {/* Items Summary */}
-                      <div className="text-xs text-slate-500 border-t border-slate-200 pt-2 flex flex-col gap-1">
-                        {cOrder.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-[11px]">
-                            <span className="text-slate-700">
-                              {it.quantity}x {it.item_title}
-                            </span>
-                            <span className="text-emerald-600 font-semibold text-[10px]">
-                              Completed
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <KdsRecallDrawer
+        open={isRecallOpen}
+        onClose={() => setIsRecallOpen(false)}
+        entries={recallEntries}
+        nowMs={now}
+        scopeLabel={scopeLabel}
+        onRecall={recallTicket}
+      />
     </Page>
+  );
+}
+
+// ── Small presentational pieces ──
+
+const STAT_TONES = {
+  white: "text-white",
+  sky: "text-sky-300",
+  amber: "text-amber-300",
+  rose: "text-rose-400",
+  muted: "text-slate-300",
+};
+
+function Stat({ label, value, tone = "white", title }) {
+  return (
+    <div title={title} className="h-11 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-2 shrink-0">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+      <span className={clsx("text-lg font-black tabular-nums", STAT_TONES[tone])}>{value}</span>
+    </div>
+  );
+}
+
+function ToolButton({ children, onClick, title, active, warn, ...rest }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      {...rest}
+      className={clsx(
+        "h-11 min-w-[44px] px-3 rounded-xl border font-bold text-sm flex items-center justify-center gap-2 transition active:scale-95",
+        warn
+          ? "bg-amber-400 text-slate-950 border-amber-400"
+          : active
+          ? "bg-white/[0.1] text-white border-white/[0.14]"
+          : "bg-white/[0.03] text-slate-300 border-white/[0.07] hover:bg-white/[0.07] hover:text-white"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StationTab({ label, sublabel, icon, color, count, selected, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={clsx(
+        "relative h-12 pl-3.5 pr-2.5 rounded-xl border flex items-center gap-2.5 shrink-0 transition active:scale-95",
+        selected ? "bg-white text-slate-950 border-white" : "bg-white/[0.03] text-slate-200 border-white/[0.07] hover:bg-white/[0.07]",
+        disabled && "opacity-30 cursor-not-allowed active:scale-100"
+      )}
+    >
+      {icon ? (
+        <span className={selected ? "text-slate-950" : "text-slate-400"}>{icon}</span>
+      ) : (
+        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      )}
+      <span className="text-sm font-bold whitespace-nowrap">
+        {label}
+        {sublabel && <span className={clsx("ml-1.5 font-semibold", selected ? "text-slate-500" : "text-slate-500")}>{sublabel}</span>}
+      </span>
+      <span
+        className={clsx(
+          "min-w-[26px] h-7 px-1.5 rounded-lg text-xs font-black tabular-nums flex items-center justify-center",
+          count > 0 ? (selected ? "bg-slate-950 text-white" : "bg-amber-400 text-slate-950") : selected ? "bg-slate-200 text-slate-500" : "bg-white/[0.06] text-slate-500"
+        )}
+      >
+        {count}
+      </span>
+      {disabled && <IconLock size={13} stroke={2.2} className="text-slate-400 -ml-1" />}
+      {selected && color && <span className="absolute left-3 right-3 -bottom-[1px] h-[3px] rounded-full" style={{ backgroundColor: color }} />}
+    </button>
   );
 }

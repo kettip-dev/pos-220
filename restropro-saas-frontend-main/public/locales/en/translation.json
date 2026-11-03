@@ -1400,7 +1400,8 @@
     "insights": "Insights",
     "loyalty_members": "Loyalty Members",
     "points_pool": "Reward Points",
-    "active_page": "Active on Page"
+    "active_page": "Active on Page",
+    "stat_loyalty_hint": "{{percent}}% of customers"
   },
   "customers_import": {
     "title": "Import Customers",

@@ -1449,7 +1449,8 @@
     "insights": "ការវិភាគ",
     "loyalty_members": "សមាជិកភក្ដីភាព",
     "points_pool": "ពិន្ទុសរុប",
-    "active_page": "សកម្មក្នុងទំព័រនេះ"
+    "active_page": "សកម្មក្នុងទំព័រនេះ",
+    "stat_loyalty_hint": "{{percent}}% នៃអតិថិជនទាំងអស់"
   },
   "customers_import": {
     "title": "នាំចូលអតិថិជន",
