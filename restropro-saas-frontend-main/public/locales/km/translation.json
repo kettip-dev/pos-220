@@ -2965,7 +2965,8 @@
     "points_applied_notice": "បានប្រើប្រាស់ {{pts}} ពិន្ទុ (-{{curr}}{{disc}})",
     "coupons_and_offers": "ប្រូម៉ូសិន និងការផ្តល់ជូនពិសេស",
     "promotions_discount": "ការបញ្ចុះតម្លៃប្រូម៉ូសិន",
-    "customer_group_discount": "ការបញ្ចុះតម្លៃតាមក្រុមអតិថិជន"
+    "customer_group_discount": "ការបញ្ចុះតម្លៃតាមក្រុមអតិថិជន",
+    "remaining": "នៅខ្វះ"
   },
   "superadmin_navbar": {
     "dashboard": "ផ្ទាំងព័ត៌មាន",
