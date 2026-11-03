@@ -13,6 +13,10 @@ const {
   getServiceChargeDB,
 } = require("../services/settings.service");
 const { notifyVoidInvoice } = require("../services/notification.service");
+const { refundInvoiceDB, getRefundableItemsDB, getInvoiceRefundsDB, REFUND_REASON_CODES } = require("../services/register.service");
+const { hasScope, resolveManagerApproval } = require("../middlewares/register.middleware");
+const { sendRegisterError } = require("./register.controller");
+const { SCOPES } = require("../config/user.config");
 
 exports.getInvoicesInit = async (req, res) => {
   try {
@@ -193,7 +197,13 @@ exports.voidInvoice = async (req, res) => {
       });
     }
 
-    const result = await voidInvoiceDB(invoiceId, tenantId, reason, username);
+    const result = await voidInvoiceDB(invoiceId, tenantId, reason, username, {
+      session: req.registerSession,
+      allowClosedSession: await hasScope(req, SCOPES.REGISTER_MANAGE),
+    });
+
+    const io = req.app.get("io");
+    if (io) io.to(String(tenantId)).emit("register_update", { action: "invoice_voided", invoiceId: Number(invoiceId) });
 
     // Fire-and-forget: never let a notification failure affect the void's
     // response, and never delay the response waiting on it (same contract as
@@ -212,6 +222,13 @@ exports.voidInvoice = async (req, res) => {
 
     return res.status(200).json({ success: true, invoice: result });
   } catch (error) {
+    if (error?.code === "INVOICE_SESSION_CLOSED") {
+      return res.status(403).json({
+        success: false,
+        code: error.code,
+        message: "This invoice's register has already been closed (Z-report printed). Only a register manager can void it.",
+      });
+    }
     if (INVOICE_ACTION_ERROR_MESSAGES[error?.code]) {
       return res.status(400).json({
         success: false,
@@ -223,6 +240,86 @@ exports.voidInvoice = async (req, res) => {
       success: false,
       message: req.__("something_went_wrong_try_later"), // Translate message
     });
+  }
+};
+
+exports.getRefundableItems = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const [data, refunds] = await Promise.all([
+      getRefundableItemsDB(tenantId, req.params.id),
+      getInvoiceRefundsDB(tenantId, req.params.id),
+    ]);
+    return res.status(200).json({ ...data, refunds, reasonCodes: REFUND_REASON_CODES });
+  } catch (error) {
+    return sendRegisterError(req, res, error, "getRefundableItems");
+  }
+};
+
+exports.refundInvoice = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { refundType, amount, items, reasonCode, reason, paymentTypeId } = req.body || {};
+
+    if (!REFUND_REASON_CODES.includes(reasonCode)) {
+      return res.status(400).json({ success: false, message: "Choose a refund reason." });
+    }
+    if (reasonCode === "OTHER" && !String(reason || "").trim()) {
+      return res.status(400).json({ success: false, message: "Describe the reason for the refund." });
+    }
+
+    // Cash leaves a drawer, so a cash refund needs an open till when sessions are enforced.
+    const settings = req.registerSettings;
+    if (!req.registerSession && Number(settings?.enforce_session) === 1) {
+      return res.status(409).json({ success: false, code: "REGISTER_CLOSED", message: "Open a register before refunding." });
+    }
+
+    // Large refunds need a manager on top of the refund permission. The amount is
+    // estimated here for the check; the service computes the exact figure.
+    let approvedBy = null;
+    const threshold = Number(settings?.refund_pin_threshold || 0);
+    if (threshold > 0) {
+      const preview = await getRefundableItemsDB(tenantId, req.params.id);
+      let estimate = Number(amount) || 0;
+      if (refundType === "FULL") estimate = preview.invoice.refundable;
+      if (refundType === "ITEMS") {
+        const gross = preview.items.reduce((acc, it) => acc + it.price * it.quantity, 0) || 1;
+        estimate = (items || []).reduce((acc, req) => {
+          const line = preview.items.find((it) => Number(it.orderItemId) === Number(req.orderItemId));
+          return acc + (line ? (line.price * (Number(req.quantity) || 0) / gross) * preview.invoice.total : 0);
+        }, 0);
+      }
+      if (estimate > threshold) {
+        const approval = await resolveManagerApproval(req, SCOPES.REGISTER_MANAGE);
+        if (!approval.approved) {
+          return res.status(403).json({
+            success: false,
+            code: approval.reason,
+            message: approval.reason === "INVALID_MANAGER_PIN" ? "Invalid manager PIN." : "Refunds over this amount need manager approval.",
+          });
+        }
+        approvedBy = approval.approvedBy;
+      }
+    }
+
+    const refund = await refundInvoiceDB(tenantId, req.params.id, {
+      session: req.registerSession,
+      refundType,
+      amount,
+      items,
+      reasonCode,
+      reason: String(reason || "").trim() || null,
+      paymentTypeId: paymentTypeId || null,
+      username: req.user.username,
+      approvedBy,
+    });
+
+    const io = req.app.get("io");
+    if (io) io.to(String(tenantId)).emit("register_update", { action: "invoice_refunded", invoiceId: Number(req.params.id) });
+
+    return res.status(200).json({ success: true, message: `Refund #${refund.refundNo} recorded.`, refund });
+  } catch (error) {
+    return sendRegisterError(req, res, error, "refundInvoice");
   }
 };
 

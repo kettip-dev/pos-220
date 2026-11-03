@@ -19,6 +19,7 @@ const { ensureInventoryAdjustmentsAndTransfersSchema } = require("../utils/inven
 const { ensureCustomerGroupSchema } = require("../utils/customerGroupMigration");
 const { ensureKitchenModeSchema } = require("../utils/kitchenModeMigration");
 const { ensurePrintAgentsSchema } = require("../utils/printAgentsMigration");
+const { ensureRegisterSchema } = require("../utils/registerMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -86,7 +87,8 @@ ensureLoyaltyProgramSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring loyalty program schema:", err);
 });
 
-ensureSplitBillSchema(pool).catch((err) => {
+// Register schema extends order_sub_invoices, so it waits for the split-bill schema.
+const splitBillSchemaReady = ensureSplitBillSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring bill splitting schema:", err);
 });
 
@@ -108,6 +110,10 @@ ensureKitchenModeSchema(pool).catch((err) => {
 
 ensurePrintAgentsSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring print agents schema:", err);
+});
+
+splitBillSchemaReady.then(() => ensureRegisterSchema(pool)).catch((err) => {
+  console.error("[Migration] Error ensuring register schema:", err);
 });
 
 exports.getMySqlPromiseConnection = async () => {

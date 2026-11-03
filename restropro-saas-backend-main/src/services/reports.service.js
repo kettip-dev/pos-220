@@ -57,6 +57,11 @@ const REPORT_TITLES = {
   "feedback-summary": "Feedback Summary",
   "negative-feedback": "Negative Feedback",
   "recommendation-score": "Recommendation Score",
+  "register-sessions": "Register Sessions (Z Reports)",
+  "cash-variance": "Cash Over / Short",
+  "cashier-exceptions": "Cashier Exceptions",
+  "refunds-report": "Refunds",
+  "cash-movements": "Cash Movements",
 };
 
 const money = (value) => Number(value || 0);
@@ -2797,7 +2802,332 @@ const getRecommendationScoreReport = async (conn, type, from, to, tenantIds, cur
   });
 };
 
+/* ----------------------------- register / cash ---------------------------- */
+
+const getRegisterSessionsReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const { filter, params } = getFilterCondition("s.opened_at", type, from, to);
+  const rows = await query(conn, `
+    SELECT
+      s.id AS session_id,
+      s.z_number,
+      r.name AS register_name,
+      DATE_FORMAT(bd.business_date, '%Y-%m-%d') AS business_date,
+      s.status,
+      s.opened_by,
+      s.opened_at,
+      s.closed_by,
+      s.closed_at,
+      COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(s.summary, '$.sales.net_sales')) AS DECIMAL(14,2)), 0) AS net_sales,
+      COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(s.summary, '$.sales.bill_count')) AS UNSIGNED), 0) AS bills,
+      COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(s.summary, '$.cash.expected_base')) AS DECIMAL(14,2)), 0) AS expected_cash,
+      COALESCE(s.variance_base, 0) AS variance,
+      s.variance_approved_by
+    FROM register_sessions s
+    JOIN registers r ON r.id = s.register_id AND r.tenant_id = s.tenant_id
+    LEFT JOIN business_days bd ON bd.id = s.business_day_id AND bd.tenant_id = s.tenant_id
+    WHERE s.tenant_id IN (?) AND ${filter}
+    ORDER BY s.opened_at DESC
+  `, [tenantIds, ...params]);
+
+  const closed = rows.filter((row) => row.status === "CLOSED");
+  return makeReport({
+    reportId: "register-sessions",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Sessions", value: rows.length, type: "number" },
+      { label: "Still Open", value: rows.length - closed.length, type: "number" },
+      { label: "Net Sales (closed)", value: closed.reduce((sum, row) => sum + money(row.net_sales), 0), type: "money" },
+      { label: "Total Over / Short", value: closed.reduce((sum, row) => sum + money(row.variance), 0), type: "money" },
+    ],
+    tables: [{
+      title: "Z Reports",
+      columns: [
+        { key: "z_number", label: "Z #" },
+        { key: "register_name", label: "Register" },
+        { key: "business_date", label: "Business Day", type: "date" },
+        { key: "status", label: "Status" },
+        { key: "opened_by", label: "Opened By" },
+        { key: "opened_at", label: "Opened", type: "datetime" },
+        { key: "closed_by", label: "Closed By" },
+        { key: "closed_at", label: "Closed", type: "datetime" },
+        { key: "bills", label: "Bills", type: "number" },
+        { key: "net_sales", label: "Net Sales", type: "money" },
+        { key: "expected_cash", label: "Expected Cash", type: "money" },
+        { key: "variance", label: "Over / Short", type: "money" },
+        { key: "variance_approved_by", label: "Approved By" },
+      ],
+      rows,
+    }],
+  });
+};
+
+const getCashVarianceReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const { filter, params } = getFilterCondition("s.closed_at", type, from, to);
+  const rows = await query(conn, `
+    SELECT
+      COALESCE(s.closed_by, s.opened_by) AS cashier,
+      COUNT(*) AS sessions,
+      SUM(CASE WHEN s.variance_base < 0 THEN 1 ELSE 0 END) AS short_sessions,
+      SUM(CASE WHEN s.variance_base > 0 THEN 1 ELSE 0 END) AS over_sessions,
+      COALESCE(SUM(CASE WHEN s.variance_base < 0 THEN s.variance_base ELSE 0 END), 0) AS total_short,
+      COALESCE(SUM(CASE WHEN s.variance_base > 0 THEN s.variance_base ELSE 0 END), 0) AS total_over,
+      COALESCE(SUM(s.variance_base), 0) AS net_variance,
+      LEAST(COALESCE(MIN(s.variance_base), 0), 0) AS largest_short,
+      SUM(CASE WHEN s.variance_approved_by IS NOT NULL AND s.variance_approved_by <> COALESCE(s.closed_by, '') THEN 1 ELSE 0 END) AS manager_approvals
+    FROM register_sessions s
+    WHERE s.tenant_id IN (?) AND s.status = 'CLOSED' AND ${filter}
+    GROUP BY COALESCE(s.closed_by, s.opened_by)
+    ORDER BY net_variance ASC
+  `, [tenantIds, ...params]);
+
+  const trend = await query(conn, `
+    SELECT DATE(s.closed_at) AS date, COALESCE(SUM(s.variance_base), 0) AS net_variance, COUNT(*) AS sessions
+    FROM register_sessions s
+    WHERE s.tenant_id IN (?) AND s.status = 'CLOSED' AND ${filter}
+    GROUP BY DATE(s.closed_at)
+    ORDER BY date
+  `, [tenantIds, ...params]);
+
+  return makeReport({
+    reportId: "cash-variance",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Closed Sessions", value: rows.reduce((sum, row) => sum + Number(row.sessions || 0), 0), type: "number" },
+      { label: "Total Short", value: rows.reduce((sum, row) => sum + money(row.total_short), 0), type: "money" },
+      { label: "Total Over", value: rows.reduce((sum, row) => sum + money(row.total_over), 0), type: "money" },
+      { label: "Net Over / Short", value: rows.reduce((sum, row) => sum + money(row.net_variance), 0), type: "money" },
+    ],
+    tables: [{
+      title: "Over / Short by Cashier",
+      columns: [
+        { key: "cashier", label: "Cashier" },
+        { key: "sessions", label: "Sessions", type: "number" },
+        { key: "short_sessions", label: "Short", type: "number" },
+        { key: "over_sessions", label: "Over", type: "number" },
+        { key: "total_short", label: "Total Short", type: "money" },
+        { key: "total_over", label: "Total Over", type: "money" },
+        { key: "net_variance", label: "Net", type: "money" },
+        { key: "largest_short", label: "Largest Short", type: "money" },
+        { key: "manager_approvals", label: "Manager Approvals", type: "number" },
+      ],
+      rows,
+    }, {
+      title: "Daily Trend",
+      columns: [
+        { key: "date", label: "Date", type: "date" },
+        { key: "sessions", label: "Sessions", type: "number" },
+        { key: "net_variance", label: "Net Over / Short", type: "money" },
+      ],
+      rows: trend,
+    }],
+  });
+};
+
+const getCashierExceptionsReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const voidFilter = getFilterCondition("voided_at", type, from, to);
+  const createdFilter = getFilterCondition("created_at", type, from, to);
+  const cancelFilter = getFilterCondition("o.date", type, from, to);
+
+  const [voids, refunds, discounts, movements, cancels] = await Promise.all([
+    query(conn, `
+      SELECT voided_by AS username, COUNT(*) AS count, COALESCE(SUM(total), 0) AS amount
+      FROM invoices WHERE tenant_id IN (?) AND status = 'VOID' AND ${voidFilter.filter}
+      GROUP BY voided_by
+    `, [tenantIds, ...voidFilter.params]),
+    query(conn, `
+      SELECT created_by AS username, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount
+      FROM invoice_refunds WHERE tenant_id IN (?) AND ${createdFilter.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...createdFilter.params]),
+    query(conn, `
+      SELECT created_by AS username, COUNT(*) AS count, COALESCE(SUM(discount_total), 0) AS amount
+      FROM invoices WHERE tenant_id IN (?) AND discount_total > 0 AND ${nonVoidInvoiceFilter("")} AND ${createdFilter.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...createdFilter.params]),
+    query(conn, `
+      SELECT created_by AS username,
+             SUM(CASE WHEN type = 'NO_SALE' THEN 1 ELSE 0 END) AS no_sales,
+             SUM(CASE WHEN type = 'PAY_OUT' THEN 1 ELSE 0 END) AS pay_outs
+      FROM register_cash_movements WHERE tenant_id IN (?) AND ${createdFilter.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...createdFilter.params]),
+    query(conn, `
+      SELECT o.created_by AS username, COUNT(*) AS count
+      FROM orders o WHERE o.tenant_id IN (?) AND o.status = 'cancelled' AND ${cancelFilter.filter}
+      GROUP BY o.created_by
+    `, [tenantIds, ...cancelFilter.params]),
+  ]);
+
+  const byUser = new Map();
+  const entryFor = (username) => {
+    const key = username || "unknown";
+    if (!byUser.has(key)) {
+      byUser.set(key, { username: key, voids: 0, void_amount: 0, refunds: 0, refund_amount: 0, discounts: 0, discount_amount: 0, no_sales: 0, pay_outs: 0, cancelled_orders: 0 });
+    }
+    return byUser.get(key);
+  };
+  voids.forEach((r) => Object.assign(entryFor(r.username), { voids: Number(r.count), void_amount: money(r.amount) }));
+  refunds.forEach((r) => Object.assign(entryFor(r.username), { refunds: Number(r.count), refund_amount: money(r.amount) }));
+  discounts.forEach((r) => Object.assign(entryFor(r.username), { discounts: Number(r.count), discount_amount: money(r.amount) }));
+  movements.forEach((r) => Object.assign(entryFor(r.username), { no_sales: Number(r.no_sales || 0), pay_outs: Number(r.pay_outs || 0) }));
+  cancels.forEach((r) => Object.assign(entryFor(r.username), { cancelled_orders: Number(r.count) }));
+
+  const rows = [...byUser.values()].sort((a, b) => (b.void_amount + b.refund_amount + b.discount_amount) - (a.void_amount + a.refund_amount + a.discount_amount));
+  const total = (key) => rows.reduce((sum, r) => sum + Number(r[key] || 0), 0);
+
+  return makeReport({
+    reportId: "cashier-exceptions",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Voids", value: total("void_amount"), type: "money" },
+      { label: "Refunds", value: total("refund_amount"), type: "money" },
+      { label: "Discounts", value: total("discount_amount"), type: "money" },
+      { label: "No Sales", value: total("no_sales"), type: "number" },
+    ],
+    tables: [{
+      title: "Exceptions by Staff",
+      columns: [
+        { key: "username", label: "Staff" },
+        { key: "voids", label: "Voids", type: "number" },
+        { key: "void_amount", label: "Void Amount", type: "money" },
+        { key: "refunds", label: "Refunds", type: "number" },
+        { key: "refund_amount", label: "Refund Amount", type: "money" },
+        { key: "discounts", label: "Discounted Bills", type: "number" },
+        { key: "discount_amount", label: "Discount Amount", type: "money" },
+        { key: "no_sales", label: "No Sales", type: "number" },
+        { key: "pay_outs", label: "Pay Outs", type: "number" },
+        { key: "cancelled_orders", label: "Cancelled Orders", type: "number" },
+      ],
+      rows,
+    }],
+  });
+};
+
+const getRefundsReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const { filter, params } = getFilterCondition("f.created_at", type, from, to);
+  const rows = await query(conn, `
+    SELECT f.refund_no, f.invoice_id, f.created_at, f.refund_type, f.amount, f.reason_code, f.reason,
+           COALESCE(f.payment_type_title, 'Original tender') AS refunded_to, f.created_by, f.approved_by,
+           r.name AS register_name
+    FROM invoice_refunds f
+    LEFT JOIN register_sessions s ON s.id = f.session_id AND s.tenant_id = f.tenant_id
+    LEFT JOIN registers r ON r.id = s.register_id AND r.tenant_id = s.tenant_id
+    WHERE f.tenant_id IN (?) AND ${filter}
+    ORDER BY f.created_at DESC
+  `, [tenantIds, ...params]);
+
+  const byReason = new Map();
+  rows.forEach((row) => {
+    const entry = byReason.get(row.reason_code) || { reason_code: row.reason_code, count: 0, amount: 0 };
+    entry.count += 1;
+    entry.amount += money(row.amount);
+    byReason.set(row.reason_code, entry);
+  });
+
+  return makeReport({
+    reportId: "refunds-report",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Refunds", value: rows.length, type: "number" },
+      { label: "Refunded Amount", value: rows.reduce((sum, row) => sum + money(row.amount), 0), type: "money" },
+      { label: "Manager Approved", value: rows.filter((row) => row.approved_by && row.approved_by !== row.created_by).length, type: "number" },
+    ],
+    tables: [{
+      title: "Refunds",
+      columns: [
+        { key: "refund_no", label: "Refund #" },
+        { key: "invoice_id", label: "Invoice" },
+        { key: "created_at", label: "Date", type: "datetime" },
+        { key: "refund_type", label: "Type" },
+        { key: "amount", label: "Amount", type: "money" },
+        { key: "reason_code", label: "Reason" },
+        { key: "reason", label: "Notes" },
+        { key: "refunded_to", label: "Refunded To" },
+        { key: "register_name", label: "Register" },
+        { key: "created_by", label: "By" },
+        { key: "approved_by", label: "Approved By" },
+      ],
+      rows,
+    }, {
+      title: "By Reason",
+      columns: [
+        { key: "reason_code", label: "Reason" },
+        { key: "count", label: "Refunds", type: "number" },
+        { key: "amount", label: "Amount", type: "money" },
+      ],
+      rows: [...byReason.values()].sort((a, b) => b.amount - a.amount),
+    }],
+  });
+};
+
+const getCashMovementsReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const { filter, params } = getFilterCondition("m.created_at", type, from, to);
+  const rows = await query(conn, `
+    SELECT m.created_at, r.name AS register_name, s.z_number, m.type, m.amount_primary, m.amount_secondary,
+           m.reason, m.staff_username, m.created_by, m.approved_by
+    FROM register_cash_movements m
+    JOIN register_sessions s ON s.id = m.session_id AND s.tenant_id = m.tenant_id
+    JOIN registers r ON r.id = s.register_id AND r.tenant_id = s.tenant_id
+    WHERE m.tenant_id IN (?) AND ${filter}
+    ORDER BY m.created_at DESC
+  `, [tenantIds, ...params]);
+
+  const totalOf = (movementType) => rows.filter((row) => row.type === movementType).reduce((sum, row) => sum + money(row.amount_primary), 0);
+  return makeReport({
+    reportId: "cash-movements",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Paid In", value: totalOf("PAY_IN"), type: "money" },
+      { label: "Paid Out", value: totalOf("PAY_OUT"), type: "money" },
+      { label: "Safe Drops", value: totalOf("DROP"), type: "money" },
+      { label: "Tip Payouts", value: totalOf("TIP_PAYOUT"), type: "money" },
+      { label: "No Sales", value: rows.filter((row) => row.type === "NO_SALE").length, type: "number" },
+    ],
+    tables: [{
+      title: "Movements",
+      columns: [
+        { key: "created_at", label: "Date", type: "datetime" },
+        { key: "register_name", label: "Register" },
+        { key: "z_number", label: "Z #" },
+        { key: "type", label: "Type" },
+        { key: "amount_primary", label: "Amount", type: "money" },
+        { key: "amount_secondary", label: "Second Currency", type: "number" },
+        { key: "reason", label: "Reason" },
+        { key: "staff_username", label: "Paid To" },
+        { key: "created_by", label: "By" },
+        { key: "approved_by", label: "Approved By" },
+      ],
+      rows,
+    }],
+  });
+};
+
 const REPORT_BUILDERS = {
+  "register-sessions": getRegisterSessionsReport,
+  "cash-variance": getCashVarianceReport,
+  "cashier-exceptions": getCashierExceptionsReport,
+  "refunds-report": getRefundsReport,
+  "cash-movements": getCashMovementsReport,
   "sales-summary": getSalesSummaryReport,
   "gross-sales": getGrossSalesReport,
   "net-sales": getNetSalesReport,
@@ -3053,6 +3383,11 @@ const SINGLE_BUSINESS_ONLY_REPORTS = new Set([
   "stock-reorder",       // reorder is actioned per store
   "menu-price-audit",    // menus are per business
   "daily-close",         // a cash-drawer/close-out of one till
+  "register-sessions",   // tills and Z numbers are per business
+  "cash-variance",       // cashiers belong to one business
+  "cashier-exceptions",  // same
+  "refunds-report",      // refund numbers restart per business
+  "cash-movements",      // drawer ledger of one store
 ]);
 exports.SINGLE_BUSINESS_ONLY_REPORTS = SINGLE_BUSINESS_ONLY_REPORTS;
 

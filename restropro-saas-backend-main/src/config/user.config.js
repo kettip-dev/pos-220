@@ -31,6 +31,10 @@ const SCOPES = {
     INVOICES: "INVOICES",
     VOID_INVOICES: "VOID_INVOICES",
     VIEW_INVOICE_AUDIT_LOG: "VIEW_INVOICE_AUDIT_LOG",
+    REFUND_INVOICES: "REFUND_INVOICES",
+    // Manager-level register control: approve variances, reopen sessions, see the
+    // expected drawer total during a blind close, manage tills, close the business day.
+    REGISTER_MANAGE: "REGISTER_MANAGE",
     MEMBERSHIP: "MEMBERSHIP",
     INVENTORY: "INVENTORY",
     VIEW_INVENTORY: "VIEW_INVENTORY",

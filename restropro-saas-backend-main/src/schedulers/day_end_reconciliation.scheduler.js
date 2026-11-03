@@ -31,6 +31,7 @@ const { sendEodTelegramNotification } = require("../services/telegram.service");
 const { getTenantsWithManagerDevicesDB } = require("../services/device.service");
 const { getRevenueDB, getTotalPaymentsByPaymentTypesDB } = require("../services/reports.service");
 const { getCurrencyDB } = require("../services/settings.service");
+const { tenantUsesBusinessDayCloseDB } = require("../services/register.service");
 const {
   getDatabaseClockDB,
   claimScheduledDispatchDB,
@@ -112,6 +113,8 @@ const runDayEndReconciliationSweep = async (date) => {
 
   let sent = 0;
   for (const tenantId of tenantIds) {
+    // Businesses that close their trading day in the POS are notified by that close instead.
+    if (await tenantUsesBusinessDayCloseDB(tenantId).catch(() => false)) continue;
     // Sequential on purpose: a nightly sweep has no deadline, and this keeps
     // the report queries from spiking the connection pool that live POS
     // traffic shares.
@@ -155,6 +158,7 @@ const runTelegramEodSweep = async (date, currentMinutes) => {
     });
 
     for (const item of eligibleTenants) {
+      if (await tenantUsesBusinessDayCloseDB(item.tenant_id).catch(() => false)) continue;
       await sendEodTelegramNotification(item.tenant_id, date).catch((err) => {
         console.error(`[scheduler] TELEGRAM_EOD tenant=${item.tenant_id} error:`, err.message);
       });

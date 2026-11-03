@@ -14,7 +14,8 @@ import {
   IconShoppingBag,
   IconTruckDelivery,
   IconBuildingStore,
-  IconChevronDown
+  IconChevronDown,
+  IconCashRegister
 } from '@tabler/icons-react';
 import { iconStroke } from '../../config/config';
 import { clsx } from 'clsx';
@@ -42,6 +43,9 @@ export default function POSOrderHeader({
   onOpenQrOrders,
   onDualScreenClick,
   onInitNewOrder,
+  registerSession = null,
+  isRegisterEnforced = false,
+  onOpenRegister,
 }) {
   const { t } = useTranslation();
 
@@ -350,6 +354,29 @@ export default function POSOrderHeader({
               </button>
             )}
           </div>
+
+          {/* Register status: open till + cashier, or a prompt to open one */}
+          {onOpenRegister && (
+            <button
+              type="button"
+              onClick={onOpenRegister}
+              className={clsx(
+                "min-h-[42px] px-2.5 sm:px-3 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border touch-manipulation cursor-pointer select-none shrink-0",
+                registerSession
+                  ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+                  : isRegisterEnforced
+                    ? "border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 animate-pulse"
+                    : "border-[#D4D7DC] dark:border-slate-700 text-gray-700 dark:text-slate-200"
+              )}
+              title={t('register.register', 'Register')}
+            >
+              <IconCashRegister size={17} stroke={iconStroke} />
+              <span className="hidden lg:inline max-w-[140px] truncate">
+                {registerSession ? registerSession.register_name : t('register.closed', 'Register closed')}
+              </span>
+              <span className={clsx("w-2 h-2 rounded-full", registerSession ? "bg-emerald-500" : "bg-rose-500")} />
+            </button>
+          )}
 
           {/* QBO Green '+ New' Order Trigger */}
           <button

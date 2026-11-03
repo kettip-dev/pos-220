@@ -7,6 +7,7 @@ import {
 } from "./UserDetails";
 import { getLanguage } from "./LocalizationHelper";
 import { isAllBusinessesScope, clearBusinessScope } from "./BusinessScope";
+import { getBoundRegisterId } from "./RegisterBinding";
 
 const apiClient = axios.create({
   baseURL: API,
@@ -39,6 +40,13 @@ apiClient.interceptors.request.use(
     // and every Business Admin / Staff request — byte-for-byte as before.
     if (isAllBusinessesScope(getUserDetailsInLocalStorage()?.role)) {
       config.params = { ...(config.params || {}), scope: "all" };
+    }
+
+    // The till this device is bound to, so payments land in the right register session.
+    const registerId = getBoundRegisterId();
+    if (registerId) {
+      config.headers = config.headers || {};
+      config.headers["X-Register-Id"] = String(registerId);
     }
 
     config.withCredentials = true;

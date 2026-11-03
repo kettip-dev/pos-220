@@ -154,7 +154,7 @@ exports.createOrderAndInvoice = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments} = req.body;
 
     if(cart?.length == 0) {
       return res.status(400).json({
@@ -188,7 +188,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
     const custPhone = customerId?.phone || (typeof customerId === 'string' ? customerId : null);
-    const invoiceId = await createInvoiceDB(netTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, null, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
+    const invoiceId = await createInvoiceDB(netTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, null, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, { session: req.registerSession, payments });
     // create invoice
 
     const storeSettings = await getStoreSettingDB(tenantId);
@@ -212,6 +212,9 @@ exports.createOrderAndInvoice = async (req, res) => {
     });
 
   } catch (error) {
+    if (error?.isRegisterError) {
+      return res.status(400).json({ success: false, code: error.code, message: error.message });
+    }
     console.error(error);
     return res.status(500).json({
       success: false,

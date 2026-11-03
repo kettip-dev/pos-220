@@ -1,6 +1,7 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db")
 const { tenantFilter } = require("../utils/tenant_scope")
 const { reverseLoyaltyForVoidInvoiceTx } = require("./loyalty.service")
+const { recordReversalTx, writeAuditTx } = require("./register.service")
 
 
 /**
@@ -409,13 +410,20 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
  * The FOR UPDATE row lock + status check inside one transaction is what
  * prevents a double-void if this is somehow called twice concurrently.
  */
-exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username) => {
+/**
+ * Register side of a void: whatever is still un-refunded on the invoice is paid
+ * back from `session` (the till doing the void), falling back to the invoice's
+ * own session while it is still open. Voiding an invoice whose session has
+ * already been Z-closed changes that day's takings, so it needs
+ * `allowClosedSession` (REGISTER_MANAGE).
+ */
+exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session = null, allowClosedSession = false } = {}) => {
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
 
     const [invoiceRows] = await conn.query(
-      `SELECT id, status FROM invoices WHERE id = ? AND tenant_id = ? FOR UPDATE`,
+      `SELECT id, status, total, refunded_total, register_session_id FROM invoices WHERE id = ? AND tenant_id = ? FOR UPDATE`,
       [invoiceId, tenantId]
     );
     const invoice = invoiceRows[0];
@@ -426,6 +434,19 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username) => {
     if (invoice.status === "VOID") {
       throw Object.assign(new Error("invoice_already_voided"), { code: "INVOICE_ALREADY_VOIDED" });
     }
+
+    let originalSession = null;
+    if (invoice.register_session_id) {
+      const [sessionRows] = await conn.query(
+        `SELECT id, register_id, status FROM register_sessions WHERE id = ? AND tenant_id = ?`,
+        [invoice.register_session_id, tenantId]
+      );
+      originalSession = sessionRows[0] || null;
+      if (originalSession?.status === "CLOSED" && !allowClosedSession) {
+        throw Object.assign(new Error("invoice_session_closed"), { code: "INVOICE_SESSION_CLOSED" });
+      }
+    }
+    const payoutSession = session || (originalSession?.status === "OPEN" ? originalSession : null);
 
     await conn.query(
       `UPDATE invoices SET status = 'VOID', voided_at = NOW(), voided_by = ?, void_reason = ? WHERE id = ? AND tenant_id = ?`,
@@ -438,6 +459,25 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username) => {
        VALUES (?, ?, ?, 'VOID', ?, ?, ?, 'VOID')`,
       [tenantId, invoiceId, invoiceId, username, reason, invoice.status]
     );
+
+    await recordReversalTx(conn, {
+      tenantId,
+      session: payoutSession,
+      source: "VOID",
+      invoiceId: Number(invoiceId),
+      amount: Number(invoice.total || 0) - Number(invoice.refunded_total || 0),
+      createdBy: username,
+    });
+    if (payoutSession) {
+      await writeAuditTx(conn, {
+        tenantId,
+        registerId: payoutSession.register_id,
+        sessionId: payoutSession.id,
+        action: "VOID",
+        details: { invoiceId: Number(invoiceId), amount: Number(invoice.total || 0) - Number(invoice.refunded_total || 0), reason },
+        performedBy: username,
+      });
+    }
 
     // Reverse any earned or redeemed loyalty points for this invoice
     await reverseLoyaltyForVoidInvoiceTx(conn, {

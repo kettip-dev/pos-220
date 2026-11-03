@@ -13,6 +13,7 @@ import {
   IconUsers,
   IconTag,
   IconAward,
+  IconCashRegister,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import Page from "../../components/Page";
@@ -157,6 +158,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/payment-types",
       category: t("settings.cat_finance_tax", "Finance & Tax"),
       icon: <IconCreditCard stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "registers",
+      title: t("settings.registers", "Registers & Cash"),
+      description: t(
+        "settings.desc_registers",
+        "Tills, opening floats, blind close, cash variance limits, refunds approval, Z reports and business-day close."
+      ),
+      path: "/dashboard/settings/registers",
+      category: t("settings.cat_finance_tax", "Finance & Tax"),
+      icon: <IconCashRegister stroke={iconStroke} className="w-6 h-6" />,
     },
   ];
 

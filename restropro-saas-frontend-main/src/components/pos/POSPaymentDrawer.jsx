@@ -18,6 +18,8 @@ import {
   IconGift,
   IconRotate,
   IconArrowsSplit2,
+  IconPlus,
+  IconTrash,
 } from '@tabler/icons-react';
 import { PAYMENT_ICONS } from '../../config/payment_icons';
 import { clsx } from 'clsx';
@@ -103,9 +105,15 @@ export default function POSPaymentDrawer({
   const loyaltyDiscountAmount = isBaseKHR ? rawLoyaltyDiscountUSD * rate : rawLoyaltyDiscountUSD;
   const effectivePayable = Math.max(0, safePayable - loyaltyDiscountAmount);
 
-  // Symmetrical Total calculations (accounting for loyalty point discount)
-  const totalKHR = isBaseKHR ? effectivePayable : effectivePayable * rate;
-  const totalUSD = isBaseKHR ? (rate > 0 ? effectivePayable / rate : effectivePayable) : effectivePayable;
+  // Split tender: earlier part-payments (e.g. $5 cash, rest by KHQR). Amounts are in the store currency.
+  const [paidLines, setPaidLines] = useState([]);
+  const [partialAmount, setPartialAmount] = useState('');
+  const paidTotal = paidLines.reduce((acc, line) => acc + Number(line.amount || 0), 0);
+  const remainingDue = Math.max(0, Number((effectivePayable - paidTotal).toFixed(2)));
+
+  // Symmetrical Total calculations for what is still due (after loyalty and part-payments)
+  const totalKHR = isBaseKHR ? remainingDue : remainingDue * rate;
+  const totalUSD = isBaseKHR ? (rate > 0 ? remainingDue / rate : remainingDue) : remainingDue;
 
   const projectedPointsEarned = Math.floor((isBaseKHR && rate > 0 ? effectivePayable / rate : effectivePayable) * pointsPerDollar);
 
@@ -125,6 +133,8 @@ export default function POSPaymentDrawer({
       setReferenceCode('');
       setIsEditingRate(false);
       setPointsToRedeem(0);
+      setPaidLines([]);
+      setPartialAmount('');
     }
   }, [isOpen, payableTotal, custPhone]);
 
@@ -132,7 +142,10 @@ export default function POSPaymentDrawer({
   const paymentList = Array.isArray(paymentTypes) ? paymentTypes : [];
   const selectedPaymentObj = paymentList.find(pt => pt.id === selectedPaymentType);
   const selectedPaymentTitle = (selectedPaymentObj?.title || '').toLowerCase();
-  const isCash = selectedPaymentTitle.includes('cash') || selectedPaymentTitle.includes('សាច់ប្រាក់') || !selectedPaymentType;
+  // The explicit "counts as cash" flag decides; the title match covers servers that predate it.
+  const isCash = selectedPaymentObj && selectedPaymentObj.is_cash !== undefined && selectedPaymentObj.is_cash !== null
+    ? Number(selectedPaymentObj.is_cash) === 1
+    : selectedPaymentTitle.includes('cash') || selectedPaymentTitle.includes('សាច់ប្រាក់') || !selectedPaymentType;
   const isQr = selectedPaymentTitle.includes('qr') || selectedPaymentTitle.includes('qrcode');
 
   // Numerical tender conversions
@@ -258,8 +271,22 @@ export default function POSPaymentDrawer({
     setIsEditingRate(false);
   };
 
+  // Change the drawer actually hands back, per currency, for the ledger.
+  const changeOut = changeAdviceMode === 'mixed'
+    ? { changeUSD: changeBreakdownUSD, changeKHR: changeBreakdownKHR }
+    : { changeUSD: 0, changeKHR: changeTotalKHR };
+
   const handleFinalizePayment = useCallback(() => {
+    const finalLine = {
+      paymentTypeId: selectedPaymentType,
+      amount: remainingDue,
+      reference: referenceCode.trim() || undefined,
+      ...(isCash && (numUSD > 0 || numKHR > 0)
+        ? { tender: { tenderedUSD: numUSD, tenderedKHR: numKHR, ...changeOut } }
+        : {}),
+    };
     const tenderData = {
+      payments: [...paidLines, finalLine],
       tenderedUSD: numUSD,
       tenderedKHR: numKHR,
       totalReceivedKHR,
@@ -295,8 +322,38 @@ export default function POSPaymentDrawer({
     pointsToRedeem,
     loyaltyDiscountAmount,
     projectedPointsEarned,
-    onPayAndComplete
+    onPayAndComplete,
+    paidLines,
+    remainingDue,
+    selectedPaymentType,
+    isCash,
+    changeOut.changeUSD,
+    changeOut.changeKHR,
   ]);
+
+  // Part-payment from the current method: cash takes what was handed over, other methods the amount typed.
+  const receivedInBase = isBaseKHR ? totalReceivedKHR : totalReceivedUSD;
+  const partialValue = isCash ? receivedInBase : Number(partialAmount) || 0;
+  const canAddPartial = !isProcessing && selectedPaymentType && partialValue > 0 && partialValue < remainingDue - 0.004;
+
+  const handleAddPartial = () => {
+    if (!canAddPartial) return;
+    const amount = Number(partialValue.toFixed(isBaseKHR ? 0 : 2));
+    setPaidLines((prev) => [
+      ...prev,
+      {
+        paymentTypeId: selectedPaymentType,
+        paymentTypeTitle: selectedPaymentObj?.title,
+        amount,
+        reference: referenceCode.trim() || undefined,
+        ...(isCash ? { tender: { tenderedUSD: numUSD, tenderedKHR: numKHR, changeUSD: 0, changeKHR: 0 } } : {}),
+      },
+    ]);
+    setTenderedUSD('');
+    setTenderedKHR('');
+    setPartialAmount('');
+    setReferenceCode('');
+  };
 
   // Keyboard Shortcuts (Esc to close, F4 to finalize)
   useEffect(() => {
@@ -324,7 +381,7 @@ export default function POSPaymentDrawer({
   const secondaryDue = isBaseKHR ? fmtUSD(totalUSD) : fmtKHR(totalKHR);
 
   const hasTender = numUSD > 0 || numKHR > 0;
-  const isCtaDisabled = isProcessing || (isCash && !isSufficient && hasTender);
+  const isCtaDisabled = isProcessing || (isCash && !isSufficient && hasTender) || (!isCash && Number(partialAmount) > 0 && Number(partialAmount) < remainingDue - 0.004);
   const ctaLabel = isProcessing
     ? t('pos.please_wait', 'Processing...')
     : isCash
@@ -528,6 +585,34 @@ export default function POSPaymentDrawer({
               )}
             </div>
 
+            {/* Split tender: part-payments already taken */}
+            {paidLines.length > 0 && (
+              <div className="rounded-xl border border-sky-200 dark:border-sky-500/30 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="px-3 py-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                  <span>{t('pos.split_tender', 'Split tender')}</span>
+                  <span className="tabular-nums">{t('pos.total', 'Total')} {currency}{effectivePayable.toFixed(2)}</span>
+                </div>
+                {paidLines.map((line, idx) => (
+                  <div key={idx} className="px-3 py-1.5 flex items-center gap-2 text-sm">
+                    <span className="flex-1 min-w-0 truncate text-slate-700 dark:text-slate-200">{line.paymentTypeTitle}</span>
+                    <span className="tabular-nums font-semibold text-slate-900 dark:text-white">{currency}{Number(line.amount).toFixed(2)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPaidLines((prev) => prev.filter((_, i) => i !== idx))}
+                      className="w-[42px] h-[42px] -my-1 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-500 active:scale-95 cursor-pointer"
+                      title={t('pos.remove', 'Remove')}
+                    >
+                      <IconTrash size={16} />
+                    </button>
+                  </div>
+                ))}
+                <div className="px-3 py-2 flex items-center justify-between text-sm font-bold text-slate-900 dark:text-white">
+                  <span>{t('pos.remaining', 'Remaining')}</span>
+                  <span className="tabular-nums">{primaryDue}</span>
+                </div>
+              </div>
+            )}
+
             {/* Payment method */}
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -613,6 +698,7 @@ export default function POSPaymentDrawer({
                         key={`${o.label}`}
                         type="button"
                         onClick={() => setPointsToRedeem(o.pts)}
+                        disabled={paidLines.length > 0}
                         className={clsx(
                           "min-h-[42px] px-3 rounded-xl text-xs font-semibold tabular-nums border transition-all duration-150 active:scale-95 cursor-pointer",
                           pointsToRedeem === o.pts
@@ -821,6 +907,21 @@ export default function POSPaymentDrawer({
 
                 <div className="w-full max-w-sm text-left space-y-1.5">
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    {t('pos.part_payment_amount', 'Amount on this method (leave empty for the full balance)')}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    value={partialAmount}
+                    onChange={(e) => setPartialAmount(e.target.value)}
+                    placeholder={`${currency}${remainingDue.toFixed(2)}`}
+                    className="w-full h-12 text-sm font-semibold tabular-nums px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div className="w-full max-w-sm text-left space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                     {t('pos.card_reference_optional', 'Card Auth / Ref Number (Optional)')}
                   </label>
                   <input
@@ -895,6 +996,17 @@ export default function POSPaymentDrawer({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {canAddPartial && (
+              <button
+                type="button"
+                onClick={handleAddPartial}
+                className="h-14 px-4 rounded-xl text-sm font-semibold text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-2"
+                title={t('pos.add_part_payment_hint', 'Take this amount now and pay the rest with another method')}
+              >
+                <IconPlus size={18} />
+                {t('pos.add_part_payment', 'Part pay')} {currency}{partialValue.toFixed(2)}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}

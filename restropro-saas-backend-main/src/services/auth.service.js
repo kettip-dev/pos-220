@@ -60,7 +60,7 @@ exports.signInDB = async (username, password) => {
           const ALL_FEATURES = [
             "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
             "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-            "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU"
+            "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
           ];
           return {
             username: superAdmin.email,
@@ -91,7 +91,7 @@ exports.signInDB = async (username, password) => {
         const ALL_FEATURES = [
           "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
           "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-          "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU"
+          "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
         ];
         user.features = JSON.stringify(ALL_FEATURES);
         user.plan_title = user.plan_title || "Full Access";
@@ -195,7 +195,7 @@ exports.getGroupOwnerAuthContextDB = async (username) => {
       const ALL_FEATURES = [
         "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
         "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-        "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU"
+        "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
       ];
       user.planFeatures = JSON.stringify(ALL_FEATURES);
       user.plan_features = user.planFeatures;
@@ -261,7 +261,7 @@ exports.getUserDB = async (username, tenantId) => {
       const ALL_FEATURES = [
         "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
         "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-        "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU"
+        "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
       ];
       user.planFeatures = JSON.stringify(ALL_FEATURES);
       user.plan_features = user.planFeatures;

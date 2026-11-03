@@ -7,6 +7,7 @@ const {
   isSubscriptionActive,
 } = require("../middlewares/auth.middleware");
 const { SCOPES } = require("../config/user.config");
+const { attachRegisterSession } = require("../middlewares/register.middleware");
 const {
   getOrders,
   getOrdersInit,
@@ -121,6 +122,7 @@ router.post(
     SCOPES.ORDER_STATUS,
     SCOPES.ORDER_STATUS_DISPLAY,
   ]),
+  attachRegisterSession,
   payAndCompleteKitchenOrder
 );
 
@@ -221,6 +223,7 @@ router.post(
     SCOPES.POS,
     SCOPES.ORDERS,
   ]),
+  attachRegisterSession,
   settleSubInvoice
 );
 

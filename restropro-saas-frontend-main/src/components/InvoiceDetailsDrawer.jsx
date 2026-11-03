@@ -5,6 +5,7 @@ import {
   IconReceipt,
   IconPrinter,
   IconBan,
+  IconReceiptRefund,
   IconHistory,
   IconClock,
   IconArmchair,
@@ -41,6 +42,8 @@ export default function InvoiceDetailsDrawer({
   storeSettings = null,
   printSettings = null,
   canVoid = false,
+  canRefund = false,
+  onOpenRefundModal,
   canViewAuditLog = false,
   onPrintReceipt,
   onOpenVoidModal,
@@ -659,6 +662,19 @@ export default function InvoiceDetailsDrawer({
                   <span className="hidden sm:inline">
                     {t("auditLogs.audit_log_action_title", "Audit Log")}
                   </span>
+                </button>
+              )}
+
+              {/* Refund Button */}
+              {canRefund && !isVoid && onOpenRefundModal && (
+                <button
+                  type="button"
+                  onClick={() => onOpenRefundModal(invoiceId)}
+                  title={t("invoices.refund", "Refund")}
+                  className="h-[42px] min-h-[42px] px-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap transition active:scale-95 cursor-pointer shadow-2xs"
+                >
+                  <IconReceiptRefund size={16} stroke={iconStroke} />
+                  <span className="hidden sm:inline">{t("invoices.refund", "Refund")}</span>
                 </button>
               )}
 
