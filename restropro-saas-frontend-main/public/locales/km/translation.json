@@ -2258,7 +2258,12 @@
     "store_table_added": "បានបន្ថែមតុដោយជោគជ័យ!",
     "print_qr": "បោះពុម្ព QR",
     "more_actions": "ជម្រើសបន្ថែម",
-    "copy_pin": "ចម្លង PIN"
+    "copy_pin": "ចម្លង PIN",
+    "floors": "ជាន់",
+    "qr_ordering_active": "ការកុម្ម៉ង់តាម QR កំពុងដំណើរការ",
+    "qr_ordering_off": "ការកុម្ម៉ង់តាម QR បានបិទ",
+    "pin": "PIN",
+    "deselect": "ដកការជ្រើសរើស"
   },
   "print_settings": {
     "title": "ការកំណត់ការបោះពុម្ព",
@@ -3961,7 +3966,8 @@
     "active": "សកម្ម",
     "assign": "ចាត់តាំង",
     "error_occurred": "មានបញ្ហាកើតឡើង",
-    "save_settings": "រក្សាទុកការកំណត់"
+    "save_settings": "រក្សាទុកការកំណត់",
+    "page": "ទំព័រ"
   },
   "table_assignments_page": {
     "title": "ការចាត់តាំងបុគ្គលិកតាមតុ",

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Page from "../../components/Page";
@@ -15,7 +15,6 @@ import {
   IconShieldLock,
   IconSearch,
   IconUsers,
-  IconBuildingStore,
   IconCircle,
   IconSquare,
   IconRectangle,
@@ -25,12 +24,9 @@ import {
   IconCheck,
   IconLayoutGrid,
   IconLayersSubtract,
-  IconExternalLink,
   IconDotsVertical,
   IconShieldCheck,
-  IconTable,
   IconList,
-  IconSettings,
   IconChevronLeft,
   IconChevronRight,
   IconChevronUp,
@@ -75,7 +71,6 @@ export default function TableSettingsPage() {
   const [selectedFloor, setSelectedFloor] = useState("all");
   const [capacityFilter, setCapacityFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [groupByFloor, setGroupByFloor] = useState(true);
 
   // View mode, Pagination & Settings states
   const [viewMode, setViewMode] = useState(() => {
@@ -83,8 +78,6 @@ export default function TableSettingsPage() {
   });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const settingsBtnRef = useRef(null);
 
   // Sorting & Row Selection states
   const [sortField, setSortField] = useState("floor");
@@ -94,17 +87,6 @@ export default function TableSettingsPage() {
   useEffect(() => {
     localStorage.setItem("restropro_tables_view_mode", viewMode);
   }, [viewMode]);
-
-  // Click outside to close settings menu
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (settingsBtnRef.current && !settingsBtnRef.current.contains(e.target)) {
-        setShowSettingsMenu(false);
-      }
-    };
-    window.addEventListener("click", handleClickOutside);
-    return () => window.removeEventListener("click", handleClickOutside);
-  }, [showSettingsMenu]);
 
   // Action states
   const [rotatingPinId, setRotatingPinId] = useState(null);
@@ -138,15 +120,16 @@ export default function TableSettingsPage() {
     const raw = floorVal !== undefined && floorVal !== null && String(floorVal).trim() !== ""
       ? String(floorVal).trim()
       : "0";
-    if (/^(floor|zone|ជាន់)/i.test(raw)) return raw;
+    // Only bare numbers get a prefix: "2" -> "Floor 2", while "Main Lounge" stays as is
+    if (!/^\d+$/.test(raw)) return raw;
     return t("table_settings.floor_label", { floor: raw, defaultValue: `Floor ${raw}` });
   };
 
-  // Format display title so "9" shows as "Table 9" or "តុ 9", while "Table 1" stays "Table 1"
+  // Only short codes get a prefix: "9" / "A1" -> "Table 9", while "Bar Stool 1" stays as is
   const formatTableHeading = (title) => {
     const str = String(title || "").trim();
     if (!str) return t("pos.table", "Table");
-    if (/^(table|តុ)(\s|$|[0-9])/i.test(str)) return str;
+    if (!/^[A-Za-z]?\d+[A-Za-z]?$/.test(str)) return str;
     return `${t("pos.table", "Table")} ${str}`;
   };
 
@@ -275,7 +258,7 @@ export default function TableSettingsPage() {
   // Group displayed tables by floor for Cards view
   const groupedTables = useMemo(() => {
     const map = new Map();
-    const source = (viewMode === "cards" && pageSize === "all") ? sortedTables : displayedTables;
+    const source = viewMode === "cards" ? sortedTables : displayedTables;
     source.forEach((tbl) => {
       const f = tbl.floor !== undefined && tbl.floor !== null && String(tbl.floor).trim() !== ""
         ? String(tbl.floor).trim()
@@ -284,7 +267,7 @@ export default function TableSettingsPage() {
       map.get(f).push(tbl);
     });
     return Array.from(map.entries());
-  }, [displayedTables, sortedTables, viewMode, pageSize]);
+  }, [displayedTables, sortedTables, viewMode]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -679,32 +662,11 @@ export default function TableSettingsPage() {
 
   // Render a single Table Card
   const renderTableCard = (storeTable) => {
-    const { id, table_title, seating_capacity, floor, table_pin, shape } = storeTable;
+    const { id, table_title, seating_capacity, table_pin, shape } = storeTable;
     const cap = Number(seating_capacity || 0);
     const resolvedShape = shape || (cap <= 2 ? "round" : cap <= 4 ? "square" : "rectangle");
-    const ShapeIcon =
-      resolvedShape === "round"
-        ? IconCircle
-        : resolvedShape === "square"
-        ? IconSquare
-        : IconRectangle;
-
-    // Subtle modern gradient top accent & avatar theme based on capacity
-    const isSmall = cap <= 2;
-    const isMedium = cap <= 4;
-
-    const accentGradient = isSmall
-      ? "from-sky-500 via-sky-400 to-cyan-400"
-      : isMedium
-      ? "from-emerald-500 via-teal-500 to-emerald-400"
-      : "from-indigo-500 via-purple-500 to-indigo-400";
-
-    const avatarTheme = isSmall
-      ? "bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300 border-sky-100 dark:border-sky-800/50"
-      : isMedium
-      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800/50"
-      : "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-100 dark:border-indigo-800/50";
-
+    const shapeObj = TABLE_SHAPES.find((s) => s.id === resolvedShape) || TABLE_SHAPES[1];
+    const ShapeIcon = shapeObj.icon;
     const isPinCopied = copiedPinId === id;
     const isSelected = selectedRowIds.has(id);
 
@@ -712,237 +674,192 @@ export default function TableSettingsPage() {
       <div
         key={id}
         className={clsx(
-          "group relative flex flex-col justify-between rounded-2xl border bg-white dark:bg-[#1a1d24] shadow-xs hover:shadow-lg transition-all duration-200 overflow-hidden",
+          "group relative flex flex-col rounded-2xl border bg-white dark:bg-[#1a1d24] transition",
           isSelected
-            ? "border-emerald-500 ring-2 ring-emerald-500/50 shadow-md bg-emerald-50/20 dark:bg-emerald-950/20"
-            : "border-slate-200/90 dark:border-[#2e3340] hover:border-emerald-500/50 dark:hover:border-emerald-500/40"
+            ? "border-emerald-500 ring-2 ring-emerald-500/25"
+            : "border-slate-200 dark:border-[#2e3340] hover:border-slate-300 dark:hover:border-zinc-600 hover:shadow-md"
         )}
       >
-        {/* Sleek Top Gradient Accent */}
-        <div className={clsx("h-[3px] w-full bg-gradient-to-r", accentGradient)} />
+        {/* Identity: shape, name, seats */}
+        <div className="p-4 pb-3 flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => setPreviewTable(storeTable)}
+            title={t("table_settings.preview_qr", "Preview QR")}
+            className="w-[42px] h-[42px] rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 flex items-center justify-center shrink-0 transition active:scale-95"
+          >
+            <ShapeIcon size={20} stroke={2} />
+          </button>
 
-        <div className="p-4 flex-1 flex flex-col justify-between gap-3.5">
-          {/* Card Header: Table Avatar, Title + Floor & Seats, Actions */}
-          <div className="flex items-start justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              {/* Card Selection Checkbox */}
-              <button
-                type="button"
-                onClick={() => toggleSelectRow(id)}
-                title={isSelected ? t("table_settings.deselect_all", "Deselect") : t("table_settings.select_table", "Select")}
+          <button
+            type="button"
+            onClick={() => openEditModal(storeTable)}
+            title={t("common.edit", "Edit")}
+            className="flex-1 min-w-0 text-left pt-0.5"
+          >
+            <h4 className="font-semibold text-[15px] leading-snug text-slate-900 dark:text-white line-clamp-2 break-words">
+              {formatTableHeading(table_title)}
+            </h4>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              {cap} {t("table_settings.seats", "Seats")} · {t(shapeObj.labelKey, shapeObj.defaultLabel)}
+            </p>
+          </button>
+
+          <div className="flex items-center shrink-0 -mr-1.5 -mt-1">
+            <button
+              type="button"
+              onClick={() => toggleSelectRow(id)}
+              title={isSelected ? t("table_settings.deselect", "Deselect") : t("table_settings.select_table", "Select")}
+              className={clsx(
+                "w-9 h-9 rounded-xl flex items-center justify-center transition",
+                isSelected || selectedRowIds.size > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
+              )}
+            >
+              <span
                 className={clsx(
-                  "w-5 h-5 rounded-md border flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0",
+                  "w-[18px] h-[18px] rounded-md border flex items-center justify-center",
                   isSelected
-                    ? "bg-emerald-600 border-emerald-600 text-white shadow-2xs"
-                    : "border-slate-300 dark:border-neutral-600 bg-white dark:bg-zinc-800 text-transparent hover:border-emerald-500"
+                    ? "bg-emerald-600 border-emerald-600 text-white"
+                    : "border-slate-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-transparent"
                 )}
               >
-                <IconCheck size={12} stroke={3} className={clsx(!isSelected && "opacity-0")} />
-              </button>
-
-              {/* Table Shape Avatar (Clickable to preview QR) */}
-              <button
-                type="button"
-                onClick={() => setPreviewTable(storeTable)}
-                title={t("table_settings.preview_qr", "Click to preview QR Code")}
-                className={clsx(
-                  "relative w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer transition-transform active:scale-95 shadow-2xs group/avatar",
-                  avatarTheme
-                )}
-              >
-                <ShapeIcon size={22} stroke={2} className="transition-transform group-hover/avatar:scale-110" />
-                {/* Tiny QR indicator badge */}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-zinc-800 shadow-xs border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover/avatar:text-emerald-500 transition-colors">
-                  <IconQrcode size={10} stroke={2.2} />
-                </div>
-              </button>
-
-              {/* Title & Metadata */}
-              <div className="min-w-0 flex-1">
-                <h4
-                  title={formatTableHeading(table_title)}
-                  className="font-bold text-[15px] sm:text-base text-slate-900 dark:text-white leading-snug truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                >
-                  {formatTableHeading(table_title)}
-                </h4>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-slate-300">
-                    <IconLayersSubtract size={11} className="opacity-70 shrink-0" />
-                    <span className="truncate max-w-[110px]">{formatFloorLabel(floor)}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
-                    <IconUsers size={11} className="shrink-0" />
-                    <span>
-                      {cap} {t("table_settings.seats", "Seats")}
-                    </span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Header Actions */}
-            <div className="flex items-center gap-0.5 shrink-0 -mr-1">
-              <button
-                type="button"
-                onClick={() => openEditModal(storeTable)}
-                title={t("common.edit", "Edit Table")}
-                className="w-8 h-8 rounded-xl flex items-center justify-center transition active:scale-95 text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800"
-              >
-                <IconPencil stroke={iconStroke} size={15} />
-              </button>
-
-              {/* Dropdown for Secondary Actions */}
-              <div className="dropdown dropdown-end">
-                <button
-                  tabIndex={0}
-                  type="button"
-                  title={t("table_settings.more_actions", "More Actions")}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center transition active:scale-95 text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800"
-                >
-                  <IconDotsVertical stroke={iconStroke} size={15} />
-                </button>
-                <ul
-                  tabIndex={0}
-                  className="dropdown-content z-30 menu p-1.5 shadow-xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-[#303642] rounded-2xl w-44 text-xs font-semibold space-y-0.5 mt-1"
-                >
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTable(storeTable)}
-                      className="flex items-center gap-2 py-2 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200"
-                    >
-                      <IconQrcode size={15} />
-                      <span>{t("table_settings.preview_qr", "Preview QR")}</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      disabled={duplicatingId === id}
-                      onClick={() => btnDuplicate(storeTable)}
-                      className="flex items-center gap-2 py-2 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
-                    >
-                      <IconCopy size={15} />
-                      <span>{t("common.duplicate", "Duplicate")}</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      disabled={rotatingPinId === id}
-                      onClick={() => handleRotatePin(storeTable)}
-                      className="flex items-center gap-2 py-2 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
-                    >
-                      <IconRefresh size={15} className={clsx(rotatingPinId === id && "animate-spin text-emerald-600")} />
-                      <span>{t("table_settings.reset_pin", "Reset PIN")}</span>
-                    </button>
-                  </li>
-                  <div className="my-1 border-t border-slate-100 dark:border-zinc-800" />
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTableId(id)}
-                      className="flex items-center gap-2 py-2 px-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                    >
-                      <IconTrash size={15} />
-                      <span>{t("common.delete", "Delete Table")}</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Sleek PIN & Security Access Bar */}
-          <div className="px-3 py-2 rounded-xl bg-slate-50/90 dark:bg-[#20242e] border border-slate-200/80 dark:border-[#2f3542] flex items-center justify-between gap-2 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => handleCopyPin(storeTable)}
-              title={t("table_settings.copy_pin", "Click to copy PIN")}
-              className="flex items-center gap-2 text-left group/pin cursor-pointer flex-1 min-w-0"
-            >
-              <IconShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                {t("table_settings.table_pin", "PIN")}:
-              </span>
-              <span className="px-2.5 py-0.5 rounded-md bg-white dark:bg-[#15171e] border border-slate-200 dark:border-zinc-700 font-mono font-black tracking-widest text-xs text-slate-900 dark:text-white group-hover/pin:border-emerald-500 group-hover/pin:text-emerald-600 transition shadow-2xs flex items-center gap-1.5">
-                <span>{table_pin || "----"}</span>
-                {isPinCopied ? (
-                  <IconCheck size={11} className="text-emerald-600 shrink-0" />
-                ) : (
-                  <IconCopy size={10} className="text-slate-400 group-hover/pin:text-emerald-500 opacity-60 group-hover/pin:opacity-100 transition shrink-0" />
-                )}
+                <IconCheck size={12} stroke={3} />
               </span>
             </button>
 
-            <button
-              type="button"
-              disabled={rotatingPinId === id}
-              onClick={() => handleRotatePin(storeTable)}
-              title={t("table_settings.reset_pin", "Generate New 4-Digit PIN")}
-              className="px-2.5 py-1 min-h-[32px] rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#1a1d24] text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 disabled:opacity-50 shrink-0 shadow-2xs"
-            >
-              <IconRefresh
-                size={13}
-                className={clsx(rotatingPinId === id && "animate-spin text-emerald-600")}
-              />
-              <span className="text-[11px] font-medium">{t("table_settings.reset_pin", "Reset")}</span>
-            </button>
+            <div className="dropdown dropdown-end">
+              <button
+                tabIndex={0}
+                type="button"
+                title={t("table_settings.more_actions", "More actions")}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800 transition active:scale-95"
+              >
+                <IconDotsVertical stroke={iconStroke} size={16} />
+              </button>
+              <ul
+                tabIndex={0}
+                className="dropdown-content z-30 menu p-1.5 shadow-xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-[#303642] rounded-2xl w-48 text-sm space-y-0.5 mt-1"
+              >
+                <li>
+                  <button type="button" onClick={() => openEditModal(storeTable)} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-slate-700 dark:text-slate-200">
+                    <IconPencil size={16} />
+                    <span>{t("common.edit", "Edit")}</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" disabled={duplicatingId === id} onClick={() => btnDuplicate(storeTable)} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-slate-700 dark:text-slate-200 disabled:opacity-40">
+                    <IconCopy size={16} />
+                    <span>{t("common.duplicate", "Duplicate")}</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" onClick={() => btnDownloadTableMenuQR(storeTable)} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-slate-700 dark:text-slate-200">
+                    <IconDownload size={16} />
+                    <span>{t("table_settings.download_table_qr", "Download QR")}</span>
+                  </button>
+                </li>
+                <li>
+                  <button type="button" disabled={rotatingPinId === id} onClick={() => handleRotatePin(storeTable)} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-slate-700 dark:text-slate-200 disabled:opacity-40">
+                    <IconRefresh size={16} className={clsx(rotatingPinId === id && "animate-spin text-emerald-600")} />
+                    <span>{t("table_settings.reset_pin", "Reset PIN")}</span>
+                  </button>
+                </li>
+                <div className="my-1 border-t border-slate-100 dark:border-zinc-800" />
+                <li>
+                  <button type="button" onClick={() => setDeleteTableId(id)} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40">
+                    <IconTrash size={16} />
+                    <span>{t("common.delete", "Delete")}</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
+        </div>
 
-          {/* Primary Card Footer Actions (>= 42px Touch Targets) */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => btnDownloadTableMenuQR(storeTable)}
-              className="min-h-[42px] px-3 rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#20242e] hover:bg-slate-50 dark:hover:bg-[#2a2f3a] text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
-            >
-              <IconDownload size={15} stroke={iconStroke} className="shrink-0 text-slate-500 dark:text-slate-400" />
-              <span className="truncate">{t("table_settings.download_table_qr", "Download QR")}</span>
-            </button>
+        {/* PIN + QR actions */}
+        <div className="mt-auto px-4 pb-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleCopyPin(storeTable)}
+            title={t("table_settings.copy_pin", "Click to copy PIN")}
+            className="flex-1 min-w-0 h-[42px] px-3 rounded-xl bg-slate-50 dark:bg-[#20242e] border border-slate-200/80 dark:border-[#2f3542] hover:border-emerald-500/60 flex items-center gap-2 text-left transition group/pin"
+          >
+            <IconShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              {t("table_settings.pin", "PIN")}
+            </span>
+            <span className="font-mono font-bold tracking-[0.2em] text-sm text-slate-900 dark:text-white">
+              {table_pin || "----"}
+            </span>
+            {isPinCopied ? (
+              <IconCheck size={14} className="ml-auto text-emerald-600 shrink-0" />
+            ) : (
+              <IconCopy size={14} className="ml-auto text-slate-300 group-hover/pin:text-emerald-500 shrink-0 transition" />
+            )}
+          </button>
 
-            <button
-              type="button"
-              onClick={() => handlePrintSingleSlip(storeTable)}
-              className="min-h-[42px] px-3 rounded-xl bg-restro-green hover:bg-restro-green-button-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:shadow-emerald-600/25 transition active:scale-95"
-            >
-              <IconPrinter size={15} stroke={iconStroke} className="shrink-0 text-white" />
-              <span className="truncate">{t("table_settings.print_qr", "Print QR")}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPreviewTable(storeTable)}
+            title={t("table_settings.preview_qr", "Preview QR")}
+            className="w-[42px] h-[42px] rounded-xl border border-slate-200 dark:border-[#303642] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center justify-center shrink-0 transition active:scale-95"
+          >
+            <IconQrcode size={18} stroke={iconStroke} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handlePrintSingleSlip(storeTable)}
+            title={t("table_settings.print_qr", "Print QR")}
+            className="w-[42px] h-[42px] rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 flex items-center justify-center shrink-0 transition active:scale-95"
+          >
+            <IconPrinter size={18} stroke={iconStroke} />
+          </button>
         </div>
       </div>
     );
   };
 
+  const toolbarIconBtn =
+    "w-[42px] h-[42px] rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center justify-center transition active:scale-95 shrink-0";
+
   return (
     <Page className="px-4 sm:px-8 py-6 max-w-7xl mx-auto">
-      {/* Top Page Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-        <div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {t("table_settings.store_tables")}
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
-              {tablesList.length} {t("tables.tables", "Tables")}
+      {/* ── Page Header ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-slate-900 dark:text-white">
+            {t("table_settings.store_tables")}
+          </h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-slate-500 dark:text-slate-400">
+            <span>
+              {tablesList.length} {t("tables.tables", "Tables")} · {totalSeats} {t("table_settings.seats", "Seats")} · {floors.length}{" "}
+              {t("table_settings.floors", "floors")}
             </span>
+            <Link
+              to="/dashboard/settings/details"
+              title={t("settings.store_details", "Store Details")}
+              className={clsx(
+                "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition",
+                isQRMenuEnabled
+                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400"
+                  : "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400"
+              )}
+            >
+              <span className={clsx("w-1.5 h-1.5 rounded-full", isQRMenuEnabled ? "bg-emerald-500" : "bg-amber-500")} />
+              {isQRMenuEnabled
+                ? t("table_settings.qr_ordering_active", "QR ordering active")
+                : t("table_settings.qr_ordering_off", "QR ordering off")}
+            </Link>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            {t(
-              "table_settings.subtitle",
-              "Manage dining tables, seating capacities, 4-digit security PINs, and printable QR ordering slips."
-            )}
-          </p>
         </div>
 
-        {/* Header Action Toolbar */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/dashboard/tables"
-            className="min-h-[42px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 text-sm font-medium flex items-center gap-2 shadow-2xs transition active:scale-95"
+            className="min-h-[42px] px-3.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 text-sm font-medium flex items-center gap-2 transition active:scale-95"
           >
-            <IconArmchair2 size={18} stroke={iconStroke} className="text-emerald-600 dark:text-emerald-400" />
+            <IconArmchair2 size={18} stroke={iconStroke} />
             <span>{t("tables.visual_floor_plan", "Visual Floor Plan")}</span>
           </Link>
 
@@ -950,9 +867,9 @@ export default function TableSettingsPage() {
             <button
               type="button"
               onClick={handlePrintAllSlips}
-              className="min-h-[42px] px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 text-sm font-medium flex items-center gap-2 shadow-2xs transition active:scale-95"
+              className="min-h-[42px] px-3.5 rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 text-sm font-medium flex items-center gap-2 transition active:scale-95"
             >
-              <IconPrinter size={18} stroke={iconStroke} className="text-slate-500" />
+              <IconPrinter size={18} stroke={iconStroke} />
               <span>
                 {t("table_settings.print_all_qr", "Print All QR Slips")} ({filteredTables.length})
               </span>
@@ -962,374 +879,140 @@ export default function TableSettingsPage() {
           <button
             type="button"
             onClick={() => openAddModal()}
-            className="min-h-[42px] px-4 py-2 rounded-xl bg-restro-green hover:bg-restro-green-button-hover text-white text-sm font-semibold flex items-center gap-2 shadow-sm transition active:scale-95"
+            className="min-h-[42px] px-4 rounded-xl bg-restro-green hover:bg-restro-green-button-hover text-white text-sm font-semibold flex items-center gap-2 shadow-sm transition active:scale-95"
           >
-            <IconPlus size={19} stroke={2.2} />
+            <IconPlus size={18} stroke={2.2} />
             <span>{t("table_settings.new")}</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Summary Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
-        <div className="p-4 rounded-2xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1a1d24] flex items-center gap-3.5 shadow-2xs">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <IconArmchair2 size={22} stroke={iconStroke} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              {t("table_settings.total_tables", "Total Tables")}
-            </p>
-            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-              {tablesList.length}
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1a1d24] flex items-center gap-3.5 shadow-2xs">
-          <div className="w-11 h-11 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-            <IconUsers size={22} stroke={iconStroke} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              {t("table_settings.total_seats", "Total Capacity")}
-            </p>
-            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-              {totalSeats}{" "}
-              <span className="text-xs font-semibold text-slate-400">
-                {t("table_settings.seats", "Seats")}
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1a1d24] flex items-center gap-3.5 shadow-2xs">
-          <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <IconBuildingStore size={22} stroke={iconStroke} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              {t("table_settings.floors_zones", "Floors / Zones")}
-            </p>
-            <p className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-              {floors.length}
-            </p>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1a1d24] flex items-center justify-between gap-2 shadow-2xs">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={clsx(
-                "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
-                isQRMenuEnabled
-                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
-                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
-              )}
-            >
-              <IconQrcode size={22} stroke={iconStroke} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">
-                {t("table_settings.qr_menu_status", "QR Ordering")}
-              </p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span
-                  className={clsx(
-                    "w-2 h-2 rounded-full",
-                    isQRMenuEnabled ? "bg-emerald-500" : "bg-amber-500"
-                  )}
-                />
-                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isQRMenuEnabled
-                    ? t("table_settings.qr_enabled", "Active")
-                    : t("table_settings.qr_disabled", "Disabled")}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <Link
-            to="/dashboard/settings/details"
-            title={t("settings.store_details", "Store Details")}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-zinc-800 transition"
-          >
-            <IconExternalLink size={16} />
-          </Link>
-        </div>
-      </div>
-
-      {/* ── Filter, Floor Tabs & Action Toolbar ── */}
+      {/* ── Floor Tabs + Toolbar ── */}
       {tablesList.length > 0 && (
-        <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1a1d24] mb-6 space-y-3 shadow-2xs print:hidden">
-          {/* Floor Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-            <button
-              type="button"
-              onClick={() => setSelectedFloor("all")}
-              className={clsx(
-                "min-h-[42px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 whitespace-nowrap flex items-center gap-1.5",
-                selectedFloor === "all"
-                  ? "bg-slate-900 text-white dark:bg-emerald-600 dark:text-white shadow-xs"
-                  : "bg-slate-100 dark:bg-[#252932] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-zinc-700"
-              )}
-            >
-              <IconLayoutGrid size={15} />
-              <span>{t("table_settings.all_floors", "All Floors")}</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-white/20">
-                {tablesList.length}
-              </span>
-            </button>
-
-            {floors.map((f) => {
-              const isSelected = selectedFloor === f;
-              const count = floorCounts.get(f) || 0;
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setSelectedFloor(f)}
-                  className={clsx(
-                    "min-h-[42px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 whitespace-nowrap flex items-center gap-1.5",
-                    isSelected
-                      ? "bg-restro-green text-white shadow-xs"
-                      : "bg-slate-100 dark:bg-[#252932] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-zinc-700"
-                  )}
-                >
-                  <span>{formatFloorLabel(f)}</span>
-                  <span
+        <div className="mb-6 print:hidden">
+          {floors.length > 1 && (
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-[#2e2e2e] mb-4">
+              {["all", ...floors].map((f) => {
+                const isActive = selectedFloor === f;
+                const count = f === "all" ? tablesList.length : floorCounts.get(f) || 0;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setSelectedFloor(f)}
                     className={clsx(
-                      "px-1.5 py-0.2 rounded-full text-[11px]",
-                      isSelected
-                        ? "bg-white/25 text-white"
-                        : "bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-slate-300"
+                      "relative min-h-[44px] px-3.5 text-sm whitespace-nowrap flex items-center gap-2 transition",
+                      isActive
+                        ? "font-semibold text-slate-900 dark:text-white"
+                        : "font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     )}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Action Toolbar Row (QuickBooks / Table Design System Standard) */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-[#262a34]">
-            {/* Left: Search Input & Capacity Filters */}
-            <div className="flex flex-wrap items-center gap-2.5 flex-1">
-              {/* Search Input */}
-              <div className="relative flex-1 sm:max-w-xs w-full">
-                <IconSearch
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t(
-                    "table_settings.search_placeholder",
-                    "Search table, floor, capacity, PIN..."
-                  )}
-                  className="w-full min-h-[40px] pl-9.5 pr-8 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-[#222630] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                  >
-                    <IconX size={13} />
-                  </button>
-                )}
-              </div>
-
-              {/* Capacity Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                {[
-                  { key: "all", label: t("tables.all_capacity", "All Capacity"), icon: IconArmchair2 },
-                  { key: "small", label: t("tables.small_2", "Small (1-2)"), icon: IconCircle },
-                  { key: "medium", label: t("tables.medium_4", "Medium (3-4)"), icon: IconSquare },
-                  { key: "large", label: t("tables.large_6", "Large (5+)"), icon: IconRectangle },
-                ].map((item) => {
-                  const ItemIcon = item.icon;
-                  const isSelected = capacityFilter === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => setCapacityFilter(item.key)}
+                    <span>{f === "all" ? t("table_settings.all_floors", "All Floors") : formatFloorLabel(f)}</span>
+                    <span
                       className={clsx(
-                        "min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 whitespace-nowrap flex items-center gap-1.5",
-                        isSelected
-                          ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs"
-                          : "bg-slate-50 dark:bg-[#222630] text-slate-600 dark:text-slate-400 border border-transparent hover:bg-slate-100 dark:hover:bg-zinc-800"
+                        "px-1.5 rounded-md text-[11px] font-semibold tabular-nums",
+                        isActive
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                          : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-slate-400"
                       )}
                     >
-                      <ItemIcon size={14} className={isSelected ? "text-emerald-600 dark:text-emerald-400" : "opacity-60"} />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                      {count}
+                    </span>
+                    <span
+                      className={clsx(
+                        "absolute left-2 right-2 -bottom-px h-0.5 rounded-full",
+                        isActive ? "bg-emerald-600" : "bg-transparent"
+                      )}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-              {/* Group by Floor (Cards view only) */}
-              {viewMode === "cards" && selectedFloor === "all" && floors.length > 1 && (
-                <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#222630] border border-slate-200/80 dark:border-[#303642] text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={groupByFloor}
-                    onChange={(e) => setGroupByFloor(e.target.checked)}
-                    className="toggle toggle-xs toggle-success"
-                  />
-                  <span>{t("table_settings.group_by_floor", "Group by Floor")}</span>
-                </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <IconSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("table_settings.search_placeholder", "Search table, floor, capacity, PIN...")}
+                className="w-full h-[42px] pl-10 pr-9 text-sm rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                >
+                  <IconX size={14} />
+                </button>
               )}
             </div>
 
-            {/* Right: View Mode Toggle, Utility Actions & Compact Pagination */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end">
-              {/* Cards vs Table View Segmented Switcher */}
-              <div className="flex items-center bg-slate-100 dark:bg-[#222630] rounded-xl p-1 border border-slate-200 dark:border-[#303642] shadow-2xs min-h-[40px]">
-                <button
-                  type="button"
-                  title={t("table_settings.view_cards", "Visual Card Grid View")}
-                  onClick={() => setViewMode("cards")}
-                  className={clsx(
-                    "min-h-[32px] px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition active:scale-95 cursor-pointer",
-                    viewMode === "cards"
-                      ? "bg-restro-green text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-zinc-800"
-                  )}
-                >
-                  <IconLayoutGrid size={15} stroke={iconStroke} />
-                  <span className="hidden sm:inline">{t("table_settings.cards", "Cards")}</span>
-                </button>
-                <button
-                  type="button"
-                  title={t("table_settings.view_table", "High-Density Table View")}
-                  onClick={() => setViewMode("table")}
-                  className={clsx(
-                    "min-h-[32px] px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition active:scale-95 cursor-pointer",
-                    viewMode === "table"
-                      ? "bg-restro-green text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-zinc-800"
-                  )}
-                >
-                  <IconTable size={15} stroke={iconStroke} />
-                  <span className="hidden sm:inline">{t("table_settings.table", "Table")}</span>
-                </button>
+            <select
+              value={capacityFilter}
+              onChange={(e) => setCapacityFilter(e.target.value)}
+              className="h-[42px] pl-3 pr-8 rounded-xl border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="all">{t("tables.all_capacity", "All Capacity")}</option>
+              <option value="small">{t("tables.small_2", "Small (1-2)")}</option>
+              <option value="medium">{t("tables.medium_4", "Medium (3-4)")}</option>
+              <option value="large">{t("tables.large_6", "Large (5+)")}</option>
+            </select>
+
+            <div className="ml-auto flex items-center gap-2">
+              <div className="flex items-center h-[42px] p-1 rounded-xl bg-slate-100 dark:bg-[#222630]">
+                {[
+                  { key: "cards", icon: IconLayoutGrid, label: t("table_settings.cards", "Cards") },
+                  { key: "table", icon: IconList, label: t("table_settings.table", "List") },
+                ].map(({ key, icon: ModeIcon, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    title={label}
+                    onClick={() => setViewMode(key)}
+                    className={clsx(
+                      "h-[34px] px-3 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition",
+                      viewMode === key
+                        ? "bg-white dark:bg-zinc-700 text-slate-900 dark:text-white shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+                    )}
+                  >
+                    <ModeIcon size={16} stroke={iconStroke} />
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                ))}
               </div>
 
-              {/* Print Table Button */}
-              <button
-                type="button"
-                onClick={handlePrintTable}
-                className="w-10 h-10 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#1a1d24] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95 shadow-2xs shrink-0"
-                title={t("table_settings.print_table", "Print Table")}
-              >
-                <IconPrinter size={16} stroke={iconStroke} />
-              </button>
-
-              {/* Export CSV Button */}
-              <button
-                type="button"
-                onClick={() => handleExportCSV(false)}
-                className="w-10 h-10 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#1a1d24] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95 shadow-2xs shrink-0"
-                title={t("table_settings.export_csv", "Export CSV")}
-              >
-                <IconDownload size={16} stroke={iconStroke} />
-              </button>
-
-              {/* Settings Dropdown (Rows per page) */}
-              <div className="relative" ref={settingsBtnRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                  className="w-10 h-10 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-[#1a1d24] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95 shadow-2xs shrink-0"
-                  title={t("common.settings", "Table Settings")}
-                >
-                  <IconSettings size={16} stroke={iconStroke} />
+              <div className="dropdown dropdown-end">
+                <button tabIndex={0} type="button" title={t("table_settings.more_actions", "More actions")} className={toolbarIconBtn}>
+                  <IconDotsVertical size={17} stroke={iconStroke} />
                 </button>
-
-                {showSettingsMenu && (
-                  <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-[#1a1d24] rounded-2xl shadow-xl border border-slate-200 dark:border-neutral-700 py-2 z-30 text-xs font-semibold space-y-0.5">
-                    <div className="px-3 py-1 font-bold text-slate-400 uppercase tracking-wider text-[10px]">
-                      {t("table_settings.rows_per_page", "Rows per page")}
-                    </div>
-                    {[10, 25, 50, 100].map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => {
-                          setPageSize(size);
-                          setPage(1);
-                          setShowSettingsMenu(false);
-                        }}
-                        className={clsx(
-                          "w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-between text-slate-700 dark:text-slate-200",
-                          pageSize === size && "font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30"
-                        )}
-                      >
-                        <span>{size} rows</span>
-                        {pageSize === size && <IconCheck size={14} className="text-emerald-600" />}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPageSize("all");
-                        setPage(1);
-                        setShowSettingsMenu(false);
-                      }}
-                      className={clsx(
-                        "w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-between text-slate-700 dark:text-slate-200 border-t border-slate-100 dark:border-neutral-800 mt-1 pt-1.5",
-                        pageSize === "all" && "font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30"
-                      )}
-                    >
-                      <span>All rows</span>
-                      {pageSize === "all" && <IconCheck size={14} className="text-emerald-600" />}
+                <ul
+                  tabIndex={0}
+                  className="dropdown-content z-30 menu p-1.5 shadow-xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-[#303642] rounded-2xl w-52 text-sm space-y-0.5 mt-1"
+                >
+                  <li>
+                    <button type="button" onClick={() => handleExportCSV(false)} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-slate-700 dark:text-slate-200">
+                      <IconDownload size={16} />
+                      <span>{t("table_settings.export_csv", "Export CSV")}</span>
                     </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Inline Compact Pagination */}
-              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-neutral-400 pl-2 border-l border-slate-200 dark:border-neutral-700">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className={clsx(
-                    "flex items-center gap-0.5 hover:text-slate-900 dark:hover:text-white transition",
-                    page <= 1 && "opacity-40 cursor-not-allowed hover:text-slate-600"
-                  )}
-                >
-                  <IconChevronLeft size={14} stroke={iconStroke} />
-                  <span>{t("common.previous", "Prev")}</span>
-                </button>
-
-                <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
-                  {totalItems > 0 ? `${startIndex + 1} - ${endIndex}` : "0 - 0"}
-                  <span className="text-slate-400 font-normal"> of {totalItems}</span>
-                </span>
-
-                <button
-                  type="button"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className={clsx(
-                    "flex items-center gap-0.5 hover:text-slate-900 dark:hover:text-white transition",
-                    page >= totalPages && "opacity-40 cursor-not-allowed hover:text-slate-600"
-                  )}
-                >
-                  <span>{t("common.next", "Next")}</span>
-                  <IconChevronRight size={15} stroke={iconStroke} />
-                </button>
+                  </li>
+                  <li>
+                    <button type="button" onClick={handlePrintTable} className="flex items-center gap-2.5 py-2 px-2.5 rounded-xl text-slate-700 dark:text-slate-200">
+                      <IconPrinter size={16} />
+                      <span>{t("table_settings.print_table", "Print Table")}</span>
+                    </button>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
         </div>
       )}
+
 
       {/* ── Tables Content Area (Cards or Table View) ── */}
       {tablesList.length === 0 ? (
@@ -1375,7 +1058,7 @@ export default function TableSettingsPage() {
         </div>
       ) : viewMode === "table" ? (
         /* ── High-Density Compact Data Table (Table Design System) ── */
-        <div className="w-full overflow-x-auto border-t border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b]">
+        <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-[#18181b]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-neutral-800 text-[13px] font-semibold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#18181b]">
@@ -1669,8 +1352,8 @@ export default function TableSettingsPage() {
             </tbody>
           </table>
         </div>
-      ) : groupByFloor && selectedFloor === "all" && groupedTables.length > 1 ? (
-        /* ── Grouped Cards View ── */
+      ) : (
+        /* ── Cards, grouped by floor ── */
         <div className="space-y-8">
           {groupedTables.map(([floorKey, floorTables]) => {
             const floorSeats = floorTables.reduce(
@@ -1678,96 +1361,87 @@ export default function TableSettingsPage() {
               0
             );
             return (
-              <div key={floorKey} className="space-y-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1a1d24] border border-slate-200/80 dark:border-[#2a2e39] shadow-2xs">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-[#15171e] border border-slate-200/90 dark:border-zinc-700 text-slate-900 dark:text-white shadow-2xs">
-                      <IconLayersSubtract size={16} className="text-emerald-600 dark:text-emerald-400" />
-                      <span className="font-bold text-xs sm:text-sm tracking-wide">
+              <section key={floorKey}>
+                {(groupedTables.length > 1 || selectedFloor !== "all") && (
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-baseline gap-2.5 min-w-0">
+                      <h2 className="text-base font-semibold text-slate-900 dark:text-white truncate">
                         {formatFloorLabel(floorKey)}
+                      </h2>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {floorTables.length} {t("tables.tables", "Tables")} · {floorSeats} {t("table_settings.seats", "Seats")}
                       </span>
                     </div>
-
-                    <span className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
-                      {floorTables.length} {t("tables.tables", "Tables")} • {floorSeats}{" "}
-                      {t("table_settings.seats", "Seats")}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openAddModal(floorKey)}
+                      className="min-h-[42px] px-3 rounded-xl text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1.5 shrink-0 transition active:scale-95"
+                    >
+                      <IconPlus size={16} stroke={2.2} />
+                      <span>{t("table_settings.new")}</span>
+                    </button>
                   </div>
+                )}
 
-                  <button
-                    type="button"
-                    onClick={() => openAddModal(floorKey)}
-                    className="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#15171e] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-zinc-700 hover:border-emerald-500/50 text-slate-700 dark:text-slate-200 hover:text-emerald-600 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95"
-                  >
-                    <IconPlus size={15} stroke={2.5} className="text-emerald-600 dark:text-emerald-400" />
-                    <span>
-                      {t("table_settings.new")} ({formatFloorLabel(floorKey)})
-                    </span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                   {floorTables.map((tbl) => renderTableCard(tbl))}
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>
-      ) : (
-        /* ── Flat Cards Grid View ── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4.5">
-          {displayedTables.map((tbl) => renderTableCard(tbl))}
-        </div>
       )}
 
-      {/* ── Bottom Pagination Bar (Table Design System Standard) ── */}
-      {tablesList.length > 0 && totalItems > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-1 text-xs text-slate-600 dark:text-neutral-400 border-t border-slate-100 dark:border-neutral-800 mt-4 print:hidden">
-          <div className="text-slate-500 dark:text-slate-400">
-            {t("common.showing", "Showing")} {totalItems > 0 ? startIndex + 1 : 0} {t("common.to", "to")} {endIndex} {t("common.of", "of")}{" "}
-            {totalItems} {t("common.entries", "entries")}
-            {selectedRowIds.size > 0 && (
-              <span className="ml-2 font-semibold text-emerald-600 dark:text-emerald-400">
-                ({selectedRowIds.size} {selectedRowIds.size === 1 ? t("table_settings.table_selected", "selected") : t("table_settings.tables_selected", "selected")})
-              </span>
-            )}
-          </div>
-
+      {/* ── Pagination (list view) ── */}
+      {viewMode === "table" && tablesList.length > 0 && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-sm text-slate-500 dark:text-slate-400 print:hidden">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className={clsx(
-                "min-h-[36px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex items-center gap-1 font-medium transition active:scale-95 shadow-2xs",
-                page <= 1
-                  ? "opacity-40 cursor-not-allowed text-slate-400"
-                  : "hover:text-slate-900 dark:hover:text-white text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-neutral-800"
-              )}
-            >
-              <IconChevronLeft size={15} stroke={iconStroke} />
-              <span>{t("common.previous", "Previous")}</span>
-            </button>
-
-            <span className="tabular-nums font-semibold text-slate-800 dark:text-slate-200 px-1">
-              Page {page} of {totalPages}
+            <span>
+              {startIndex + 1}–{endIndex} {t("common.of", "of")} {totalItems}
             </span>
-
-            <button
-              type="button"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className={clsx(
-                "min-h-[36px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex items-center gap-1 font-medium transition active:scale-95 shadow-2xs",
-                page >= totalPages
-                  ? "opacity-40 cursor-not-allowed text-slate-400"
-                  : "hover:text-slate-900 dark:hover:text-white text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-neutral-800"
-              )}
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+              className="h-9 pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-[#303642] bg-white dark:bg-[#1a1d24] text-xs text-slate-700 dark:text-slate-200 cursor-pointer"
+              aria-label={t("table_settings.rows_per_page", "Rows per page")}
             >
-              <span>{t("common.next", "Next")}</span>
-              <IconChevronRight size={15} stroke={iconStroke} />
-            </button>
+              {[10, 25, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size} / {t("common.page", "page")}
+                </option>
+              ))}
+              <option value="all">{t("common.all", "All")}</option>
+            </select>
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className={clsx(toolbarIconBtn, "disabled:opacity-40 disabled:cursor-not-allowed")}
+                aria-label={t("common.previous", "Previous")}
+              >
+                <IconChevronLeft size={16} stroke={iconStroke} />
+              </button>
+              <span className="tabular-nums font-medium text-slate-700 dark:text-slate-200 px-1">
+                {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className={clsx(toolbarIconBtn, "disabled:opacity-40 disabled:cursor-not-allowed")}
+                aria-label={t("common.next", "Next")}
+              >
+                <IconChevronRight size={16} stroke={iconStroke} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
