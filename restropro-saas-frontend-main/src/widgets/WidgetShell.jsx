@@ -19,6 +19,10 @@ import { iconStroke } from "../config/config";
  * escapes react-grid-layout's transform stacking context (which would
  * otherwise clip a position:fixed child to the grid cell).
  */
+// 42px touch target, pulled into the slim header with negative margin.
+const HEADER_BTN =
+  "-my-2 flex h-[42px] w-[42px] items-center justify-center rounded-lg text-restro-text transition hover:bg-restro-bg-gray hover:text-foreground active:scale-95";
+
 export default class WidgetShell extends React.Component {
   state = { hasError: false, error: null, fullscreen: false };
 
@@ -33,10 +37,11 @@ export default class WidgetShell extends React.Component {
 
   renderBody(headerSlot) {
     const { hasError, error } = this.state;
+    const compact = this.props.descriptor?.compact && !this.state.fullscreen;
     return (
       <>
         {headerSlot}
-        <div className="widget-body relative flex-1 overflow-auto p-4">
+        <div className={`widget-body relative flex-1 overflow-auto ${compact ? "px-4 py-3.5" : "p-4"}`}>
           {hasError ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
               <IconAlertTriangle className="text-amber-500" size={28} stroke={iconStroke} />
@@ -60,11 +65,11 @@ export default class WidgetShell extends React.Component {
 
     return (
       <div
-        className={`widget-drag-handle flex items-center justify-between gap-2 border-b border-restro-border-green px-4 py-2.5 ${editMode ? "cursor-move" : ""}`}
+        className={`widget-drag-handle flex items-center justify-between gap-2 border-b border-restro-border-green px-4 py-2.5 ${editMode ? "cursor-move bg-restro-bg-gray/40" : ""}`}
       >
         <div className="flex min-w-0 items-center gap-2">
           {Icon && <Icon size={16} stroke={iconStroke} className="text-restro-text shrink-0" />}
-          <h3 className="truncate text-sm font-bold text-foreground">
+          <h3 className="truncate text-[13px] font-bold text-foreground">
             {descriptor?.title || "Widget"}
           </h3>
         </div>
@@ -73,7 +78,7 @@ export default class WidgetShell extends React.Component {
           {descriptor?.refreshable && onRefresh && !editMode && (
             <button
               type="button" onClick={onRefresh} title="Refresh"
-              className="rounded-md p-1 text-restro-text hover:bg-restro-bg-gray hover:text-foreground transition"
+              className={HEADER_BTN}
             >
               <IconRefresh size={15} stroke={iconStroke} className={isRefreshing ? "animate-spin" : ""} />
             </button>
@@ -83,7 +88,7 @@ export default class WidgetShell extends React.Component {
             <button
               type="button" onClick={this.toggleFullscreen}
               title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-              className="rounded-md p-1 text-restro-text hover:bg-restro-bg-gray hover:text-foreground transition"
+              className={HEADER_BTN}
             >
               {fullscreen ? <IconArrowsMinimize size={15} stroke={iconStroke} /> : <IconArrowsMaximize size={15} stroke={iconStroke} />}
             </button>
@@ -91,7 +96,7 @@ export default class WidgetShell extends React.Component {
 
           {!editMode && (descriptor?.configSchema?.length || 0) > 0 && (
             <Menu as="div" className="relative">
-              <Menu.Button className="rounded-md p-1 text-restro-text hover:bg-restro-bg-gray hover:text-foreground transition">
+              <Menu.Button className={HEADER_BTN}>
                 <IconDotsVertical size={15} stroke={iconStroke} />
               </Menu.Button>
               <Transition
@@ -120,7 +125,7 @@ export default class WidgetShell extends React.Component {
             <button
               type="button" onClick={onRemove} onMouseDown={(e) => e.stopPropagation()}
               title="Remove widget"
-              className="rounded-md p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition"
+              className={`${HEADER_BTN} !text-red-500 hover:!bg-red-50 dark:hover:!bg-red-950/30`}
             >
               <IconX size={15} stroke={iconStroke} />
             </button>
@@ -160,6 +165,29 @@ export default class WidgetShell extends React.Component {
             document.body
           )}
         </>
+      );
+    }
+
+    if (descriptor?.compact) {
+      // Headerless tile: the body carries its own label. In edit mode the
+      // whole tile becomes the drag handle and the remove button floats.
+      const { editMode, onRemove } = this.props;
+      return (
+        <div
+          className={`relative flex h-full w-full flex-col rounded-2xl border border-restro-border-green bg-background overflow-hidden transition-shadow hover:shadow-md ${editMode ? "widget-drag-handle cursor-move" : ""}`}
+          data-widget-type={descriptor?.type}
+        >
+          {this.renderBody(null)}
+          {editMode && onRemove && (
+            <button
+              type="button" onClick={onRemove} onMouseDown={(e) => e.stopPropagation()}
+              title="Remove widget"
+              className="absolute right-1 top-1 z-10 flex h-[42px] w-[42px] items-center justify-center rounded-lg bg-background/90 text-red-500 shadow-sm transition hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-95"
+            >
+              <IconX size={16} stroke={iconStroke} />
+            </button>
+          )}
+        </div>
       );
     }
 

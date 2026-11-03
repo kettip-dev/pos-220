@@ -3,9 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
-  IconChevronRight,
   IconLoader2,
-  IconLayoutDashboard,
   IconAdjustments,
   IconPlus,
   IconCheck,
@@ -14,12 +12,20 @@ import {
   IconX,
   IconEyeOff,
   IconEye,
-  IconChartLine,
+  IconRefresh,
+  IconShoppingBag,
+  IconArmchair,
+  IconChefHat,
+  IconReceipt2,
+  IconCalendarEvent,
+  IconBox,
+  IconChartBar,
 } from "@tabler/icons-react";
 
 import Page from "../components/Page";
 import { iconStroke } from "../config/config";
-import { getQBOAppCategories, useQBOAccess } from "../components/QBONavigation";
+import { useQBOAccess } from "../components/QBONavigation";
+import { SCOPES } from "../config/scopes";
 
 // ─── Widget framework ──────────────────────────────────────────
 import "../widgets/register-all";  // side-effect: registers all widgets
@@ -32,6 +38,18 @@ import { getWidget } from "../widgets/registry";
 import { TEMPLATES, buildTemplate, DEFAULT_TEMPLATE_KEY } from "../widgets/templates";
 import { BREAKPOINTS, COLS } from "../widgets/types";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
+
+// Touch-first launchers shown under the greeting. Scopes mirror the
+// ScopeProtectedRoute guards in App.jsx so tiles never lead to a 403.
+const QUICK_ACTIONS = [
+  { key: "pos",         labelKey: "quick_new.pos_order",   fallback: "POS order",    to: "/dashboard/pos",         icon: IconShoppingBag,   color: "#2CA01C", scopes: [SCOPES.POS], primary: true },
+  { key: "tables",      labelKey: "quick_new.tables",      fallback: "Tables",       to: "/dashboard/tables",      icon: IconArmchair,      color: "#0EA5E9", scopes: [SCOPES.POS, SCOPES.SETTINGS, SCOPES.DASHBOARD] },
+  { key: "orders",      labelKey: "navbar.orders",         fallback: "Orders",       to: "/dashboard/orders",      icon: IconReceipt2,      color: "#14B8A6", scopes: [SCOPES.POS, SCOPES.ORDERS, SCOPES.ORDER_STATUS, SCOPES.ORDER_STATUS_DISPLAY] },
+  { key: "kitchen",     labelKey: "quick_new.kitchen",     fallback: "Kitchen",      to: "/dashboard/kitchen",     icon: IconChefHat,       color: "#F97316", scopes: [SCOPES.KITCHEN, SCOPES.KITCHEN_DISPLAY] },
+  { key: "reservation", labelKey: "quick_new.reservation", fallback: "Reservations", to: "/dashboard/reservation", icon: IconCalendarEvent, color: "#8B5CF6", scopes: [SCOPES.RESERVATIONS, SCOPES.VIEW_RESERVATIONS, SCOPES.MANAGE_RESERVATIONS] },
+  { key: "inventory",   labelKey: "quick_new.inventory",   fallback: "Inventory",    to: "/dashboard/inventory",   icon: IconBox,           color: "#F59E0B", scopes: [SCOPES.INVENTORY] },
+  { key: "reports",     labelKey: "quick_new.reports",     fallback: "Reports",      to: "/dashboard/reports",     icon: IconChartBar,      color: "#6366F1", scopes: [SCOPES.REPORTS] },
+];
 
 let _idCounter = 0;
 const newId = () => `w_${Date.now().toString(36)}_${(++_idCounter).toString(36)}`;
@@ -77,14 +95,21 @@ export default function DashboardPage() {
   };
 
   const { hasAccess } = useQBOAccess();
-  const qboCategories = useMemo(() => {
-    return getQBOAppCategories(t)
-      .map((cat) => ({
-        ...cat,
-        items: cat.items.filter((it) => hasAccess(it.scopes, it.features)),
-      }))
-      .filter((cat) => cat.items.length > 0);
-  }, [t, hasAccess]);
+  const quickActions = useMemo(
+    () => QUICK_ACTIONS.filter((a) => hasAccess(a.scopes)),
+    [hasAccess]
+  );
+
+  // "Updated hh:mm" stamp for the glance section; bumps on every fetch.
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    if (dashData.data) setUpdatedAt(new Date());
+  }, [dashData.data]);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try { await dashData.refresh(); } finally { setRefreshing(false); }
+  };
 
   const greetingText = useMemo(() => {
     const hour = new Date().getHours();
@@ -223,169 +248,176 @@ export default function DashboardPage() {
   }
 
   const firstName = (user?.name || "Manager").split(" ")[0];
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  const visibleLayout = layoutHook.layout && {
+    ...layoutHook.layout,
+    items: (layoutHook.layout.items || []).filter((it) => !getWidget(it.type)?.hidden),
+  };
 
-  const createActionShortcuts = [
-    { label: t("quick_new.pos_order", "Create POS order"), path: "/dashboard/pos" },
-    { label: t("quick_new.tables", "Open floor plan"), path: "/dashboard/tables" },
-    { label: t("quick_new.invoices", "View invoices"), path: "/dashboard/invoices" },
-    { label: t("quick_new.inventory", "Record stock"), path: "/dashboard/inventory" },
-    { label: t("quick_new.reservation", "Book reservation"), path: "/dashboard/reservation" },
-  ];
+  const toolbarBtn =
+    "inline-flex h-[42px] items-center gap-2 rounded-xl px-4 text-sm font-semibold transition active:scale-95 cursor-pointer";
 
   // ─── Render ──────────────────────────────────────────────────
   return (
-    <Page className="px-4 sm:px-8 pt-6 pb-12 max-w-[1440px] mx-auto">
-      <div>
-        {/* QBO Home Greeting & Top Controls */}
-        <div className="relative flex flex-col items-center justify-center mb-6 pt-1">
-          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-gray-900 dark:text-white text-center">
-            {greetingText}, {firstName}!
-          </h1>
-
-          {/* Right-aligned Customise & Privacy buttons (like QBO Screenshot 1) */}
-          <div className="mt-3 sm:mt-0 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2 flex flex-wrap items-center justify-center gap-2">
-            {!editMode ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setEditMode(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <IconAdjustments size={15} stroke={1.8} className="text-gray-500" />
-                  <span>{t("navbar.customise", "Customise")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={togglePrivacyMode}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-                  {privacyMode ? (
-                    <IconEye size={15} stroke={1.8} className="text-[#2CA01C]" />
+    <Page className="px-4 sm:px-6 lg:px-8 pt-6 pb-12 max-w-[1440px] mx-auto">
+      {/* Edit toolbar — pinned while rearranging so Done is always in reach */}
+      {editMode && (
+        <div className="sticky top-2 z-30 mb-6 flex flex-col gap-3 rounded-2xl border border-[#2CA01C]/40 bg-background/95 p-3 pl-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <IconAdjustments size={16} stroke={iconStroke} className="text-[#2CA01C]" />
+              {t("dashboard.editing_title", "Editing your dashboard")}
+              {(layoutHook.dirty || layoutHook.saving) && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-restro-text">
+                  {layoutHook.saving ? (
+                    <><IconLoader2 size={12} className="animate-spin" /> {t("dashboard.saving", "Saving…")}</>
                   ) : (
-                    <IconEyeOff size={15} stroke={1.8} className="text-gray-500" />
+                    <>· {t("dashboard.unsaved", "Unsaved changes")}</>
                   )}
-                  <span>{t("dashboard.privacy", "Privacy")}</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setPickerOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#2CA01C] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#248417] active:scale-95 cursor-pointer"
-                >
-                  <IconPlus size={14} stroke={iconStroke} /> {t("dashboard.add_widget", "Add widget")}
-                </button>
-                <button
-                  onClick={() => setTemplatesOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  <IconLayout2 size={14} stroke={iconStroke} /> {t("dashboard.templates", "Templates")}
-                </button>
-                <button
-                  onClick={resetDashboard}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  <IconRotateClockwise2 size={14} stroke={iconStroke} /> {t("dashboard.reset", "Reset")}
-                </button>
-                <button
-                  onClick={() => {
-                    layoutHook.saveNow();
-                    setEditMode(false);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#0D233A] px-3.5 py-1.5 text-xs font-bold text-white hover:opacity-90 active:scale-95 cursor-pointer"
-                >
-                  <IconCheck size={14} stroke={iconStroke} /> {t("common.done", "Done")}
-                </button>
-              </>
-            )}
+                </span>
+              )}
+            </p>
+            <p className="mt-0.5 text-xs text-restro-text">
+              {t("dashboard.editing_hint", "Drag a widget by its header to move it, or drag its corner to resize.")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setPickerOpen(true)} className={`${toolbarBtn} bg-[#2CA01C] text-white hover:bg-[#248417]`}>
+              <IconPlus size={16} stroke={iconStroke} /> {t("dashboard.add_widget", "Add widget")}
+            </button>
+            <button onClick={() => setTemplatesOpen(true)} className={`${toolbarBtn} border border-restro-border-green bg-background text-foreground hover:bg-restro-bg-gray`}>
+              <IconLayout2 size={16} stroke={iconStroke} /> {t("dashboard.templates", "Templates")}
+            </button>
+            <button onClick={resetDashboard} className={`${toolbarBtn} border border-restro-border-green bg-background text-foreground hover:bg-restro-bg-gray`}>
+              <IconRotateClockwise2 size={16} stroke={iconStroke} /> {t("dashboard.reset", "Reset")}
+            </button>
+            <button
+              onClick={() => {
+                layoutHook.saveNow();
+                setEditMode(false);
+              }}
+              className={`${toolbarBtn} bg-[#0D233A] text-white hover:opacity-90 dark:bg-white dark:text-[#0D233A]`}
+            >
+              <IconCheck size={16} stroke={iconStroke} /> {t("common.done", "Done")}
+            </button>
           </div>
         </div>
+      )}
 
-        {/* QBO Category Pills Row (Screenshot 1) */}
-        <div className="flex items-center justify-start sm:justify-center gap-2.5 overflow-x-auto no-scrollbar pb-2 mb-8">
-          {qboCategories.map((cat) => (
-            <Link
-              key={cat.id}
-              to={cat.defaultPath}
-              className="shrink-0 h-10 pl-2 pr-4 rounded-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-700 shadow-2xs hover:shadow-sm flex items-center gap-2.5 text-xs font-semibold text-gray-800 dark:text-slate-100 transition active:scale-95"
+      {/* Greeting */}
+      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-restro-text">{todayLabel}</p>
+          <h1 className="mt-1 truncate text-2xl font-extrabold tracking-tight text-foreground sm:text-[28px]">
+            {greetingText}, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-restro-text">
+            {t("dashboard.happening_today", "Here's what's happening at your restaurant today.")}
+          </p>
+        </div>
+
+        {!editMode && (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePrivacyMode}
+              aria-pressed={privacyMode}
+              title={t("dashboard.privacy", "Privacy")}
+              className={`${toolbarBtn} border ${privacyMode ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400" : "border-restro-border-green bg-background text-foreground hover:bg-restro-bg-gray"}`}
             >
-              <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${cat.badgeBg}`}
+              {privacyMode ? <IconEyeOff size={17} stroke={1.8} /> : <IconEye size={17} stroke={1.8} />}
+              <span>{t("dashboard.privacy", "Privacy")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditMode(true)}
+              className={`${toolbarBtn} border border-restro-border-green bg-background text-foreground hover:bg-restro-bg-gray`}
+            >
+              <IconAdjustments size={17} stroke={1.8} />
+              <span>{t("navbar.customise", "Customise")}</span>
+            </button>
+          </div>
+        )}
+      </header>
+
+      {/* Quick actions */}
+      {!editMode && quickActions.length > 0 && (
+        <nav
+          aria-label={t("dashboard.quick_actions", "Quick actions")}
+          className="mb-8 grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-7"
+        >
+          {quickActions.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Link
+                key={a.key}
+                to={a.to}
+                className={`group flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition hover:-translate-y-0.5 hover:shadow-md active:scale-95 ${
+                  a.primary
+                    ? "border-transparent bg-[#2CA01C] text-white hover:bg-[#248417]"
+                    : "border-restro-border-green bg-background text-foreground hover:border-gray-300 dark:hover:border-slate-600"
+                }`}
               >
-                {cat.badgeIcon}
-              </span>
-              <span>{cat.label}</span>
-            </Link>
-          ))}
-          <Link
-            to="/dashboard/reports"
-            className="shrink-0 h-10 pl-2 pr-4 rounded-full bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 hover:border-gray-300 dark:hover:border-slate-700 shadow-2xs hover:shadow-sm flex items-center gap-2.5 text-xs font-semibold text-gray-800 dark:text-slate-100 transition active:scale-95"
-          >
-            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-indigo-600 text-white">
-              <IconChartLine size={14} stroke={2.2} />
-            </span>
-            <span>{t("navbar.reports", "Reports")}</span>
-          </Link>
-        </div>
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-xl transition-transform group-hover:scale-110"
+                  style={a.primary ? { backgroundColor: "rgba(255,255,255,0.18)" } : { backgroundColor: `${a.color}1a`, color: a.color }}
+                >
+                  <Icon size={20} stroke={iconStroke} />
+                </span>
+                <span className="line-clamp-1 text-[13px] font-bold leading-tight">{t(a.labelKey, a.fallback)}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
-        {/* QBO 'Create actions' Pill Bar (Screenshot 1) */}
-        <div className="flex flex-wrap items-center gap-2.5 mb-7">
-          <span className="text-xs font-bold text-gray-800 dark:text-slate-200 mr-1">
-            {t("dashboard.create_actions", "Create actions")}
-          </span>
-          {createActionShortcuts.map((act, idx) => (
-            <Link
-              key={idx}
-              to={act.path}
-              className="h-8 px-3.5 rounded-full bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-gray-800 dark:text-slate-200 flex items-center transition active:scale-95"
-            >
-              {act.label}
-            </Link>
-          ))}
-          <Link
-            to="/dashboard/reports"
-            className="text-xs font-semibold text-[#0077C5] hover:underline ml-1"
-          >
-            {t("dashboard.view_reports", "View all reports")}
-          </Link>
-        </div>
-
-        {/* Section Header: Business at a glance */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white">
-            {t("dashboard.business_at_a_glance", "Business at a glance")}
+      {/* Today at a glance */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-base font-bold text-foreground">
+            {t("dashboard.today_at_a_glance", "Today at a glance")}
           </h2>
-          {privacyMode && (
-            <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-              {t("dashboard.privacy_active", "Privacy mode active — sensitive figures blurred")}
+          {updatedAt && (
+            <span className="text-xs text-restro-text">
+              {t("dashboard.updated_at", "Updated {{time}}", {
+                time: updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              })}
             </span>
           )}
         </div>
-
-        {/* Save indicator */}
-        {editMode && (layoutHook.dirty || layoutHook.saving) && (
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-restro-bg-gray/60 px-3 py-1 text-xs text-restro-text">
-            {layoutHook.saving ? (
-              <>
-                <IconLoader2 size={12} className="animate-spin" /> Saving…
-              </>
-            ) : (
-              <>● Unsaved changes</>
-            )}
-          </div>
-        )}
-
-        {/* Canvas */}
-        <div className={privacyMode ? "[&_.text-2xl]:blur-sm [&_.text-3xl]:blur-sm [&_.font-extrabold]:blur-xs transition-all" : ""}>
-          <WidgetCanvas
-            layout={layoutHook.layout}
-            editMode={editMode}
-            context={context}
-            onLayoutChange={onLayoutChange}
-            onRemoveItem={removeWidget}
-          />
+        <div className="flex items-center gap-2">
+          {privacyMode && (
+            <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+              {t("dashboard.privacy_active", "Privacy mode active — sensitive figures blurred")}
+            </span>
+          )}
+          {!editMode && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title={t("dashboard.refresh", "Refresh")}
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-xl text-restro-text transition hover:bg-restro-bg-gray hover:text-foreground active:scale-95 disabled:opacity-60"
+            >
+              <IconRefresh size={18} stroke={iconStroke} className={refreshing ? "animate-spin" : ""} />
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* Canvas */}
+      <div className={privacyMode ? "[&_[data-sensitive]]:blur-md [&_.text-2xl]:blur-sm [&_.text-3xl]:blur-sm [&_.font-extrabold]:blur-xs transition-all" : ""}>
+        <WidgetCanvas
+          layout={visibleLayout}
+          editMode={editMode}
+          context={context}
+          onLayoutChange={onLayoutChange}
+          onRemoveItem={removeWidget}
+        />
       </div>
 
       <WidgetPickerDrawer

@@ -54,6 +54,10 @@ export function registerWidget(descriptor) {
     refreshable: descriptor.refreshable !== false,
     fullscreenable: descriptor.fullscreenable !== false,
     allowMultiple: !!descriptor.allowMultiple,
+    // compact: no header bar — the body draws its own label (KPI tiles).
+    compact: !!descriptor.compact,
+    // hidden: kept registered for saved layouts, but not offered or rendered.
+    hidden: !!descriptor.hidden,
   };
   _registry.set(normalized.type, normalized);
 
@@ -106,6 +110,7 @@ export function getCategoryOrder() {
 export function getAvailableWidgets({ userScopes = [], userPlan = null } = {}) {
   const scopeSet = new Set(userScopes);
   return getAllWidgets().filter((w) => {
+    if (w.hidden) return false;
     if (w.scope && !scopeSet.has(w.scope)) return false;
     // Plan gating is informational at this layer — we still return the widget
     // and let the picker render an "upgrade" badge. Server enforces hard gating.

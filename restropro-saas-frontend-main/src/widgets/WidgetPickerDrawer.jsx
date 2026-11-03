@@ -43,6 +43,7 @@ export default function WidgetPickerDrawer({
     const scopeSet = new Set(userScopes);
     const isAdmin = userRole === "admin";
     return getAllWidgets().filter((w) => {
+      if (w.hidden) return false;
       // Admins bypass scope checks (mirrors ScopeProtectedRoute behavior).
       if (!isAdmin && w.scope && !scopeSet.has(w.scope)) return false;
       // Single-instance widgets disappear once added; allowMultiple widgets
