@@ -1527,6 +1527,8 @@
     "warning": "ការព្រមាន"
   },
   "navbar": {
+    "more": "More",
+    "close": "Close",
     "dashboard_overview": "Dashboard Overview",
     "dashboard": "Dashboard",
     "pos": "POS Register",

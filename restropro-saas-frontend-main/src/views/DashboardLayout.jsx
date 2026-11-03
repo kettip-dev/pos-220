@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import QBONavigation from "../components/QBONavigation";
-import OperationalBar from "../components/OperationalBar";
+import OperationalBar, { OperationalBottomNav } from "../components/OperationalBar";
 import SearchModal from "../components/SearchModal";
 import useAuth from "../helpers/useAuth";
 
@@ -50,14 +50,16 @@ export default function DashboardLayout() {
   // Must use flex-row so the vertical OperationalBar rail is on the left and the page content fills the right.
   if (isOperationalRoute) {
     return (
-      <div className="flex flex-row h-screen w-screen overflow-hidden bg-background text-foreground font-sans relative">
+      <div className="flex flex-col md:flex-row h-dvh w-screen overflow-hidden bg-background text-foreground font-sans relative">
         <OperationalBar
           isCollapsed={isOperationalBarCollapsed}
           onToggleCollapse={toggleOperationalBar}
         />
-        <main className="flex-1 flex flex-col min-w-0 h-screen max-h-screen overflow-hidden transition-all duration-300">
+        <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden transition-all duration-300">
           <Outlet context={{ isOperationalBarCollapsed, toggleOperationalBar }} />
         </main>
+        {/* Phones: bottom tab bar replaces the left rail */}
+        <OperationalBottomNav />
         <SearchModal />
       </div>
     );
