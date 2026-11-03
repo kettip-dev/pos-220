@@ -68,6 +68,8 @@ if [ "$ACTION" = "deploy" ]; then
         --exclude="*.log" \
         --exclude=".gemini" \
         --exclude=".system_generated" \
+        --exclude=".agents" \
+        --exclude=".claude" \
         -C "$SCRIPT_DIR" . | ssh "${SSH_TARGET}" "tar -xzf - -C ${REMOTE_DIR}"
 
     log_success "Workspace transferred successfully."
