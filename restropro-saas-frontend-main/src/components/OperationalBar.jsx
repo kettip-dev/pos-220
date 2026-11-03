@@ -354,7 +354,7 @@ export function OperationalBottomNav() {
         </>
       )}
 
-      <nav className="md:hidden shrink-0 z-50 bg-white dark:bg-[#0B1522] border-t border-[#E3E5E8] dark:border-slate-800 pb-[env(safe-area-inset-bottom)] select-none">
+      <nav className="md:hidden relative shrink-0 z-40 bg-white dark:bg-[#0B1522] border-t border-[#E3E5E8] dark:border-slate-800 pb-[env(safe-area-inset-bottom)] select-none">
         <div className="flex items-stretch h-[60px] px-1">
           {primaryTabs.map(({ id, label, Icon, path }) => {
             const active = isActive(path);
