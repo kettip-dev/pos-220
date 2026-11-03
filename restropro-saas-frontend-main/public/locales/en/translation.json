@@ -2144,7 +2144,12 @@
     "col_pin": "Security PIN",
     "col_qr": "QR Ordering",
     "col_actions": "Actions",
-    "qr": "QR"
+    "qr": "QR",
+    "floors": "floors",
+    "qr_ordering_active": "QR ordering active",
+    "qr_ordering_off": "QR ordering off",
+    "pin": "PIN",
+    "deselect": "Deselect"
   },
   "print_settings": {
     "title": "Print Settings",
@@ -3851,7 +3856,8 @@
     "active": "Active",
     "assign": "Assign",
     "error_occurred": "An error occurred",
-    "save_settings": "Save Settings"
+    "save_settings": "Save Settings",
+    "page": "page"
   },
   "table_assignments_page": {
     "title": "Table Assignments",
