@@ -15,7 +15,8 @@ const {
 } = require("../services/menu_item.service");
 const { createOrderDB, getPOSQROrdersCountDB, getPOSQROrdersDB, updateQROrderStatusDB, approveQROrderDB, cancelAllQROrdersDB } = require("../services/pos.service");
 const { createInvoiceDB } = require("../services/orders.service");
-const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB, printJobToPrinterDB, testPrinterTcpDB } = require("../services/printer.service");
+const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB, buildTestPrintPayloadDB } = require("../services/printer.service");
+const { submitPrintJob } = require("../services/print_job.service");
 const { getPosPrintFormatDB, upsertPosPrintFormatDB } = require("../services/pos-print-format.service");
 const { getSuperAdminImageStorageConfigDB } = require("../services/image_storage.service");
 
@@ -385,23 +386,40 @@ exports.getPrinterConfigs = async (req, res) => {
 exports.addPrinterConfig = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
-    const { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id } = req.body;
+    const { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id, agent_id } = req.body;
 
     if (!name || !transport || !address) {
       return res.status(400).json({ success: false, message: 'Name, transport, and address are required.' });
     }
 
-    const id = await addPrinterConfigDB(tenantId, { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id });
+    const id = await addPrinterConfigDB(tenantId, { name, transport, address, paper_size, is_default, is_kot_printer, auto_cut, station_id, agent_id });
 
     // Return the full updated list so the client can sync
     const printerConfigs = await getPrinterConfigsDB(tenantId);
 
     return res.status(200).json({ success: true, id, printerConfigs });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+    return sendPrinterError(req, res, error);
   }
 };
+
+// Validation errors (bad address, unknown agent, …) carry a user-facing
+// message; anything else is an unexpected failure.
+function sendPrinterError(req, res, error) {
+  if (error.statusCode) {
+    return res.status(error.statusCode).json({ success: false, message: error.message });
+  }
+  console.error(error);
+  return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+}
+
+// Map a dispatched job to an HTTP response: printed → 200, queued/awaiting
+// agent confirmation → 202, failed → 502 so existing clients treat it as an error.
+function sendPrintJobResult(res, result) {
+  if (result.status === "printed") return res.status(200).json({ success: true, ...result });
+  if (result.status === "queued" || result.status === "sending") return res.status(202).json({ success: true, ...result });
+  return res.status(502).json({ success: false, ...result });
+}
 
 exports.updatePrinterConfig = async (req, res) => {
   try {
@@ -414,8 +432,7 @@ exports.updatePrinterConfig = async (req, res) => {
     const printerConfigs = await getPrinterConfigsDB(tenantId);
     return res.status(200).json({ success: true, printerConfigs });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+    return sendPrinterError(req, res, error);
   }
 };
 
@@ -438,20 +455,19 @@ exports.printToPrinter = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const printerId = req.params.id;
-    const { base64Data } = req.body;
+    const { base64Data, jobType, reference, idempotencyKey } = req.body;
 
-    if (!base64Data) {
-      return res.status(400).json({ success: false, message: "Print payload (base64Data) is required." });
-    }
-
-    const result = await printJobToPrinterDB(tenantId, printerId, base64Data);
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error("Print job execution error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || req.__("something_went_wrong_try_later"),
+    const result = await submitPrintJob(tenantId, printerId, {
+      payloadBase64: base64Data,
+      jobType,
+      reference,
+      idempotencyKey,
     });
+    return sendPrintJobResult(res, result);
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+    console.error("Print job execution error:", error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
   }
 };
 
@@ -460,14 +476,18 @@ exports.testPrintToPrinter = async (req, res) => {
     const tenantId = req.user.tenant_id;
     const printerId = req.params.id;
 
-    const result = await testPrinterTcpDB(tenantId, printerId);
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error("Test print execution error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || req.__("something_went_wrong_try_later"),
+    const { printer, base64Data } = await buildTestPrintPayloadDB(tenantId, printerId);
+    const result = await submitPrintJob(tenantId, printerId, {
+      payloadBase64: base64Data,
+      jobType: "test",
+      reference: `Test print: ${printer.name}`,
     });
+    if (result.status === "printed") result.message = `Test receipt printed on ${printer.name}`;
+    return sendPrintJobResult(res, result);
+  } catch (error) {
+    if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
+    console.error("Test print execution error:", error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
   }
 };
 

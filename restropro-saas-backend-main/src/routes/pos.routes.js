@@ -25,6 +25,14 @@ const {
   getPosPrintFormat,
   updatePosPrintFormat,
 } = require("../controllers/pos.controller");
+const {
+  getPrintAgents,
+  createPrintAgent,
+  regeneratePrintAgentToken,
+  deletePrintAgent,
+  getPrintJobs,
+  retryPrintJob,
+} = require("../controllers/print_agent.controller");
 
 const router = Router();
 
@@ -152,6 +160,62 @@ router.post(
   isSubscriptionActive,
   authorize([SCOPES.POS, SCOPES.SETTINGS]),
   testPrintToPrinter
+);
+
+// ─── Print Agents & Print Jobs ────────────────────────────
+
+router.get(
+  "/print-agents",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  getPrintAgents
+);
+
+router.post(
+  "/print-agents",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  createPrintAgent
+);
+
+router.post(
+  "/print-agents/:id/regenerate-token",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  regeneratePrintAgentToken
+);
+
+router.delete(
+  "/print-agents/:id",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  deletePrintAgent
+);
+
+router.get(
+  "/print-jobs",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  getPrintJobs
+);
+
+router.post(
+  "/print-jobs/:id/retry",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  retryPrintJob
 );
 
 // ─── Receipt / KOT print format ───────────────────────────

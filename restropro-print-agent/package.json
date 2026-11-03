@@ -1,0 +1,20 @@
+{
+  "name": "restropro-print-agent",
+  "version": "1.0.0",
+  "description": "Restro PRO print agent: relays cloud POS print jobs to LAN and USB thermal printers inside the restaurant.",
+  "main": "src/index.js",
+  "bin": {
+    "restropro-print-agent": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "list-printers": "node src/index.js --list-printers"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}

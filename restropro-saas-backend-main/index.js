@@ -11,6 +11,8 @@ const { Server } = require("socket.io");
 const { CONFIG } = require("./src/config");
 const { getTenantIdFromQRCode } = require("./src/services/settings.service");
 const { startDayEndReconciliationScheduler } = require("./src/schedulers/day_end_reconciliation.scheduler");
+const { attachPrintAgentNamespace } = require("./src/services/print_agent.service");
+const { flushAgentQueue, startPrintJobMaintenance } = require("./src/services/print_job.service");
 
 const PORT = process.env.PORT || 3000;
 
@@ -31,6 +33,10 @@ const io = new Server(httpServer, {
 // Expose io to controllers via req.app.get("io") so they can broadcast
 // table calls, request updates, and ready-for-pickup events to the tenant room.
 app.set("io", io);
+
+// Restaurant-side print agents connect to the "/print-agent" namespace with a
+// per-agent token; queued jobs are flushed as soon as an agent comes online.
+attachPrintAgentNamespace(io, { onAgentOnline: flushAgentQueue });
 
 // In-memory tracking for dual-screen rooms (roomId -> tenantId)
 const roomOwners = new Map();
@@ -253,6 +259,7 @@ httpServer.listen(PORT);
 // Background jobs. Started after the server is listening so a scheduler fault
 // can never prevent the API from coming up.
 startDayEndReconciliationScheduler();
+startPrintJobMaintenance();
 
 // app.listen(PORT, ()=>{
 //     console.log(`Server Started on PORT: ${PORT}`);

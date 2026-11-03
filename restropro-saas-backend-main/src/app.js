@@ -132,6 +132,8 @@ app.use(cookieParser());
 app.use(i18n.init);
 app.use(userAgent.express());
 app.use('/api/v1/auth/stripe-webhook', express.raw({ type: 'application/json' }));
+// Raster receipt / KOT images are sent as base64 and exceed the 100kb default.
+app.use("/api/v1/pos/printers", express.json({ limit: "6mb" }));
 app.use(express.json());
 // app.use(morgan("combined", {stream: accessLogStream}));
 app.use(fileUpload({
