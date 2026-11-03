@@ -2,6 +2,7 @@ const { CONFIG } = require("../config");
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { rotateTablePinsByOrderIdsDB } = require("./settings.service");
 const { processLoyaltyOnCheckoutTx } = require("./loyalty.service");
+const { normalisePaymentLines, recordPaymentsTx, writeAuditTx } = require("./register.service");
 
 exports.getOrdersDB = async (tenantId) => {
   const conn = await getMySqlPromiseConnection();
@@ -533,7 +534,12 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
 }
 };
 
-exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username = null, discountType = null, discountValue = 0, discountTotal = null, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerPhone = null, orderId = null, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0) => {
+/**
+ * `register` = { session, payments } ties the bill to a register session: the
+ * tender lines (split tender, cash tendered/change) are checked against the
+ * server-verified total and written to the drawer ledger in this transaction.
+ */
+exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username = null, discountType = null, discountValue = 0, discountTotal = null, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerPhone = null, orderId = null, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, register = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
@@ -593,15 +599,21 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
 
     const finalPayableTotal = Math.max(0, Number((verifiedTotal - loyaltyDiscount).toFixed(2)));
 
+    const paymentLines = normalisePaymentLines(register?.payments, selectedPaymentType, finalPayableTotal);
+    // Legacy single-type reports read invoices.payment_type_id: use the line that paid the most.
+    const primaryPaymentType = paymentLines.length > 1
+      ? [...paymentLines].sort((a, b) => b.amount - a.amount)[0].paymentTypeId
+      : selectedPaymentType;
+
     const cleanAppliedPromos = appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0
       ? JSON.stringify(appliedPromotions)
       : null;
 
     const sql = `
     INSERT INTO invoices
-    (id, sub_total, tax_total, service_charge_total, discount_type, discount_value, discount_total, applied_promotions, promotion_discount_total, customer_group_id, customer_group_name, customer_group_discount_total, loyalty_points_redeemed, loyalty_discount_amount, loyalty_points_earned, total, created_at, payment_type_id, tenant_id, created_by, customer_phone)
+    (id, sub_total, tax_total, service_charge_total, discount_type, discount_value, discount_total, applied_promotions, promotion_discount_total, customer_group_id, customer_group_name, customer_group_discount_total, loyalty_points_redeemed, loyalty_discount_amount, loyalty_points_earned, total, created_at, payment_type_id, tenant_id, created_by, customer_phone, register_session_id)
     VALUES
-    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await conn.query(sql, [
@@ -622,11 +634,22 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       pointsEarned,
       finalPayableTotal,
       date,
-      selectedPaymentType,
+      primaryPaymentType,
       tenantId,
       username,
       customerPhone || null,
+      register?.session?.id || null,
     ]);
+
+    await recordPaymentsTx(conn, {
+      tenantId,
+      session: register?.session || null,
+      source: "SALE",
+      invoiceId,
+      orderId,
+      lines: paymentLines,
+      createdBy: username,
+    });
 
     await conn.query("INSERT INTO invoice_sequences ( sequence_no, tenant_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no);", [invoiceId, tenantId]);
 
@@ -1170,7 +1193,10 @@ exports.settleSubInvoiceDB = async (
   paymentTypeTitle,
   tipAmount = 0,
   username = null,
-  notes = null
+  notes = null,
+  session = null,
+  tender = null,
+  reference = null
 ) => {
   const conn = await getMySqlPromiseConnection();
   try {
@@ -1197,10 +1223,29 @@ exports.settleSubInvoiceDB = async (
          payment_status = 'paid',
          server_username = ?,
          notes = ?,
-         paid_at = NOW()
+         paid_at = NOW(),
+         register_session_id = ?
        WHERE id = ? AND tenant_id = ?`,
-      [paymentTypeId, paymentTypeTitle, tip, username, notes, subInvoiceId, tenantId]
+      [paymentTypeId, paymentTypeTitle, tip, username, notes, session?.id || null, subInvoiceId, tenantId]
     );
+
+    await recordPaymentsTx(conn, {
+      tenantId,
+      session,
+      source: "SUB_INVOICE",
+      subInvoiceId: Number(subInvoiceId),
+      orderId: subInvoice.order_id,
+      lines: [{
+        paymentTypeId,
+        paymentTypeTitle,
+        amount: Number(subInvoice.payable_total || 0),
+        tip,
+        tender,
+        reference,
+      }],
+      createdBy: username,
+      serverUsername: subInvoice.server_username || username,
+    });
 
     // Update order cumulative tips
     await conn.query(

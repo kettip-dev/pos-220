@@ -40,6 +40,16 @@ export const SCOPE_METADATA = {
     category: "pos",
     description: "Mark a completed invoice as VOID, reversing its inventory impact."
   },
+  [SCOPES.REFUND_INVOICES]: {
+    title: "Refund Invoices",
+    category: "pos",
+    description: "Refund all or part of a paid invoice. Large refunds can also require a manager PIN."
+  },
+  [SCOPES.REGISTER_MANAGE]: {
+    title: "Register Manager",
+    category: "pos",
+    description: "Approve cash variances and pay-outs, reopen closed registers, set up tills, and close the business day."
+  },
   [SCOPES.VIEW_INVOICE_AUDIT_LOG]: {
     title: "Invoice Audit Log",
     category: "pos",
@@ -159,6 +169,8 @@ export const SCOPE_CATEGORIES = [
       SCOPES.ORDER_STATUS,
       SCOPES.INVOICES,
       SCOPES.VOID_INVOICES,
+      SCOPES.REFUND_INVOICES,
+      SCOPES.REGISTER_MANAGE,
       SCOPES.VIEW_INVOICE_AUDIT_LOG,
     ],
   },

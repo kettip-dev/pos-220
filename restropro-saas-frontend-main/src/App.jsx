@@ -30,6 +30,7 @@ import TableAssignmentsPage from "./views/SettingsViews/TableAssignmentsPage";
 import MenuItemsSettingsPage from "./views/SettingsViews/MenuItemsSettingsPage";
 import TaxSetupPage from "./views/SettingsViews/TaxSetupPage";
 import PaymentTypesPage from "./views/SettingsViews/PaymentTypesPage";
+import RegistersSettingsPage from "./views/SettingsViews/RegistersSettingsPage";
 import LoyaltySettingsPage from "./views/SettingsViews/LoyaltySettingsPage";
 import DevicesPage from "./views/SettingsViews/DevicesPage";
 import ContactSupport from "./views/SettingsViews/ContactSupportPage";
@@ -467,6 +468,7 @@ export default function App() {
               />
               <Route path="tax-setup" element={<RequiresSingleBusiness><TaxSetupPage /></RequiresSingleBusiness>} />
               <Route path="payment-types" element={<RequiresSingleBusiness><PaymentTypesPage /></RequiresSingleBusiness>} />
+              <Route path="registers" element={<RequiresSingleBusiness><RegistersSettingsPage /></RequiresSingleBusiness>} />
               <Route path="loyalty" element={<RequiresSingleBusiness><LoyaltySettingsPage /></RequiresSingleBusiness>} />
             </Route>
           </Route>

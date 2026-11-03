@@ -7,6 +7,7 @@ const {
   isSubscriptionActive,
 } = require("../middlewares/auth.middleware");
 const { SCOPES } = require("../config/user.config");
+const { attachRegisterSession } = require("../middlewares/register.middleware");
 const {
   getPOSInitData,
   createOrder,
@@ -58,6 +59,7 @@ router.post(
   isAuthenticated,
   isSubscriptionActive,
   authorize([SCOPES.POS]),
+  attachRegisterSession,
   createOrderAndInvoice
 );
 

@@ -44,6 +44,8 @@ import { SCOPES, hasFullBusinessAccess } from "../config/scopes";
 import DeleteModal from "../components/DeleteModal";
 import InvoiceAuditLogModal from "../components/InvoiceAuditLogModal";
 import InvoiceDetailsDrawer from "../components/InvoiceDetailsDrawer";
+import RefundModal from "../components/register/RefundModal";
+import { IconReceiptRefund } from "@tabler/icons-react";
 import clsx from "clsx";
 
 const toDateInputValue = (d) =>
@@ -62,10 +64,12 @@ function InvoiceActionDropdown({
   isVoid,
   canViewAuditLog,
   canVoid,
+  canRefund,
   btnViewReceipt,
   btnPrintReceipt,
   btnOpenAuditLogModal,
   btnOpenVoidModal,
+  btnOpenRefundModal,
   invoiceSummary,
   t,
   iconStroke,
@@ -179,6 +183,19 @@ function InvoiceActionDropdown({
             </button>
           )}
 
+          {canRefund && !isVoid && (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                btnOpenRefundModal(invoice_id);
+              }}
+              className={menuItemClass}
+            >
+              <IconReceiptRefund size={17} stroke={iconStroke} className="text-slate-500 shrink-0" />
+              <span>{t("invoices.refund", "Refund")}</span>
+            </button>
+          )}
+
           {canVoid && !isVoid && (
             <>
               <div className="my-1 h-px bg-slate-100 dark:bg-neutral-800" />
@@ -242,6 +259,9 @@ export default function InvoicesPage() {
   const canViewAuditLog =
     hasFullBusinessAccess(role) ||
     userScopes.includes(SCOPES.VIEW_INVOICE_AUDIT_LOG);
+  const canRefund =
+    hasFullBusinessAccess(role) || userScopes.includes(SCOPES.REFUND_INVOICES);
+  const [refundInvoiceId, setRefundInvoiceId] = useState(null);
 
   const filters = [
     { key: "today", value: t("invoices.today") },
@@ -1524,10 +1544,12 @@ export default function InvoicesPage() {
                         isVoid={isVoid}
                         canViewAuditLog={canViewAuditLog}
                         canVoid={canVoid}
+                        canRefund={canRefund}
                         btnViewReceipt={btnViewReceipt}
                         btnPrintReceipt={btnPrintReceipt}
                         btnOpenAuditLogModal={btnOpenAuditLogModal}
                         btnOpenVoidModal={btnOpenVoidModal}
+                        btnOpenRefundModal={setRefundInvoiceId}
                         invoiceSummary={invoice}
                         t={t}
                         iconStroke={iconStroke}
@@ -1718,6 +1740,15 @@ export default function InvoicesPage() {
         confirmText={t("invoices.void_invoice")}
       />
 
+      <RefundModal
+        isOpen={Boolean(refundInvoiceId)}
+        onClose={() => setRefundInvoiceId(null)}
+        invoiceId={refundInvoiceId}
+        currency={state.currency}
+        paymentTypes={state.paymentTypes}
+        onRefunded={() => mutate(APIURL)}
+      />
+
       <InvoiceAuditLogModal
         isOpen={auditLogModal.open}
         onClose={closeAuditLogModal}
@@ -1737,6 +1768,8 @@ export default function InvoicesPage() {
         storeSettings={state.storeSettings}
         printSettings={state.printSettings}
         canVoid={canVoid}
+        canRefund={canRefund}
+        onOpenRefundModal={setRefundInvoiceId}
         canViewAuditLog={canViewAuditLog}
         onPrintReceipt={(invId, oIds, toks, ptId) => {
           handleReceiptPrintFlow(invId, oIds, toks, ptId);

@@ -7,12 +7,15 @@ const {
   isSubscriptionActive,
 } = require("../middlewares/auth.middleware");
 const { SCOPES } = require("../config/user.config");
+const { attachRegisterSessionOptional } = require("../middlewares/register.middleware");
 const {
   getInvoices,
   getInvoicesInit,
   getInvoiceOrders,
   searchInvoices,
   voidInvoice,
+  getRefundableItems,
+  refundInvoice,
 } = require("../controllers/invoice.controller");
 
 const router = Router();
@@ -59,7 +62,28 @@ router.post(
   isAuthenticated,
   isSubscriptionActive,
   authorize([SCOPES.VOID_INVOICES]),
+  attachRegisterSessionOptional,
   voidInvoice
+);
+
+router.get(
+  "/:id/refundable",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.REFUND_INVOICES, SCOPES.INVOICES]),
+  getRefundableItems
+);
+
+// Refunding is its own permission, like void.
+router.post(
+  "/:id/refund",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.REFUND_INVOICES]),
+  attachRegisterSessionOptional,
+  refundInvoice
 );
 
 module.exports = router;

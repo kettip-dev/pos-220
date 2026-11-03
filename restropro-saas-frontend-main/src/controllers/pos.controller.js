@@ -24,7 +24,7 @@ export async function createOrder(cart, deliveryType, customerType, customerId, 
   }
 }
 
-export async function createOrderAndInvoice(cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0) {
+export async function createOrderAndInvoice(cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, payments = null) {
   try {
     const response = await ApiClient.post("/pos/create-order-and-invoice", {
       cart, deliveryType, customerType, customerId, tableId,
@@ -32,7 +32,8 @@ export async function createOrderAndInvoice(cart, deliveryType, customerType, cu
       discountType, discountValue, discountTotal,
       appliedPromotions, promotionDiscountTotal,
       loyaltyPointsRedeemed,
-      customerGroupId, customerGroupName, customerGroupDiscountTotal
+      customerGroupId, customerGroupName, customerGroupDiscountTotal,
+      payments
     });
     return response;
   } catch (error) {

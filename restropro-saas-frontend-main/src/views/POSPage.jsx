@@ -39,6 +39,9 @@ import { clsx } from "clsx";
 import { useTheme } from '../contexts/ThemeContext';
 import ManagerPinModal from '../components/common/ManagerPinModal';
 import { checkMyShiftEligibility } from '../controllers/shift_roster.controller';
+import { useRegisterStatus, isRegisterClosedError } from '../controllers/register.controller';
+import RegisterPanel from '../components/register/RegisterPanel';
+import OpenRegisterModal from '../components/register/OpenRegisterModal';
 
 export default function POSPage() {
   const { t } = useTranslation();
@@ -62,6 +65,28 @@ export default function POSPage() {
   const [isPromotionDrawerOpen, setIsPromotionDrawerOpen] = useState(false);
   const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
   const [splitBillOrder, setSplitBillOrder] = useState(null);
+
+  // Cash register session for this device
+  const { data: registerStatus, mutate: mutateRegisterStatus } = useRegisterStatus();
+  const [isRegisterPanelOpen, setIsRegisterPanelOpen] = useState(false);
+  const [isOpenRegisterModalOpen, setIsOpenRegisterModalOpen] = useState(false);
+  const hasPromptedRegisterRef = useRef(false);
+  const registerSession = registerStatus?.boundSession || null;
+  const isRegisterEnforced = Number(registerStatus?.settings?.enforce_session) === 1;
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleRegisterUpdate = () => mutateRegisterStatus();
+    socket.on("register_update", handleRegisterUpdate);
+    return () => socket.off("register_update", handleRegisterUpdate);
+  }, [socket, mutateRegisterStatus]);
+
+  // Ask once per visit to open a register when payments require one.
+  useEffect(() => {
+    if (!registerStatus || hasPromptedRegisterRef.current) return;
+    hasPromptedRegisterRef.current = true;
+    if (isRegisterEnforced && !registerSession) setIsOpenRegisterModalOpen(true);
+  }, [registerStatus, isRegisterEnforced, registerSession]);
 
   // Shift Heartbeat & Warning Banner
   const [shiftExpiredAlert, setShiftExpiredAlert] = useState(false);
@@ -2062,7 +2087,8 @@ export default function POSPage() {
         loyaltyPointsRedeemed,
         customer?.customer_group_id || null,
         customer?.customer_group_name || null,
-        summary.customerGroupDiscountTotal || 0
+        summary.customerGroupDiscountTotal || 0,
+        tenderData?.payments || null
       );
       toast.dismiss();
       setIsSubmittingPayment(false);
@@ -2188,6 +2214,10 @@ export default function POSPage() {
 
       toast.dismiss();
       toast.error(message);
+      if (isRegisterClosedError(error)) {
+        mutateRegisterStatus();
+        setIsOpenRegisterModalOpen(true);
+      }
     }
   };
 
@@ -2505,6 +2535,32 @@ export default function POSPage() {
         onOpenQrOrders={btnShowQROrdersModal}
         onDualScreenClick={handleDualScreenClick}
         onInitNewOrder={btnInitNewOrder}
+        registerSession={registerSession}
+        isRegisterEnforced={isRegisterEnforced}
+        onOpenRegister={() => (registerSession ? setIsRegisterPanelOpen(true) : setIsOpenRegisterModalOpen(true))}
+      />
+
+      <RegisterPanel
+        isOpen={isRegisterPanelOpen}
+        onClose={() => setIsRegisterPanelOpen(false)}
+        status={registerStatus}
+        onChanged={() => mutateRegisterStatus()}
+        onRequestOpen={() => {
+          setIsRegisterPanelOpen(false);
+          setIsOpenRegisterModalOpen(true);
+        }}
+        printSettings={state.printSettings}
+        storeName={state.storeSettings?.store_name || ""}
+        storeCurrency={state.storeSettings?.currency}
+      />
+
+      <OpenRegisterModal
+        isOpen={isOpenRegisterModalOpen}
+        onClose={() => setIsOpenRegisterModalOpen(false)}
+        status={registerStatus}
+        storeCurrency={state.storeSettings?.currency}
+        exchangeRate={customExchangeRate || state.storeSettings?.exchange_rate_usd_to_khr || 4100}
+        onOpened={() => mutateRegisterStatus()}
       />
 
       {/* Shift Expiration Sticky Alert Banner */}

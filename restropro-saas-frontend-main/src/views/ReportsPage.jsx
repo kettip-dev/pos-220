@@ -72,6 +72,7 @@ const READY_REPORTS = new Set([
   "tax-by-item", "service-charge", "discount-summary", "daily-close", "invoice-register",
   "reservation-summary", "upcoming-reservations", "reservation-no-show",
   "feedback-summary", "negative-feedback", "recommendation-score",
+  "register-sessions", "cash-variance", "cashier-exceptions", "refunds-report", "cash-movements",
 ]);
 
 // Reports where the Telegram end-of-day summary is the natural next action.

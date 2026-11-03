@@ -30,7 +30,7 @@ exports.getUserDB = async (username, tenantId) => {
             const ALL_FEATURES = [
                 "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
                 "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-                "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU"
+                "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
             ];
             user.plan_features = JSON.stringify(ALL_FEATURES);
             user.planFeatures = user.plan_features;
