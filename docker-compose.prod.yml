@@ -80,7 +80,7 @@ services:
       # HTTP deployment requires secure=false so browsers don't drop cookies
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PASSWORD_SALT: ${PASSWORD_SALT:-10}
-      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-https://pos.allkh.app,http://pos.allkh.app,https://pos.allkh.app:4001,http://pos.allkh.app:4001,http://10.36.200.125:4001,http://10.36.200.125,http://rocky.tail5d006f.ts.net:4001,http://rocky.tail5d006f.ts.net,http://100.117.113.19:4001,http://100.117.113.19}
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN:-https://pos.allkh.app,http://pos.allkh.app,https://pos.allkh.app:4001,http://pos.allkh.app:4001,http://10.36.200.125:4001,http://10.36.200.125,http://rocky.tail5d006f.ts.net:4001,http://rocky.tail5d006f.ts.net,http://100.117.113.19:4001,http://100.117.113.19,https://restro-pos.klebjeb.cloud,http://restro-pos.klebjeb.cloud}
       FRONTEND_DOMAIN_COOKIE: ${FRONTEND_DOMAIN_COOKIE:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-uiflow}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-cb78b647f4d0c4ff64163317440ff83bc14edd17bd92e100aff4a492f1911c0c}
