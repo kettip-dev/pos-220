@@ -27,7 +27,11 @@ const formatReportDate = (value) => {
 };
 
 const formatValue = (value, type, currency = "") => {
-  if (type === "money") return `${currency}${Number(value || 0).toFixed(2)}`;
+  if (type === "money") {
+    const amount = Number(value || 0);
+    const formatted = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
+    return `${amount < 0 ? "-" : ""}${currency}${formatted}`;
+  }
   if (type === "quantity") return formatDecimal(value, 4);
   if (type === "number") return formatDecimal(value, 2);
   if (type === "date" || type === "datetime") return formatReportDate(value);

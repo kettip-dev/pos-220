@@ -16,11 +16,15 @@ export function useReports({ type, from = null, to = null }) {
 
 export function useReport({ reportId, type, from = null, to = null }) {
   const APIURL = reportId ? `/reports/${reportId}?type=${type}&from=${from}&to=${to}` : null;
-  const { data, error, isLoading } = useSWR(APIURL, fetcher);
+  // Keep the previous range on screen while a new range loads, so switching
+  // date filters doesn't blank the whole report.
+  const { data, error, isLoading, isValidating, mutate } = useSWR(APIURL, fetcher, { keepPreviousData: true });
   return {
     data,
     error,
     isLoading,
+    isValidating,
+    mutate,
     APIURL,
   };
 }
