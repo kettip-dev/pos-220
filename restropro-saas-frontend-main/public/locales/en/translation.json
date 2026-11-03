@@ -2969,6 +2969,12 @@
     "modifier_optional": "Optional",
     "modifier_selected": "{{count}} selected",
     "modifier_free": "Free",
+    "modifier_addons_count_one": "+{{count}} add-on",
+    "modifier_addons_count_other": "+{{count}} add-ons",
+    "modifier_close": "Close",
+    "modifier_clear_note": "Clear note",
+    "modifier_decrease_qty": "Decrease quantity",
+    "modifier_increase_qty": "Increase quantity",
     "special_instructions": "Kitchen Instructions",
     "special_instructions_placeholder": "Other instructions for the kitchen...",
     "modifier_presets": {

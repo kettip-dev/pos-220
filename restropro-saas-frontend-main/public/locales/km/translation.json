@@ -3076,6 +3076,11 @@
     "modifier_optional": "ស្រេចចិត្ត",
     "modifier_selected": "បានជ្រើស {{count}}",
     "modifier_free": "ឥតគិតថ្លៃ",
+    "modifier_addons_count_other": "+{{count}} គ្រឿងបន្ថែម",
+    "modifier_close": "បិទ",
+    "modifier_clear_note": "លុបចំណាំ",
+    "modifier_decrease_qty": "បន្ថយចំនួន",
+    "modifier_increase_qty": "បង្កើនចំនួន",
     "special_instructions": "ការណែនាំសម្រាប់ផ្ទះបាយ",
     "special_instructions_placeholder": "ការណែនាំផ្សេងទៀតសម្រាប់ផ្ទះបាយ...",
     "modifier_presets": {

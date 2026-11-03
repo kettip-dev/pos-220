@@ -216,7 +216,7 @@ export default function POSModifierDrawer({
                 )}
                 {hasAddons && selectedAddons.length > 0 && (
                   <span className="hidden sm:inline-flex text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    +{selectedAddons.length} {selectedAddons.length === 1 ? 'add-on' : 'add-ons'}
+                    {t('pos.modifier_addons_count', '+{{count}} add-ons', { count: selectedAddons.length })}
                   </span>
                 )}
               </div>
@@ -227,7 +227,7 @@ export default function POSModifierDrawer({
             type="button"
             onClick={onClose}
             className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 hover:text-foreground flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
-            title="Close"
+            title={t('pos.modifier_close', 'Close')}
           >
             <IconX size={18} stroke={iconStroke} />
           </button>
@@ -367,7 +367,7 @@ export default function POSModifierDrawer({
                     type="button"
                     onClick={() => setCustomNotes('')}
                     className="absolute right-1 top-1/2 -translate-y-1/2 w-[42px] h-[42px] rounded-lg text-zinc-400 hover:text-foreground flex items-center justify-center transition active:scale-90"
-                    title="Clear note"
+                    title={t('pos.modifier_clear_note', 'Clear note')}
                   >
                     <IconX size={16} stroke={2.5} />
                   </button>
@@ -462,7 +462,7 @@ export default function POSModifierDrawer({
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1}
               className="w-11 h-11 flex items-center justify-center rounded-lg bg-background shadow-xs text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition cursor-pointer touch-manipulation disabled:opacity-30 disabled:shadow-none disabled:bg-transparent disabled:cursor-not-allowed"
-              title="Decrease quantity"
+              title={t('pos.modifier_decrease_qty', 'Decrease quantity')}
             >
               <IconMinus size={18} stroke={2.5} />
             </button>
@@ -473,7 +473,7 @@ export default function POSModifierDrawer({
               type="button"
               onClick={() => setQuantity(quantity + 1)}
               className="w-11 h-11 flex items-center justify-center rounded-lg bg-background shadow-xs text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition cursor-pointer touch-manipulation"
-              title="Increase quantity"
+              title={t('pos.modifier_increase_qty', 'Increase quantity')}
             >
               <IconPlus size={18} stroke={2.5} />
             </button>
