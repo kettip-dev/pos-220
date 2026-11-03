@@ -94,13 +94,71 @@ async function getPrintersAndStations(details = {}) {
 }
 
 /**
+ * A batch id ties together the print jobs of one print action. Retrying with
+ * the same id lets the backend skip tickets that already printed.
+ */
+function newPrintBatchId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Error toast with "Retry" and "Print via Browser" actions.
+ */
+function showPrintFailureToast({ id, title, message, onRetry, onBrowserPrint }) {
+  toast(
+    (t) =>
+      React.createElement(
+        "div",
+        { className: "flex flex-col gap-1 text-sm py-1" },
+        React.createElement("span", { className: "font-semibold text-red-600" }, title),
+        React.createElement("span", { className: "text-xs text-gray-600 whitespace-pre-line" }, message),
+        React.createElement(
+          "div",
+          { className: "flex items-center gap-2 mt-2 pt-1 border-t border-gray-100" },
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                toast.dismiss(t.id);
+                onRetry();
+              },
+              className:
+                "min-h-[42px] px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded-md transition active:scale-95",
+            },
+            "Retry"
+          ),
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                toast.dismiss(t.id);
+                onBrowserPrint();
+              },
+              className:
+                "min-h-[42px] px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition shadow-sm active:scale-95",
+            },
+            "Print via Browser"
+          )
+        )
+      ),
+    { duration: 10000, id }
+  );
+}
+
+/**
  * Centrally triggers Customer Receipt printing.
  * Modes:
- * 1. 'direct_tcp' (Recommended): Silent 100% Unicode canvas raster over local LAN socket (port 9100).
+ * 1. 'direct_tcp' (Recommended): Silent 100% Unicode canvas raster sent as a print job,
+ *    relayed by the restaurant's print agent (or by the server over LAN port 9100).
  * 2. 'direct_escpos': RawBT background bridge on Android tablets.
  * 3. 'browser': Standard browser print popup.
+ *
+ * @param {Object} options { batchId } – set only when retrying a previous attempt.
  */
-export async function triggerPrintReceipt(details) {
+export async function triggerPrintReceipt(details, { batchId = newPrintBatchId() } = {}) {
   setDetailsForReceiptPrint(details);
 
   const printSettings = details?.printSettings || {};
@@ -119,54 +177,31 @@ export async function triggerPrintReceipt(details) {
         return;
       }
 
-      await printReceiptDirectTcp(details, defaultPrinter);
-      toast.success(`Receipt printed silently on ${defaultPrinter.name}`, {
-        id: "print-receipt-success",
-        duration: 2500,
-      });
-      return { success: true, method: "direct_tcp", printer: defaultPrinter.name };
+      const result = await printReceiptDirectTcp(details, defaultPrinter, { batchId });
+      if (result?.status === "queued" || result?.status === "sending") {
+        toast(result.message || `Receipt queued for ${defaultPrinter.name}`, {
+          id: "print-receipt-queued",
+          icon: "⏳",
+          duration: 5000,
+        });
+      } else {
+        toast.success(`Receipt printed silently on ${defaultPrinter.name}`, {
+          id: "print-receipt-success",
+          duration: 2500,
+        });
+      }
+      return { success: true, method: "direct_tcp", printer: defaultPrinter.name, status: result?.status };
     } catch (err) {
       console.error("[Direct TCP Print] Receipt failed:", err);
       const errMsg = err?.response?.data?.message || err.message || "Printer unreachable";
 
-      toast(
-        (t) =>
-          React.createElement(
-            "div",
-            { className: "flex flex-col gap-1 text-sm py-1" },
-            React.createElement("span", { className: "font-semibold text-red-600" }, "Printer Connection Error"),
-            React.createElement("span", { className: "text-xs text-gray-600" }, errMsg),
-            React.createElement(
-              "div",
-              { className: "flex items-center gap-2 mt-2 pt-1 border-t border-gray-100" },
-              React.createElement(
-                "button",
-                {
-                  onClick: () => {
-                    toast.dismiss(t.id);
-                    triggerPrintReceipt(details);
-                  },
-                  className:
-                    "px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded-md transition",
-                },
-                "Retry"
-              ),
-              React.createElement(
-                "button",
-                {
-                  onClick: () => {
-                    toast.dismiss(t.id);
-                    openBrowserReceiptPrint();
-                  },
-                  className:
-                    "px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition shadow-sm",
-                },
-                "Print via Browser"
-              )
-            )
-          ),
-        { duration: 8000, id: "tcp-print-fail" }
-      );
+      showPrintFailureToast({
+        id: "tcp-print-fail",
+        title: "Printer Connection Error",
+        message: errMsg,
+        onRetry: () => triggerPrintReceipt(details, { batchId }),
+        onBrowserPrint: openBrowserReceiptPrint,
+      });
       return { success: false, error: errMsg };
     }
   }
@@ -188,11 +223,15 @@ export async function triggerPrintReceipt(details) {
 /**
  * Centrally triggers Kitchen Order Ticket (KOT / Token) printing.
  * Modes:
- * 1. 'direct_tcp' (Recommended): Auto-splits items by station and routes directly to station printers.
+ * 1. 'direct_tcp' (Recommended): Auto-splits items by station and routes each ticket
+ *    independently to its station printer, so one offline printer never blocks the rest.
  * 2. 'direct_escpos': RawBT background bridge on Android tablets.
  * 3. 'browser': Standard browser print popup.
+ *
+ * @param {Object} options { batchId } – set only when retrying; stations that
+ *   already printed are skipped.
  */
-export async function triggerPrintToken(details) {
+export async function triggerPrintToken(details, { batchId = newPrintBatchId() } = {}) {
   if (details?.storeSettings?.isKitchenEnabled === false || details?.storeSettings?.is_kitchen_enabled === 0) {
     // Kitchen workflow is disabled for this store: suppress Kitchen Order Tickets
     return;
@@ -205,6 +244,7 @@ export async function triggerPrintToken(details) {
 
   // ─── Mode 1: Direct Network LAN/TCP ─────────────────────────
   if (printMode === "direct_tcp") {
+    const retry = () => triggerPrintToken(details, { batchId });
     try {
       const { printerConfigs, stations } = await getPrintersAndStations(details);
 
@@ -214,54 +254,49 @@ export async function triggerPrintToken(details) {
         return;
       }
 
-      const result = await printKotDirectTcp(details, printerConfigs, stations);
-      toast.success("KOT sent to kitchen printer(s)", {
-        id: "kot-print-success",
-        duration: 2500,
-      });
-      return { success: true, method: "direct_tcp", result };
+      const summary = await printKotDirectTcp(details, printerConfigs, stations, { batchId });
+
+      if (summary.failed.length > 0) {
+        const lines = summary.failed.map((f) => `• ${f.station}: ${f.message}`);
+        if (summary.printed.length > 0) {
+          lines.push(`Printed OK: ${summary.printed.map((p) => p.station).join(", ")}`);
+        }
+        showPrintFailureToast({
+          id: "tcp-kot-fail",
+          title:
+            summary.printed.length + summary.queued.length > 0
+              ? "Some kitchen tickets did not print"
+              : "Kitchen Printer Error",
+          message: lines.join("\n"),
+          onRetry: retry,
+          onBrowserPrint: openBrowserTokenPrint,
+        });
+        return { success: false, method: "direct_tcp", result: summary };
+      }
+
+      if (summary.queued.length > 0) {
+        toast(
+          `KOT queued for ${summary.queued.map((q) => q.station).join(", ")}. It will print when the print agent reconnects.`,
+          { id: "kot-print-queued", icon: "⏳", duration: 6000 }
+        );
+      } else {
+        toast.success("KOT sent to kitchen printer(s)", {
+          id: "kot-print-success",
+          duration: 2500,
+        });
+      }
+      return { success: true, method: "direct_tcp", result: summary };
     } catch (err) {
       console.error("[Direct TCP Print] KOT print failed:", err);
       const errMsg = err?.response?.data?.message || err.message || "Kitchen printer unreachable";
 
-      toast(
-        (t) =>
-          React.createElement(
-            "div",
-            { className: "flex flex-col gap-1 text-sm py-1" },
-            React.createElement("span", { className: "font-semibold text-red-600" }, "Kitchen Printer Error"),
-            React.createElement("span", { className: "text-xs text-gray-600" }, errMsg),
-            React.createElement(
-              "div",
-              { className: "flex items-center gap-2 mt-2 pt-1 border-t border-gray-100" },
-              React.createElement(
-                "button",
-                {
-                  onClick: () => {
-                    toast.dismiss(t.id);
-                    triggerPrintToken(details);
-                  },
-                  className:
-                    "px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded-md transition",
-                },
-                "Retry"
-              ),
-              React.createElement(
-                "button",
-                {
-                  onClick: () => {
-                    toast.dismiss(t.id);
-                    openBrowserTokenPrint();
-                  },
-                  className:
-                    "px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition shadow-sm",
-                },
-                "Print via Browser"
-              )
-            )
-          ),
-        { duration: 8000, id: "tcp-kot-fail" }
-      );
+      showPrintFailureToast({
+        id: "tcp-kot-fail",
+        title: "Kitchen Printer Error",
+        message: errMsg,
+        onRetry: retry,
+        onBrowserPrint: openBrowserTokenPrint,
+      });
       return { success: false, error: errMsg };
     }
   }

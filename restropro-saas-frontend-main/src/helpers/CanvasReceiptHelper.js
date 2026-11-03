@@ -624,18 +624,33 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
 }
 
 /**
- * Dispatch base64 raster bytes to backend TCP printer endpoint.
+ * Submit base64 raster bytes as a print job. The backend records the job and
+ * routes it through the printer's print agent (or prints directly over TCP).
+ *
+ * @param {Object} meta { jobType, reference, idempotencyKey }
+ * @returns {Promise<{ status: "printed"|"queued"|"sending", message: string, jobId: number }>}
+ *   Rejects when the job failed (HTTP 502) or the request itself failed.
  */
-export async function sendRasterToBackendPrinter(printerId, base64Data) {
-  return await ApiClient.post(`/pos/printers/${printerId}/print`, {
+export async function sendRasterToBackendPrinter(printerId, base64Data, meta = {}) {
+  const res = await ApiClient.post(`/pos/printers/${printerId}/print`, {
     base64Data,
+    ...meta,
   });
+  return res.data;
+}
+
+function orderLabel(details = {}) {
+  if (details.tokenNo) return `#${details.tokenNo}`;
+  if (details.orderId) return `Order ${details.orderId}`;
+  return "";
 }
 
 /**
  * Centrally prints a customer receipt directly over TCP.
+ * @param {Object} options { batchId } – reuse the same batchId when retrying so
+ *   a receipt that already printed is not printed twice.
  */
-export async function printReceiptDirectTcp(details, printer) {
+export async function printReceiptDirectTcp(details, printer, { batchId } = {}) {
   if (!printer) {
     throw new Error("No default receipt printer configured for direct network printing.");
   }
@@ -647,21 +662,34 @@ export async function printReceiptDirectTcp(details, printer) {
     cashDrawerKick: isCash,
   });
   const base64 = uint8ArrayToBase64(bytes);
-  return await sendRasterToBackendPrinter(printer.id, base64);
+  return await sendRasterToBackendPrinter(printer.id, base64, {
+    jobType: "receipt",
+    reference: `Receipt ${orderLabel(details)}`.trim(),
+    idempotencyKey: batchId ? `receipt:${batchId}:${printer.id}` : undefined,
+  });
 }
 
 /**
  * Centrally routes and prints KOT tickets to station printers.
  * Automatically splits items by station (e.g. Bar printer vs Kitchen printer).
+ *
+ * Every station ticket is sent independently, so one offline printer never
+ * stops the other stations from receiving their tickets.
+ *
+ * @param {Object} options { batchId } – reuse the same batchId when retrying so
+ *   only the stations that failed are printed again.
+ * @returns {Promise<{ printed: Array, queued: Array, failed: Array }>} each entry
+ *   is { station, printer, message }.
  */
-export async function printKotDirectTcp(details, printerConfigs = [], stations = []) {
+export async function printKotDirectTcp(details, printerConfigs = [], stations = [], { batchId } = {}) {
   if (!Array.isArray(printerConfigs) || printerConfigs.length === 0) {
     throw new Error("No network printers configured.");
   }
 
+  const summary = { printed: [], queued: [], failed: [] };
   const cartItems = details.cartItems || [];
   if (cartItems.length === 0) {
-    return { success: true, message: "No items to print" };
+    return summary;
   }
 
   // Group items by assigned station
@@ -694,6 +722,7 @@ export async function printKotDirectTcp(details, printerConfigs = [], stations =
       }
 
       stationMap.set(key, {
+        key,
         stationId: sId,
         stationName: sName,
         printerId,
@@ -704,30 +733,50 @@ export async function printKotDirectTcp(details, printerConfigs = [], stations =
     stationMap.get(key).items.push(item);
   });
 
-  const results = [];
+  // Dispatch a dedicated ticket for each station group, all in parallel
+  const groups = [...stationMap.values()];
+  const outcomes = await Promise.allSettled(
+    groups.map(async (group) => {
+      const targetPrinter = printerConfigs.find((p) => String(p.id) === String(group.printerId)) || printerConfigs[0];
+      const paperSize = Number(targetPrinter.paper_size || 80);
+      const stationDetails = {
+        ...details,
+        stationName: group.stationName,
+        cartItems: group.items,
+      };
 
-  // Dispatch a dedicated ticket for each station group
-  for (const [key, group] of stationMap.entries()) {
-    const targetPrinter = printerConfigs.find((p) => String(p.id) === String(group.printerId)) || printerConfigs[0];
-    if (!targetPrinter) continue;
+      const canvas = renderKotToCanvas(stationDetails, paperSize);
+      const bytes = canvasToEscPosRaster(canvas, {
+        autoCut: Boolean(targetPrinter.auto_cut !== 0),
+        cashDrawerKick: false,
+      });
+      const base64 = uint8ArrayToBase64(bytes);
 
-    const paperSize = Number(targetPrinter.paper_size || 80);
-    const stationDetails = {
-      ...details,
-      stationName: group.stationName,
-      cartItems: group.items,
-    };
+      const result = await sendRasterToBackendPrinter(targetPrinter.id, base64, {
+        jobType: "kot",
+        reference: `${group.stationName} ${orderLabel(details)}`.trim(),
+        idempotencyKey: batchId ? `kot:${batchId}:${group.key}:${targetPrinter.id}` : undefined,
+      });
+      return { printer: targetPrinter.name, result };
+    })
+  );
 
-    const canvas = renderKotToCanvas(stationDetails, paperSize);
-    const bytes = canvasToEscPosRaster(canvas, {
-      autoCut: Boolean(targetPrinter.auto_cut !== 0),
-      cashDrawerKick: false,
-    });
-    const base64 = uint8ArrayToBase64(bytes);
+  outcomes.forEach((outcome, index) => {
+    const station = groups[index].stationName;
+    if (outcome.status === "fulfilled") {
+      const { printer, result } = outcome.value;
+      const entry = { station, printer, message: result?.message };
+      if (result?.status === "queued" || result?.status === "sending") summary.queued.push(entry);
+      else summary.printed.push(entry);
+    } else {
+      const err = outcome.reason;
+      summary.failed.push({
+        station,
+        printer: err?.response?.data?.printer || null,
+        message: err?.response?.data?.message || err?.message || "Printer unreachable",
+      });
+    }
+  });
 
-    const res = await sendRasterToBackendPrinter(targetPrinter.id, base64);
-    results.push({ station: group.stationName, printer: targetPrinter.name, res });
-  }
-
-  return { success: true, results };
+  return summary;
 }
