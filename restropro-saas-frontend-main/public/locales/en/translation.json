@@ -795,7 +795,11 @@
     "currency": "រូបិយប័ណ្ណ",
     "call_waiter": "ហៅអ្នកបម្រើ",
     "request_bill": "សុំគិតលុយ",
-    "table": "តុ"
+    "table": "តុ",
+    "other": "Other",
+    "pin_verified_hint": "PIN verified · You can order now",
+    "pin_required_hint": "Enter your table PIN to start ordering",
+    "orders": "order(s)"
   },
   "profile": {
     "title": "My Profile",
