@@ -2986,7 +2986,8 @@
     "counter_name": "Counter Name",
     "split_bill": "Split Bill",
     "min_points_notice": "Min Points Notice",
-    "points_applied_notice": "Points Applied Notice"
+    "points_applied_notice": "Points Applied Notice",
+    "remaining": "Remaining"
   },
   "superadmin_navbar": {
     "dashboard": "Dashboard",
