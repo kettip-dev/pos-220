@@ -1225,7 +1225,15 @@
     "templates": "Templates",
     "reset": "Reset",
     "welcome_back": "Welcome back, {{name}} 👋",
-    "happening_today": "Here's what's happening at your restaurant today."
+    "happening_today": "Here's what's happening at your restaurant today.",
+    "today_at_a_glance": "Today at a glance",
+    "quick_actions": "Quick actions",
+    "updated_at": "Updated {{time}}",
+    "refresh": "Refresh",
+    "editing_title": "Editing your dashboard",
+    "editing_hint": "Drag a widget by its header to move it, or drag its corner to resize.",
+    "saving": "Saving…",
+    "unsaved": "Unsaved changes"
   },
   "customers": {
     "title": "Customers",

@@ -33,6 +33,7 @@ import {
 
 registerWidget({
   type: "kpi.revenue",
+  compact: true,
   category: "sales",
   title: "Today's Revenue",
   description: "Today's total revenue with vs-yesterday delta.",
@@ -44,6 +45,7 @@ registerWidget({
 });
 registerWidget({
   type: "kpi.orders",
+  compact: true,
   category: "sales",
   title: "Orders Today",
   description: "Orders placed today vs yesterday.",
@@ -55,6 +57,7 @@ registerWidget({
 });
 registerWidget({
   type: "kpi.aov",
+  compact: true,
   category: "sales",
   title: "Avg Order Value",
   description: "Today's average order value with delta.",
@@ -66,6 +69,7 @@ registerWidget({
 });
 registerWidget({
   type: "kpi.newCustomers",
+  compact: true,
   category: "customers",
   title: "New Customers",
   description: "First-time customers today.",
@@ -132,6 +136,7 @@ registerWidget({
 });
 registerWidget({
   type: "sales.quickStat.repeatCustomers",
+  compact: true,
   category: "customers",
   title: "Repeat Customers",
   description: "Returning customers today.",
@@ -144,6 +149,7 @@ registerWidget({
 });
 registerWidget({
   type: "sales.quickStat.cancelled",
+  compact: true,
   category: "orders",
   title: "Cancelled Orders",
   description: "Orders cancelled today.",
@@ -156,6 +162,7 @@ registerWidget({
 });
 registerWidget({
   type: "sales.quickStat.tax",
+  compact: true,
   category: "finance",
   title: "Tax Collected",
   description: "Tax accrued today.",
@@ -168,6 +175,7 @@ registerWidget({
 });
 registerWidget({
   type: "sales.quickStat.serviceCharge",
+  compact: true,
   category: "finance",
   title: "Service Charge",
   description: "Service charge collected today.",
@@ -342,6 +350,8 @@ registerWidget({
 });
 registerWidget({
   type: "productivity.welcome",
+  // Superseded by the page header greeting; kept so saved layouts still resolve.
+  hidden: true,
   category: "productivity",
   title: "Welcome Banner",
   description: "Greeting that calls the user by name.",
