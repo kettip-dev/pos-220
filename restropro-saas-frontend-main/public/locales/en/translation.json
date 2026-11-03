@@ -799,7 +799,16 @@
     "other": "Other",
     "pin_verified_hint": "PIN verified · You can order now",
     "pin_required_hint": "Enter your table PIN to start ordering",
-    "orders": "order(s)"
+    "orders": "order(s)",
+    "step": "Step",
+    "pick_your_table": "Where are you sitting?",
+    "pick_your_table_hint": "Tap your table to continue",
+    "enter_table_pin": "Enter table PIN",
+    "search_table": "Search table...",
+    "no_tables_found": "No tables found.",
+    "seats": "seats",
+    "change": "Change",
+    "pin_where_hint": "Find the PIN on your table slip or ask a server."
   },
   "profile": {
     "title": "My Profile",

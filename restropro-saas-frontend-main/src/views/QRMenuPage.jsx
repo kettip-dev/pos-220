@@ -1,6 +1,8 @@
 import {
   IconBellRinging,
   IconCheck,
+  IconArmchair,
+  IconChevronLeft,
   IconChevronRight,
   IconLock,
   IconMail,
@@ -16,6 +18,7 @@ import {
   IconShare,
   IconShieldCheck,
   IconToolsKitchen2,
+  IconUsers,
   IconX,
 } from "@tabler/icons-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -98,6 +101,9 @@ export default function QRMenuPage() {
   const [selectedTableRef, setSelectedTableRef] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [tableStep, setTableStep] = useState("table");
+  const [tableFloorFilter, setTableFloorFilter] = useState("all");
+  const [tableSearch, setTableSearch] = useState("");
 
   // Call Waiter Modal state
   const [isWaiterModalOpen, setIsWaiterModalOpen] = useState(false);
@@ -458,9 +464,11 @@ export default function QRMenuPage() {
   };
 
   const openTableVerificationModal = () => {
-    setSelectedTableRef(
-      storeTable?.encrypted_id || storeTable?.id || publicTables?.[0]?.encrypted_id || ""
-    );
+    const knownTableRef = storeTable?.encrypted_id || storeTable?.id || "";
+    setSelectedTableRef(knownTableRef ? String(knownTableRef) : "");
+    setTableStep(knownTableRef ? "pin" : "table");
+    setTableFloorFilter("all");
+    setTableSearch("");
     setPinInput("");
     setIsTableModalOpen(true);
   };
@@ -1137,85 +1145,262 @@ export default function QRMenuPage() {
         </div>
       )}
 
-      {/* 7. TABLE SELECTION & 4-DIGIT PIN VERIFICATION MODAL */}
-      {isTableModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-                  <IconShieldCheck size={22} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                    {t("qr_menu.verify_table_title", "Verify Table Session")}
+      {/* 7. TABLE SELECTION & 4-DIGIT PIN VERIFICATION SHEET */}
+      {isTableModalOpen && (() => {
+        const tableRefOf = (tbl) => String(tbl.encrypted_id || tbl.id);
+        const selectedTable =
+          publicTables.find((tbl) => tableRefOf(tbl) === String(selectedTableRef)) ||
+          (storeTable && tableRefOf(storeTable) === String(selectedTableRef) ? storeTable : null);
+
+        const floors = [...new Set(publicTables.map((tbl) => tbl.floor || ""))];
+        const tableQuery = tableSearch.trim().toLowerCase();
+        const visibleTables = publicTables.filter(
+          (tbl) =>
+            (tableFloorFilter === "all" || (tbl.floor || "") === tableFloorFilter) &&
+            (!tableQuery || String(tbl.table_title || "").toLowerCase().includes(tableQuery))
+        );
+        const tableGroups = floors
+          .map((floor) => ({
+            floor,
+            tables: visibleTables.filter((tbl) => (tbl.floor || "") === floor),
+          }))
+          .filter((group) => group.tables.length > 0);
+
+        return (
+          <div
+            onClick={() => setIsTableModalOpen(false)}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-zinc-800 max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+            >
+              {/* Header */}
+              <div className="px-5 pt-5 pb-4 flex items-start gap-3">
+                {tableStep === "pin" && publicTables.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setTableStep("table")}
+                    className="w-[42px] h-[42px] -ml-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 active:scale-95 cursor-pointer"
+                    aria-label="Back"
+                  >
+                    <IconChevronLeft size={20} />
+                  </button>
+                ) : (
+                  <div className="w-[42px] h-[42px] rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+                    {tableStep === "pin" ? <IconShieldCheck size={22} /> : <IconArmchair size={22} />}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">
+                    {t("qr_menu.step", "Step")} {tableStep === "table" ? 1 : 2}/2
+                  </p>
+                  <h3 className="font-extrabold text-lg leading-tight text-slate-900 dark:text-white">
+                    {tableStep === "table"
+                      ? t("qr_menu.pick_your_table", "Where are you sitting?")
+                      : t("qr_menu.enter_table_pin", "Enter table PIN")}
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    {t(
-                      "qr_menu.verify_table_subtitle",
-                      "Enter the 4-digit Table PIN from your server or table slip"
-                    )}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {tableStep === "table"
+                      ? t("qr_menu.pick_your_table_hint", "Tap your table to continue")
+                      : t(
+                          "qr_menu.verify_table_subtitle",
+                          "Enter the 4-digit Table PIN from your server or table slip"
+                        )}
                   </p>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTableModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500"
-              >
-                <IconX size={17} />
-              </button>
-            </div>
-
-            <form onSubmit={handleVerifyTablePin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  {t("tables.table", "Your Table")}
-                </label>
-                <select
-                  value={selectedTableRef}
-                  onChange={(e) => setSelectedTableRef(e.target.value)}
-                  className="w-full min-h-[44px] rounded-xl px-3.5 py-2.5 text-sm font-semibold bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 outline-none focus:border-emerald-500"
+                <button
+                  type="button"
+                  onClick={() => setIsTableModalOpen(false)}
+                  className="w-[42px] h-[42px] rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500 shrink-0 active:scale-95 cursor-pointer"
+                  aria-label="Close"
                 >
-                  <option value="">{t("qr_menu.choose_table", "-- Choose Table --")}</option>
-                  {publicTables.map((tbl) => (
-                    <option key={tbl.id} value={tbl.encrypted_id || tbl.id}>
-                      Table {tbl.table_title} {tbl.floor ? `(${tbl.floor})` : ""} •{" "}
-                      {tbl.seating_capacity} Seats
-                    </option>
-                  ))}
-                </select>
+                  <IconX size={18} />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  {t("qr_menu.table_pin_label", "4-Digit Table PIN")}
-                </label>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ""))}
-                  placeholder="• • • •"
-                  className="w-full min-h-[52px] rounded-xl px-4 py-3 text-center text-2xl font-black tracking-[0.5em] bg-slate-50 dark:bg-zinc-800 border-2 border-slate-200 dark:border-zinc-700 outline-none focus:border-emerald-600"
-                  autoFocus
-                />
-              </div>
+              {tableStep === "table" ? (
+                <>
+                  {/* Floor filter + search */}
+                  {(floors.length > 1 || publicTables.length > 12) && (
+                    <div className="px-5 pb-3 space-y-2.5 border-b border-slate-100 dark:border-zinc-800">
+                      {publicTables.length > 12 && (
+                        <div className="relative flex items-center">
+                          <IconSearch size={17} className="absolute left-3.5 text-slate-400 pointer-events-none" />
+                          <input
+                            type="search"
+                            value={tableSearch}
+                            onChange={(e) => setTableSearch(e.target.value)}
+                            placeholder={t("qr_menu.search_table", "Search table...")}
+                            className="w-full h-[42px] rounded-full pl-10 pr-4 text-sm bg-slate-100 dark:bg-zinc-800 outline-none border border-transparent focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
+                      {floors.length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5">
+                          {["all", ...floors].map((floor) => {
+                            const isActive = tableFloorFilter === floor;
+                            return (
+                              <button
+                                key={floor || "_none"}
+                                type="button"
+                                onClick={() => setTableFloorFilter(floor)}
+                                className={`h-[42px] px-4 rounded-full text-sm font-bold whitespace-nowrap border transition active:scale-95 cursor-pointer ${
+                                  isActive
+                                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white"
+                                    : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700"
+                                }`}
+                              >
+                                {floor === "all"
+                                  ? t("qr_menu.all", "All")
+                                  : floor || t("qr_menu.other", "Other")}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              <button
-                type="submit"
-                disabled={isVerifyingPin}
-                className="w-full min-h-[48px] rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-sm py-3 shadow-md active:scale-98 transition cursor-pointer"
-              >
-                {isVerifyingPin
-                  ? t("common.please_wait", "Verifying...")
-                  : t("qr_menu.unlock_ordering", "Verify & Unlock Ordering")}
-              </button>
-            </form>
+                  {/* Table grid grouped by floor */}
+                  <div className="flex-1 overflow-y-auto px-5 pb-6">
+                    {tableGroups.length === 0 ? (
+                      <p className="py-10 text-center text-sm font-semibold text-slate-400">
+                        {t("qr_menu.no_tables_found", "No tables found.")}
+                      </p>
+                    ) : (
+                      tableGroups.map((group) => (
+                        <div key={group.floor || "_none"} className="pt-4">
+                          {(tableFloorFilter === "all" && floors.length > 1) && (
+                            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2">
+                              {group.floor || t("qr_menu.other", "Other")}
+                            </h4>
+                          )}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            {group.tables.map((tbl) => {
+                              const isSelected = tableRefOf(tbl) === String(selectedTableRef);
+                              return (
+                                <button
+                                  key={tbl.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTableRef(tableRefOf(tbl));
+                                    setPinInput("");
+                                    setTableStep("pin");
+                                  }}
+                                  className={`min-h-[72px] p-3 rounded-2xl border-2 text-left flex flex-col justify-between gap-1.5 transition active:scale-95 cursor-pointer ${
+                                    isSelected
+                                      ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                                      : "border-slate-200 dark:border-zinc-700 hover:border-emerald-300 dark:hover:border-emerald-800"
+                                  }`}
+                                >
+                                  <span className="text-sm font-bold leading-snug text-slate-900 dark:text-white line-clamp-2">
+                                    {tbl.table_title}
+                                  </span>
+                                  {Number(tbl.seating_capacity) > 0 && (
+                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                      <IconUsers size={13} />
+                                      {tbl.seating_capacity}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                <form onSubmit={handleVerifyTablePin} className="px-5 pb-5 space-y-5 overflow-y-auto">
+                  {/* Selected table summary */}
+                  {selectedTable && (
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-800/70 border border-slate-200 dark:border-zinc-700 flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <IconArmchair size={20} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-bold text-slate-900 dark:text-white truncate">
+                          {selectedTable.table_title}
+                        </span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {[
+                            selectedTable.floor,
+                            Number(selectedTable.seating_capacity) > 0
+                              ? `${selectedTable.seating_capacity} ${t("qr_menu.seats", "seats")}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" • ")}
+                        </span>
+                      </span>
+                      {publicTables.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTableStep("table")}
+                          className="h-[42px] px-3 rounded-xl text-sm font-bold text-emerald-700 dark:text-emerald-400 active:scale-95 cursor-pointer"
+                        >
+                          {t("qr_menu.change", "Change")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PIN boxes (one real input stretched over them) */}
+                  <label className="relative block">
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ""))}
+                      className="absolute inset-0 w-full h-full opacity-0 caret-transparent cursor-pointer"
+                      aria-label={t("qr_menu.table_pin_label", "4-Digit Table PIN")}
+                      autoFocus
+                    />
+                    <div className="flex justify-center gap-3">
+                      {Array.from({ length: Math.max(4, pinInput.length) }).map((_, i) => {
+                        const filled = i < pinInput.length;
+                        const isCurrent = i === pinInput.length;
+                        return (
+                          <div
+                            key={i}
+                            className={`w-14 h-16 rounded-2xl border-2 flex items-center justify-center text-2xl font-black tabular-nums transition ${
+                              filled
+                                ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-slate-900 dark:text-white"
+                                : isCurrent
+                                ? "border-emerald-500 ring-4 ring-emerald-500/15 bg-white dark:bg-zinc-900"
+                                : "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800"
+                            }`}
+                          >
+                            {pinInput[i] || ""}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </label>
+
+                  <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                    {t("qr_menu.pin_where_hint", "Find the PIN on your table slip or ask a server.")}
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={isVerifyingPin || pinInput.length < 4 || !selectedTableRef}
+                    className="w-full min-h-[52px] rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500 text-white font-extrabold text-base py-3 shadow-md disabled:shadow-none active:scale-[0.98] transition cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isVerifyingPin
+                      ? t("common.please_wait", "Verifying...")
+                      : t("qr_menu.unlock_ordering", "Verify & Unlock Ordering")}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 8. CALL WAITER MODAL */}
       {isWaiterModalOpen && (
