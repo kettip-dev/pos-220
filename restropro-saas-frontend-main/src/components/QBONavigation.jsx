@@ -474,6 +474,42 @@ export function getQBOAppCategories(t, options = {}) {
   ];
 }
 
+// Rail tile: icon chip + label. Labels wrap to 2 lines (no uppercase/tracking) so Khmer clusters render intact.
+function RailButton({ active, icon, label, onClick, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title || label}
+      className="group relative w-full min-h-[56px] flex flex-col items-center justify-center gap-1 px-1 py-1.5 rounded-xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2CA01C]/50 active:scale-95 transition"
+    >
+      {active && (
+        <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-[#2CA01C] rounded-r-full" />
+      )}
+      <span
+        className={clsx(
+          "w-11 h-8 rounded-full flex items-center justify-center transition-colors",
+          active
+            ? "bg-[#2CA01C]/10 text-[#2CA01C] dark:bg-[#2CA01C]/20"
+            : "text-gray-500 dark:text-slate-400 group-hover:bg-gray-100 group-hover:text-gray-900 dark:group-hover:bg-slate-800 dark:group-hover:text-white"
+        )}
+      >
+        {icon}
+      </span>
+      <span
+        className={clsx(
+          "w-full text-[11px] leading-[1.35] text-center line-clamp-2 break-words transition-colors",
+          active
+            ? "font-semibold text-gray-900 dark:text-white"
+            : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+        )}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
 export default function QBONavigation({ children }) {
   const { t } = useTranslation();
   const location = useLocation();
@@ -764,125 +800,57 @@ export default function QBONavigation({ children }) {
 
         {/* Middle: Rail Items */}
         <div className="w-full flex flex-col items-center overflow-y-auto no-scrollbar flex-1 py-1">
-          <div className="w-full flex flex-col items-center gap-1 px-1">
-            {/* Bookmarks */}
-            <button
-              type="button"
+          <div className="w-full flex flex-col items-center gap-0.5 px-1.5">
+            <RailButton
+              active={subPanelMode === "bookmarks"}
               onClick={handleRailBookmarksClick}
-              className="group relative w-full flex flex-col items-center py-2 cursor-pointer focus:outline-none"
-            >
-              {subPanelMode === "bookmarks" && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
-              )}
-              <span
-                className={clsx(
-                  "w-10 h-7 flex items-center justify-center transition-colors",
-                  subPanelMode === "bookmarks"
-                    ? "text-[#2CA01C] dark:text-[#2CA01C]"
-                    : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                )}
-              >
-                <IconBookmark size={20} stroke={subPanelMode === "bookmarks" ? 2.2 : 1.8} />
-              </span>
-              <span
-                className={clsx(
-                  "text-[11px] leading-tight truncate max-w-[64px] block text-center mt-0.5 transition-colors",
-                  subPanelMode === "bookmarks"
-                    ? "font-bold text-gray-900 dark:text-white"
-                    : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                )}
-              >
-                {t("navbar.bookmarks", "Bookmarks")}
-              </span>
-            </button>
-
-            {/* All apps */}
-            <button
-              type="button"
+              label={t("navbar.bookmarks", "Bookmarks")}
+              icon={<IconBookmark size={20} stroke={subPanelMode === "bookmarks" ? 2.2 : 1.8} />}
+            />
+            <RailButton
+              active={subPanelMode === "all_apps"}
               onClick={handleRailAllAppsClick}
-              className="group relative w-full flex flex-col items-center py-2 cursor-pointer focus:outline-none"
-            >
-              {subPanelMode === "all_apps" && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
-              )}
-              <span
-                className={clsx(
-                  "w-10 h-7 flex items-center justify-center transition-colors",
-                  subPanelMode === "all_apps"
-                    ? "text-[#2CA01C] dark:text-[#2CA01C]"
-                    : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                )}
-              >
-                <IconGridDots size={20} stroke={subPanelMode === "all_apps" ? 2.2 : 1.8} />
-              </span>
-              <span
-                className={clsx(
-                  "text-[11px] leading-tight truncate max-w-[64px] block text-center mt-0.5 transition-colors",
-                  subPanelMode === "all_apps"
-                    ? "font-bold text-gray-900 dark:text-white"
-                    : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                )}
-              >
-                {t("navbar.all_apps", "Apps")}
-              </span>
-            </button>
+              label={t("navbar.all_apps", "Apps")}
+              icon={<IconGridDots size={20} stroke={subPanelMode === "all_apps" ? 2.2 : 1.8} />}
+            />
           </div>
 
           {/* PINNED Section */}
           {pinnedCategories.length > 0 && (
-            <div className="w-full pt-2.5 mt-1 border-t border-gray-200/80 dark:border-slate-800 flex flex-col items-center gap-1 px-1">
-              <div className="w-full flex items-center justify-between px-1 mb-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-500">
-                  {t("navbar.pinned", "PINNED")}
-                </span>
+            <div className="w-full mt-2 pt-2 flex flex-col items-center gap-0.5 px-1.5">
+              <div className="w-full flex items-center gap-1 mb-1 px-0.5">
+                <span className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
                 <button
                   type="button"
                   onClick={() => setCustomiseModalOpen(true)}
                   title={t("navbar.customise_pinned", "Customise pinned apps")}
-                  className="w-4 h-4 rounded hover:bg-gray-200 dark:hover:bg-slate-700/60 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-white transition cursor-pointer"
+                  className="group inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[10px] font-semibold text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white transition cursor-pointer"
                 >
-                  <IconPencil size={11} stroke={2} />
+                  <IconPin size={11} stroke={2} className="group-hover:hidden" />
+                  <IconPencil size={11} stroke={2} className="hidden group-hover:block" />
+                  <span className="max-w-[40px] truncate leading-normal">{t("navbar.pinned", "Pinned")}</span>
                 </button>
+                <span className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
               </div>
 
               {pinnedCategories.map((cat) => {
                 const isCatActive = activeCategoryForRoute === cat.id;
                 const IconComponent = cat.Icon;
                 return (
-                  <div key={cat.id} className="relative group w-full flex flex-col items-center">
-                    <button
-                      type="button"
+                  <div key={cat.id} className="relative group w-full">
+                    <RailButton
+                      active={isCatActive}
                       onClick={() => handleRailPinnedClick(cat)}
-                      className="group/btn relative w-full flex flex-col items-center py-2 cursor-pointer focus:outline-none"
-                    >
-                      {isCatActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
-                      )}
-                      <span
-                        className={clsx(
-                          "w-10 h-7 flex items-center justify-center transition-colors",
-                          isCatActive
-                            ? "text-[#2CA01C] dark:text-[#2CA01C]"
-                            : "text-gray-500 dark:text-slate-400 group-hover/btn:text-gray-900 dark:group-hover/btn:text-white"
-                        )}
-                      >
-                        {IconComponent ? (
+                      title={cat.label}
+                      label={cat.shortLabel}
+                      icon={
+                        IconComponent ? (
                           <IconComponent size={20} stroke={isCatActive ? 2.2 : 1.8} />
                         ) : (
                           cat.railIcon
-                        )}
-                      </span>
-                      <span
-                        className={clsx(
-                          "text-[11px] leading-tight truncate max-w-[64px] block text-center mt-0.5 transition-colors",
-                          isCatActive
-                            ? "font-bold text-gray-900 dark:text-white"
-                            : "font-medium text-gray-600 dark:text-slate-400 group-hover/btn:text-gray-900 dark:group-hover/btn:text-white"
-                        )}
-                      >
-                        {cat.shortLabel}
-                      </span>
-                    </button>
+                        )
+                      }
+                    />
 
                     {/* Quick 1-click Unpin button on hover */}
                     <button
@@ -892,9 +860,9 @@ export default function QBONavigation({ children }) {
                         togglePinCategory(cat.id);
                       }}
                       title={t("navbar.unpin", "Unpin")}
-                      className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500/90 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-xs cursor-pointer z-10"
+                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-white dark:bg-slate-700 text-gray-500 hover:text-red-600 ring-1 ring-gray-200 dark:ring-slate-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm cursor-pointer z-10"
                     >
-                      <IconX size={10} stroke={2.5} />
+                      <IconX size={11} stroke={2.5} />
                     </button>
                   </div>
                 );
@@ -904,19 +872,13 @@ export default function QBONavigation({ children }) {
         </div>
 
         {/* Bottom Customise */}
-        <div className="w-full pt-2 border-t border-gray-200/80 dark:border-slate-800 px-1 shrink-0">
-          <button
-            type="button"
+        <div className="w-full pt-1.5 border-t border-gray-200/80 dark:border-slate-800 px-1.5 shrink-0">
+          <RailButton
+            active={false}
             onClick={() => setCustomiseModalOpen(true)}
-            className="group w-full flex flex-col items-center py-2 cursor-pointer focus:outline-none"
-          >
-            <span className="w-10 h-7 flex items-center justify-center text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
-              <IconAdjustmentsHorizontal size={20} stroke={1.8} />
-            </span>
-            <span className="text-[11px] font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white leading-tight mt-0.5">
-              {t("navbar.customise", "Customise")}
-            </span>
-          </button>
+            label={t("navbar.customise", "Customise")}
+            icon={<IconAdjustmentsHorizontal size={20} stroke={1.8} />}
+          />
         </div>
       </aside>
 
@@ -924,21 +886,21 @@ export default function QBONavigation({ children }) {
       {subPanelMode && (
         <aside className="hidden md:flex flex-col w-[268px] shrink-0 bg-white dark:bg-[#111C2D] border-r border-[#E3E5E8] dark:border-slate-800/90 h-screen sticky top-0 z-30 select-none animate-in fade-in slide-in-from-left-2 duration-150">
           {/* Sub-Panel Header aligned with Top Header bar */}
-          <div className="h-14 px-4 flex items-center justify-between shrink-0 border-b border-[#E3E5E8] dark:border-slate-800/90">
-            <span className="text-[12px] font-bold uppercase tracking-wider text-gray-900 dark:text-slate-200">
+          <div className="h-14 pl-4 pr-2 flex items-center justify-between gap-2 shrink-0 border-b border-[#E3E5E8] dark:border-slate-800/90">
+            <span className="min-w-0 truncate text-[15px] font-semibold leading-normal text-gray-900 dark:text-slate-100">
               {subPanelMode === "reports"
-                ? t("navbar.reports_and_analytics", "REPORTS & ANALYTICS")
+                ? t("navbar.reports_and_analytics", "Reports & Analytics")
                 : subPanelMode === "bookmarks"
-                  ? t("navbar.bookmarks_upper", "BOOKMARKS")
-                  : t("navbar.all_apps_upper", "ALL APPS")}
+                  ? t("navbar.bookmarks", "Bookmarks")
+                  : t("navbar.all_apps_upper", "All apps")}
             </span>
             <button
               type="button"
               onClick={() => updateSubPanelMode(null)}
               title={t("navbar.collapse_panel", "Collapse menu")}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              className="w-[42px] h-[42px] shrink-0 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 active:scale-95 transition cursor-pointer"
             >
-              <IconArrowBarToLeft size={16} stroke={2} />
+              <IconArrowBarToLeft size={18} stroke={2} />
             </button>
           </div>
 
@@ -1243,49 +1205,80 @@ export default function QBONavigation({ children }) {
 
             {/* MODE: BOOKMARKS */}
             {subPanelMode === "bookmarks" && (
-              <div className="space-y-2">
-                <p className="px-2 text-[11px] text-gray-500 dark:text-slate-400">
+              <div className="pt-3 space-y-3">
+                <p className="px-1 text-[12px] leading-relaxed text-gray-500 dark:text-slate-400">
                   {t("navbar.bookmarks_hint", "Quick access to your pinned pages and reports.")}
                 </p>
 
-                <div className="space-y-0.5">
-                  {bookmarks.map((bm, idx) => {
-                    const active = location.pathname === bm.path;
-                    return (
-                      <div
-                        key={idx}
-                        className={clsx(
-                          "group flex items-center justify-between px-2.5 py-2 rounded-lg text-[13px] transition-colors",
-                          active
-                            ? "bg-[#E8EAED] dark:bg-slate-800 font-semibold text-gray-900 dark:text-white"
-                            : "text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800/60"
-                        )}
-                      >
-                        <Link to={bm.path} className="flex-1 truncate">
-                          {(() => {
-                            const matchedCat = categories.find(
-                              (c) =>
-                                c.items?.some((it) => it.path === bm.path) ||
-                                c.defaultPath === bm.path
-                            );
-                            const matchedItem = matchedCat?.items?.find(
-                              (it) => it.path === bm.path
-                            );
-                            return matchedItem?.label || matchedCat?.label || bm.label;
-                          })()}
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => toggleBookmarkItem(bm)}
-                          title={t("navbar.remove_bookmark", "Remove bookmark")}
-                          className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-900 p-0.5 transition cursor-pointer"
+                {bookmarks.length === 0 ? (
+                  <div className="flex flex-col items-center text-center gap-2 px-4 py-8 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
+                    <span className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-400">
+                      <IconBookmark size={20} stroke={1.8} />
+                    </span>
+                    <p className="text-[12px] leading-relaxed text-gray-500 dark:text-slate-400">
+                      {t("navbar.no_bookmarks", "No bookmarks yet. Use the bookmark icon on any page to add it here.")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {bookmarks.map((bm, idx) => {
+                      const active = location.pathname === bm.path;
+                      const matchedCat = categories.find(
+                        (c) =>
+                          c.items?.some((it) => it.path === bm.path) ||
+                          c.defaultPath === bm.path
+                      );
+                      const matchedItem = matchedCat?.items?.find((it) => it.path === bm.path);
+                      const label = matchedItem?.label || matchedCat?.label || bm.label;
+                      const BmIcon = matchedCat?.Icon || IconBookmark;
+                      return (
+                        <div
+                          key={idx}
+                          className={clsx(
+                            "group relative flex items-center gap-1 rounded-xl transition-colors",
+                            active
+                              ? "bg-[#2CA01C]/10 dark:bg-[#2CA01C]/15"
+                              : "hover:bg-gray-100 dark:hover:bg-slate-800/60"
+                          )}
                         >
-                          <IconX size={14} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+                          <Link
+                            to={bm.path}
+                            className="flex-1 min-w-0 min-h-[44px] flex items-center gap-3 pl-2 pr-1 py-1.5 active:scale-[0.98] transition"
+                          >
+                            <span
+                              className={clsx(
+                                "w-8 h-8 shrink-0 rounded-lg flex items-center justify-center",
+                                active
+                                  ? "bg-[#2CA01C] text-white"
+                                  : "bg-gray-100 text-gray-500 dark:bg-slate-800 dark:text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-700"
+                              )}
+                            >
+                              <BmIcon size={17} stroke={1.9} />
+                            </span>
+                            <span
+                              className={clsx(
+                                "min-w-0 truncate text-[14px] leading-normal",
+                                active
+                                  ? "font-semibold text-gray-900 dark:text-white"
+                                  : "font-medium text-gray-700 dark:text-slate-300"
+                              )}
+                            >
+                              {label}
+                            </span>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => toggleBookmarkItem(bm)}
+                            title={t("navbar.remove_bookmark", "Remove bookmark")}
+                            className="w-[42px] h-[42px] shrink-0 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-white dark:hover:bg-slate-700 opacity-100 md:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 active:scale-95 transition cursor-pointer"
+                          >
+                            <IconX size={15} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

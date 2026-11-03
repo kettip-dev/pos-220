@@ -1400,7 +1400,8 @@
     "insights": "Insights",
     "loyalty_members": "Loyalty Members",
     "points_pool": "Reward Points",
-    "active_page": "Active on Page"
+    "active_page": "Active on Page",
+    "stat_loyalty_hint": "{{percent}}% of customers"
   },
   "customers_import": {
     "title": "Import Customers",
@@ -1589,11 +1590,12 @@
     "pin_to_rail": "Pin to rail",
     "bookmarks": "Bookmarks",
     "all_apps": "Apps",
-    "pinned": "PINNED",
-    "reports_and_analytics": "REPORTS & ANALYTICS",
-    "bookmarks_upper": "BOOKMARKS",
-    "all_apps_upper": "ALL APPS",
+    "pinned": "Pinned",
+    "reports_and_analytics": "Reports & Analytics",
+    "bookmarks_upper": "Bookmarks",
+    "all_apps_upper": "All apps",
     "bookmarks_hint": "Quick access to your pinned pages and reports.",
+    "no_bookmarks": "No bookmarks yet. Use the bookmark icon on any page to add it here.",
     "remove_bookmark": "Remove bookmark",
     "bookmark_page": "Bookmark page",
     "search_placeholder": "Navigate. Find transactions, contacts, help, reports, and more.",

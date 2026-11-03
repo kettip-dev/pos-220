@@ -170,13 +170,41 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
             params
         );
 
+        // Page-independent summary for the KPI strip: loyalty members and
+        // reward points across EVERY customer matching the scope + filter, not
+        // just the rows on this page. Same tenant scoping as the list above.
+        // Consolidated, a person counts once (their best row), matching the
+        // collapsed list.
+        const memberExpr = "(c.is_member = 1 OR (c.membership_tier IS NOT NULL AND c.membership_tier <> ''))";
+        const [summaryRows] = await conn.query(
+            isConsolidated
+                ? `SELECT
+                        COALESCE(SUM(p.is_loyalty), 0) AS loyaltyMembers,
+                        COALESCE(SUM(p.points), 0) AS totalPoints
+                   FROM (
+                        SELECT MAX(${memberExpr}) AS is_loyalty,
+                               MAX(COALESCE(c.points_balance, 0)) AS points
+                        FROM customers c ${whereSql}
+                        GROUP BY ${identity}
+                   ) p`
+                : `SELECT
+                        COALESCE(SUM(${memberExpr}), 0) AS loyaltyMembers,
+                        COALESCE(SUM(COALESCE(c.points_balance, 0)), 0) AS totalPoints
+                   FROM customers c ${whereSql}`,
+            params
+        );
+
         // Prepare response data
         const response = {
             customers,
             currentPage,
             perPage,
             totalPages: Math.ceil(totalCustomers[0].total / limit),
-            totalCustomers: totalCustomers[0].total
+            totalCustomers: totalCustomers[0].total,
+            summary: {
+                loyaltyMembers: Number(summaryRows[0]?.loyaltyMembers || 0),
+                totalPoints: Number(summaryRows[0]?.totalPoints || 0),
+            },
         };
 
         return response;
