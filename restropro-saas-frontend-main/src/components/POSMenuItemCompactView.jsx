@@ -6,10 +6,8 @@ import {
   IconChefHat,
   IconCoffee,
   IconSoup,
-  IconPlus,
   IconMinus,
   IconSearch,
-  IconStack2,
   IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -118,7 +116,7 @@ const POSMenuItemCompactView = ({
         <div
           ref={containerRef}
           onScroll={onScroll}
-          className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 auto-rows-max gap-3 sm:gap-3.5 w-full z-0 px-3.5 sm:px-4 pt-1.5 pb-6 rounded-b-xl overflow-y-auto h-full content-start"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 auto-rows-max gap-2.5 sm:gap-3 w-full z-0 px-3.5 sm:px-4 pt-1.5 pb-6 rounded-b-xl overflow-y-auto h-full content-start"
         >
           {filteredMenuItems.map((menuItem, i) => {
             const { title, id, price, image, category_title, addons, variants } = menuItem;
@@ -167,171 +165,99 @@ const POSMenuItemCompactView = ({
             return (
               <div
                 key={id || i}
+                role={!isReadOnly ? 'button' : undefined}
+                aria-label={title}
                 onMouseEnter={() => onItemHover && onItemHover(id)}
                 onMouseLeave={() => onItemHover && onItemHover(null)}
                 onClick={triggerPrimaryAction}
-                className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border transition-all duration-150 select-none ${
+                className={`group relative aspect-[5/4] overflow-hidden rounded-xl bg-[#0D233A] select-none transition-all duration-150 ${
                   inCartCount > 0
-                    ? 'border-[#2CA01C] ring-2 ring-[#2CA01C]/70 shadow-[0_6px_18px_-8px_rgba(44,160,28,0.55)]'
+                    ? 'ring-[3px] ring-[#F97316] shadow-[0_8px_20px_-10px_rgba(249,115,22,0.7)]'
                     : isHovered
-                    ? 'border-[#0D233A] ring-2 ring-[#0D233A]/40 shadow-lg -translate-y-0.5 z-10'
-                    : 'border-slate-200/90 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.06)] hover:shadow-[0_10px_24px_-12px_rgba(15,23,42,0.35)] hover:-translate-y-0.5 hover:border-slate-300 dark:hover:border-slate-700'
-                } ${!isReadOnly ? 'cursor-pointer active:scale-[0.98] active:translate-y-0' : ''}`}
+                    ? 'ring-2 ring-[#008489] shadow-lg -translate-y-0.5 z-10'
+                    : 'shadow-[0_1px_3px_rgba(15,23,42,0.18)] hover:shadow-[0_12px_24px_-12px_rgba(15,23,42,0.55)] hover:-translate-y-0.5'
+                } ${!isReadOnly ? 'cursor-pointer active:scale-[0.97] active:translate-y-0' : ''}`}
               >
-                {/* Image */}
-                <div className="relative w-full h-28 sm:h-32 flex-shrink-0 overflow-hidden bg-slate-100 dark:bg-slate-800/70">
-                  {image ? (
-                    <img
-                      src={imageURL}
-                      alt={title}
-                      className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
-                        isOutOfStock ? 'grayscale opacity-70' : ''
-                      }`}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-[#E6EEF0] dark:from-slate-800/90 dark:via-slate-800/70 dark:to-slate-900">
-                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center text-[#008489] dark:text-emerald-400">
-                        <FallbackIcon size={24} stroke={1.75} />
-                      </div>
-                    </div>
-                  )}
+                {/* Full-bleed photo */}
+                {image ? (
+                  <img
+                    src={imageURL}
+                    alt=""
+                    className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
+                      isOutOfStock ? 'grayscale opacity-60' : ''
+                    }`}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-start justify-center pt-[18%] bg-gradient-to-br from-[#0D233A] via-[#123553] to-[#006B6F]">
+                    <FallbackIcon size={40} stroke={1.5} className="text-white/35" />
+                  </div>
+                )}
 
-                  {/* Soft top scrim keeps overlay chips legible on bright photos */}
-                  {image && (isLowStock || showTopRightBadge) && (
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/35 to-transparent" />
-                  )}
+                {/* Legibility scrim: text sits on a dark bottom gradient */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-black/90 via-black/55 to-transparent" />
 
-                  {/* Low stock chip (top-left) */}
+                {/* Top-left status chips */}
+                <div className="absolute top-2 left-2 z-10 flex items-center gap-1 max-w-[70%]">
                   {!isReadOnly && isLowStock && (
-                    <div
-                      className={`absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-bold text-white shadow-sm ${
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-bold text-white shadow-sm ${
                         isOutOfStock ? 'bg-red-600' : 'bg-amber-500'
                       }`}
                     >
                       <IconAlertTriangleFilled size={11} />
-                      <span>
-                        {t('inventory.low_stock', 'Low Stock')}
-                        {minItemsCanBeMade !== null ? ` · ${minItemsCanBeMade}` : ''}
-                      </span>
-                    </div>
+                      {minItemsCanBeMade !== null ? minItemsCanBeMade : t('inventory.low_stock', 'Low Stock')}
+                    </span>
                   )}
-
-                  {/* In-cart quantity badge (top-right) */}
-                  {showTopRightBadge && (
-                    <div className="absolute top-2 right-2 z-20 min-w-[26px] h-[26px] px-1.5 rounded-full bg-[#2CA01C] text-white text-xs font-extrabold tabular-nums flex items-center justify-center shadow-md ring-2 ring-white dark:ring-slate-900">
-                      {inCartCount}
-                    </div>
+                  {hasVariantOrAddon && (
+                    <span
+                      title={t("pos_menu.customize", "Customize")}
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-black/45 backdrop-blur-sm text-white ring-1 ring-white/25"
+                    >
+                      <IconAdjustmentsHorizontal size={13} stroke={2.2} />
+                    </span>
                   )}
                 </div>
 
-                {/* Body */}
-                <div
-                  className={`flex flex-col flex-1 min-h-0 px-3 pt-2.5 pb-3 ${
-                    inCartCount > 0 ? 'bg-[#2CA01C]/[0.04] dark:bg-emerald-950/20' : ''
-                  }`}
-                >
-                  {/* Category eyebrow — only useful when browsing "All" */}
-                  {!isReadOnly && selectedCategory === "all" && category_title && (
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate mb-0.5">
-                      {category_title}
-                    </p>
-                  )}
+                {/* In-cart count badge */}
+                {inCartCount > 0 && (
+                  <div className="absolute top-2 right-2 z-20 min-w-[26px] h-[26px] px-1.5 rounded-full bg-[#F97316] text-white text-xs font-extrabold tabular-nums flex items-center justify-center shadow-md ring-2 ring-white/90">
+                    {inCartCount}
+                  </div>
+                )}
 
+                {/* Text overlay */}
+                <div className={`absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 ${showBottomStepper ? 'pr-[52px]' : ''}`}>
+                  <p className="text-[15px] sm:text-base font-extrabold leading-tight tabular-nums text-white drop-shadow-sm">
+                    {formatPOSPrice(price, currency)}
+                  </p>
                   <p
                     title={title}
-                    className="line-clamp-2 min-h-[2.5rem] text-[13px] sm:text-sm font-semibold text-slate-800 dark:text-slate-100 leading-5"
+                    className="mt-0.5 line-clamp-2 text-[12px] sm:text-[13px] font-semibold leading-[1.2] text-white drop-shadow-sm"
                   >
                     {title}
                   </p>
-
-                  {/* Options summary */}
-                  <div className="h-4 mt-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 min-w-0">
-                    {hasVariantOrAddon && (
-                      <>
-                        {variants?.length > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-[#008489] dark:text-emerald-400 shrink-0">
-                            <IconStack2 size={12} stroke={2.2} />
-                            {variants.length} {t("pos_menu.variants", "Variants")}
-                          </span>
-                        )}
-                        {variants?.length > 0 && addons?.length > 0 && (
-                          <span className="text-slate-300 dark:text-slate-600">•</span>
-                        )}
-                        {addons?.length > 0 && (
-                          <span className="truncate">
-                            +{addons.length} {t("pos_menu.addons", "Addons")}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Price & action */}
-                  <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-                    <span className="text-base sm:text-[17px] font-bold tracking-tight tabular-nums text-slate-900 dark:text-white truncate">
-                      {formatPOSPrice(price, currency)}
-                    </span>
-
-                    {!isReadOnly && (
-                      showBottomStepper ? (
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center h-[42px] rounded-xl bg-[#2CA01C] text-white shadow-sm shrink-0 overflow-hidden"
-                        >
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onMinusItem(id);
-                            }}
-                            aria-label="Decrease quantity"
-                            className="w-[38px] h-full flex items-center justify-center hover:bg-black/10 active:bg-black/20 transition touch-manipulation cursor-pointer"
-                          >
-                            <IconMinus size={18} stroke={2.6} />
-                          </button>
-                          <span className="min-w-[22px] text-center text-sm font-extrabold tabular-nums">
-                            {inCartCount}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addItemToCart(menuItem);
-                            }}
-                            aria-label="Increase quantity"
-                            className="w-[38px] h-full flex items-center justify-center hover:bg-black/10 active:bg-black/20 transition touch-manipulation cursor-pointer"
-                          >
-                            <IconPlus size={18} stroke={2.6} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerPrimaryAction();
-                          }}
-                          aria-label={hasVariantOrAddon ? t("pos_menu.customize", "Customize") : t("pos_menu.add", "Add")}
-                          title={hasVariantOrAddon ? t("pos_menu.customize", "Customize") : t("pos_menu.add", "Add")}
-                          className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-                            inCartCount > 0
-                              ? 'bg-[#2CA01C] text-white hover:bg-[#258A17]'
-                              : hasVariantOrAddon
-                              ? 'bg-white dark:bg-slate-800 text-[#008489] dark:text-emerald-400 border border-[#008489]/40 dark:border-emerald-500/40 hover:bg-[#008489] hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white'
-                              : 'bg-[#0D233A] dark:bg-slate-700 text-white hover:bg-[#008489] dark:hover:bg-emerald-600'
-                          }`}
-                        >
-                          {hasVariantOrAddon ? (
-                            <IconAdjustmentsHorizontal size={20} stroke={2.2} />
-                          ) : (
-                            <IconPlus size={22} stroke={2.6} />
-                          )}
-                        </button>
-                      )
-                    )}
-                  </div>
+                  {!isReadOnly && selectedCategory === "all" && category_title && (
+                    <p className="mt-0.5 text-[10px] font-medium text-white/65 truncate">
+                      {category_title}
+                    </p>
+                  )}
                 </div>
+
+                {/* Quick remove for simple items already in the cart (tap tile = +1) */}
+                {showBottomStepper && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMinusItem(id);
+                    }}
+                    aria-label="Decrease quantity"
+                    className="absolute bottom-2 right-2 z-20 w-[42px] h-[42px] rounded-xl flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-md text-white ring-1 ring-white/35 active:scale-95 transition touch-manipulation cursor-pointer"
+                  >
+                    <IconMinus size={20} stroke={2.6} />
+                  </button>
+                )}
               </div>
             );
           })}
