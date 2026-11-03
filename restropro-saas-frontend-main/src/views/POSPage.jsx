@@ -88,6 +88,15 @@ export default function POSPage() {
     if (isRegisterEnforced && !registerSession) setIsOpenRegisterModalOpen(true);
   }, [registerStatus, isRegisterEnforced, registerSession]);
 
+  // "Register" tab on the left rail navigates here with state.openRegister
+  useEffect(() => {
+    if (!location.state?.openRegister || !registerStatus) return;
+    if (registerSession) setIsRegisterPanelOpen(true);
+    else setIsOpenRegisterModalOpen(true);
+    const { openRegister, ...restState } = location.state;
+    navigate(location.pathname, { replace: true, state: restState });
+  }, [location.state, registerStatus, registerSession]);
+
   // Shift Heartbeat & Warning Banner
   const [shiftExpiredAlert, setShiftExpiredAlert] = useState(false);
   const [isShiftOverridden, setIsShiftOverridden] = useState(false);

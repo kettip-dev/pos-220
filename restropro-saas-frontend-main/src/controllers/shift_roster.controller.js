@@ -103,6 +103,11 @@ export function useAttendanceReport(startDate, endDate, username = "") {
   };
 }
 
+export function useMyAttendance(enabled = true) {
+  const { data, error, isLoading, mutate } = useSWR(enabled ? "/shift-roster/attendance/me" : null, fetcher);
+  return { data, error, isLoading, mutate };
+}
+
 export async function clockIn(payload) {
   return await ApiClient.post("/shift-roster/attendance/clock-in", payload);
 }

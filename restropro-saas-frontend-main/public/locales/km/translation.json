@@ -1761,7 +1761,12 @@
     "floor_plan_tables": "ប្លង់តុ & តុទទួលភ្ញៀវ",
     "help_and_support": "ជំនួយ & ការគាំទ្រ",
     "customise_nav_title": "កែសម្រួលរបាររុករកខាងឆ្វេង",
-    "customise_nav_desc": "ជ្រើសរើសប្រភេទកម្មវិធីណាដែលត្រូវខ្ទាស់នៅលើរបាររុករកខាងឆ្វេង។"
+    "customise_nav_desc": "ជ្រើសរើសប្រភេទកម្មវិធីណាដែលត្រូវខ្ទាស់នៅលើរបាររុករកខាងឆ្វេង។",
+    "register_short": "ថតប្រាក់",
+    "register": "ថតប្រាក់ & វេន",
+    "receipts_short": "បង្កាន់ដៃ",
+    "customers_short": "អតិថិជន",
+    "clock_short": "ម៉ោង"
   },
   "pos_menu": {
     "not_found_title": "សូមអភ័យទោស!",
@@ -4427,5 +4432,15 @@
     "entire_order": "ការបញ្ជាទិញទាំងមូល",
     "categories_count": "{{count}} ប្រភេទ",
     "no_spend_limits": "គ្មានការកំណត់"
+  },
+  "attendance": {
+    "clock_title": "ចុះឈ្មោះចូល / ចេញ",
+    "clock_in": "ចុះឈ្មោះចូល",
+    "clock_out": "ចុះឈ្មោះចេញ",
+    "clocked_in": "បានចុះឈ្មោះចូល",
+    "clocked_out": "បានចុះឈ្មោះចេញ",
+    "on_shift": "កំពុងធ្វើការ",
+    "off_shift": "មិនទាន់ចុះឈ្មោះចូល",
+    "since": "ចាប់ពី"
   }
 }
