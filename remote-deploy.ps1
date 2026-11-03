@@ -70,7 +70,9 @@ if ($Action -eq "deploy") {
         '--exclude=*.log',
         '--exclude=*.zip',
         '--exclude=.gemini',
-        '--exclude=.system_generated'
+        '--exclude=.system_generated',
+        '--exclude=.agents',
+        '--exclude=.claude'
     )
 
     $tempArchive = Join-Path $env:TEMP "restro-deploy-$((Get-Date).Ticks).tar.gz"
