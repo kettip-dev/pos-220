@@ -22,6 +22,7 @@ const {
   clockInDB,
   clockOutDB,
   getAttendanceReportDB,
+  getOpenAttendanceDB,
   updateUserQuickPinDB,
   verifyManagerQuickPinDB,
   updateUserShiftEnforcementDB,
@@ -304,6 +305,24 @@ exports.getAttendanceReport = async (req, res) => {
     return res.status(200).json({ success: true, attendance });
   } catch (error) {
     console.error("Error in getAttendanceReport controller:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Current user's clock-in status
+ */
+exports.getMyAttendance = async (req, res) => {
+  try {
+    const record = await getOpenAttendanceDB(req.user.tenant_id, req.user.username);
+    return res.status(200).json({
+      success: true,
+      isClockedIn: !!record,
+      clockInAt: record?.clock_in_at || null,
+      status: record?.status || null,
+    });
+  } catch (error) {
+    console.error("Error in getMyAttendance controller:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

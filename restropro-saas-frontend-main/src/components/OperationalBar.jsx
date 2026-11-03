@@ -15,12 +15,61 @@ import {
   IconSettings,
   IconDots,
   IconX,
+  IconCashRegister,
+  IconReceipt,
+  IconFriends,
+  IconClock,
 } from "@tabler/icons-react";
 import AppBarDropdown from "./AppBarDropdown";
 import { showSearchModal } from "./SearchModal";
 import clsx from "clsx";
 import { useStoreSettings } from "../controllers/settings.controller";
+import { useMyAttendance } from "../controllers/shift_roster.controller";
 import { getImageURL } from "../helpers/ImageHelper";
+import { useQBOAccess } from "./QBONavigation";
+import ClockInOutModal from "./common/ClockInOutModal";
+import { SCOPES, PLAN_FEATURES } from "../config/scopes";
+
+/**
+ * Shift tools shown after the service tabs: cash register, past receipts and the customer
+ * directory. Register opens the POS register panel through router state.
+ */
+function useShiftTabs() {
+  const { t } = useTranslation();
+  const { hasAccess } = useQBOAccess();
+
+  return [
+    {
+      id: "register",
+      shortLabel: t("navbar.register_short", "Register"),
+      label: t("navbar.register", "Cash Register"),
+      Icon: IconCashRegister,
+      path: "/dashboard/pos",
+      state: { openRegister: true },
+      isNeverActive: true,
+      scopes: [SCOPES.POS],
+      features: [PLAN_FEATURES.POS],
+    },
+    {
+      id: "receipts",
+      shortLabel: t("navbar.receipts_short", "Receipts"),
+      label: t("navbar.invoices", "Invoices & Receipts"),
+      Icon: IconReceipt,
+      path: "/dashboard/invoices",
+      scopes: [SCOPES.INVOICES],
+      features: [PLAN_FEATURES.INVOICES],
+    },
+    {
+      id: "customers",
+      shortLabel: t("navbar.customers_short", "Customers"),
+      label: t("navbar.customers", "Customers"),
+      Icon: IconFriends,
+      path: "/dashboard/customers",
+      scopes: [SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.MANAGE_CUSTOMERS],
+      features: [PLAN_FEATURES.CUSTOMERS],
+    },
+  ].filter((tab) => hasAccess(tab.scopes, tab.features));
+}
 
 export default function OperationalBar({ isCollapsed = false, onToggleCollapse }) {
   const { t } = useTranslation();
@@ -30,6 +79,11 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
   const storeLogo = storeSettingsData?.storeImage;
   const storeName = storeSettingsData?.storeName;
   const isKitchenEnabled = storeSettingsData?.isKitchenEnabled !== false;
+
+  const shiftTabs = useShiftTabs();
+  const [isClockOpen, setIsClockOpen] = useState(false);
+  const { data: attendance, mutate: mutateAttendance } = useMyAttendance(!isCollapsed);
+  const isClockedIn = !!attendance?.isClockedIn;
 
   const rawNavTabs = [
     {
@@ -76,6 +130,44 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
 
   const isTabActive = (itemPath) => {
     return location.pathname.startsWith(itemPath);
+  };
+
+  const renderRailLink = (tab) => {
+    const active = !tab.isNeverActive && isTabActive(tab.path);
+    const TabIcon = tab.Icon;
+    return (
+      <Link
+        key={tab.id}
+        to={tab.path}
+        state={tab.state}
+        title={tab.label}
+        className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
+      >
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
+        )}
+        <span
+          className={clsx(
+            "w-10 h-7 flex items-center justify-center transition-colors",
+            active
+              ? "text-[#2CA01C] dark:text-[#2CA01C]"
+              : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+          )}
+        >
+          <TabIcon size={20} stroke={active ? 2.2 : 1.8} />
+        </span>
+        <span
+          className={clsx(
+            "text-[10px] leading-tight truncate max-w-[62px] transition-colors",
+            active
+              ? "font-bold text-gray-900 dark:text-white"
+              : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+          )}
+        >
+          {tab.shortLabel}
+        </span>
+      </Link>
+    );
   };
 
   if (isCollapsed) {
@@ -137,46 +229,40 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
             {t("navbar.pos_section", "POS")}
           </span>
 
-          {operationalNavTabs.map((tab) => {
-            const active = isTabActive(tab.path);
-            const TabIcon = tab.Icon;
-            return (
-              <Link
-                key={tab.id}
-                to={tab.path}
-                title={tab.label}
-                className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
-              >
-                {active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2CA01C] rounded-r-full" />
-                )}
-                <span
-                  className={clsx(
-                    "w-10 h-7 flex items-center justify-center transition-colors",
-                    active
-                      ? "text-[#2CA01C] dark:text-[#2CA01C]"
-                      : "text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                  )}
-                >
-                  <TabIcon size={20} stroke={active ? 2.2 : 1.8} />
-                </span>
-                <span
-                  className={clsx(
-                    "text-[10px] leading-tight truncate max-w-[62px] transition-colors",
-                    active
-                      ? "font-bold text-gray-900 dark:text-white"
-                      : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
-                  )}
-                >
-                  {tab.shortLabel}
-                </span>
-              </Link>
-            );
-          })}
+          {operationalNavTabs.map(renderRailLink)}
         </div>
 
-        {/* Backoffice Shortcuts: Settings */}
+        {/* Shift Tools: Register, Receipts, Customers */}
+        {shiftTabs.length > 0 && (
+          <div className="w-full pt-2 mt-0.5 border-t border-gray-200/80 dark:border-slate-800 flex flex-col items-center gap-1 px-1">
+            {shiftTabs.map(renderRailLink)}
+          </div>
+        )}
+
+        {/* Clock In/Out + Backoffice Shortcuts: Settings */}
         <div className="w-full pt-2 mt-0.5 border-t border-gray-200/80 dark:border-slate-800 flex flex-col items-center gap-1 px-1">
+          <button
+            type="button"
+            onClick={() => setIsClockOpen(true)}
+            title={t("attendance.clock_title", "Clock In / Out")}
+            className="group relative w-full flex flex-col items-center gap-0.5 py-1.5 cursor-pointer"
+          >
+            <span className="relative w-10 h-7 flex items-center justify-center text-gray-500 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+              <IconClock size={20} stroke={1.8} />
+              {attendance && (
+                <span
+                  className={clsx(
+                    "absolute top-0.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-white dark:ring-[#0B1522]",
+                    isClockedIn ? "bg-[#2CA01C]" : "bg-gray-300 dark:bg-slate-600"
+                  )}
+                />
+              )}
+            </span>
+            <span className="text-[10px] font-medium leading-tight truncate max-w-[62px] text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+              {t("navbar.clock_short", "Clock")}
+            </span>
+          </button>
+
           <Link
             to="/dashboard/settings"
             title={t("navbar.settings", "Settings")}
@@ -248,6 +334,13 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
           <AppBarDropdown isCollapsed={true} align="left" direction="up" className="!w-9 !h-9 !p-0.5" />
         </div>
       </div>
+
+      <ClockInOutModal
+        isOpen={isClockOpen}
+        onClose={() => setIsClockOpen(false)}
+        attendance={attendance}
+        onChanged={mutateAttendance}
+      />
     </aside>
   );
 }
@@ -278,14 +371,20 @@ export function OperationalBottomNav() {
     { id: "orders", label: t("navbar.orders", "Orders"), Icon: IconToolsKitchen3, path: "/dashboard/orders" },
   ].filter((tab) => tab.id !== "kitchen" || isKitchenEnabled);
 
+  const shiftTabs = useShiftTabs();
+  const [isClockOpen, setIsClockOpen] = useState(false);
+  const { data: attendance, mutate: mutateAttendance } = useMyAttendance();
+  const isClockedIn = !!attendance?.isClockedIn;
+
   const moreLinks = [
     { id: "home", label: storeName || t("navbar.home", "Home"), Icon: IconHome, path: "/dashboard/home" },
     { id: "reservation", label: t("navbar.reservation", "Reservations"), Icon: IconCalendarEvent, path: "/dashboard/reservation" },
+    ...shiftTabs.map(({ id, label, Icon, path, state, isNeverActive }) => ({ id, label, Icon, path, state, isNeverActive })),
     { id: "settings", label: t("navbar.settings", "Settings"), Icon: IconSettings, path: "/dashboard/settings" },
   ];
 
   const isActive = (path) => location.pathname.startsWith(path);
-  const isMoreActive = moreLinks.some((l) => isActive(l.path));
+  const isMoreActive = moreLinks.some((l) => !l.isNeverActive && isActive(l.path));
 
   return (
     <>
@@ -323,13 +422,15 @@ export function OperationalBottomNav() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2 px-4">
-              {moreLinks.map(({ id, label, Icon, path }) => (
+              {moreLinks.map(({ id, label, Icon, path, state, isNeverActive }) => (
                 <Link
                   key={id}
                   to={path}
+                  state={state}
+                  onClick={() => setIsMoreOpen(false)}
                   className={clsx(
                     "min-h-[56px] px-3.5 rounded-2xl border flex items-center gap-3 text-sm font-semibold active:scale-95 transition",
-                    isActive(path)
+                    !isNeverActive && isActive(path)
                       ? "border-[#2CA01C] bg-[#2CA01C]/10 text-[#2CA01C]"
                       : "border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8] dark:bg-slate-800/60 text-gray-800 dark:text-slate-100"
                   )}
@@ -338,6 +439,27 @@ export function OperationalBottomNav() {
                   <span className="truncate">{label}</span>
                 </Link>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMoreOpen(false);
+                  setIsClockOpen(true);
+                }}
+                className="min-h-[56px] px-3.5 rounded-2xl border border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8] dark:bg-slate-800/60 text-gray-800 dark:text-slate-100 flex items-center gap-3 text-sm font-semibold active:scale-95 transition"
+              >
+                <span className="relative shrink-0">
+                  <IconClock size={20} stroke={1.9} />
+                  {attendance && (
+                    <span
+                      className={clsx(
+                        "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-[#F4F5F8] dark:ring-slate-800",
+                        isClockedIn ? "bg-[#2CA01C]" : "bg-gray-300 dark:bg-slate-600"
+                      )}
+                    />
+                  )}
+                </span>
+                <span className="truncate">{t("attendance.clock_title", "Clock In / Out")}</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -399,6 +521,13 @@ export function OperationalBottomNav() {
           </div>
         </div>
       </nav>
+
+      <ClockInOutModal
+        isOpen={isClockOpen}
+        onClose={() => setIsClockOpen(false)}
+        attendance={attendance}
+        onChanged={mutateAttendance}
+      />
     </>
   );
 }

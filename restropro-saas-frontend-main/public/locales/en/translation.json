@@ -1625,7 +1625,12 @@
     "list_stock_transfers": "List Stock Transfers",
     "add_stock_transfer": "Add Stock Transfer",
     "shift_roster": "Roster & Shifts",
-    "staff_attendance": "Staff Attendance"
+    "staff_attendance": "Staff Attendance",
+    "register_short": "Register",
+    "register": "Cash Register",
+    "receipts_short": "Receipts",
+    "customers_short": "Customers",
+    "clock_short": "Clock"
   },
   "pos_menu": {
     "not_found_title": "Bummer!",
@@ -4452,5 +4457,15 @@
     "notes_placeholder": "e.g. Delivery Van A, Driver John, Refrigerator Box...",
     "line_note_placeholder": "Batch no, expiration, or storage instruction...",
     "unit": "Unit"
+  },
+  "attendance": {
+    "clock_title": "Clock In / Out",
+    "clock_in": "Clock In",
+    "clock_out": "Clock Out",
+    "clocked_in": "Clocked in",
+    "clocked_out": "Clocked out",
+    "on_shift": "On shift",
+    "off_shift": "Not clocked in",
+    "since": "Since"
   }
 }

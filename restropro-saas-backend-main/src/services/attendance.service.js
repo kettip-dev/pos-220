@@ -82,6 +82,34 @@ exports.clockOutDB = async (tenantId, username, notes = null) => {
 };
 
 /**
+ * Get the staff member's open clock-in (same 16 hour window as clockInDB), or null
+ */
+exports.getOpenAttendanceDB = async (tenantId, username) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [rows] = await conn.query(
+      `
+      SELECT id, clock_in_at, status
+      FROM staff_attendance
+      WHERE tenant_id = ?
+        AND username = ?
+        AND clock_out_at IS NULL
+        AND clock_in_at >= DATE_SUB(NOW(), INTERVAL 16 HOUR)
+      ORDER BY clock_in_at DESC
+      LIMIT 1;
+    `,
+      [tenantId, username]
+    );
+    return rows[0] || null;
+  } catch (error) {
+    console.error("Error in getOpenAttendanceDB:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
  * Get Attendance / Timesheet report
  */
 exports.getAttendanceReportDB = async (tenantId, startDate, endDate, filterUsername = null) => {

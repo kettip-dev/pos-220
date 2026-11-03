@@ -22,6 +22,7 @@ const {
   clearRosterRange,
   checkMyShiftEligibility,
   getAttendanceReport,
+  getMyAttendance,
   clockIn,
   clockOut,
   setUserQuickPin,
@@ -167,6 +168,13 @@ router.get(
   isSubscriptionActive,
   authorize([SCOPES.USER, SCOPES.REPORTS, SCOPES.SETTINGS]),
   getAttendanceReport
+);
+
+router.get(
+  "/attendance/me",
+  isLoggedIn,
+  isAuthenticated,
+  getMyAttendance
 );
 
 router.post(
