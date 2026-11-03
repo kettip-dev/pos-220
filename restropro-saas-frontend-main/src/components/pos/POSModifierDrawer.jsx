@@ -13,15 +13,17 @@ import { clsx } from 'clsx';
 import { iconStroke } from '../../config/config';
 
 const PRESET_NOTES = [
-  "Less sweet",
-  "No sugar",
-  "Extra shot",
-  "No ice",
-  "Less ice",
-  "Extra ice",
-  "Sauce on side",
-  "Allergy alert"
+  { key: 'less_sweet', label: 'Less sweet' },
+  { key: 'no_sugar', label: 'No sugar' },
+  { key: 'extra_shot', label: 'Extra shot' },
+  { key: 'no_ice', label: 'No ice' },
+  { key: 'less_ice', label: 'Less ice' },
+  { key: 'extra_ice', label: 'Extra ice' },
+  { key: 'sauce_on_side', label: 'Sauce on side' },
+  { key: 'allergy_alert', label: 'Allergy alert' },
 ];
+
+const normalize = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export default function POSModifierDrawer({
   isOpen,
@@ -36,6 +38,7 @@ export default function POSModifierDrawer({
 
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
+  const [selectedPresets, setSelectedPresets] = useState([]);
   const [customNotes, setCustomNotes] = useState('');
   const [quantity, setQuantity] = useState(1);
 
@@ -48,6 +51,7 @@ export default function POSModifierDrawer({
         setSelectedVariant(null);
       }
       setSelectedAddons([]);
+      setSelectedPresets([]);
       setCustomNotes('');
       setQuantity(1);
 
@@ -78,6 +82,12 @@ export default function POSModifierDrawer({
   }, [item, selectedVariant, selectedAddons]);
 
   const totalPrice = calculatedUnitPrice * quantity;
+
+  // Hide quick notes that duplicate an add-on of this item (e.g. a "No Ice" add-on)
+  const presetNotes = useMemo(() => {
+    const addonKeys = new Set((item?.addons || []).map(a => normalize(a.title)));
+    return PRESET_NOTES.filter(p => !addonKeys.has(normalize(p.label)));
+  }, [item]);
 
   // Smart price formatter (USD with decimals, KHR formatted as integers)
   const formatPrice = (price) => {
@@ -112,13 +122,13 @@ export default function POSModifierDrawer({
     }
   };
 
-  const handleTogglePresetNote = (note) => {
-    if (customNotes.includes(note)) {
-      setCustomNotes(prev => prev.replace(note, '').replace(/,\s*,/g, ',').replace(/^,\s*|\s*,$/g, '').trim());
-    } else {
-      setCustomNotes(prev => prev ? `${prev}, ${note}` : note);
-    }
+  const handleTogglePresetNote = (label) => {
+    setSelectedPresets(prev =>
+      prev.includes(label) ? prev.filter(n => n !== label) : [...prev, label]
+    );
   };
+
+  const combinedNotes = [...selectedPresets, customNotes.trim()].filter(Boolean).join(', ');
 
   const handleConfirm = () => {
     // Inventory recipe availability check
@@ -142,7 +152,7 @@ export default function POSModifierDrawer({
       addons_ids: selectedAddons.map(a => a.id),
       addons: selectedAddons.map(a => ({ id: a.id, title: a.title, price: a.price })),
       quantity: quantity,
-      notes: customNotes.trim() || null,
+      notes: combinedNotes || null,
     };
 
     onAddToCart(cartPayload);
@@ -246,8 +256,9 @@ export default function POSModifierDrawer({
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                     {t('pos.select_variant', 'Select Size / Variant')}
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Required
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                    {selectedVariant && <IconCheck size={10} stroke={3} />}
+                    {t('pos.modifier_required', 'Required')}
                   </span>
                 </div>
 
@@ -260,9 +271,9 @@ export default function POSModifierDrawer({
                         type="button"
                         onClick={() => handleVariantSelect(v)}
                         className={clsx(
-                          "min-h-[44px] px-3 py-2 rounded-xl border text-left flex items-center justify-between gap-2.5 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
+                          "min-h-[48px] px-3 py-2 rounded-xl border text-left flex items-center justify-between gap-2.5 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
                           isSelected
-                            ? "border-restro-green bg-emerald-500/10 text-foreground ring-1.5 ring-restro-green shadow-xs"
+                            ? "border-restro-green bg-emerald-500/10 text-foreground ring-1 ring-restro-green shadow-xs"
                             : "border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/60 hover:bg-zinc-100/80 dark:hover:bg-zinc-800 text-foreground"
                         )}
                       >
@@ -298,41 +309,48 @@ export default function POSModifierDrawer({
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
                   <IconNote size={13} stroke={iconStroke} />
-                  <span>{t('pos.notes', 'Kitchen Instructions')}</span>
+                  <span>{t('pos.special_instructions', 'Kitchen Instructions')}</span>
                 </span>
-                {customNotes && (
-                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                    Note active
-                  </span>
+                {combinedNotes && (
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedPresets([]); setCustomNotes(''); }}
+                    className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded-full transition cursor-pointer"
+                  >
+                    {t('pos.clear_all', 'Clear All')}
+                  </button>
                 )}
               </div>
 
               {/* Quick Preset Tags */}
-              <div className="flex flex-wrap gap-1.5">
-                {PRESET_NOTES.map((note) => {
-                  const isActive = customNotes.includes(note);
-                  return (
-                    <button
-                      key={note}
-                      type="button"
-                      onClick={() => handleTogglePresetNote(note)}
-                      className={clsx(
-                        "text-xs font-medium px-2.5 py-1 rounded-lg border transition active:scale-95 cursor-pointer touch-manipulation flex items-center gap-1 min-h-[32px]",
-                        isActive
-                          ? "bg-amber-500/15 border-amber-500 text-amber-700 dark:text-amber-300 font-bold shadow-xs"
-                          : "bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200/80 dark:border-zinc-700/60 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
-                      )}
-                    >
-                      {isActive ? (
-                        <IconCheck size={11} stroke={3} />
-                      ) : (
-                        <IconPlus size={10} stroke={2.5} className="opacity-60" />
-                      )}
-                      <span>{note}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {presetNotes.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {presetNotes.map((note) => {
+                    const isActive = selectedPresets.includes(note.label);
+                    return (
+                      <button
+                        key={note.key}
+                        type="button"
+                        onClick={() => handleTogglePresetNote(note.label)}
+                        aria-pressed={isActive}
+                        className={clsx(
+                          "text-xs sm:text-sm font-semibold px-3 rounded-full border transition active:scale-95 cursor-pointer touch-manipulation flex items-center gap-1.5 min-h-[42px]",
+                          isActive
+                            ? "bg-amber-500/15 border-amber-500 text-amber-700 dark:text-amber-300 shadow-xs"
+                            : "bg-background border-zinc-200 dark:border-zinc-700/70 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        )}
+                      >
+                        {isActive ? (
+                          <IconCheck size={13} stroke={3} />
+                        ) : (
+                          <IconPlus size={12} stroke={2.5} className="opacity-50" />
+                        )}
+                        <span>{t(`pos.modifier_presets.${note.key}`, note.label)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Custom Notes Input */}
               <div className="relative">
@@ -340,18 +358,18 @@ export default function POSModifierDrawer({
                   type="text"
                   value={customNotes}
                   onChange={(e) => setCustomNotes(e.target.value)}
-                  placeholder={t('pos.notes_placeholder', 'Type special instructions...')}
-                  className="w-full text-xs sm:text-sm font-medium pl-8 pr-8 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-1.5 focus:ring-restro-green focus:bg-background transition shadow-xs min-h-[38px]"
+                  placeholder={t('pos.special_instructions_placeholder', 'Other instructions for the kitchen...')}
+                  className="w-full text-sm font-medium pl-9 pr-11 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 text-foreground placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-restro-green focus:border-restro-green focus:bg-background transition min-h-[44px]"
                 />
-                <IconNote size={14} stroke={iconStroke} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                <IconNote size={16} stroke={iconStroke} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
                 {customNotes && (
                   <button
                     type="button"
                     onClick={() => setCustomNotes('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-zinc-200/80 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-500 hover:text-foreground flex items-center justify-center transition active:scale-90"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-[42px] h-[42px] rounded-lg text-zinc-400 hover:text-foreground flex items-center justify-center transition active:scale-90"
                     title="Clear note"
                   >
-                    <IconX size={11} stroke={2.5} />
+                    <IconX size={16} stroke={2.5} />
                   </button>
                 )}
               </div>
@@ -377,51 +395,53 @@ export default function POSModifierDrawer({
                     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
                 )}>
-                  {selectedAddons.length > 0 ? `${selectedAddons.length} selected` : 'Optional'}
+                  {selectedAddons.length > 0
+                    ? t('pos.modifier_selected', '{{count}} selected', { count: selectedAddons.length })
+                    : t('pos.modifier_optional', 'Optional')}
                 </span>
               </div>
 
-              {/* High-Density Touch Cards Grid (2-3 Columns) */}
+              {/* Touch Cards Grid: full names wrap to 2 lines instead of truncating */}
               <div className="flex-1 overflow-y-auto no-scrollbar pr-0.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                   {item.addons.map((addon) => {
                     const isChecked = selectedAddons.some(a => a.id === addon.id);
+                    const isFree = !Number(addon.price);
                     return (
                       <button
                         key={addon.id}
                         type="button"
                         onClick={() => toggleAddon(addon)}
+                        aria-pressed={isChecked}
                         className={clsx(
-                          "min-h-[44px] h-[44px] px-3 py-1.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
+                          "relative min-h-[64px] pl-3 pr-9 py-2.5 rounded-xl border text-left flex flex-col justify-between gap-1 transition-all active:scale-[0.98] cursor-pointer touch-manipulation",
                           isChecked
-                            ? "border-restro-green bg-emerald-500/10 ring-1.5 ring-restro-green shadow-xs"
+                            ? "border-restro-green bg-emerald-500/10 ring-1 ring-restro-green shadow-xs"
                             : "border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/50 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 text-foreground"
                         )}
                       >
-                        <div className="min-w-0 flex items-center gap-2.5 flex-1">
-                          <div className={clsx(
-                            "w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 transition-all",
-                            isChecked
-                              ? "border-restro-green bg-restro-green text-white shadow-xs"
-                              : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
-                          )}>
-                            {isChecked && <IconCheck size={11} stroke={3} />}
-                          </div>
-                          <span className={clsx(
-                            "text-xs leading-tight truncate",
-                            isChecked ? "font-bold text-foreground" : "font-medium text-zinc-700 dark:text-zinc-300"
-                          )} title={addon.title}>
-                            {addon.title}
-                          </span>
-                        </div>
                         <span className={clsx(
-                          "text-[11px] font-bold font-mono shrink-0 px-1.5 py-0.5 rounded-md tabular-nums",
-                          isChecked
-                            ? "bg-emerald-500/20 text-restro-green font-extrabold"
-                            : "text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800"
-                        )}>
-                          +{formatPrice(addon.price)}
+                          "text-sm leading-snug line-clamp-2 break-words",
+                          isChecked ? "font-bold text-foreground" : "font-medium text-zinc-800 dark:text-zinc-200"
+                        )} title={addon.title}>
+                          {addon.title}
                         </span>
+                        <span className={clsx(
+                          "text-xs font-bold tabular-nums",
+                          isChecked
+                            ? "text-restro-green"
+                            : isFree ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-500 dark:text-zinc-400"
+                        )}>
+                          {isFree ? t('pos.modifier_free', 'Free') : `+${formatPrice(addon.price)}`}
+                        </span>
+                        <div className={clsx(
+                          "absolute top-2.5 right-2.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
+                          isChecked
+                            ? "border-restro-green bg-restro-green text-white"
+                            : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800"
+                        )}>
+                          {isChecked && <IconCheck size={13} stroke={3} />}
+                        </div>
                       </button>
                     );
                   })}
@@ -436,23 +456,23 @@ export default function POSModifierDrawer({
         <div className="px-5 py-3 border-t border-zinc-100 dark:border-zinc-800/80 bg-background/95 backdrop-blur-md flex items-center justify-between gap-4 shrink-0">
           
           {/* Tactile Quantity Stepper */}
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl p-0.5 select-none shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl p-1 select-none shrink-0 border border-zinc-200/60 dark:border-zinc-700/60">
             <button
               type="button"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1}
-              className="w-10 h-10 min-w-[40px] flex items-center justify-center rounded-lg text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition cursor-pointer touch-manipulation disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-11 h-11 flex items-center justify-center rounded-lg bg-background shadow-xs text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition cursor-pointer touch-manipulation disabled:opacity-30 disabled:shadow-none disabled:bg-transparent disabled:cursor-not-allowed"
               title="Decrease quantity"
             >
               <IconMinus size={18} stroke={2.5} />
             </button>
-            <span className="w-8 text-center font-black text-base text-foreground tabular-nums select-none">
+            <span className="w-9 text-center font-black text-lg text-foreground tabular-nums select-none">
               {quantity}
             </span>
             <button
               type="button"
               onClick={() => setQuantity(quantity + 1)}
-              className="w-10 h-10 min-w-[40px] flex items-center justify-center rounded-lg text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition cursor-pointer touch-manipulation"
+              className="w-11 h-11 flex items-center justify-center rounded-lg bg-background shadow-xs text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition cursor-pointer touch-manipulation"
               title="Increase quantity"
             >
               <IconPlus size={18} stroke={2.5} />
@@ -463,14 +483,21 @@ export default function POSModifierDrawer({
           <button
             type="button"
             onClick={handleConfirm}
-            className="flex-1 max-w-sm sm:max-w-md min-h-[46px] h-[46px] px-5 rounded-xl bg-restro-green hover:bg-restro-green-button-hover active:scale-[0.98] text-white font-extrabold text-sm sm:text-base flex items-center justify-between shadow-lg shadow-emerald-600/20 transition-all cursor-pointer touch-manipulation"
+            className="flex-1 min-w-0 min-h-[52px] px-5 rounded-xl bg-restro-green hover:bg-restro-green-button-hover active:scale-[0.98] text-white font-extrabold text-sm sm:text-base flex items-center justify-between gap-3 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer touch-manipulation"
           >
-            <span className="flex items-center gap-2">
-              <IconCheck size={18} stroke={3} />
-              <span>{t('pos.add_to_order', 'Add to Order')}</span>
+            <span className="flex items-center gap-2 min-w-0">
+              <IconPlus size={18} stroke={3} className="shrink-0" />
+              <span className="truncate">{t('pos.add_to_order', 'Add to Order')}</span>
             </span>
-            <span className="px-2.5 py-0.5 rounded-lg bg-white/20 text-xs sm:text-sm font-mono font-black tabular-nums shadow-xs">
-              {formatPrice(totalPrice)}
+            <span className="flex items-center gap-2 shrink-0">
+              {quantity > 1 && (
+                <span className="hidden sm:inline text-xs font-semibold text-white/80 tabular-nums">
+                  {quantity} × {formatPrice(calculatedUnitPrice)}
+                </span>
+              )}
+              <span className="px-2.5 py-1 rounded-lg bg-white/20 text-sm sm:text-base font-black tabular-nums">
+                {formatPrice(totalPrice)}
+              </span>
             </span>
           </button>
 
