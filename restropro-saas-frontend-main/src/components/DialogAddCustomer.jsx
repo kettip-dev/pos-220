@@ -78,7 +78,7 @@ export default function DialogAddCustomer({APIURL, defaultValue, onSuccess}) {
         toast.success(res.data.message);
         document.getElementById("modal-add-customer").close();
         if(onSuccess) {
-          onSuccess(phone, name);
+          onSuccess(res.data?.phone || phone, name);
         }
       }
     } catch (error) {

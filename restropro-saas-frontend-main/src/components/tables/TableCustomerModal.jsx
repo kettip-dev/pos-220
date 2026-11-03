@@ -72,7 +72,7 @@ export default function TableCustomerModal({
       const res = await addCustomer(newPhone.trim(), newName.trim(), newEmail.trim() || null);
       if (res?.status === 200) {
         toast.success(t("customers.added_successfully", "Customer created successfully!"));
-        onSelectCustomer({ name: newName.trim(), phone: newPhone.trim(), email: newEmail.trim() });
+        onSelectCustomer({ name: newName.trim(), phone: res.data?.phone || newPhone.trim(), email: newEmail.trim() });
         onClose();
       }
     } catch (err) {

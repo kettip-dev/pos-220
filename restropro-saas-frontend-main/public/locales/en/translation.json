@@ -1414,7 +1414,8 @@
     "loyalty_members": "Loyalty Members",
     "points_pool": "Reward Points",
     "active_page": "Active on Page",
-    "stat_loyalty_hint": "{{percent}}% of customers"
+    "stat_loyalty_hint": "{{percent}}% of customers",
+    "start_order": "Start order"
   },
   "customers_import": {
     "title": "Import Customers",
@@ -3091,7 +3092,8 @@
     "split_bill": "Split Bill",
     "min_points_notice": "Min Points Notice",
     "points_applied_notice": "Points Applied Notice",
-    "remaining": "Remaining"
+    "remaining": "Remaining",
+    "customer_attached": "Customer attached: {{name}}"
   },
   "superadmin_navbar": {
     "dashboard": "Dashboard",

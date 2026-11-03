@@ -2,19 +2,28 @@ const { getMySqlPromiseConnection } = require("../config/mysql.db")
 const { tenantFilter } = require("../utils/tenant_scope")
 const { escape } = require("mysql2")
 const { nonVoidInvoiceFilter } = require("./invoice.service")
+const { phoneLookupVariants, phoneSearchPrefixes, findCustomerPhone } = require("../utils/phone")
+
 exports.doCustomerExistDB = async (phone, tenantId) => {
     const conn = await getMySqlPromiseConnection();
     try {
+        return (await findCustomerPhone(conn, phone, tenantId)) !== null;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    } finally {
+        conn.release();
+    }
+};
 
-        const sql = `
-        SELECT phone, name FROM customers
-        WHERE phone = ? AND tenant_id = ?
-        LIMIT 1;
-        `;
-
-        const [result] = await conn.query(sql, [phone, tenantId]);
-
-        return result.length > 0;
+/**
+ * The stored phone of the customer matching any format of `phone`
+ * ("077…", "+85577…"), or null.
+ */
+exports.findCustomerPhoneDB = async (phone, tenantId) => {
+    const conn = await getMySqlPromiseConnection();
+    try {
+        return await findCustomerPhone(conn, phone, tenantId);
     } catch (error) {
         console.error(error);
         throw error;
@@ -84,8 +93,8 @@ exports.getCustomersDB = async(page, perPage, sort, filter, scope) => {
         const params = [...tenantParams];
 
         if (filter) {
-            where.push("(c.name LIKE ? OR c.phone = ?)");
-            params.push(`${filter}%`, filter);
+            where.push("(c.name LIKE ? OR c.phone IN (?))");
+            params.push(`${filter}%`, phoneLookupVariants(filter));
         }
 
         const whereSql = `WHERE ${where.join(" AND ")}`;
@@ -317,6 +326,11 @@ exports.searchCustomerDB = async(searchString, scope) => {
         const { sql: tenantSql, params: tenantParams } = tenantFilter(scope, "c");
         const businessColumn = scope?.mode === "all" ? ", c.tenant_id AS business_tenant_id" : "";
 
+        // A typed number matches every stored format: "0775" also finds "+855775…"
+        const phonePrefixes = phoneSearchPrefixes(searchString);
+        const prefixes = phonePrefixes.length > 0 ? phonePrefixes : [searchString];
+        const phoneSql = prefixes.map(() => "c.phone LIKE ?").join(" OR ");
+
         // conn.query, not conn.execute: the prepared-statement protocol does not
         // expand an array into an IN list, so `IN (?)` under execute() matches
         // nothing and returns an empty result with no error.
@@ -337,10 +351,10 @@ exports.searchCustomerDB = async(searchString, scope) => {
                 c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at${businessColumn} 
             FROM customers c
             LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
-            WHERE (c.phone LIKE ? OR c.name LIKE ?) AND ${tenantSql}
+            WHERE (${phoneSql} OR c.name LIKE ?) AND ${tenantSql}
             LIMIT 10
             ;`,
-            [`${searchString}%`, `%${searchString}%`, ...tenantParams]
+            [...prefixes.map((p) => `${p}%`), `%${searchString}%`, ...tenantParams]
         );
 
         return result;

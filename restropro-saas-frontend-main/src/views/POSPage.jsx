@@ -388,6 +388,16 @@ export default function POSPage() {
     }
   }, [location.state, state.storeTables]);
 
+  // "Start order" on the Customers page opens POS with state.attachCustomer
+  useEffect(() => {
+    const attachCustomer = location.state?.attachCustomer;
+    if (!attachCustomer || state.isLoading) return;
+    setCustomer(attachCustomer);
+    toast.success(t('pos.customer_attached', 'Customer attached: {{name}}', { name: attachCustomer.name || attachCustomer.phone }));
+    const { attachCustomer: _attached, ...restState } = location.state;
+    navigate(location.pathname, { replace: true, state: restState });
+  }, [location.state, state.isLoading]);
+
   // Global Keyboard Shortcuts for High-Speed Cashier Operations
   useEffect(() => {
     const handleKeyDown = (e) => {

@@ -1549,7 +1549,8 @@
     "loyalty_members": "សមាជិកភក្ដីភាព",
     "points_pool": "ពិន្ទុសរុប",
     "active_page": "សកម្មក្នុងទំព័រនេះ",
-    "stat_loyalty_hint": "{{percent}}% នៃអតិថិជនទាំងអស់"
+    "stat_loyalty_hint": "{{percent}}% នៃអតិថិជនទាំងអស់",
+    "start_order": "ចាប់ផ្តើមកម្មង់"
   },
   "customers_import": {
     "title": "នាំចូលអតិថិជន",
@@ -3200,7 +3201,8 @@
     "coupons_and_offers": "ប្រូម៉ូសិន និងការផ្តល់ជូនពិសេស",
     "promotions_discount": "ការបញ្ចុះតម្លៃប្រូម៉ូសិន",
     "customer_group_discount": "ការបញ្ចុះតម្លៃតាមក្រុមអតិថិជន",
-    "remaining": "នៅខ្វះ"
+    "remaining": "នៅខ្វះ",
+    "customer_attached": "បានភ្ជាប់អតិថិជន៖ {{name}}"
   },
   "superadmin_navbar": {
     "dashboard": "ផ្ទាំងព័ត៌មាន",
