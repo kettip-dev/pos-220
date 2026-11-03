@@ -685,11 +685,12 @@ export default function ThermalPrintersPage() {
                 On the restaurant computer, inside the <span className="font-mono">restropro-print-agent</span> folder run:
               </p>
               <div className="flex items-stretch gap-2">
-                <code className="flex-1 p-3 rounded-xl bg-gray-900 text-emerald-300 text-[11px] font-mono break-all select-all">
-                  npm install --omit=dev && {agentInstallCommand}
+                {/* Two separate commands: Windows PowerShell 5 does not support "&&". */}
+                <code className="flex-1 p-3 rounded-xl bg-gray-900 text-emerald-300 text-[11px] font-mono break-all select-all whitespace-pre-wrap">
+                  {`npm install --omit=dev\n${agentInstallCommand}`}
                 </code>
                 <button
-                  onClick={() => copyToClipboard(`npm install --omit=dev && ${agentInstallCommand}`)}
+                  onClick={() => copyToClipboard(`npm install --omit=dev\n${agentInstallCommand}`)}
                   className="w-[42px] min-h-[42px] rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition active:scale-95"
                   title="Copy command"
                 >
