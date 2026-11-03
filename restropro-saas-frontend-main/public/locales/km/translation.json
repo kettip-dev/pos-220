@@ -934,7 +934,16 @@
     "other": "ផ្សេងៗ",
     "pin_verified_hint": "បានផ្ទៀងផ្ទាត់ PIN · អាចកុម្ម៉ង់បានហើយ",
     "pin_required_hint": "បញ្ចូល PIN តុ ដើម្បីចាប់ផ្តើមកុម្ម៉ង់",
-    "orders": "ការកុម្ម៉ង់"
+    "orders": "ការកុម្ម៉ង់",
+    "step": "ជំហាន",
+    "pick_your_table": "តើអ្នកអង្គុយតុណា?",
+    "pick_your_table_hint": "ចុចលើតុរបស់អ្នក ដើម្បីបន្ត",
+    "enter_table_pin": "បញ្ចូល PIN តុ",
+    "search_table": "ស្វែងរកតុ...",
+    "no_tables_found": "រកមិនឃើញតុទេ។",
+    "seats": "កៅអី",
+    "change": "ប្តូរ",
+    "pin_where_hint": "រក PIN នៅលើក្រដាសតុ ឬសួរអ្នកបម្រើ។"
   },
   "profile": {
     "title": "គណនី",
