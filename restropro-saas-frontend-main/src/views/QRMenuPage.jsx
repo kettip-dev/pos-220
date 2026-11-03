@@ -1,6 +1,5 @@
 import {
   IconBellRinging,
-  IconCarrot,
   IconCheck,
   IconChevronRight,
   IconLock,
@@ -19,7 +18,7 @@ import {
   IconToolsKitchen2,
   IconX,
 } from "@tabler/icons-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { iconStroke } from "../config/config";
 import {
   callWaiterFromQrMenu,
@@ -81,7 +80,6 @@ export default function QRMenuPage() {
     activeSessionSummary: null,
     serviceCharge: null,
     categories: [],
-    currentCategory: "all",
     menuItems: [],
     searchQuery: "",
     cartItems: [],
@@ -201,7 +199,6 @@ export default function QRMenuPage() {
     storeSettings,
     categories,
     menuItems,
-    currentCategory,
     searchQuery,
     cartItems,
     currency,
@@ -241,29 +238,75 @@ export default function QRMenuPage() {
     return kCount + pCount;
   }, [activeSessionSummary]);
 
-  const filteredMenuItems = useMemo(() => {
-    return (menuItems || [])
+  // Menu grouped into one section per enabled category (uncategorized items last)
+  const menuSections = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const items = (menuItems || [])
       .filter((menuItem) => menuItem.is_enabled)
-      .filter((item) => {
-        const { category_id } = item;
-        if (currentCategory === "all") {
-          return (
-            !category_id ||
-            categories.find((category) => category.id === category_id && category.is_enabled)
-          );
-        }
-        return String(currentCategory) === String(category_id);
-      })
       .filter((menuItem) => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.trim().toLowerCase();
+        if (!q) return true;
         return (
           String(menuItem.title || "").toLowerCase().includes(q) ||
           String(menuItem.description || "").toLowerCase().includes(q) ||
           String(menuItem.category_title || "").toLowerCase().includes(q)
         );
       });
-  }, [menuItems, categories, currentCategory, searchQuery]);
+
+    const sections = (categories || [])
+      .filter((category) => category.is_enabled)
+      .map((category) => ({
+        id: String(category.id),
+        title: category.title,
+        items: items.filter((item) => String(item.category_id) === String(category.id)),
+      }));
+
+    const uncategorized = items.filter((item) => !item.category_id);
+    if (uncategorized.length > 0) {
+      sections.push({
+        id: "uncategorized",
+        title: t("qr_menu.other", "Other"),
+        items: uncategorized,
+      });
+    }
+
+    return sections.filter((section) => section.items.length > 0);
+  }, [menuItems, categories, searchQuery, t]);
+
+  // Category tabs follow scroll position (scroll-spy)
+  const [activeSectionId, setActiveSectionId] = useState(null);
+  const stickyBarRef = useRef(null);
+  const chipBarRef = useRef(null);
+  const isAutoScrollingRef = useRef(false);
+  const autoScrollTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const onScroll = () => {
+      if (isAutoScrollingRef.current) return;
+      const offset = (stickyBarRef.current?.offsetHeight || 0) + 24;
+      let active = menuSections[0]?.id || null;
+      for (const section of menuSections) {
+        const el = document.getElementById(`menu-section-${section.id}`);
+        if (el && el.getBoundingClientRect().top - offset <= 0) active = section.id;
+      }
+      setActiveSectionId((prev) => (prev === active ? prev : active));
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isLoading, menuSections]);
+
+  useEffect(() => {
+    const bar = chipBarRef.current;
+    const chip = bar?.querySelector(`[data-section="${activeSectionId}"]`);
+    if (!bar || !chip) return;
+    bar.scrollTo({
+      left: chip.offsetLeft - bar.clientWidth / 2 + chip.clientWidth / 2,
+      behavior: "smooth",
+    });
+  }, [activeSectionId]);
+
+  useEffect(() => () => clearTimeout(autoScrollTimerRef.current), []);
 
   // Calculate live price inside customization modal
   const modalUnitPrice = useMemo(() => {
@@ -531,330 +574,363 @@ export default function QRMenuPage() {
     navigate(`/m/order-success?qrcode=${encodeURIComponent(qrcode)}&table=${encodeURIComponent(tableQuery)}`);
   };
 
+  const scrollToSection = (sectionId) => {
+    const el = document.getElementById(`menu-section-${sectionId}`);
+    if (!el) return;
+    const offset = (stickyBarRef.current?.offsetHeight || 0) + 8;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    setActiveSectionId(sectionId);
+    isAutoScrollingRef.current = true;
+    window.scrollTo({ top, behavior: "smooth" });
+    clearTimeout(autoScrollTimerRef.current);
+    autoScrollTimerRef.current = setTimeout(() => {
+      isAutoScrollingRef.current = false;
+    }, 700);
+  };
+
+  const renderAddControl = (item, hasVariantOrAddon, simpleQty) => {
+    if (!is_qr_order_enabled) return null;
+
+    if (!hasVariantOrAddon && simpleQty > 0) {
+      return (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="h-[42px] rounded-full bg-emerald-600 text-white flex items-center shadow-lg shadow-emerald-900/20 ring-2 ring-white dark:ring-zinc-950"
+        >
+          <button
+            type="button"
+            onClick={() => upsertCartItem(item, -1)}
+            className="w-[42px] h-[42px] rounded-full flex items-center justify-center active:scale-95 transition cursor-pointer"
+            aria-label="Decrease quantity"
+          >
+            <IconMinus size={16} stroke={2.75} />
+          </button>
+          <span className="min-w-[18px] text-center text-sm font-extrabold tabular-nums">
+            {simpleQty}
+          </span>
+          <button
+            type="button"
+            onClick={() => upsertCartItem(item, 1)}
+            className="w-[42px] h-[42px] rounded-full flex items-center justify-center active:scale-95 transition cursor-pointer"
+            aria-label="Increase quantity"
+          >
+            <IconPlus size={16} stroke={2.75} />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (hasVariantOrAddon) {
+            openItemModal(item);
+          } else {
+            upsertCartItem(item, 1);
+            toast.success(`${item.title} ${t("qr_menu.added", "added")}`);
+          }
+        }}
+        className="h-[42px] min-w-[42px] px-3.5 rounded-full bg-white dark:bg-zinc-800 text-emerald-700 dark:text-emerald-400 border border-slate-200 dark:border-zinc-700 shadow-lg shadow-slate-900/10 flex items-center justify-center gap-1 text-sm font-extrabold active:scale-95 transition cursor-pointer"
+        aria-label={t("qr_menu.add", "Add")}
+      >
+        <IconPlus size={16} stroke={3} />
+        <span>{t("qr_menu.add", "Add")}</span>
+      </button>
+    );
+  };
+
   return (
     <div className="min-h-screen w-full bg-white dark:bg-zinc-950 text-slate-900 dark:text-slate-100 pb-32">
-      {/* 1. STICKY TOP HEADER */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800 shadow-2xs">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {storeImage ? (
-              <img
-                src={getImageURL(storeImage)}
-                alt={storeName}
-                className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-zinc-700 shrink-0"
-              />
-            ) : (
-              <div className="w-11 h-11 rounded-xl bg-emerald-600/10 text-emerald-600 flex items-center justify-center shrink-0">
-                <IconToolsKitchen2 size={22} />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h1 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white truncate">
-                {storeName}
-              </h1>
-              {address && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
-                  <IconMapPin size={12} className="shrink-0" />
-                  <span className="truncate">{address}</span>
-                </p>
-              )}
-            </div>
-          </div>
+      {/* 1. HERO HEADER */}
+      <header className="relative overflow-hidden bg-zinc-900 text-white">
+        {storeImage && (
+          <img
+            src={getImageURL(storeImage)}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-60"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/70 via-zinc-900/60 to-zinc-950/90" />
 
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="relative max-w-5xl mx-auto px-4 pt-4 pb-10 sm:pb-12">
+          <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => setIsWaiterModalOpen(true)}
-              className="min-h-[42px] px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/70 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
-              title="Call Waiter"
+              className="h-[42px] px-3.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-white text-xs font-bold flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
             >
-              <IconBellRinging size={17} />
-              <span className="hidden xs:inline">{t("qr_menu.call_waiter", "Call Server")}</span>
+              <IconBellRinging size={18} />
+              <span>{t("qr_menu.call_waiter", "Call Server")}</span>
             </button>
-
             <button
               type="button"
               onClick={() => setIsStoreModalOpen(true)}
-              className="min-h-[42px] min-w-[42px] rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 flex items-center justify-center active:scale-95 transition cursor-pointer"
+              className="w-[42px] h-[42px] rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/20 text-white flex items-center justify-center active:scale-95 transition cursor-pointer"
               aria-label="Store info"
             >
               <IconMenu stroke={iconStroke} size={20} />
             </button>
           </div>
-        </div>
 
-        {/* 2. TABLE & SECURITY STATUS BAR */}
+          <div className="mt-5 flex items-center gap-4">
+            {storeImage ? (
+              <img
+                src={getImageURL(storeImage)}
+                alt={storeName}
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-2 ring-white/40 shadow-xl shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/15 ring-2 ring-white/30 flex items-center justify-center shrink-0">
+                <IconToolsKitchen2 size={30} />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="font-extrabold text-xl sm:text-3xl leading-tight tracking-tight line-clamp-2">
+                {storeName}
+              </h1>
+              {address && (
+                <button
+                  type="button"
+                  onClick={() => setIsStoreModalOpen(true)}
+                  className="mt-1 max-w-full text-left text-xs sm:text-sm text-white/75 flex items-center gap-1 cursor-pointer"
+                >
+                  <IconMapPin size={14} className="shrink-0" />
+                  <span className="truncate">{address}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="relative -mt-5 rounded-t-3xl bg-white dark:bg-zinc-950">
+        {/* 2. TABLE & ORDER STATUS */}
         {is_qr_order_enabled && (
-          <div className="max-w-4xl mx-auto px-4 pb-2.5 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={openTableVerificationModal}
-                className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 border transition active:scale-95 cursor-pointer ${
-                  storeTable && isTablePinVerified
-                    ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300"
-                    : "bg-slate-100 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-slate-200"
+          <div className="max-w-5xl mx-auto px-4 pt-4 flex flex-col sm:flex-row gap-2.5">
+            <button
+              type="button"
+              onClick={openTableVerificationModal}
+              className={`flex-1 min-h-[56px] p-2.5 pr-3 rounded-2xl border flex items-center gap-3 text-left active:scale-[0.99] transition cursor-pointer ${
+                storeTable && isTablePinVerified
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900"
+                  : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900"
+              }`}
+            >
+              <span
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white ${
+                  storeTable && isTablePinVerified ? "bg-emerald-600" : "bg-amber-500"
                 }`}
               >
-                {storeTable ? (
-                  <>
-                    <span>
-                      {t("tables.table", "Table")} {storeTable.table_title}
-                      {storeTable.floor ? ` • ${storeTable.floor}` : ""}
-                    </span>
-                    {isTablePinVerified ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold">
-                        <IconShieldCheck size={12} />
-                        {t("qr_menu.pin_verified", "PIN Verified")}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">
-                        <IconLock size={11} />
-                        {t("qr_menu.enter_pin", "Enter PIN")}
-                      </span>
-                    )}
-                  </>
+                {storeTable && isTablePinVerified ? (
+                  <IconShieldCheck size={20} />
                 ) : (
-                  <>
-                    <IconLock size={14} className="text-amber-500" />
-                    <span>{t("qr_menu.select_table_pin", "Select Table & Enter PIN")}</span>
-                  </>
+                  <IconLock size={19} />
                 )}
-              </button>
-            </div>
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-bold text-slate-900 dark:text-white truncate">
+                  {storeTable
+                    ? `${t("tables.table", "Table")} ${storeTable.table_title}${
+                        storeTable.floor ? ` • ${storeTable.floor}` : ""
+                      }`
+                    : t("qr_menu.select_table_pin", "Select Table & Enter PIN")}
+                </span>
+                <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {storeTable && isTablePinVerified
+                    ? t("qr_menu.pin_verified_hint", "PIN verified · You can order now")
+                    : t("qr_menu.pin_required_hint", "Enter your table PIN to start ordering")}
+                </span>
+              </span>
+              <IconChevronRight size={18} className="text-slate-400 shrink-0" />
+            </button>
 
             {activeTableOrdersCount > 0 && (
               <button
                 type="button"
                 onClick={goToOrderTracker}
-                className="min-h-[38px] px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition cursor-pointer"
+                className="min-h-[56px] p-2.5 pr-3 rounded-2xl border bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-900 flex items-center gap-3 text-left active:scale-[0.99] transition cursor-pointer"
               >
-                <IconReceipt2 size={15} />
-                <span>{t("qr_menu.track_order", "Active Order / Bill")}</span>
-                <IconChevronRight size={14} />
+                <span className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0">
+                  <IconReceipt2 size={20} />
+                </span>
+                <span className="flex-1 min-w-0 text-sm font-bold text-sky-900 dark:text-sky-200">
+                  {t("qr_menu.track_order", "Active Order / Bill")}
+                  <span className="block text-xs font-medium text-sky-700/80 dark:text-sky-300/80">
+                    {activeTableOrdersCount} {t("qr_menu.orders", "order(s)")}
+                  </span>
+                </span>
+                <IconChevronRight size={18} className="text-sky-400 shrink-0" />
               </button>
             )}
           </div>
         )}
 
-        {/* 3. SEARCH & CATEGORY PILLS */}
-        <div className="max-w-4xl mx-auto px-4 pb-3 space-y-2.5">
-          <div className="relative flex items-center">
-            <IconSearch size={18} className="absolute left-3.5 text-slate-400 pointer-events-none" />
-            <input
-              type="search"
-              name="search"
-              id="search"
-              className="w-full min-h-[42px] bg-slate-100 dark:bg-zinc-800/90 rounded-xl pl-10 pr-9 py-2 text-sm outline-none border border-transparent focus:border-emerald-500 transition"
-              placeholder={t("qr_menu.search_placeholder", "Search dishes, drinks...")}
-              value={searchQuery}
-              onChange={(e) => setState((prev) => ({ ...prev, searchQuery: e.target.value }))}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setState((prev) => ({ ...prev, searchQuery: "" }))}
-                className="absolute right-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600"
-              >
-                <IconX size={16} />
-              </button>
-            )}
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            <button
-              type="button"
-              onClick={() => setState((prev) => ({ ...prev, currentCategory: "all" }))}
-              className={`min-h-[40px] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition active:scale-95 cursor-pointer border ${
-                currentCategory === "all"
-                  ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                  : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700"
-              }`}
-            >
-              {t("qr_menu.all", "All Items")}
-            </button>
-
-            {categories
-              .filter((category) => category.is_enabled)
-              .map((category) => {
-                const isSelected = String(currentCategory) === String(category.id);
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() =>
-                      setState((prev) => ({ ...prev, currentCategory: String(category.id) }))
-                    }
-                    className={`min-h-[40px] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition active:scale-95 cursor-pointer border ${
-                      isSelected
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                        : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-zinc-700"
-                    }`}
-                  >
-                    {category.title}
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-      </header>
-
-      {/* 4. MENU CATALOG */}
-      <main className="max-w-4xl mx-auto px-4 pt-4">
-        {filteredMenuItems.length === 0 ? (
-          <div className="py-16 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
-            <IconMoodEmpty size={44} stroke={1.5} />
-            <p className="text-sm font-semibold">
-              {t("qr_menu.no_items_found", "No matching menu items found.")}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {filteredMenuItems.map((item) => {
-              const {
-                addons = [],
-                variants = [],
-                category_id,
-                category_title,
-                id,
-                image,
-                price,
-                title,
-                description,
-              } = item;
-
-              const imageURL = getImageURL(image);
-              const hasVariantOrAddon = variants.length > 0 || addons.length > 0;
-              const simpleQty = !hasVariantOrAddon ? getSimpleItemQuantityInCart(id) : 0;
-
-              return (
-                <div
-                  key={id}
-                  onClick={() => openItemModal(item)}
-                  className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3.5 flex gap-3.5 shadow-2xs hover:border-emerald-500/40 transition cursor-pointer"
+        {/* 3. STICKY SEARCH & CATEGORY TABS */}
+        <div
+          ref={stickyBarRef}
+          className="sticky top-0 z-30 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-slate-100 dark:border-zinc-800/80"
+        >
+          <div className="max-w-5xl mx-auto px-4 pt-3 pb-2">
+            <div className="relative flex items-center">
+              <IconSearch size={18} className="absolute left-3.5 text-slate-400 pointer-events-none" />
+              <input
+                type="search"
+                name="search"
+                id="search"
+                className="w-full h-[44px] bg-slate-100 dark:bg-zinc-900 rounded-full pl-10 pr-10 text-sm outline-none border border-transparent focus:border-emerald-500 focus:bg-white dark:focus:bg-zinc-900 transition"
+                placeholder={t("qr_menu.search_placeholder", "Search dishes, drinks...")}
+                value={searchQuery}
+                onChange={(e) => setState((prev) => ({ ...prev, searchQuery: e.target.value }))}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setState((prev) => ({ ...prev, searchQuery: "" }))}
+                  className="absolute right-1 w-[42px] h-[42px] rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600"
+                  aria-label="Clear search"
                 >
-                  {/* Left: Item details */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-base text-slate-900 dark:text-white line-clamp-2">
-                          {title}
-                        </h3>
-                      </div>
-
-                      {category_id && category_title && (
-                        <span className="inline-block mt-1 text-[11px] font-semibold text-slate-400">
-                          {category_title}
-                        </span>
-                      )}
-
-                      {description && (
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                          {description}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
-                        {currency}
-                        {Number(price).toFixed(2)}
-                      </span>
-
-                      {hasVariantOrAddon && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400">
-                          {t("qr_menu.customisable", "Customizable")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right: Thumbnail + Add/Stepper control */}
-                  <div className="flex flex-col items-center justify-between shrink-0">
-                    <div className="w-28 h-28 rounded-xl bg-slate-100 dark:bg-zinc-800 overflow-hidden relative flex items-center justify-center text-slate-400 border border-slate-100 dark:border-zinc-800">
-                      {image ? (
-                        <img
-                          src={imageURL}
-                          alt={title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <IconCarrot size={28} />
-                      )}
-                    </div>
-
-                    {is_qr_order_enabled && (
-                      <div
-                        className="mt-2 w-28"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {!hasVariantOrAddon && simpleQty > 0 ? (
-                          <div className="min-h-[38px] w-full rounded-xl bg-emerald-600 text-white flex items-center justify-between px-1.5 shadow-xs">
-                            <button
-                              type="button"
-                              onClick={() => upsertCartItem(item, -1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-emerald-700 active:scale-95 transition cursor-pointer"
-                            >
-                              <IconMinus size={15} stroke={2.5} />
-                            </button>
-                            <span className="text-xs font-extrabold">{simpleQty}</span>
-                            <button
-                              type="button"
-                              onClick={() => upsertCartItem(item, 1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-emerald-700 active:scale-95 transition cursor-pointer"
-                            >
-                              <IconPlus size={15} stroke={2.5} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (hasVariantOrAddon) {
-                                openItemModal(item);
-                              } else {
-                                upsertCartItem(item, 1);
-                                toast.success(`${title} ${t("qr_menu.added", "added")}`);
-                              }
-                            }}
-                            className="min-h-[38px] w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold py-2 px-3 flex items-center justify-center gap-1 shadow-xs active:scale-95 transition cursor-pointer"
-                          >
-                            <IconPlus size={14} stroke={2.5} />
-                            <span>{t("qr_menu.add", "Add")}</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                  <IconX size={16} />
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </main>
+
+          {menuSections.length > 1 && (
+            <div className="max-w-5xl mx-auto">
+              <div ref={chipBarRef} className="flex gap-1 overflow-x-auto no-scrollbar px-2.5 scroll-smooth">
+                {menuSections.map((section) => {
+                  const isActive = activeSectionId === section.id;
+                  return (
+                    <button
+                      key={section.id}
+                      data-section={section.id}
+                      type="button"
+                      onClick={() => scrollToSection(section.id)}
+                      className={`relative h-[44px] px-3 text-sm whitespace-nowrap transition active:scale-95 cursor-pointer ${
+                        isActive
+                          ? "font-extrabold text-emerald-700 dark:text-emerald-400"
+                          : "font-semibold text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      {section.title}
+                      <span
+                        className={`absolute left-3 right-3 bottom-0 h-[3px] rounded-full transition ${
+                          isActive ? "bg-emerald-600" : "bg-transparent"
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. MENU CATALOG, GROUPED BY CATEGORY */}
+        <main className="max-w-5xl mx-auto px-4">
+          {menuSections.length === 0 ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
+              <IconMoodEmpty size={44} stroke={1.5} />
+              <p className="text-sm font-semibold">
+                {t("qr_menu.no_items_found", "No matching menu items found.")}
+              </p>
+            </div>
+          ) : (
+            menuSections.map((section) => (
+              <section key={section.id} id={`menu-section-${section.id}`} className="pt-6">
+                <div className="flex items-baseline gap-2 mb-1 md:mb-3">
+                  <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                    {section.title}
+                  </h2>
+                  <span className="text-xs font-semibold text-slate-400">{section.items.length}</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 md:gap-4">
+                  {section.items.map((item) => {
+                    const { addons = [], variants = [], id, image, price, title, description } = item;
+                    const hasVariantOrAddon = variants.length > 0 || addons.length > 0;
+                    const simpleQty = !hasVariantOrAddon ? getSimpleItemQuantityInCart(id) : 0;
+
+                    return (
+                      <article
+                        key={id}
+                        onClick={() => openItemModal(item)}
+                        className="py-4 flex gap-4 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 md:p-4 md:border md:last:border md:rounded-2xl md:hover:border-emerald-500/40 md:hover:shadow-sm transition cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <h3 className="font-bold text-[15px] sm:text-base leading-snug text-slate-900 dark:text-white line-clamp-2">
+                            {title}
+                          </h3>
+                          {description && (
+                            <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                              {description}
+                            </p>
+                          )}
+                          <div className="mt-auto pt-2.5 flex items-center gap-2 flex-wrap">
+                            <span className="text-base font-extrabold text-slate-900 dark:text-white tabular-nums">
+                              {currency}
+                              {Number(price).toFixed(2)}
+                            </span>
+                            {hasVariantOrAddon && (
+                              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                                {t("qr_menu.customisable", "Customizable")}
+                              </span>
+                            )}
+                          </div>
+                          {!image && (
+                            <div className="mt-3 self-end">
+                              {renderAddControl(item, hasVariantOrAddon, simpleQty)}
+                            </div>
+                          )}
+                        </div>
+
+                        {image && (
+                          <div className="relative shrink-0 w-[112px] h-[112px] sm:w-[128px] sm:h-[128px] mb-3">
+                            <img
+                              src={getImageURL(image)}
+                              alt={title}
+                              className="w-full h-full object-cover rounded-2xl bg-slate-100 dark:bg-zinc-800"
+                              loading="lazy"
+                            />
+                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2">
+                              {renderAddControl(item, hasVariantOrAddon, simpleQty)}
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))
+          )}
+        </main>
+      </div>
 
       {/* 5. STICKY BOTTOM VIEW CART BAR */}
       {is_qr_order_enabled && totalCartQuantity > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 p-3 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95">
-          <div className="max-w-4xl mx-auto">
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-white via-white/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95">
+          <div className="max-w-5xl mx-auto">
             <button
               type="button"
               onClick={goToCart}
-              className="w-full min-h-[56px] bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 px-5 rounded-2xl shadow-lg flex items-center justify-between active:scale-98 transition cursor-pointer"
+              className="w-full min-h-[58px] bg-emerald-600 hover:bg-emerald-700 text-white py-3 pl-3 pr-4 rounded-2xl shadow-xl shadow-emerald-900/25 flex items-center justify-between gap-3 active:scale-[0.98] transition cursor-pointer"
             >
-              <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 rounded-xl bg-white/20 text-xs font-extrabold">
-                  {totalCartQuantity} {totalCartQuantity === 1 ? "item" : t("qr_menu.items_added", "items")}
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-9 h-9 rounded-xl bg-white text-emerald-700 text-sm font-black flex items-center justify-center tabular-nums">
+                  {totalCartQuantity}
                 </span>
-                <span className="text-base font-extrabold">
+                <span className="text-base font-extrabold">{t("qr_menu.view_cart", "View Cart")}</span>
+              </div>
+
+              <div className="flex items-center gap-1 text-base font-extrabold tabular-nums">
+                <span>
                   {currency}
                   {totalCartPrice.toFixed(2)}
                 </span>
-              </div>
-
-              <div className="flex items-center gap-1 text-base font-extrabold">
-                <span>{t("qr_menu.view_cart", "View Cart")}</span>
                 <IconChevronRight size={20} stroke={2.5} />
               </div>
             </button>
@@ -864,49 +940,50 @@ export default function QRMenuPage() {
 
       {/* 6. CONTROLLED ITEM DETAIL & CUSTOMIZATION MODAL */}
       {customizingItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-zinc-800 max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-slate-100 dark:border-zinc-800 flex items-start justify-between gap-3">
-              <div className="flex gap-3.5 min-w-0">
-                <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-zinc-800 overflow-hidden shrink-0 flex items-center justify-center text-slate-400">
-                  {customizingItem.image ? (
-                    <img
-                      src={getImageURL(customizingItem.image)}
-                      alt={customizingItem.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <IconCarrot size={28} />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-lg text-slate-900 dark:text-white">
-                    {customizingItem.title}
-                  </h3>
-                  <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
-                    {currency}
-                    {Number(customizingItem.price).toFixed(2)}
-                  </p>
-                  {customizingItem.description && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                      {customizingItem.description}
-                    </p>
-                  )}
-                </div>
-              </div>
+        <div
+          onClick={() => setCustomizingItem(null)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-zinc-800 max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setCustomizingItem(null)}
+              className="absolute top-3 right-3 z-10 w-[42px] h-[42px] rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur text-slate-700 dark:text-slate-200 shadow-md flex items-center justify-center active:scale-95 cursor-pointer"
+              aria-label="Close"
+            >
+              <IconX size={20} />
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setCustomizingItem(null)}
-                className="w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 flex items-center justify-center shrink-0 cursor-pointer"
-              >
-                <IconX size={18} />
-              </button>
+            <div className="overflow-y-auto flex-1">
+            {/* Modal Header */}
+            {customizingItem.image && (
+              <div className="aspect-[16/10] bg-slate-100 dark:bg-zinc-800">
+                <img
+                  src={getImageURL(customizingItem.image)}
+                  alt={customizingItem.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className={`px-4 pb-4 border-b border-slate-100 dark:border-zinc-800 ${customizingItem.image ? "pt-4" : "pt-5 pr-16"}`}>
+              <h3 className="font-extrabold text-xl leading-snug text-slate-900 dark:text-white">
+                {customizingItem.title}
+              </h3>
+              <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">
+                {currency}
+                {Number(customizingItem.price).toFixed(2)}
+              </p>
+              {customizingItem.description && (
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  {customizingItem.description}
+                </p>
+              )}
             </div>
 
             {/* Modal Body */}
-            <div className="p-4 overflow-y-auto space-y-5 flex-1">
+            <div className="p-4 space-y-5">
               {/* Variants */}
               {customizingItem.variants?.length > 0 && (
                 <div>
@@ -1018,6 +1095,8 @@ export default function QRMenuPage() {
                   />
                 </div>
               )}
+            </div>
+
             </div>
 
             {/* Modal Footer */}

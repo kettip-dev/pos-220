@@ -930,7 +930,11 @@
     "currency": "រូបិយប័ណ្ណ",
     "call_waiter": "ហៅអ្នកបម្រើ",
     "request_bill": "សុំគិតលុយ",
-    "table": "តុ"
+    "table": "តុ",
+    "other": "ផ្សេងៗ",
+    "pin_verified_hint": "បានផ្ទៀងផ្ទាត់ PIN · អាចកុម្ម៉ង់បានហើយ",
+    "pin_required_hint": "បញ្ចូល PIN តុ ដើម្បីចាប់ផ្តើមកុម្ម៉ង់",
+    "orders": "ការកុម្ម៉ង់"
   },
   "profile": {
     "title": "គណនី",
