@@ -37,6 +37,7 @@ export function useShiftSettings() {
       shift_grace_before_mins: 15,
       shift_grace_after_mins: 30,
       is_shift_enforcement_enabled: 1,
+      weekly_hours_limit: 48,
     },
     error,
     isLoading,
@@ -62,6 +63,18 @@ export function useWeeklyRoster(startDate, endDate) {
 
 export async function assignRosterShift(payload) {
   return await ApiClient.post("/shift-roster/roster/assign", payload);
+}
+
+export async function bulkAssignRoster(entries) {
+  return await ApiClient.post("/shift-roster/roster/bulk-assign", { entries });
+}
+
+export async function updateRosterShift(id, payload) {
+  return await ApiClient.put(`/shift-roster/roster/${id}`, payload);
+}
+
+export async function clearRosterRange(payload) {
+  return await ApiClient.post("/shift-roster/roster/clear", payload);
 }
 
 export async function removeRosterShift(id) {

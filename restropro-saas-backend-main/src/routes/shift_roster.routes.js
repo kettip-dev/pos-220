@@ -17,6 +17,9 @@ const {
   assignRosterShift,
   removeRosterShift,
   copyWeeklyRoster,
+  bulkAssignRoster,
+  updateRosterShift,
+  clearRosterRange,
   checkMyShiftEligibility,
   getAttendanceReport,
   clockIn,
@@ -101,6 +104,33 @@ router.post(
   isSubscriptionActive,
   authorize([SCOPES.USER, SCOPES.SETTINGS]),
   assignRosterShift
+);
+
+router.post(
+  "/roster/bulk-assign",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.USER, SCOPES.SETTINGS]),
+  bulkAssignRoster
+);
+
+router.post(
+  "/roster/clear",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.USER, SCOPES.SETTINGS]),
+  clearRosterRange
+);
+
+router.put(
+  "/roster/:id",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.USER, SCOPES.SETTINGS]),
+  updateRosterShift
 );
 
 router.delete(

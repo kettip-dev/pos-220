@@ -140,6 +140,15 @@ exports.ensureShiftRosterSchema = async (pool) => {
         console.log("[Migration] Added enforce_shift_roster to users");
       }
 
+      // 7. Weekly hours limit used for roster overtime warnings
+      if (!(await hasColumn("shift_settings", "weekly_hours_limit"))) {
+        await conn.query(`
+          ALTER TABLE shift_settings
+            ADD COLUMN weekly_hours_limit INT NOT NULL DEFAULT 48
+        `);
+        console.log("[Migration] Added weekly_hours_limit to shift_settings");
+      }
+
       console.log("[Migration] Shift & Roster schema verified successfully.");
     } finally {
       conn.release();
