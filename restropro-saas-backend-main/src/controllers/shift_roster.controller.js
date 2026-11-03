@@ -13,6 +13,9 @@ const {
   removeRosterShiftDB,
   copyWeeklyRosterDB,
   checkUserShiftEligibilityDB,
+  bulkAssignRosterDB,
+  updateRosterShiftDB,
+  clearRosterRangeDB,
 } = require("../services/roster.service");
 
 const {
@@ -124,12 +127,13 @@ exports.getShiftSettings = async (req, res) => {
 exports.updateShiftSettings = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
-    const { shift_grace_before_mins, shift_grace_after_mins, is_shift_enforcement_enabled } = req.body;
+    const { shift_grace_before_mins, shift_grace_after_mins, is_shift_enforcement_enabled, weekly_hours_limit } = req.body;
 
     await updateShiftSettingsDB(tenantId, {
       shift_grace_before_mins,
       shift_grace_after_mins,
       is_shift_enforcement_enabled,
+      weekly_hours_limit,
     });
     return res.status(200).json({ success: true, message: "Shift settings updated successfully." });
   } catch (error) {
@@ -172,7 +176,65 @@ exports.assignRosterShift = async (req, res) => {
     return res.status(200).json({ success: true, message: "Shift assigned successfully." });
   } catch (error) {
     console.error("Error in assignRosterShift controller:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Bulk assign shifts (many staff x many days)
+ */
+exports.bulkAssignRoster = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ success: false, message: "entries must be a non-empty array." });
+    }
+    if (entries.length > 500) {
+      return res.status(400).json({ success: false, message: "Too many entries in one request (max 500)." });
+    }
+
+    const result = await bulkAssignRosterDB(tenantId, entries);
+    return res.status(200).json({ success: true, ...result, message: `Assigned ${result.assigned} shifts.` });
+  } catch (error) {
+    console.error("Error in bulkAssignRoster controller:", error);
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Edit / move a roster assignment
+ */
+exports.updateRosterShift = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { id } = req.params;
+    const { username, shiftId, rosterDate, notes } = req.body;
+
+    await updateRosterShiftDB(tenantId, id, { username, shiftId, rosterDate, notes });
+    return res.status(200).json({ success: true, message: "Roster assignment updated." });
+  } catch (error) {
+    console.error("Error in updateRosterShift controller:", error);
+    return res.status(error.status || 500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Clear roster assignments in a date range (optionally a single staff member)
+ */
+exports.clearRosterRange = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { startDate, endDate, username } = req.body;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: "startDate and endDate are required." });
+    }
+
+    const result = await clearRosterRangeDB(tenantId, startDate, endDate, username || null);
+    return res.status(200).json({ success: true, ...result, message: `Removed ${result.removed} shifts.` });
+  } catch (error) {
+    console.error("Error in clearRosterRange controller:", error);
+    return res.status(error.status || 500).json({ success: false, message: error.message });
   }
 };
 

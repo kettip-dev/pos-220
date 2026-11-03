@@ -135,7 +135,8 @@ exports.getShiftSettingsDB = async (tenantId) => {
         tenant_id,
         shift_grace_before_mins,
         shift_grace_after_mins,
-        is_shift_enforcement_enabled
+        is_shift_enforcement_enabled,
+        weekly_hours_limit
       FROM shift_settings
       WHERE tenant_id = ?
       LIMIT 1;
@@ -150,6 +151,7 @@ exports.getShiftSettingsDB = async (tenantId) => {
       shift_grace_before_mins: 15,
       shift_grace_after_mins: 30,
       is_shift_enforcement_enabled: 1,
+      weekly_hours_limit: 48,
     };
   } catch (error) {
     console.error("Error in getShiftSettingsDB:", error);
@@ -162,23 +164,25 @@ exports.getShiftSettingsDB = async (tenantId) => {
 /**
  * Update tenant shift settings
  */
-exports.updateShiftSettingsDB = async (tenantId, { shift_grace_before_mins, shift_grace_after_mins, is_shift_enforcement_enabled }) => {
+exports.updateShiftSettingsDB = async (tenantId, { shift_grace_before_mins, shift_grace_after_mins, is_shift_enforcement_enabled, weekly_hours_limit }) => {
   const conn = await getMySqlPromiseConnection();
   try {
     const sql = `
       INSERT INTO shift_settings 
-      (tenant_id, shift_grace_before_mins, shift_grace_after_mins, is_shift_enforcement_enabled)
-      VALUES (?, ?, ?, ?)
+      (tenant_id, shift_grace_before_mins, shift_grace_after_mins, is_shift_enforcement_enabled, weekly_hours_limit)
+      VALUES (?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         shift_grace_before_mins = VALUES(shift_grace_before_mins),
         shift_grace_after_mins = VALUES(shift_grace_after_mins),
-        is_shift_enforcement_enabled = VALUES(is_shift_enforcement_enabled);
+        is_shift_enforcement_enabled = VALUES(is_shift_enforcement_enabled),
+        weekly_hours_limit = VALUES(weekly_hours_limit);
     `;
     await conn.query(sql, [
       tenantId,
-      Number(shift_grace_before_mins) || 15,
-      Number(shift_grace_after_mins) || 30,
+      Number.isFinite(Number(shift_grace_before_mins)) ? Number(shift_grace_before_mins) : 15,
+      Number.isFinite(Number(shift_grace_after_mins)) ? Number(shift_grace_after_mins) : 30,
       is_shift_enforcement_enabled !== undefined ? (is_shift_enforcement_enabled ? 1 : 0) : 1,
+      Math.min(Math.max(Number(weekly_hours_limit) || 48, 1), 168),
     ]);
     return true;
   } catch (error) {

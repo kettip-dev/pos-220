@@ -45,12 +45,51 @@ exports.getWeeklyRosterDB = async (tenantId, startDate, endDate) => {
   }
 };
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function rosterError(message, status = 400) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+/**
+ * Ensure every username and shift id belongs to the tenant before writing rosters.
+ */
+async function assertRosterTargets(conn, tenantId, usernames, shiftIds) {
+  const uniqueUsers = [...new Set(usernames)];
+  const uniqueShifts = [...new Set(shiftIds.map(Number))];
+
+  if (uniqueUsers.length > 0) {
+    const [userRows] = await conn.query(
+      `SELECT username FROM users WHERE tenant_id = ? AND username IN (?)`,
+      [tenantId, uniqueUsers]
+    );
+    if (userRows.length !== uniqueUsers.length) {
+      throw rosterError("One or more staff members do not belong to this store.");
+    }
+  }
+
+  if (uniqueShifts.length > 0) {
+    const [shiftRows] = await conn.query(
+      `SELECT id FROM shifts WHERE tenant_id = ? AND id IN (?)`,
+      [tenantId, uniqueShifts]
+    );
+    if (shiftRows.length !== uniqueShifts.length) {
+      throw rosterError("One or more shifts do not belong to this store.");
+    }
+  }
+}
+
 /**
  * Assign a shift to a user on a given date
  */
 exports.assignRosterShiftDB = async (tenantId, username, shiftId, rosterDate, notes = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
+    if (!DATE_RE.test(rosterDate)) throw rosterError("Invalid roster date.");
+    await assertRosterTargets(conn, tenantId, [username], [shiftId]);
+
     const sql = `
       INSERT INTO staff_rosters 
       (tenant_id, username, shift_id, roster_date, notes)
@@ -69,6 +108,117 @@ exports.assignRosterShiftDB = async (tenantId, username, shiftId, rosterDate, no
     return result.insertId || true;
   } catch (error) {
     console.error("Error in assignRosterShiftDB:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Assign many (username, shift, date) entries in one transaction
+ * entries: [{ username, shiftId, rosterDate, notes }]
+ */
+exports.bulkAssignRosterDB = async (tenantId, entries) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    for (const e of entries) {
+      if (!e.username || !e.shiftId || !DATE_RE.test(e.rosterDate || "")) {
+        throw rosterError("Each entry requires username, shiftId and a valid rosterDate.");
+      }
+    }
+    await assertRosterTargets(
+      conn,
+      tenantId,
+      entries.map((e) => e.username),
+      entries.map((e) => e.shiftId)
+    );
+
+    await conn.beginTransaction();
+    for (const e of entries) {
+      await conn.query(
+        `
+        INSERT INTO staff_rosters
+        (tenant_id, username, shift_id, roster_date, notes)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          notes = VALUES(notes);
+      `,
+        [tenantId, e.username, Number(e.shiftId), e.rosterDate, e.notes || null]
+      );
+    }
+    await conn.commit();
+    return { assigned: entries.length };
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    console.error("Error in bulkAssignRosterDB:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Edit or move a roster assignment (change staff, date, shift or notes)
+ */
+exports.updateRosterShiftDB = async (tenantId, rosterId, { username, shiftId, rosterDate, notes }) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [existingRows] = await conn.query(
+      `SELECT id, username, shift_id, DATE_FORMAT(roster_date, '%Y-%m-%d') AS roster_date, notes
+       FROM staff_rosters WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [rosterId, tenantId]
+    );
+    if (existingRows.length === 0) throw rosterError("Roster assignment not found.", 404);
+    const existing = existingRows[0];
+
+    const next = {
+      username: username || existing.username,
+      shiftId: Number(shiftId || existing.shift_id),
+      rosterDate: rosterDate || existing.roster_date,
+      notes: notes !== undefined ? notes || null : existing.notes,
+    };
+    if (!DATE_RE.test(next.rosterDate)) throw rosterError("Invalid roster date.");
+    await assertRosterTargets(conn, tenantId, [next.username], [next.shiftId]);
+
+    try {
+      await conn.query(
+        `UPDATE staff_rosters
+         SET username = ?, shift_id = ?, roster_date = ?, notes = ?
+         WHERE id = ? AND tenant_id = ?`,
+        [next.username, next.shiftId, next.rosterDate, next.notes, rosterId, tenantId]
+      );
+    } catch (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        throw rosterError("This staff member already has that shift on that day.", 409);
+      }
+      throw err;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error in updateRosterShiftDB:", error);
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Remove all roster assignments within a date range (optionally for one staff member)
+ */
+exports.clearRosterRangeDB = async (tenantId, startDate, endDate, username = null) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) throw rosterError("Invalid date range.");
+    const params = [tenantId, startDate, endDate];
+    let sql = `DELETE FROM staff_rosters WHERE tenant_id = ? AND roster_date >= ? AND roster_date <= ?`;
+    if (username) {
+      sql += ` AND username = ?`;
+      params.push(username);
+    }
+    const [result] = await conn.query(sql, params);
+    return { removed: result.affectedRows };
+  } catch (error) {
+    console.error("Error in clearRosterRangeDB:", error);
     throw error;
   } finally {
     conn.release();
@@ -103,12 +253,14 @@ exports.copyWeeklyRosterDB = async (tenantId, fromStartDate, toStartDate) => {
     // 1. Fetch source week rosters (7 days)
     const [sourceRows] = await conn.query(
       `
-      SELECT username, shift_id, roster_date, notes,
-             DATEDIFF(roster_date, ?) AS day_offset
-      FROM staff_rosters
-      WHERE tenant_id = ? 
-        AND roster_date >= ? 
-        AND roster_date < DATE_ADD(?, INTERVAL 7 DAY);
+      SELECT sr.username, sr.shift_id, sr.roster_date, sr.notes,
+             DATEDIFF(sr.roster_date, ?) AS day_offset
+      FROM staff_rosters sr
+      JOIN shifts s ON s.id = sr.shift_id AND s.tenant_id = sr.tenant_id
+      WHERE sr.tenant_id = ? 
+        AND sr.roster_date >= ? 
+        AND sr.roster_date < DATE_ADD(?, INTERVAL 7 DAY)
+        AND s.is_active = 1;
     `,
       [fromStartDate, tenantId, fromStartDate, fromStartDate]
     );
@@ -177,8 +329,8 @@ exports.checkUserShiftEligibilityDB = async (tenantId, username) => {
       return { allowed: true, reason: "enforcement_disabled" };
     }
 
-    const graceBeforeMins = settings.shift_grace_before_mins || 15;
-    const graceAfterMins = settings.shift_grace_after_mins || 30;
+    const graceBeforeMins = settings.shift_grace_before_mins ?? 15;
+    const graceAfterMins = settings.shift_grace_after_mins ?? 30;
 
     // 3. Query potential active shifts: yesterday (if overnight), today, or tomorrow
     const [rosterRows] = await conn.query(
