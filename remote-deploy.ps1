@@ -95,7 +95,12 @@ if ($Action -eq "deploy") {
 
     # Execute remote deployment
     Write-Info "Triggering ./deploy.sh on $RemoteHost..."
-    ssh -t $SSH_TARGET "cd $RemoteDir && chmod +x deploy.sh && ./deploy.sh"
+    # Strip Windows CRLF line endings so shebangs and env files parse on Linux
+    ssh -t $SSH_TARGET "cd $RemoteDir && find . -maxdepth 3 -path ./restropro-saas-frontend-main/node_modules -prune -o \( -name '*.sh' -o -name '.env*' \) -type f -exec sed -i 's/\r$//' {} + && chmod +x deploy.sh && ./deploy.sh"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Remote deploy.sh failed with exit code $LASTEXITCODE."
+        exit $LASTEXITCODE
+    }
 
     Write-Host ""
     Write-Host "==================================================================" -ForegroundColor Green
@@ -108,5 +113,6 @@ if ($Action -eq "deploy") {
     Write-Host "==================================================================" -ForegroundColor Green
 } else {
     Write-Info "Forwarding action '$Action' to remote deploy script..."
-    ssh -t $SSH_TARGET "cd $RemoteDir && ./deploy.sh $Action"
+    ssh -t $SSH_TARGET "cd $RemoteDir && sed -i 's/\r$//' deploy.sh && ./deploy.sh $Action"
+    exit $LASTEXITCODE
 }
