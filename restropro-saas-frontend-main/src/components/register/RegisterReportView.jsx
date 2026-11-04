@@ -1,5 +1,6 @@
 import React from "react";
 import clsx from "clsx";
+import { useTranslation } from "react-i18next";
 import { formatCurrencyAmount } from "../../helpers/RegisterPrintHelper";
 
 const Row = ({ label, value, tone, bold }) => (
@@ -27,6 +28,7 @@ const Card = ({ title, children }) => (
 
 /** On-screen X / Z report. The thermal version is built from the same summary. */
 export default function RegisterReportView({ summary }) {
+  const { t } = useTranslation();
   if (!summary) return null;
   const p = summary.primary_currency;
   const s = summary.secondary_currency;
@@ -42,12 +44,12 @@ export default function RegisterReportView({ summary }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { label: "Net sales", value: fp(sales.net_sales) },
-          { label: "Bills", value: sales.bill_count || 0 },
-          { label: "Average bill", value: fp(sales.average_bill) },
+          { label: t("registers.report.net_sales", "Net sales"), value: fp(sales.net_sales) },
+          { label: t("registers.report.bills", "Bills"), value: sales.bill_count || 0 },
+          { label: t("registers.report.average_bill", "Average bill"), value: fp(sales.average_bill) },
           isZ
-            ? { label: "Over / short", value: fp(variance), tone: variance < 0 ? "bad" : variance > 0 ? "good" : null }
-            : { label: "Expected cash", value: cash.expected_primary === null ? "Hidden (blind close)" : fp(cash.expected_primary) },
+            ? { label: t("registers.report.over_short", "Over / short"), value: fp(variance), tone: variance < 0 ? "bad" : variance > 0 ? "good" : null }
+            : { label: t("registers.report.expected_cash", "Expected cash"), value: cash.expected_primary === null ? t("registers.report.hidden_blind", "Hidden (blind close)") : fp(cash.expected_primary) },
         ].map((tile) => (
           <div key={tile.label} className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{tile.label}</div>
@@ -64,58 +66,58 @@ export default function RegisterReportView({ summary }) {
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
-        <Card title="Sales">
-          <Row label="Gross sales" value={fp(sales.gross_sales)} />
-          <Row label={`Voids (${sales.void_count || 0})`} value={fp(sales.void_total)} tone={sales.void_total ? "bad" : null} />
-          <Row label={`Refunds (${sales.refund_count || 0})`} value={fp(sales.refund_total)} tone={sales.refund_total ? "bad" : null} />
-          <Row label="Net sales" value={fp(sales.net_sales)} bold />
-          {Number(sales.tips_total) > 0 && <Row label="Tips" value={fp(sales.tips_total)} />}
-          {Number(summary.invoices?.discount_total) > 0 && <Row label="Manual discounts" value={fp(summary.invoices.discount_total)} />}
-          {Number(summary.invoices?.tax_total) > 0 && <Row label="Tax collected" value={fp(summary.invoices.tax_total)} />}
+        <Card title={t("registers.report.sales", "Sales")}>
+          <Row label={t("registers.report.gross_sales", "Gross sales")} value={fp(sales.gross_sales)} />
+          <Row label={t("registers.report.voids", "Voids ({{count}})", { count: sales.void_count || 0 })} value={fp(sales.void_total)} tone={sales.void_total ? "bad" : null} />
+          <Row label={t("registers.report.refunds", "Refunds ({{count}})", { count: sales.refund_count || 0 })} value={fp(sales.refund_total)} tone={sales.refund_total ? "bad" : null} />
+          <Row label={t("registers.report.net_sales", "Net sales")} value={fp(sales.net_sales)} bold />
+          {Number(sales.tips_total) > 0 && <Row label={t("registers.report.tips", "Tips")} value={fp(sales.tips_total)} />}
+          {Number(summary.invoices?.discount_total) > 0 && <Row label={t("registers.report.manual_discounts", "Manual discounts")} value={fp(summary.invoices.discount_total)} />}
+          {Number(summary.invoices?.tax_total) > 0 && <Row label={t("registers.report.tax_collected", "Tax collected")} value={fp(summary.invoices.tax_total)} />}
         </Card>
 
-        <Card title="Payments">
-          {(summary.payments || []).length === 0 && <Row label="No payments yet" value="—" />}
+        <Card title={t("registers.report.payments", "Payments")}>
+          {(summary.payments || []).length === 0 && <Row label={t("registers.report.no_payments", "No payments yet")} value="—" />}
           {(summary.payments || []).map((pay) => (
             <Row key={pay.title} label={`${pay.title} (${pay.count})`} value={fp(pay.net)} />
           ))}
         </Card>
 
-        <Card title="Cash drawer">
-          <Row label="Opening float" value={both(cash.opening_float_primary, cash.opening_float_secondary)} />
-          <Row label="Cash sales (net of change)" value={both(cash.cash_sales_primary, cash.cash_sales_secondary)} />
-          {Number(cash.cash_reversals_primary) !== 0 && <Row label="Cash refunds / voids" value={fp(cash.cash_reversals_primary)} tone="bad" />}
-          {(Number(cash.pay_in_primary) || Number(cash.pay_in_secondary)) ? <Row label="Paid in" value={both(cash.pay_in_primary, cash.pay_in_secondary)} /> : null}
-          {(Number(cash.pay_out_primary) || Number(cash.pay_out_secondary)) ? <Row label="Paid out" value={`-${both(cash.pay_out_primary, cash.pay_out_secondary)}`} /> : null}
-          {(Number(cash.drop_primary) || Number(cash.drop_secondary)) ? <Row label="Safe drops" value={`-${both(cash.drop_primary, cash.drop_secondary)}`} /> : null}
-          {(Number(cash.tip_payout_primary) || Number(cash.tip_payout_secondary)) ? <Row label="Tip payouts" value={`-${both(cash.tip_payout_primary, cash.tip_payout_secondary)}`} /> : null}
-          {cash.expected_primary !== null && <Row label="Expected in drawer" value={both(cash.expected_primary, cash.expected_secondary)} bold />}
-          {isZ && <Row label="Counted" value={both(cash.counted_primary, cash.counted_secondary)} />}
-          {isZ && <Row label="Over / short" value={fp(variance)} tone={variance < 0 ? "bad" : variance > 0 ? "good" : null} bold />}
-          <Row label="No-sale drawer opens" value={summary.no_sale_count || 0} />
+        <Card title={t("registers.report.cash_drawer", "Cash drawer")}>
+          <Row label={t("registers.report.opening_float", "Opening float")} value={both(cash.opening_float_primary, cash.opening_float_secondary)} />
+          <Row label={t("registers.report.cash_sales", "Cash sales (net of change)")} value={both(cash.cash_sales_primary, cash.cash_sales_secondary)} />
+          {Number(cash.cash_reversals_primary) !== 0 && <Row label={t("registers.report.cash_reversals", "Cash refunds / voids")} value={fp(cash.cash_reversals_primary)} tone="bad" />}
+          {(Number(cash.pay_in_primary) || Number(cash.pay_in_secondary)) ? <Row label={t("registers.report.paid_in", "Paid in")} value={both(cash.pay_in_primary, cash.pay_in_secondary)} /> : null}
+          {(Number(cash.pay_out_primary) || Number(cash.pay_out_secondary)) ? <Row label={t("registers.report.paid_out", "Paid out")} value={`-${both(cash.pay_out_primary, cash.pay_out_secondary)}`} /> : null}
+          {(Number(cash.drop_primary) || Number(cash.drop_secondary)) ? <Row label={t("registers.report.safe_drops", "Safe drops")} value={`-${both(cash.drop_primary, cash.drop_secondary)}`} /> : null}
+          {(Number(cash.tip_payout_primary) || Number(cash.tip_payout_secondary)) ? <Row label={t("registers.report.tip_payouts", "Tip payouts")} value={`-${both(cash.tip_payout_primary, cash.tip_payout_secondary)}`} /> : null}
+          {cash.expected_primary !== null && <Row label={t("registers.report.expected_drawer", "Expected in drawer")} value={both(cash.expected_primary, cash.expected_secondary)} bold />}
+          {isZ && <Row label={t("registers.report.counted", "Counted")} value={both(cash.counted_primary, cash.counted_secondary)} />}
+          {isZ && <Row label={t("registers.report.over_short", "Over / short")} value={fp(variance)} tone={variance < 0 ? "bad" : variance > 0 ? "good" : null} bold />}
+          <Row label={t("registers.report.no_sale", "No-sale drawer opens")} value={summary.no_sale_count || 0} />
         </Card>
 
-        <Card title="Staff">
+        <Card title={t("registers.report.staff", "Staff")}>
           {(summary.by_cashier || []).map((c) => (
             <Row key={c.cashier} label={`${c.cashier} (${c.count})`} value={fp(Number(c.sales) + Number(c.reversals))} />
           ))}
-          {(summary.tips_by_server || []).map((t) => (
+          {(summary.tips_by_server || []).map((tip) => (
             <Row
-              key={`tip-${t.server}`}
-              label={`Tips · ${t.server}`}
-              value={`${fp(Number(t.cash_tips || 0) + Number(t.non_cash_tips || 0))}${t.paid_out ? ` (paid ${fp(t.paid_out)})` : ""}`}
+              key={`tip-${tip.server}`}
+              label={t("registers.report.tips_server", "Tips · {{server}}", { server: tip.server })}
+              value={`${fp(Number(tip.cash_tips || 0) + Number(tip.non_cash_tips || 0))}${tip.paid_out ? ` ${t("registers.report.tips_paid", "(paid {{amount}})", { amount: fp(tip.paid_out) })}` : ""}`}
             />
           ))}
-          {(summary.by_cashier || []).length === 0 && <Row label="No activity yet" value="—" />}
+          {(summary.by_cashier || []).length === 0 && <Row label={t("registers.report.no_activity", "No activity yet")} value="—" />}
         </Card>
       </div>
 
       {(summary.movements || []).length > 0 && (
-        <Card title="Cash movements">
+        <Card title={t("registers.report.movements", "Cash movements")}>
           {summary.movements.map((m) => (
             <Row
               key={m.id}
-              label={`${new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ${m.type.replace("_", " ")}${m.reason ? ` · ${m.reason}` : ""}${m.staff_username ? ` · ${m.staff_username}` : ""}`}
+              label={`${new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ${t(`registers.report.move_${m.type}`, m.type.replace("_", " ").toLowerCase())}${m.reason ? ` · ${m.reason}` : ""}${m.staff_username ? ` · ${m.staff_username}` : ""}`}
               value={m.type === "NO_SALE" ? "—" : both(m.amount_primary, m.amount_secondary)}
             />
           ))}

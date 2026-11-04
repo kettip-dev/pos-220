@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import clsx from "clsx";
 import { IconCalendarCheck, IconCircleCheck, IconAlertTriangle, IconCashRegister } from "@tabler/icons-react";
 import RegisterModalShell, { ModalButton } from "./RegisterModalShell";
@@ -20,6 +21,7 @@ const Check = ({ ok, title, detail, children }) => (
 
 /** End of trading day: every till closed, unpaid orders settled or carried over, then lock the day. */
 export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
+  const { t } = useTranslation();
   const [checklist, setChecklist] = useState(null);
   const [carryOver, setCarryOver] = useState(false);
   const [summary, setSummary] = useState(null);
@@ -28,7 +30,7 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
   const load = () =>
     getDayCloseChecklist()
       .then((res) => setChecklist(res.data))
-      .catch(() => toast.error("Could not load the day-close checklist."));
+      .catch(() => toast.error(t("registers.dayclose.load_failed", "Could not load the day-close checklist.")));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -43,12 +45,12 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
       setIsBusy(true);
       const res = await closeBusinessDay(carryOver);
       setSummary(res.data?.summary);
-      toast.success(res.data?.message || "Business day closed.");
+      toast.success(res.data?.message || t("registers.dayclose.closed_toast", "Business day closed."));
       onDone?.();
     } catch (error) {
       const data = error?.response?.data;
       if (data?.checklist) setChecklist((prev) => ({ ...prev, ...data.checklist }));
-      toast.error(data?.message || "Could not close the business day.");
+      toast.error(data?.message || t("registers.dayclose.close_failed", "Could not close the business day."));
     } finally {
       setIsBusy(false);
     }
@@ -66,16 +68,16 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
       onClose={onClose}
       size="md"
       icon={<IconCalendarCheck size={22} stroke={iconStroke} />}
-      title={summary ? `Day closed · ${summary.business_date}` : "Close Business Day"}
-      subtitle={checklist?.day ? `Business day ${checklist.day.business_date}, opened by ${checklist.day.opened_by || "—"}` : "End-of-day checklist"}
+      title={summary ? t("registers.dayclose.title_done", "Day closed · {{date}}", { date: summary.business_date }) : t("registers.dayclose.title", "Close Business Day")}
+      subtitle={checklist?.day ? t("registers.dayclose.subtitle_day", "Business day {{date}}, opened by {{user}}", { date: checklist.day.business_date, user: checklist.day.opened_by || "—" }) : t("registers.dayclose.subtitle", "End-of-day checklist")}
       footer={
         summary ? (
-          <ModalButton variant="primary" onClick={onClose}>Done</ModalButton>
+          <ModalButton variant="primary" onClick={onClose}>{t("registers.done", "Done")}</ModalButton>
         ) : (
           <>
-            <ModalButton onClick={onClose}>Cancel</ModalButton>
+            <ModalButton onClick={onClose}>{t("registers.cancel", "Cancel")}</ModalButton>
             <ModalButton variant="primary" onClick={submit} disabled={!canClose || isBusy} className="min-w-[200px]">
-              Close day
+              {t("registers.dayclose.close_day", "Close day")}
             </ModalButton>
           </>
         )
@@ -85,10 +87,10 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             {[
-              ["Net sales", fmt(summary.totals.net_sales)],
-              ["Bills", summary.totals.bill_count],
-              ["Voids + refunds", fmt(Number(summary.totals.void_total) + Number(summary.totals.refund_total))],
-              ["Cash over / short", fmt(summary.totals.variance_base)],
+              [t("registers.report.net_sales", "Net sales"), fmt(summary.totals.net_sales)],
+              [t("registers.report.bills", "Bills"), summary.totals.bill_count],
+              [t("registers.dayclose.voids_refunds", "Voids + refunds"), fmt(Number(summary.totals.void_total) + Number(summary.totals.refund_total))],
+              [t("registers.report.over_short", "Over / short"), fmt(summary.totals.variance_base)],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
@@ -97,7 +99,7 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
             ))}
           </div>
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Payments</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">{t("registers.report.payments", "Payments")}</h4>
             {summary.payments.map((p) => (
               <div key={p.title} className="flex justify-between py-1.5 text-sm">
                 <span className="text-slate-600 dark:text-slate-300">{p.title} ({p.count})</span>
@@ -106,20 +108,20 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
             ))}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {summary.sessions.length} register session(s): Z {summary.sessions.map((s) => `#${s.z_number}`).join(", ") || "—"}.
-            {summary.carried_over_orders.length ? ` ${summary.carried_over_orders.length} unpaid order(s) carried over.` : ""} The owner's day-end report has been sent.
+            {t("registers.dayclose.sessions_line", "{{count}} register session(s): Z {{z}}.", { count: summary.sessions.length, z: summary.sessions.map((s) => `#${s.z_number}`).join(", ") || "—" })}
+            {summary.carried_over_orders.length ? ` ${t("registers.dayclose.carried_line", "{{count}} unpaid order(s) carried over.", { count: summary.carried_over_orders.length })}` : ""} {t("registers.dayclose.owner_sent", "The owner's day-end report has been sent.")}
           </p>
         </div>
       ) : !checklist ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-slate-500">{t("registers.dayclose.loading", "Loading…")}</p>
       ) : !checklist.day ? (
-        <Check ok title="No open business day" detail="The day opens automatically when the first register is opened." />
+        <Check ok title={t("registers.dayclose.no_day", "No open business day")} detail={t("registers.dayclose.no_day_detail", "The day opens automatically when the first register is opened.")} />
       ) : (
         <div className="space-y-3">
           <Check
             ok={openSessions.length === 0}
-            title={openSessions.length === 0 ? "All registers closed" : `${openSessions.length} register(s) still open`}
-            detail={openSessions.length ? "Each till must be counted and closed (Z report) before the day can close." : null}
+            title={openSessions.length === 0 ? t("registers.dayclose.all_closed", "All registers closed") : t("registers.dayclose.still_open", "{{count}} register(s) still open", { count: openSessions.length })}
+            detail={openSessions.length ? t("registers.dayclose.still_open_detail", "Each till must be counted and closed (Z report) before the day can close.") : null}
           >
             {openSessions.map((s) => (
               <div key={s.id} className="mt-2 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -129,19 +131,19 @@ export default function DayCloseModal({ isOpen, onClose, currency, onDone }) {
           </Check>
           <Check
             ok={openOrders.length === 0 && pendingQr === 0}
-            title={openOrders.length === 0 && pendingQr === 0 ? "No unpaid orders" : `${openOrders.length} unpaid order(s)${pendingQr ? `, ${pendingQr} pending QR order(s)` : ""}`}
-            detail={openOrders.length || pendingQr ? "Settle them, or carry them over into the next business day." : null}
+            title={openOrders.length === 0 && pendingQr === 0 ? t("registers.dayclose.no_unpaid", "No unpaid orders") : `${t("registers.dayclose.unpaid", "{{count}} unpaid order(s)", { count: openOrders.length })}${pendingQr ? t("registers.dayclose.unpaid_qr", ", {{count}} pending QR order(s)", { count: pendingQr }) : ""}`}
+            detail={openOrders.length || pendingQr ? t("registers.dayclose.unpaid_detail", "Settle them, or carry them over into the next business day.") : null}
           >
             {openOrders.slice(0, 8).map((o) => (
               <div key={o.id} className="mt-1.5 text-sm text-slate-700 dark:text-slate-200">
                 #{o.token_no || o.id} {o.table_title ? `· ${o.table_title}` : ""} · {new Date(o.date).toLocaleString()}
               </div>
             ))}
-            {openOrders.length > 8 && <div className="mt-1 text-xs text-slate-500">and {openOrders.length - 8} more…</div>}
+            {openOrders.length > 8 && <div className="mt-1 text-xs text-slate-500">{t("registers.dayclose.and_more", "and {{count}} more…", { count: openOrders.length - 8 })}</div>}
             {(openOrders.length > 0 || pendingQr > 0) && (
               <label className="mt-3 flex items-center gap-3 min-h-[42px] cursor-pointer select-none">
                 <input type="checkbox" checked={carryOver} onChange={(e) => setCarryOver(e.target.checked)} className="w-5 h-5 accent-emerald-600" />
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Carry unpaid orders over to the next day</span>
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t("registers.dayclose.carry_over", "Carry unpaid orders over to the next day")}</span>
               </label>
             )}
           </Check>
