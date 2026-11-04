@@ -3,72 +3,44 @@ const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { execFile } = require("child_process");
+const { CS_SOURCE, DLL_NAME } = require("./rawprint-source");
+const { installDir } = require("../paths");
 
 /**
  * Raw printing through the operating system's print spooler. This covers USB
  * printers (and any other printer with an installed driver) by queue name.
- *   - Windows: winspool WritePrinter with the RAW datatype (via PowerShell).
+ *   - Windows: winspool WritePrinter with the RAW datatype (via PowerShell,
+ *     see rawprint-source.js).
  *   - macOS / Linux: CUPS `lp -o raw`.
- * The printer name and file path are passed as environment variables or argv,
- * never interpolated into a shell command.
+ * The printer name, file path and C# source are passed as environment
+ * variables or argv, never interpolated into a shell command.
  */
 
 const WINDOWS_RAW_PRINT_SCRIPT = `
 $ErrorActionPreference = 'Stop'
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public static class RestroRawPrint {
-  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-  public class DOCINFO {
-    [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
-    [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
-    [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;
-  }
-  [DllImport("winspool.drv", EntryPoint = "OpenPrinterW", SetLastError = true, CharSet = CharSet.Unicode)]
-  public static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
-  [DllImport("winspool.drv", SetLastError = true)]
-  public static extern bool ClosePrinter(IntPtr handle);
-  [DllImport("winspool.drv", EntryPoint = "StartDocPrinterW", SetLastError = true, CharSet = CharSet.Unicode)]
-  public static extern bool StartDocPrinter(IntPtr handle, int level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFO info);
-  [DllImport("winspool.drv", SetLastError = true)]
-  public static extern bool EndDocPrinter(IntPtr handle);
-  [DllImport("winspool.drv", SetLastError = true)]
-  public static extern bool StartPagePrinter(IntPtr handle);
-  [DllImport("winspool.drv", SetLastError = true)]
-  public static extern bool EndPagePrinter(IntPtr handle);
-  [DllImport("winspool.drv", SetLastError = true)]
-  public static extern bool WritePrinter(IntPtr handle, byte[] bytes, int count, out int written);
-
-  public static void Send(string printer, byte[] bytes) {
-    IntPtr handle;
-    if (!OpenPrinter(printer, out handle, IntPtr.Zero))
-      throw new Exception("Cannot open printer '" + printer + "' (Win32 error " + Marshal.GetLastWin32Error() + ")");
-    try {
-      DOCINFO info = new DOCINFO();
-      info.pDocName = "Restro POS";
-      info.pDataType = "RAW";
-      if (!StartDocPrinter(handle, 1, info))
-        throw new Exception("StartDocPrinter failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
-      try {
-        StartPagePrinter(handle);
-        int written;
-        if (!WritePrinter(handle, bytes, bytes.Length, out written) || written != bytes.Length)
-          throw new Exception("WritePrinter failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
-        EndPagePrinter(handle);
-      } finally {
-        EndDocPrinter(handle);
-      }
-    } finally {
-      ClosePrinter(handle);
-    }
-  }
+try {
+  if ($env:RESTRO_HELPER_DLL) { Add-Type -Path $env:RESTRO_HELPER_DLL } else { Add-Type -TypeDefinition $env:RESTRO_CS_SOURCE }
+  [RestroRawPrint]::Send($env:RESTRO_PRINTER_NAME, [System.IO.File]::ReadAllBytes($env:RESTRO_PRINT_FILE))
+} catch {
+  # One plain line (e.g. "Cannot open printer ...") instead of PowerShell's error block.
+  [Console]::Error.WriteLine($_.Exception.GetBaseException().Message)
+  exit 1
 }
-"@
-[RestroRawPrint]::Send($env:RESTRO_PRINTER_NAME, [System.IO.File]::ReadAllBytes($env:RESTRO_PRINT_FILE))
 `;
 
 const WINDOWS_LIST_SCRIPT = "Get-CimInstance -ClassName Win32_Printer | ForEach-Object { $_.Name }";
+
+// Prebuilt helper shipped next to the installed exe (Program Files, writable
+// only by Administrators). Loading it skips compiling C# on every USB print.
+let helperDll;
+function prebuiltHelperDll() {
+  if (helperDll === undefined) {
+    const dir = installDir();
+    const candidate = dir ? path.join(dir, DLL_NAME) : null;
+    helperDll = candidate && fs.existsSync(candidate) ? candidate : null;
+  }
+  return helperDll;
+}
 
 function run(file, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -93,7 +65,12 @@ async function sendToSpooler(printerName, buffer) {
   await fs.promises.writeFile(file, buffer);
   try {
     if (process.platform === "win32") {
-      await powershell(WINDOWS_RAW_PRINT_SCRIPT, { RESTRO_PRINTER_NAME: printerName, RESTRO_PRINT_FILE: file });
+      const dll = prebuiltHelperDll();
+      await powershell(WINDOWS_RAW_PRINT_SCRIPT, {
+        RESTRO_PRINTER_NAME: printerName,
+        RESTRO_PRINT_FILE: file,
+        ...(dll ? { RESTRO_HELPER_DLL: dll } : { RESTRO_CS_SOURCE: CS_SOURCE }),
+      });
     } else {
       await run("lp", ["-d", printerName, "-o", "raw", file]);
     }
