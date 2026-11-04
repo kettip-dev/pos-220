@@ -32,6 +32,7 @@ import { rotateStoreTablePin } from "../../controllers/settings.controller";
 import { approveQROrder, cancelQROrder, getQROrders } from "../../controllers/pos.controller";
 import { printTableQRPinSlip } from "../../helpers/QRMenuHelper";
 import { formatTableTitle, formatFloorTitle } from "../../helpers/TableHelper";
+import { getTableOrderTokensLabel } from "../../helpers/TableOrderHelper";
 
 export default function BindoActionDrawer({
   isOpen = true,
@@ -512,7 +513,7 @@ export default function BindoActionDrawer({
                     <div className="flex items-center gap-1.5 min-w-0">
                       <IconReceipt2 size={16} className="text-[#0ea5e9] shrink-0" />
                       <span className="font-extrabold text-xs text-slate-800 dark:text-white truncate">
-                        {t("orders.order", "Order")} #{selectedTable.active_order_token || selectedTable.active_order_id}
+                        {t("orders.order", "Order")} {getTableOrderTokensLabel(selectedTable)}
                       </span>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 shrink-0">
                         {totalItemsCount} {t("tables.items", "items")}
@@ -742,7 +743,7 @@ export default function BindoActionDrawer({
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-extrabold text-slate-800 dark:text-white flex items-center gap-1.5">
                       <IconReceipt2 size={16} className="text-[#0ea5e9]" />
-                      {t("orders.order", "Order")} #{selectedTable.active_order_token || selectedTable.active_order_id}
+                      {t("orders.order", "Order")} {getTableOrderTokensLabel(selectedTable)}
                     </span>
                     {selectedTable.active_order_date && (
                       <span className="text-[11px] text-slate-400 flex items-center gap-1">
