@@ -23,6 +23,7 @@ const {
   clockOutDB,
   getAttendanceReportDB,
   getOpenAttendanceDB,
+  getUpcomingRosterDB,
   updateUserQuickPinDB,
   verifyManagerQuickPinDB,
   updateUserShiftEnforcementDB,
@@ -315,11 +316,22 @@ exports.getAttendanceReport = async (req, res) => {
 exports.getMyAttendance = async (req, res) => {
   try {
     const record = await getOpenAttendanceDB(req.user.tenant_id, req.user.username);
+    // When not clocked in, show the shift they would be clocking in for
+    const upcoming = record ? null : await getUpcomingRosterDB(req.user.tenant_id, req.user.username);
+    const shiftSource = record?.shift_name ? record : upcoming;
     return res.status(200).json({
       success: true,
       isClockedIn: !!record,
       clockInAt: record?.clock_in_at || null,
       status: record?.status || null,
+      shift: shiftSource
+        ? {
+            name: shiftSource.shift_name,
+            startTime: shiftSource.shift_start_time,
+            endTime: shiftSource.shift_end_time,
+            startAt: upcoming?.shift_start_at || null,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Error in getMyAttendance controller:", error);

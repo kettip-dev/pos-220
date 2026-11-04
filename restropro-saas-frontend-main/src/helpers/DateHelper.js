@@ -98,3 +98,40 @@ export function formatElapsedOrderTime(dateVal) {
   const remHours = hours % 24;
   return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
 }
+
+// Khmer day and month names, spelled out because the Intl/moment Khmer data is either
+// missing in some browsers or abbreviates weekdays to a single, ambiguous letter.
+const KM_WEEKDAYS = ["អាទិត្យ", "ច័ន្ទ", "អង្គារ", "ពុធ", "ព្រហស្បតិ៍", "សុក្រ", "សៅរ៍"];
+const KM_MONTHS = ["មករា", "កុម្ភៈ", "មីនា", "មេសា", "ឧសភា", "មិថុនា", "កក្កដា", "សីហា", "កញ្ញា", "តុលា", "វិច្ឆិកា", "ធ្នូ"];
+
+const isKhmer = (lang) => String(lang || "").startsWith("km");
+
+/** "Mon" / "ច័ន្ទ" */
+export function formatWeekday(dateVal, lang) {
+  const d = parseOrderDate(dateVal);
+  if (!d) return "";
+  return isKhmer(lang) ? KM_WEEKDAYS[d.getDay()] : d.toLocaleDateString("en-US", { weekday: "short" });
+}
+
+/** "Nov 4" / "4 វិច្ឆិកា", with the year appended when withYear is set */
+export function formatShortDate(dateVal, lang, withYear = false) {
+  const d = parseOrderDate(dateVal);
+  if (!d) return "";
+  if (isKhmer(lang)) {
+    return `${d.getDate()} ${KM_MONTHS[d.getMonth()]}${withYear ? ` ${d.getFullYear()}` : ""}`;
+  }
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(withYear && { year: "numeric" }) });
+}
+
+/** "08:51 AM" / "08:51 ព្រឹក" */
+export function formatClockTime(dateVal, lang) {
+  const d = parseOrderDate(dateVal);
+  if (!d) return "";
+  if (isKhmer(lang)) {
+    const h = d.getHours();
+    const h12 = String(h % 12 || 12).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
+    return `${h12}:${m} ${h < 12 ? "ព្រឹក" : "ល្ងាច"}`;
+  }
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}

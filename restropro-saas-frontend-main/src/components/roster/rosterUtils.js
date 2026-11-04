@@ -1,5 +1,7 @@
 // Shared date & time math for the staff roster screens.
 
+import { formatShortDate, formatWeekday } from "../../helpers/DateHelper";
+
 export const SHIFT_COLORS = [
   "#3B82F6", // Blue
   "#10B981", // Emerald
@@ -57,9 +59,9 @@ export function getWeekRange(offsetWeeks = 0, locale = "en-US") {
     days.push({
       index: i,
       date: dateStr,
-      dayName: d.toLocaleDateString(locale, { weekday: "short" }),
+      dayName: formatWeekday(d, locale),
       dayNum: d.getDate(),
-      formattedDate: d.toLocaleDateString(locale, { month: "short", day: "numeric" }),
+      formattedDate: formatShortDate(d, locale),
       isToday: dateStr === todayStr,
       isPast: dateStr < todayStr,
       isWeekend: i >= 5,
@@ -69,7 +71,7 @@ export function getWeekRange(offsetWeeks = 0, locale = "en-US") {
   return {
     startDate: formatLocalDate(monday),
     endDate: formatLocalDate(sunday),
-    label: `${monday.toLocaleDateString(locale, { month: "short", day: "numeric" })} – ${sunday.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}`,
+    label: `${formatShortDate(monday, locale)} – ${formatShortDate(sunday, locale, true)}`,
     days,
     monday,
   };

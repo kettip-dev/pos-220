@@ -5,12 +5,15 @@ import { toast } from "react-hot-toast";
 import clsx from "clsx";
 import { clockIn, clockOut } from "../../controllers/shift_roster.controller";
 import { getUserDetailsInLocalStorage } from "../../helpers/UserDetails";
+import { formatClockTime } from "../../helpers/DateHelper";
 
-function formatDuration(fromDate, now) {
+function formatDuration(fromDate, now, t) {
   const mins = Math.max(0, Math.floor((now - fromDate) / 60000));
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const hLabel = t("attendance.h_short", "h");
+  const mLabel = t("attendance.m_short", "m");
+  return h > 0 ? `${h}${hLabel} ${m}${mLabel}` : `${m}${mLabel}`;
 }
 
 /**
@@ -18,7 +21,7 @@ function formatDuration(fromDate, now) {
  * `attendance` is the /shift-roster/attendance/me payload; `onChanged` revalidates it.
  */
 export default function ClockInOutModal({ isOpen, onClose, attendance, onChanged }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const user = getUserDetailsInLocalStorage();
   const [isLoading, setIsLoading] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -27,6 +30,8 @@ export default function ClockInOutModal({ isOpen, onClose, attendance, onChanged
 
   const isClockedIn = !!attendance?.isClockedIn;
   const clockInAt = attendance?.clockInAt ? new Date(attendance.clockInAt) : null;
+  const shift = attendance?.shift;
+  const isLate = isClockedIn && attendance?.status === "late";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -112,18 +117,36 @@ export default function ClockInOutModal({ isOpen, onClose, attendance, onChanged
           {isClockedIn && clockInAt ? (
             <>
               <div className="mt-3 text-3xl font-bold font-mono text-slate-900 dark:text-white">
-                {formatDuration(clockInAt, now)}
+                {formatDuration(clockInAt, now, t)}
               </div>
               <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {t("attendance.since", "Since")}{" "}
-                {clockInAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {t("attendance.since", "Since")} {formatClockTime(clockInAt, i18n.language)}
+                {isLate && (
+                  <span className="ml-1.5 font-semibold text-amber-600 dark:text-amber-400">
+                    · {t("attendance.status_late", "Late")}
+                  </span>
+                )}
               </div>
             </>
           ) : (
             <div className="mt-3 text-3xl font-bold font-mono text-slate-900 dark:text-white">
-              {new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {formatClockTime(now, i18n.language)}
             </div>
           )}
+
+          {/* The rostered shift this clock-in counts against */}
+          <div className="mt-4 w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-left">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              {isClockedIn ? t("attendance.current_shift", "Shift") : t("attendance.next_shift", "Next shift")}
+            </span>
+            {shift ? (
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                {shift.name} <span className="font-mono font-medium text-slate-500">{shift.startTime}–{shift.endTime}</span>
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-slate-400 italic">{t("attendance.no_shift_scheduled", "Not on the roster")}</span>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
