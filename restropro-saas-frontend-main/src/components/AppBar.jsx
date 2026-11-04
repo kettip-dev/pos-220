@@ -234,6 +234,14 @@ export default function AppBar() {
       features: [],
     },
     {
+      title: t("navbar.user_guide", "User Guide"),
+      description: "",
+      icon: <IconBook stroke={iconStroke} />,
+      link: "/dashboard/user-guide",
+      scopes: [],
+      features: [],
+    },
+    {
       title: t("appbar.support"),
       description: "",
       icon: <IconLifebuoy stroke={iconStroke} />,

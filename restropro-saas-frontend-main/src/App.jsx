@@ -34,6 +34,7 @@ import RegistersSettingsPage from "./views/SettingsViews/RegistersSettingsPage";
 import LoyaltySettingsPage from "./views/SettingsViews/LoyaltySettingsPage";
 import DevicesPage from "./views/SettingsViews/DevicesPage";
 import ContactSupport from "./views/SettingsViews/ContactSupportPage";
+import UserGuidePage from "./views/UserGuidePage";
 import CategoriesPage from "./views/SettingsViews/CategoriesPage";
 import MenuItemViewPage from "./views/SettingsViews/MenuItemViewPage";
 import { NavbarContext } from "./contexts/NavbarContext";
@@ -442,6 +443,7 @@ export default function App() {
 
             <Route path="devices" element={<DevicesPage />} />
             <Route path="contact-support" element={<ContactSupport />} />
+            <Route path="user-guide" element={<UserGuidePage />} />
             <Route path="language" element={<LanguagePage />} />
 
             <Route
