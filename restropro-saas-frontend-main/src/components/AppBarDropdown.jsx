@@ -11,6 +11,7 @@ import {
   IconDevices,
   IconLanguage,
   IconLifebuoy,
+  IconBook,
   IconLogout,
   IconUser,
   IconSun,
@@ -168,6 +169,11 @@ export default function AppBarDropdown({ isCollapsed = false, className = "", al
                 label: t("appbar.language"),
                 icon: <IconLanguage stroke={iconStroke} size={18} className="text-gray-500 dark:text-gray-400 group-hover:text-[#2CA01C] transition-colors shrink-0" />,
                 to: "/dashboard/language"
+              },
+              {
+                label: t("navbar.user_guide", "User Guide"),
+                icon: <IconBook stroke={iconStroke} size={18} className="text-gray-500 dark:text-gray-400 group-hover:text-[#2CA01C] transition-colors shrink-0" />,
+                to: "/dashboard/user-guide"
               },
               {
                 label: t("appbar.support"),

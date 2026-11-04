@@ -1742,7 +1742,8 @@
     "register": "Cash Register",
     "receipts_short": "Receipts",
     "customers_short": "Customers",
-    "clock_short": "Clock"
+    "clock_short": "Clock",
+    "user_guide": "User Guide"
   },
   "pos_menu": {
     "not_found_title": "Bummer!",
@@ -4817,5 +4818,15 @@
       "and_more": "and {{count}} more…",
       "carry_over": "Carry unpaid orders over to the next day"
     }
+  },
+  "user_guide": {
+    "title": "User Guide",
+    "subtitle": "Step-by-step help for setting up and running your POS.",
+    "getting_started": "Getting Started",
+    "pos_guide": "POS Guide",
+    "search": "Search the guide...",
+    "contents": "Contents",
+    "no_results": "No sections match your search.",
+    "clear_search": "Clear search"
   }
 }

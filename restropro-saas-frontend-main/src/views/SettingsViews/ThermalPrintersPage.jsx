@@ -30,6 +30,14 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useKitchenStations } from "../../controllers/kitchen_stations.controller";
 import useConfirm from "../../hooks/useConfirm";
+import { Link } from "react-router-dom";
+import { mutate as globalMutate } from "swr";
+import { usePrintSettings, savePrintSettings } from "../../controllers/settings.controller";
+
+const PRINT_MODE_LABELS = {
+  browser: "Browser Print",
+  direct_escpos: "Android (RawBT)",
+};
 
 const fetcher = (url) => ApiClient.get(url).then((res) => res.data);
 
@@ -82,6 +90,39 @@ export default function ThermalPrintersPage() {
 
   // Fetch kitchen stations for routing mapping
   const { data: stations = [] } = useKitchenStations();
+
+  // These printers are only used when Print Settings → Printing Mode is "Direct Network".
+  const { data: printSettings, APIURL: printSettingsUrl } = usePrintSettings();
+  const printMode = printSettings?.printMode || "browser";
+  const isPrintersInUse = printMode === "direct_tcp";
+  const [isSwitchingMode, setIsSwitchingMode] = useState(false);
+
+  const handleUseThesePrinters = async () => {
+    if (!printSettings) return;
+    setIsSwitchingMode(true);
+    try {
+      const s = printSettings;
+      await savePrintSettings(
+        s.pageFormat ?? "80",
+        s.header ?? "",
+        s.footer ?? "",
+        s.showNotes ?? true,
+        s.isEnablePrint ?? true,
+        s.showStoreDetails ?? true,
+        s.showCustomerDetails ?? true,
+        s.printToken ?? false,
+        "direct_tcp",
+        s.autoCut ?? true,
+        s.cashDrawerKick ?? true
+      );
+      await globalMutate(printSettingsUrl);
+      toast.success("Printing Mode switched to Direct Network. Receipts and KOT now use these printers.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to switch printing mode.");
+    } finally {
+      setIsSwitchingMode(false);
+    }
+  };
 
   // Modal & form states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -345,6 +386,31 @@ export default function ThermalPrintersPage() {
           <span>Add Printer</span>
         </button>
       </div>
+
+      {/* Not-in-use warning: printers here are ignored unless Printing Mode = Direct Network */}
+      {printSettings && !isPrintersInUse && (
+        <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20 flex flex-col md:flex-row md:items-center gap-3">
+          <IconAlertCircle className="text-amber-600 dark:text-amber-400 shrink-0" size={20} />
+          <div className="flex-1 text-xs text-gray-700 dark:text-gray-300 space-y-1">
+            <p className="font-semibold text-amber-900 dark:text-amber-300">
+              These printers are not being used
+            </p>
+            <p className="leading-relaxed">
+              Printing Mode in <Link to="/dashboard/settings/print-settings" className="underline font-medium">Print Settings</Link> is
+              set to <strong>{PRINT_MODE_LABELS[printMode] || printMode}</strong>, so receipts and kitchen tickets ignore the
+              printers below. Switch to <strong>Direct Network</strong> to print silently to them.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleUseThesePrinters}
+            disabled={isSwitchingMode}
+            className="h-[42px] px-4 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-medium text-sm shrink-0 transition active:scale-95"
+          >
+            {isSwitchingMode ? "Switching..." : "Use these printers"}
+          </button>
+        </div>
+      )}
 
       {/* Info Banner */}
       <div className="p-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 dark:border-emerald-900/30 dark:bg-emerald-950/10 flex items-start gap-3">
