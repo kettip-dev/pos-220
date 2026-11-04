@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { IconAlertTriangle, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconInfoCircle, IconX } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { useTranslation } from "react-i18next";
 
@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
  * @param {function} [onReasonChange] - Called with the new reason text as it's typed
  * @param {string} [reasonLabel] - Label shown above the reason textarea
  * @param {string} [reasonPlaceholder] - Placeholder text for the reason textarea
+ * @param {"danger"|"primary"} [tone="danger"] - "primary" renders a neutral (green) confirm for non-destructive actions
  */
 export default function DeleteModal({
   isOpen,
@@ -38,8 +39,10 @@ export default function DeleteModal({
   onReasonChange,
   reasonLabel,
   reasonPlaceholder,
+  tone = "danger",
 }) {
   const { t } = useTranslation();
+  const isPrimary = tone === "primary";
   const confirmDisabled = isLoading || (requireReason && !reason.trim());
 
   // Close modal on Escape key press
@@ -79,9 +82,15 @@ export default function DeleteModal({
         </button>
 
         <div className="flex items-start gap-4 mb-3">
-          <div className="w-11 h-11 rounded-2xl bg-red-50 dark:bg-red-950/50 flex items-center justify-center shrink-0 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400">
-            <IconAlertTriangle stroke={iconStroke} size={24} />
-          </div>
+          {isPrimary ? (
+            <div className="w-11 h-11 rounded-2xl bg-restro-green-light flex items-center justify-center shrink-0 border border-restro-border-green text-restro-green">
+              <IconInfoCircle stroke={iconStroke} size={24} />
+            </div>
+          ) : (
+            <div className="w-11 h-11 rounded-2xl bg-red-50 dark:bg-red-950/50 flex items-center justify-center shrink-0 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400">
+              <IconAlertTriangle stroke={iconStroke} size={24} />
+            </div>
+          )}
           <div className="pr-6">
             <h3 className="font-bold text-lg text-gray-900 dark:text-white leading-snug">
               {title || t("common.delete_title", "Delete Item")}
@@ -124,7 +133,7 @@ export default function DeleteModal({
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-medium text-restro-text bg-restro-card-bg hover:bg-restro-button-hover transition active:scale-95 disabled:opacity-50"
+            className="rounded-xl border border-restro-border-green px-4 py-2.5 text-sm font-medium text-restro-text bg-restro-card-bg hover:bg-restro-button-hover transition active:scale-95 disabled:opacity-50 min-h-[42px]"
           >
             {cancelText || t("common.cancel", "Cancel")}
           </button>
@@ -132,12 +141,16 @@ export default function DeleteModal({
             type="button"
             onClick={onConfirm}
             disabled={confirmDisabled}
-            className="rounded-xl border border-red-500 dark:border-red-700 px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 active:scale-95 transition shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[100px]"
+            className={
+              isPrimary
+                ? "rounded-xl border border-restro-green px-5 py-2.5 text-sm font-semibold text-white bg-restro-green hover:bg-restro-green-button-hover active:scale-95 transition shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[100px] min-h-[42px]"
+                : "rounded-xl border border-red-500 dark:border-red-700 px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 active:scale-95 transition shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[100px] min-h-[42px]"
+            }
           >
             {isLoading ? (
               <span className="loading loading-spinner loading-xs"></span>
             ) : (
-              confirmText || t("common.yes_delete", "Yes, Delete!")
+              confirmText || (isPrimary ? t("common.confirm", "Confirm") : t("common.yes_delete", "Yes, Delete!"))
             )}
           </button>
         </div>

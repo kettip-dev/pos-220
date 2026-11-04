@@ -21,9 +21,11 @@ import {
 } from "../controllers/inventory.controller";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import useConfirm from "../hooks/useConfirm";
 
 export default function AddStockTransferPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const navigate = useNavigate();
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -140,8 +142,11 @@ export default function AddStockTransferPage() {
 
     if (submitStatus === "in_transit") {
       const destBranchName = branches.find((b) => String(b.id) === String(toTenantId))?.name || "destination branch";
-      const confirmMsg = `Dispatch this transfer to "${destBranchName}"? Items will be deducted from your branch inventory immediately.`;
-      if (!window.confirm(confirmMsg)) return;
+      const confirmMsg = t("stock_transfers.confirm_dispatch", {
+        branch: destBranchName,
+        defaultValue: 'Dispatch this transfer to "{{branch}}"? Items will be deducted from your branch inventory immediately.',
+      });
+      if (!(await confirm({ title: t("stock_transfers.dispatch_title", "Dispatch Transfer"), description: confirmMsg, confirmText: t("stock_transfers.dispatch_action", "Dispatch"), tone: "primary" }))) return;
     }
 
     setIsSubmitting(true);
@@ -494,6 +499,7 @@ export default function AddStockTransferPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </Page>
   );
 }

@@ -64,11 +64,13 @@ import {
   downloadRosterCsv,
   timeToMinutes,
 } from "../components/roster/rosterUtils";
+import useConfirm from "../hooks/useConfirm";
 
 const ERASER = "eraser";
 
 export default function RosterShiftsPage() {
   const { t, i18n } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const locale = i18n.language?.startsWith("km") ? "km-KH" : "en-US";
   const [activeTab, setActiveTab] = useState("roster"); // 'roster' | 'shifts' | 'settings'
   const [weekOffset, setWeekOffset] = useState(0);
@@ -248,7 +250,7 @@ export default function RosterShiftsPage() {
   const handleCopyPreviousWeek = async () => {
     const prevMonday = new Date(weekInfo.monday);
     prevMonday.setDate(prevMonday.getDate() - 7);
-    if (!window.confirm(t("shift_roster.confirm_copy_week", "Copy all shift assignments from the previous week into this week?"))) return;
+    if (!(await confirm({ title: t("shift_roster.copy_week_title", "Copy Previous Week"), description: t("shift_roster.confirm_copy_week", "Copy all shift assignments from the previous week into this week?"), confirmText: t("shift_roster.copy_action", "Copy"), tone: "primary" }))) return;
     try {
       const res = await copyWeeklyRoster({ fromStartDate: formatLocalDate(prevMonday), toStartDate: weekInfo.startDate });
       if (res.data?.copied === 0) toast(t("shift_roster.nothing_to_copy", "Previous week has no shifts to copy."));
@@ -263,7 +265,7 @@ export default function RosterShiftsPage() {
     const msg = username
       ? t("shift_roster.confirm_clear_staff_week", "Remove all of {{name}}'s shifts for this week?", { name: staffName })
       : t("shift_roster.confirm_clear_week", "Remove ALL shifts for this week? This cannot be undone.");
-    if (!window.confirm(msg)) return;
+    if (!(await confirm({ title: t("shift_roster.clear_shifts_title", "Clear Shifts"), description: msg, confirmText: t("common.remove", "Remove") }))) return;
     try {
       const res = await clearRosterRange({ startDate: weekInfo.startDate, endDate: weekInfo.endDate, username });
       toast.success(t("shift_roster.shifts_removed_count", "Removed {{count}} shifts", { count: res.data?.removed ?? 0 }));
@@ -280,7 +282,7 @@ export default function RosterShiftsPage() {
 
   // ---------- Templates tab actions ----------
   const handleDeleteShift = async (id) => {
-    if (!window.confirm(t("shift_roster.confirm_delete_shift", "Are you sure you want to delete this shift template?"))) return;
+    if (!(await confirm({ title: t("shift_roster.delete_shift_title", "Delete Shift"), description: t("shift_roster.confirm_delete_shift", "Are you sure you want to delete this shift template?") }))) return;
     try {
       await deleteShift(id);
       toast.success(t("shift_roster.shift_deleted", "Shift deleted"));
@@ -873,6 +875,7 @@ export default function RosterShiftsPage() {
           setShiftModal({ open: true, shift: null });
         }}
       />
+      <ConfirmDialog />
     </Page>
   );
 }

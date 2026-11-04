@@ -42,9 +42,11 @@ import BindoActionDrawer from "../components/tables/BindoActionDrawer";
 import { getTableBindoStatus } from "../components/tables/BindoTableNode";
 import { generateDuplicateTableTitle } from "../helpers/TableHelper";
 import TableGridView from "../components/tables/TableGridView";
+import useConfirm from "../hooks/useConfirm";
 
 export default function TablesPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const navigate = useNavigate();
   const user = getUserDetailsInLocalStorage();
   const { socket, isSocketConnected } = useContext(SocketContext);
@@ -448,9 +450,11 @@ export default function TablesPage() {
   };
 
   const handleTableDelete = async (table) => {
-    const isConfirm = window.confirm(
-      t("table_settings.are_you_sure", "Are you sure you want to delete this table?")
-    );
+    const isConfirm = await confirm({
+      title: t("table_settings.delete_table", "Delete Table"),
+      description: t("table_settings.are_you_sure", "Are you sure you want to delete this table?"),
+      itemName: table.table_title,
+    });
     if (!isConfirm) return;
 
     try {
@@ -488,9 +492,11 @@ export default function TablesPage() {
   };
 
   const handleFloorPlanDelete = async () => {
-    const isConfirm = window.confirm(
-      t("tables.confirm_delete_floor_plan", "Are you sure you want to remove the floor plan image for this floor?")
-    );
+    const isConfirm = await confirm({
+      title: t("tables.remove_floor_plan", "Remove Floor Plan"),
+      description: t("tables.confirm_delete_floor_plan", "Are you sure you want to remove the floor plan image for this floor?"),
+      confirmText: t("common.remove", "Remove"),
+    });
     if (!isConfirm) return;
 
     try {
@@ -612,9 +618,14 @@ export default function TablesPage() {
   // Item Void / Cancellation Handler
   const handleVoidOrderItem = async (item) => {
     const itemName = item.item_title || item.title || "Item";
-    const isConfirmed = window.confirm(
-      t("orders.confirm_void_item", `Are you sure you want to void / remove "${itemName}" from this order?`)
-    );
+    const isConfirmed = await confirm({
+      title: t("orders.void_item", "Void / Cancel item"),
+      description: t("orders.confirm_void_item", {
+        name: itemName,
+        defaultValue: 'Are you sure you want to void / remove "{{name}}" from this order?',
+      }),
+      confirmText: t("orders.yes_void", "Yes, Void"),
+    });
     if (!isConfirmed) return;
 
     try {
@@ -622,7 +633,7 @@ export default function TablesPage() {
       const res = await updateKitchenOrderItemStatus(item.id, "cancelled");
       toast.dismiss();
       if (res?.status === 200) {
-        toast.success(t("orders.item_voided_successfully", `Voided ${itemName}`));
+        toast.success(t("orders.item_voided_successfully", { name: itemName, defaultValue: "Voided {{name}}" }));
         await mutate();
         if (selectedTable?.active_order_id) {
           const updatedSummary = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
@@ -791,11 +802,13 @@ export default function TablesPage() {
       <BindoTopBar
         zones={zones}
         currentZone={currentFloor}
-        onSelectZone={(zone) => {
+        onSelectZone={async (zone) => {
           if (isEditMode) {
-            const confirmChange = window.confirm(
-              t("tables.switch_floor_warning", "You have unsaved changes. Switch floor anyway?")
-            );
+            const confirmChange = await confirm({
+              title: t("tables.unsaved_changes", "Unsaved Changes"),
+              description: t("tables.switch_floor_warning", "You have unsaved changes. Switch floor anyway?"),
+              confirmText: t("tables.switch_floor", "Switch Floor"),
+            });
             if (!confirmChange) return;
           }
           setCurrentFloor(zone);
@@ -814,10 +827,12 @@ export default function TablesPage() {
         isDrawingWall={isDrawingWall}
         onToggleDrawingWall={() => setIsDrawingWall((prev) => !prev)}
         hasWalls={Array.isArray(floorSettings.walls) && floorSettings.walls.length > 0}
-        onClearWalls={() => {
-          const confirmClear = window.confirm(
-            t("tables.confirm_clear_walls", "Are you sure you want to clear all walls on this floor?")
-          );
+        onClearWalls={async () => {
+          const confirmClear = await confirm({
+            title: t("tables.clear_walls", "Clear Walls"),
+            description: t("tables.confirm_clear_walls", "Are you sure you want to clear all walls on this floor?"),
+            confirmText: t("tables.clear_walls", "Clear Walls"),
+          });
           if (confirmClear) {
             setFloorSettings((prev) => ({ ...prev, walls: [] }));
           }
@@ -1208,6 +1223,9 @@ export default function TablesPage() {
           onOpenSplitCheck={handleSplitItemsBack}
         />
       )}
+
+      {/* In-app confirmation dialog (replaces native window.confirm) */}
+      <ConfirmDialog />
     </Page>
   );
 }

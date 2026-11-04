@@ -18,9 +18,11 @@ import {
 } from "../controllers/inventory.controller";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import useConfirm from "../hooks/useConfirm";
 
 export default function AddStockAdjustmentPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const navigate = useNavigate();
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -157,7 +159,7 @@ export default function AddStockAdjustmentPage() {
         "stock_adjustments.confirm_complete",
         "Are you sure you want to complete this adjustment? This will immediately update your inventory stock."
       );
-      if (!window.confirm(confirmMsg)) return;
+      if (!(await confirm({ title: t("stock_adjustments.complete_title", "Complete Adjustment"), description: confirmMsg, confirmText: t("stock_adjustments.complete_action", "Complete"), tone: "primary" }))) return;
     }
 
     setIsSubmitting(true);
@@ -533,6 +535,7 @@ export default function AddStockAdjustmentPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </Page>
   );
 }

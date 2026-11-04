@@ -28,6 +28,7 @@ import useSWR from "swr";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useKitchenStations } from "../../controllers/kitchen_stations.controller";
+import useConfirm from "../../hooks/useConfirm";
 
 const fetcher = (url) => ApiClient.get(url).then((res) => res.data);
 
@@ -60,6 +61,7 @@ function formatTime(value) {
 
 export default function ThermalPrintersPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
 
   // Fetch thermal printer configs
   const {
@@ -240,7 +242,7 @@ export default function ThermalPrintersPage() {
   };
 
   const handleRegenerateToken = async (agent) => {
-    if (!window.confirm(`Regenerate the token for "${agent.name}"? The agent will disconnect until you run it with the new token.`)) {
+    if (!(await confirm({ title: t("settings.regenerate_token_title", "Regenerate Token"), description: t("settings.confirm_regenerate_token", { name: agent.name, defaultValue: 'Regenerate the token for "{{name}}"? The agent will disconnect until you run it with the new token.' }), confirmText: t("settings.regenerate_action", "Regenerate") }))) {
       return;
     }
     try {
@@ -982,6 +984,7 @@ export default function ThermalPrintersPage() {
         title="Delete Printer"
         description="Are you sure you want to remove this printer? Station routing rules associated with this printer will be unassigned."
       />
+      <ConfirmDialog />
     </Page>
   );
 }

@@ -30,6 +30,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import clsx from "clsx";
+import useConfirm from "../hooks/useConfirm";
 
 const REASON_COLORS = {
   physical_count: "bg-blue-50 text-blue-700 border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60",
@@ -43,6 +44,7 @@ const REASON_COLORS = {
 
 export default function StockAdjustmentsListPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const user = getUserDetailsInLocalStorage();
 
   const [page, setPage] = useState(1);
@@ -107,7 +109,7 @@ export default function StockAdjustmentsListPage() {
 
   // Complete draft
   const handleCompleteDraft = async (id, refNo) => {
-    if (!window.confirm(t("stock_adjustments.confirm_complete", "Are you sure you want to complete this adjustment? This will immediately update your inventory stock."))) {
+    if (!(await confirm({ title: t("stock_adjustments.complete_title", "Complete Adjustment"), description: t("stock_adjustments.confirm_complete", "Are you sure you want to complete this adjustment? This will immediately update your inventory stock."), confirmText: t("stock_adjustments.complete_action", "Complete"), tone: "primary" }))) {
       return;
     }
     const toastId = toast.loading(t("toast.please_wait", "Please wait..."));
@@ -123,7 +125,7 @@ export default function StockAdjustmentsListPage() {
 
   // Delete draft
   const handleDeleteDraft = async (id) => {
-    if (!window.confirm(t("stock_adjustments.confirm_delete", "Are you sure you want to delete this draft adjustment?"))) {
+    if (!(await confirm({ title: t("stock_adjustments.delete_title", "Delete Draft"), description: t("stock_adjustments.confirm_delete", "Are you sure you want to delete this draft adjustment?") }))) {
       return;
     }
     const toastId = toast.loading(t("toast.please_wait", "Please wait..."));
@@ -719,6 +721,7 @@ export default function StockAdjustmentsListPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </Page>
   );
 }

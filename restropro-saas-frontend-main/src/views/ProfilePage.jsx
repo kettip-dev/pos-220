@@ -30,9 +30,11 @@ import { getImageURL } from "../helpers/ImageHelper";
 import AvatarImg from "../assets/avatar.svg";
 import toast from "react-hot-toast";
 import clsx from "clsx";
+import useConfirm from "../hooks/useConfirm";
 
 export default function ProfilePage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const { theme } = useTheme();
   const fileInputRef = useRef(null);
 
@@ -170,7 +172,7 @@ export default function ProfilePage() {
 
   // Handle removing photo
   const handlePhotoRemove = async () => {
-    const isConfirm = window.confirm("Are you sure you want to remove your custom profile photo?");
+    const isConfirm = await confirm({ title: t("profile.remove_photo_title", "Remove Photo"), description: t("profile.confirm_remove_photo", "Are you sure you want to remove your custom profile photo?"), confirmText: t("common.remove", "Remove") });
     if (!isConfirm) return;
 
     try {
@@ -683,6 +685,7 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </Page>
   );
 }

@@ -38,6 +38,7 @@ import { getWidget } from "../widgets/registry";
 import { TEMPLATES, buildTemplate, DEFAULT_TEMPLATE_KEY } from "../widgets/templates";
 import { BREAKPOINTS, COLS } from "../widgets/types";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
+import useConfirm from "../hooks/useConfirm";
 
 // Touch-first launchers shown under the greeting. Scopes mirror the
 // ScopeProtectedRoute guards in App.jsx so tiles never lead to a 403.
@@ -67,6 +68,7 @@ const newId = () => `w_${Date.now().toString(36)}_${(++_idCounter).toString(36)}
  */
 export default function DashboardPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
 
   const dashData = useDashboardData();
   const seed = useCallback(() => buildTemplate(DEFAULT_TEMPLATE_KEY), []);
@@ -205,11 +207,11 @@ export default function DashboardPage() {
   }, []);
 
   const resetDashboard = useCallback(async () => {
-    if (!confirm("Reset to the default dashboard? Your customizations will be lost.")) return;
+    if (!(await confirm({ title: t("dashboard.reset_title", "Reset Dashboard"), description: t("dashboard.confirm_reset", "Reset to the default dashboard? Your customizations will be lost."), confirmText: t("dashboard.reset_action", "Reset") }))) return;
     await layoutHook.resetLayout();
     layoutHook.updateLayout(buildTemplate(DEFAULT_TEMPLATE_KEY), { immediate: true });
     toast.success("Dashboard reset");
-  }, [layoutHook]);
+  }, [layoutHook, confirm, t]);
 
   // ─── Keyboard shortcuts ──────────────────────────────────────
   useEffect(() => {
@@ -441,6 +443,7 @@ export default function DashboardPage() {
         onApply={applyTemplate}
         onSkip={skipOnboarding}
       />
+      <ConfirmDialog />
     </Page>
   );
 }

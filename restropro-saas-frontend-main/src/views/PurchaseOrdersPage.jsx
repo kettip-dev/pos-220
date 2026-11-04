@@ -42,9 +42,11 @@ import toast from "react-hot-toast";
 import clsx from "clsx";
 import moment from "moment";
 import { Link } from "react-router-dom";
+import useConfirm from "../hooks/useConfirm";
 
 export default function PurchaseOrdersPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const { theme } = useTheme();
   const location = useLocation();
 
@@ -586,7 +588,7 @@ export default function PurchaseOrdersPage() {
   };
 
   const handleCancelOrder = async (po) => {
-    if (!window.confirm(t("purchase_orders.confirm_cancel", "Are you sure you want to cancel this order?"))) {
+    if (!(await confirm({ title: t("purchase_orders.cancel_title", "Cancel Purchase Order"), description: t("purchase_orders.confirm_cancel", "Are you sure you want to cancel this order?"), confirmText: t("purchase_orders.cancel_action", "Yes, Cancel Order"), cancelText: t("common.keep_it", "No, keep it") }))) {
       return;
     }
     try {
@@ -2011,6 +2013,7 @@ export default function PurchaseOrdersPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </Page>
   );
 }

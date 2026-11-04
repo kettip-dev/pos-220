@@ -32,9 +32,11 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import clsx from "clsx";
+import useConfirm from "../hooks/useConfirm";
 
 export default function StockTransfersListPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const user = getUserDetailsInLocalStorage();
 
   const [page, setPage] = useState(1);
@@ -136,7 +138,7 @@ export default function StockTransfersListPage() {
 
   // Cancel transfer
   const handleCancelTransfer = async (id, refNo) => {
-    if (!window.confirm(`Are you sure you want to cancel transfer ${refNo}? Any dispatched stock will be returned to the sending branch.`)) {
+    if (!(await confirm({ title: t("stock_transfers.cancel_title", "Cancel Transfer"), description: t("stock_transfers.confirm_cancel", { ref: refNo, defaultValue: "Are you sure you want to cancel transfer {{ref}}? Any dispatched stock will be returned to the sending branch." }), confirmText: t("stock_transfers.cancel_action", "Yes, Cancel Transfer"), cancelText: t("common.keep_it", "No, keep it") }))) {
       return;
     }
     const toastId = toast.loading(t("toast.please_wait", "Please wait..."));
@@ -863,6 +865,7 @@ export default function StockTransfersListPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </Page>
   );
 }

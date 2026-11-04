@@ -844,7 +844,9 @@
     "active": "Active",
     "business_name": "Business Name",
     "permissions": "Permissions",
-    "all_permissions": "All Permissions"
+    "all_permissions": "All Permissions",
+    "remove_photo_title": "Remove Photo",
+    "confirm_remove_photo": "Are you sure you want to remove your custom profile photo?"
   },
   "print_token": {
     "token_no": "Token No."
@@ -988,7 +990,10 @@
     "sort_oldest": "Oldest first",
     "sort_newest": "Newest first",
     "more_actions": "More",
-    "elapsed_time": "Time since order"
+    "elapsed_time": "Time since order",
+    "confirm_void_item": "Are you sure you want to void / remove \"{{name}}\" from this order?",
+    "yes_void": "Yes, Void",
+    "item_voided_successfully": "Voided {{name}}"
   },
   "no_access": {
     "title": "Oops! You don't have access to this area! Relogin to check again.",
@@ -1448,7 +1453,10 @@
     "editing_title": "Editing your dashboard",
     "editing_hint": "Drag a widget by its header to move it, or drag its corner to resize.",
     "saving": "Saving…",
-    "unsaved": "Unsaved changes"
+    "unsaved": "Unsaved changes",
+    "reset_title": "Reset Dashboard",
+    "confirm_reset": "Reset to the default dashboard? Your customizations will be lost.",
+    "reset_action": "Reset"
   },
   "customers": {
     "title": "Customers",
@@ -1782,7 +1790,11 @@
     "billing_history": "ប្រវត្តិនៃការបង់ប្រាក់",
     "current_plan": "កញ្ចប់សេវាកម្មបច្ចុប្បន្ន",
     "payment_method": "វិធីសាស្ត្រទូទាត់",
-    "invoices": "វិក្កយបត្រជាវ"
+    "invoices": "វិក្កយបត្រជាវ",
+    "cancel_title": "Cancel Subscription",
+    "cancel_action": "Yes, Cancel Plan",
+    "keep_plan": "Keep Plan",
+    "cancel_confirm_paid": "Do you want to cancel this plan? You’ll retain access until {{date}}, after which your subscription will end and you won't be charged further."
   },
   "settings": {
     "promotions_marketing_title": "Promotions & Marketing",
@@ -1913,7 +1925,12 @@
     "desc_table_assignments": "Assign waitstaff and servers to designated dining sections or specific tables.",
     "desc_menu_items": "Organize categories, food items, price list, variant options, and item availability.",
     "desc_tax_setup": "Configure GST, VAT, service taxes, and select inclusive or exclusive tax modes.",
-    "desc_payment_types": "Enable Cash, Credit/Debit Card, UPI, online payment gateways, and custom payment options."
+    "desc_payment_types": "Enable Cash, Credit/Debit Card, UPI, online payment gateways, and custom payment options.",
+    "remove_logo_title": "Remove Logo",
+    "confirm_delete_logo": "Are you sure you want to remove the store logo?",
+    "regenerate_token_title": "Regenerate Token",
+    "regenerate_action": "Regenerate",
+    "confirm_regenerate_token": "Regenerate the token for \"{{name}}\"? The agent will disconnect until you run it with the new token."
   },
   "reservation": {
     "view_notes": "View Notes",
@@ -3941,7 +3958,10 @@
     "split_checks_settle_guidance": "This table has active split guest checks. Please settle each guest check through the Split Settlement view.",
     "failed_to_load_items": "Failed to load order items for splitting",
     "split": "Split",
-    "split_badge": "Split"
+    "split_badge": "Split",
+    "remove_floor_plan": "Remove Floor Plan",
+    "unsaved_changes": "Unsaved Changes",
+    "switch_floor": "Switch Floor"
   },
   "quick_new": {
     "create": "Create",
@@ -4002,7 +4022,10 @@
     "assign": "Assign",
     "error_occurred": "An error occurred",
     "save_settings": "Save Settings",
-    "page": "page"
+    "page": "page",
+    "remove": "Remove",
+    "confirm": "Confirm",
+    "keep_it": "No, keep it"
   },
   "table_assignments_page": {
     "title": "Table Assignments",
@@ -4115,7 +4138,9 @@
     "received_success": "Goods received! Inventory quantities have been automatically restocked.",
     "fulfill_failed": "Failed to receive order.",
     "confirm_cancel": "Are you sure you want to cancel this order?",
-    "cancelled_success": "Purchase order cancelled."
+    "cancelled_success": "Purchase order cancelled.",
+    "cancel_title": "Cancel Purchase Order",
+    "cancel_action": "Yes, Cancel Order"
   },
   "promotions": {
     "page_title": "Promotions & Marketing Deals",
@@ -4413,7 +4438,11 @@
     "week_copied_count": "Copied {{count}} shifts from last week",
     "weekdays": "Mon–Fri",
     "weekly_hours_limit": "Weekly Hours Limit",
-    "weekly_hours_limit_hint": "Staff scheduled above this many hours per week are flagged for overtime on the roster."
+    "weekly_hours_limit_hint": "Staff scheduled above this many hours per week are flagged for overtime on the roster.",
+    "copy_week_title": "Copy Previous Week",
+    "copy_action": "Copy",
+    "clear_shifts_title": "Clear Shifts",
+    "delete_shift_title": "Delete Shift"
   },
   "split_bill": {
     "title": "Split Bill & Settle",
@@ -4514,7 +4543,10 @@
     "line_note_placeholder": "Optional note for this item...",
     "unit": "Unit",
     "additions": "Additions (+)",
-    "reductions": "Reductions (-)"
+    "reductions": "Reductions (-)",
+    "complete_title": "Complete Adjustment",
+    "complete_action": "Complete",
+    "delete_title": "Delete Draft"
   },
   "stock_transfers": {
     "title": "Stock Transfers",
@@ -4572,7 +4604,13 @@
     "no_branches_warning": "No other branches found in this business group.",
     "notes_placeholder": "e.g. Delivery Van A, Driver John, Refrigerator Box...",
     "line_note_placeholder": "Batch no, expiration, or storage instruction...",
-    "unit": "Unit"
+    "unit": "Unit",
+    "confirm_dispatch": "Dispatch this transfer to \"{{branch}}\"? Items will be deducted from your branch inventory immediately.",
+    "dispatch_title": "Dispatch Transfer",
+    "dispatch_action": "Dispatch",
+    "cancel_title": "Cancel Transfer",
+    "cancel_action": "Yes, Cancel Transfer",
+    "confirm_cancel": "Are you sure you want to cancel transfer {{ref}}? Any dispatched stock will be returned to the sending branch."
   },
   "attendance": {
     "clock_title": "Clock In / Out",

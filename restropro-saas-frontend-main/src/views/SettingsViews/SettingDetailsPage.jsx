@@ -42,9 +42,11 @@ import { getImageURL } from "../../helpers/ImageHelper";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getUserDetailsInLocalStorage } from "../../helpers/UserDetails";
 import { PLAN_FEATURES } from "../../config/scopes";
+import useConfirm from "../../hooks/useConfirm";
 
 export default function SettingDetailsPage() {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const navigate = useNavigate();
   const { theme } = useTheme();
   const user = getUserDetailsInLocalStorage();
@@ -260,7 +262,7 @@ export default function SettingDetailsPage() {
 
   // Delete Logo
   const handleFileDelete = async () => {
-    if (!confirm(t("settings.confirm_delete_logo", "Are you sure you want to remove the store logo?"))) {
+    if (!(await confirm({ title: t("settings.remove_logo_title", "Remove Logo"), description: t("settings.confirm_delete_logo", "Are you sure you want to remove the store logo?"), confirmText: t("common.remove", "Remove") }))) {
       return;
     }
 
@@ -1081,6 +1083,7 @@ export default function SettingDetailsPage() {
           </div>
         </div>
       </dialog>
+      <ConfirmDialog />
     </Page>
   );
 }

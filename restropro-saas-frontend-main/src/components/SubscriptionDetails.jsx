@@ -9,9 +9,11 @@ import { useTheme } from "../contexts/ThemeContext";
 import { getManageSubscriptionLink, getPaystackManageSubscriptionLink } from "../controllers/plans.controller";
 
 import clsx from "clsx";
+import useConfirm from "../hooks/useConfirm";
 
 export default function SubscriptionDetails({ className = "" }) {
   const { t } = useTranslation();
+  const [confirm, ConfirmDialog] = useConfirm();
   const navigate = useNavigate();
   const { error, isLoading, data } = useSubscriptionDetails();
   const { theme } = useTheme();
@@ -29,16 +31,18 @@ export default function SubscriptionDetails({ className = "" }) {
     const subscriptionId = data?.subscription_id;
     const paymentGateway = data?.payment_gateway;
 
-    const isConfirm = data?.isTrialPlan
-      ? window.confirm(t("subscription.cancel_confirm"))
-      : window.confirm(
-          `Do you want to cancel this plan? You’ll retain access until ${String(
-            data?.subscription_end
-          ).substring(
-            0,
-            10
-          )}, after which your subscription will end and you won't be charged further.`
-        );
+    const isConfirm = await confirm({
+      title: t("subscription.cancel_title", "Cancel Subscription"),
+      description: data?.isTrialPlan
+        ? t("subscription.cancel_confirm")
+        : t("subscription.cancel_confirm_paid", {
+            date: String(data?.subscription_end).substring(0, 10),
+            defaultValue:
+              "Do you want to cancel this plan? You’ll retain access until {{date}}, after which your subscription will end and you won't be charged further.",
+          }),
+      confirmText: t("subscription.cancel_action", "Yes, Cancel Plan"),
+      cancelText: t("subscription.keep_plan", "Keep Plan"),
+    });
 
     if (!isConfirm) {
       return;
@@ -167,6 +171,7 @@ export default function SubscriptionDetails({ className = "" }) {
         )
       )
     } 
+      <ConfirmDialog />
     </div>
   );
 }
