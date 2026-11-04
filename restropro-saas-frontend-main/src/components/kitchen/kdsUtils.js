@@ -20,14 +20,17 @@ export const formatDuration = (totalSeconds) => {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
 
-export const formatAgo = (ms, nowMs) => {
+// `t` is optional so the helpers stay usable outside React; English is the fallback.
+const fallbackT = (_key, def, vars = {}) => String(def).replace(/{{(\w+)}}/g, (_, k) => vars[k] ?? "");
+
+export const formatAgo = (ms, nowMs, t = fallbackT) => {
   if (!ms) return "";
   const diff = Math.max(0, Math.floor((nowMs - ms) / 1000));
-  if (diff < 60) return "just now";
+  if (diff < 60) return t("kitchen.kds.just_now", "just now");
   const m = Math.floor(diff / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return t("kitchen.kds.minutes_ago", "{{m}}m ago", { m });
   const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m ago`;
+  return t("kitchen.kds.hours_ago", "{{h}}h {{m}}m ago", { h, m: m % 60 });
 };
 
 /**
@@ -105,15 +108,14 @@ export const filterCompanionItems = (items, stationId) => {
   return items.filter((i) => Number(i.kitchen_station_id) !== idNum);
 };
 
-export const getOrderTitle = (order) => {
+export const getOrderTitle = (order, t = fallbackT) => {
   if (order?.table_id && order?.table_title) return order.table_title;
   if (order?.customer_name) return order.customer_name;
-  return diningLabel(order?.delivery_type);
+  return diningLabel(order?.delivery_type, t);
 };
 
-export const diningLabel = (type) => {
-  if (type === "dinein") return "Dine-in";
-  if (type === "takeaway") return "Takeaway";
-  if (type === "delivery") return "Delivery";
-  return type ? String(type) : "Order";
+export const diningLabel = (type, t = fallbackT) => {
+  const known = DINING_TYPES.find((d) => d.id === type && d.id !== "all");
+  if (known) return t(`kitchen.kds.dining_${known.id}`, known.label);
+  return type ? String(type) : t("kitchen.kds.order", "Order");
 };

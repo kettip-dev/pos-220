@@ -10,7 +10,9 @@ import {
   IconHistory,
   IconLock,
   IconLockOpen,
+  IconMoon,
   IconRefresh,
+  IconSun,
   IconSettings,
   IconToolsKitchen2,
   IconVolume,
@@ -85,6 +87,7 @@ export default function KitchenPage() {
   const [isStationLocked, setIsStationLocked] = useState(() => readLS("kds_is_station_locked", "false") === "true");
   const [soundEnabled, setSoundEnabled] = useState(() => readLS("kds_sound_enabled", "true") !== "false");
   const [diningFilter, setDiningFilter] = useState(() => readLS("kds_dining_filter", "all"));
+  const [kdsTheme, setKdsTheme] = useState(() => (readLS("kds_theme", "dark") === "light" ? "light" : "dark"));
   const [settings, setSettings] = useState(loadKdsSettings);
 
   const [orders, setOrders] = useState([]);
@@ -130,6 +133,8 @@ export default function KitchenPage() {
   // (which would re-run the initial load, socket binding and polling effects).
   const tRef = useRef(t);
   tRef.current = t;
+  // Handlers below are also called from the keyboard listener, so they read `t` fresh.
+  const tr = (...args) => tRef.current(...args);
 
   const refresh = useCallback(
     async ({ silent = true } = {}) => {
@@ -211,7 +216,7 @@ export default function KitchenPage() {
       broadcastUpdate();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || errorMessage || t("kitchen.error_processing_request", "Could not update the ticket"));
+      toast.error(error?.response?.data?.message || errorMessage || tr("kitchen.error_processing_request", "Could not update the ticket"));
     } finally {
       refresh();
     }
@@ -270,7 +275,7 @@ export default function KitchenPage() {
         ),
       () => Promise.all(Object.entries(byStatus).map(([status, ids]) => bulkUpdateKitchenOrderItemStatus(ids, status)))
     );
-    toast.success(`Ticket #${bump.token} is back on the rail`);
+    toast.success(tr("kitchen.kds.ticket_back", "Ticket #{{token}} is back on the rail", { token: bump.token }));
   };
 
   const bumpTicket = (order) => {
@@ -287,18 +292,16 @@ export default function KitchenPage() {
     toast(
       (tt) => (
         <span className="flex items-center gap-3">
-          <span>
-            Ticket <b>#{bump.token}</b> bumped
-          </span>
+          <span className="font-semibold">{tr("kitchen.kds.ticket_bumped", "Ticket #{{token}} bumped", { token: bump.token })}</span>
           <button
             type="button"
             onClick={() => {
               toast.dismiss(tt.id);
               undoBump(bump);
             }}
-            className="h-9 px-3 rounded-lg bg-slate-900 text-white text-xs font-bold active:scale-95"
+            className="h-[42px] px-4 rounded-lg bg-slate-900 text-white text-xs font-bold active:scale-95"
           >
-            Undo
+            {tr("kitchen.kds.undo", "Undo")}
           </button>
         </span>
       ),
@@ -310,9 +313,9 @@ export default function KitchenPage() {
     runAction(
       () => patchLocalItems((i, o) => o.id === order.id && inScope(i) && i.status === "completed", "preparing"),
       () => markOrderAllItemsStatus(order.id, "preparing", ["completed"], stationParam),
-      "Failed to recall ticket"
+      tr("kitchen.kds.recall_failed", "Failed to recall ticket")
     );
-    toast.success(`Ticket #${order.token_no ?? order.id} recalled`);
+    toast.success(tr("kitchen.kds.ticket_recalled", "Ticket #{{token}} recalled", { token: order.token_no ?? order.id }));
   };
 
   // ── Derived views ──
@@ -395,10 +398,10 @@ export default function KitchenPage() {
   }, [tickets, recallEntries, now]);
 
   const scopeLabel = useMemo(() => {
-    if (selectedStationId === "all") return "All stations";
-    if (selectedStationId === "unassigned") return "Unassigned items";
-    return enabledStations.find((s) => String(s.id) === String(selectedStationId))?.name || "Station";
-  }, [selectedStationId, enabledStations]);
+    if (selectedStationId === "all") return t("kitchen.kds.all_stations", "All stations");
+    if (selectedStationId === "unassigned") return t("kitchen.kds.unassigned_items", "Unassigned items");
+    return enabledStations.find((s) => String(s.id) === String(selectedStationId))?.name || t("kitchen.kds.station", "Station");
+  }, [selectedStationId, enabledStations, t]);
 
   // Keep the keyboard selection on a ticket that still exists.
   useEffect(() => {
@@ -408,7 +411,7 @@ export default function KitchenPage() {
   // ── Controls ──
   const changeStation = (id) => {
     if (isStationLocked && String(id) !== String(selectedStationId)) {
-      toast.error("Screen is locked to this station. Unlock to switch.");
+      toast.error(t("kitchen.kds.locked_notice", "Screen is locked to this station. Unlock to switch."));
       return;
     }
     setSelectedStationId(String(id));
@@ -425,8 +428,14 @@ export default function KitchenPage() {
     const next = !isStationLocked;
     setIsStationLocked(next);
     writeLS("kds_is_station_locked", String(next));
-    if (next) toast.success(`Screen locked to ${scopeLabel}`);
-    else toast("Station switching unlocked");
+    if (next) toast.success(t("kitchen.kds.locked_to", "Screen locked to {{scope}}", { scope: scopeLabel }));
+    else toast(t("kitchen.kds.unlocked", "Station switching unlocked"));
+  };
+
+  const toggleTheme = () => {
+    const next = kdsTheme === "light" ? "dark" : "light";
+    setKdsTheme(next);
+    writeLS("kds_theme", next);
   };
 
   const toggleSound = () => {
@@ -504,8 +513,37 @@ export default function KitchenPage() {
   const otherStationsBusy = !isExpo && stationCounts.all > 0;
 
   return (
-    <Page className="h-full flex flex-col bg-[#0b0c10] text-slate-100 overflow-hidden select-none relative font-sans">
+    <Page
+      className={clsx(
+        "kds-root h-full flex flex-col bg-[var(--kds-bg)] text-[color:var(--kds-text)] overflow-hidden select-none relative font-sans",
+        kdsTheme === "light" && "kds-light"
+      )}
+    >
       <style>{`
+        .kds-root {
+          --kds-bg: #0b0c10; --kds-surface: #13151c; --kds-panel: #171a22; --kds-drawer: #111318; --kds-header: #1c1f2a;
+          --kds-chip: rgba(255,255,255,.03); --kds-chip-hover: rgba(255,255,255,.07); --kds-soft: rgba(255,255,255,.06); --kds-soft-2: rgba(255,255,255,.1);
+          --kds-line: rgba(255,255,255,.07); --kds-line-2: rgba(255,255,255,.14); --kds-well: rgba(0,0,0,.2); --kds-kbd: rgba(0,0,0,.4);
+          --kds-text: #f8fafc; --kds-text-2: #cbd5e1; --kds-muted: #94a3b8; --kds-faint: #64748b; --kds-dim: #475569;
+          --kds-invert-bg: #ffffff; --kds-invert-text: #020617; --kds-invert-muted: #64748b;
+          --kds-card-shadow: 0 18px 40px -24px rgba(0,0,0,.9); --kds-pop-shadow: 0 24px 60px -12px rgba(0,0,0,.8);
+          color-scheme: dark;
+        }
+        .kds-root.kds-light {
+          --kds-bg: #eef1f5; --kds-surface: #ffffff; --kds-panel: #ffffff; --kds-drawer: #f8fafc; --kds-header: #f1f5f9;
+          --kds-chip: #ffffff; --kds-chip-hover: #f1f5f9; --kds-soft: rgba(15,23,42,.06); --kds-soft-2: rgba(15,23,42,.1);
+          --kds-line: rgba(15,23,42,.1); --kds-line-2: rgba(15,23,42,.18); --kds-well: #f8fafc; --kds-kbd: #f1f5f9;
+          --kds-text: #0f172a; --kds-text-2: #334155; --kds-muted: #64748b; --kds-faint: #94a3b8; --kds-dim: #cbd5e1;
+          --kds-invert-bg: #0f172a; --kds-invert-text: #ffffff; --kds-invert-muted: #94a3b8;
+          --kds-card-shadow: 0 10px 28px -18px rgba(15,23,42,.35); --kds-pop-shadow: 0 24px 60px -12px rgba(15,23,42,.3);
+          color-scheme: light;
+        }
+        /* Pale accents are tuned for dark glass; darken them on white so they keep contrast. */
+        .kds-light .text-amber-200, .kds-light .text-amber-300 { color: #b45309; }
+        .kds-light .text-sky-300 { color: #0369a1; }
+        .kds-light .text-emerald-300, .kds-light .text-emerald-400 { color: #047857; }
+        .kds-light .text-rose-300, .kds-light .text-rose-400 { color: #be123c; }
+        .kds-light .text-violet-300 { color: #6d28d9; }
         @keyframes kdsFresh { 0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,0) } 50% { box-shadow: 0 0 0 4px rgba(56,189,248,0.35) } }
         .kds-fresh { animation: kdsFresh 1.6s ease-in-out 3; }
         @keyframes kdsSlideIn { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
@@ -513,28 +551,28 @@ export default function KitchenPage() {
       `}</style>
 
       {/* ── Top bar ── */}
-      <header className="shrink-0 px-4 sm:px-5 pt-4 pb-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-white/[0.06]">
+      <header className="shrink-0 px-4 sm:px-5 pt-4 pb-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-[color:var(--kds-line)]">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
             <IconToolsKitchen2 size={22} stroke={2} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-white truncate">{t("kitchen.title", "Kitchen")}</h1>
+              <h1 className="text-xl font-black tracking-tight text-[color:var(--kds-text)] truncate">{t("kitchen.title", "Kitchen")}</h1>
               {isStationLocked && (
                 <span className="h-6 px-2 rounded-md bg-amber-400/15 text-amber-300 border border-amber-400/30 text-[11px] font-bold flex items-center gap-1">
-                  <IconLock size={12} stroke={2.4} /> Locked
+                  <IconLock size={12} stroke={2.4} /> {t("kitchen.kds.locked", "Locked")}
                 </span>
               )}
             </div>
-            <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400 font-medium">
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-[color:var(--kds-muted)] font-medium">
               <span className={clsx("flex items-center gap-1.5", isSocketConnected ? "text-emerald-400" : "text-amber-300")}>
                 <span className={clsx("w-1.5 h-1.5 rounded-full", isSocketConnected ? "bg-emerald-400" : "bg-amber-300 animate-pulse")} />
-                {isSocketConnected ? "Live" : "Reconnecting…"}
+                {isSocketConnected ? t("kitchen.kds.live", "Live") : t("kitchen.kds.reconnecting", "Reconnecting…")}
               </span>
-              <span className="text-slate-600">•</span>
+              <span className="text-[color:var(--kds-dim)]">•</span>
               <span className="truncate">{scopeLabel}</span>
-              <span className="text-slate-600">•</span>
+              <span className="text-[color:var(--kds-dim)]">•</span>
               <span className="tabular-nums">{clock}</span>
             </div>
           </div>
@@ -542,56 +580,76 @@ export default function KitchenPage() {
 
         {/* Stats */}
         <div className="flex items-center gap-2 order-3 lg:order-none w-full lg:w-auto lg:flex-1 lg:justify-center overflow-x-auto no-scrollbar">
-          <Stat label="Open" value={tickets.length} tone="white" />
-          <Stat label="New" value={stats.newCount} tone="sky" />
-          <Stat label="Cooking" value={stats.cookingCount} tone="amber" />
-          <Stat label="Late" value={stats.lateCount} tone={stats.lateCount > 0 ? "rose" : "muted"} />
+          <Stat label={t("kitchen.kds.stat_open", "Open")} value={tickets.length} tone="white" />
+          <Stat label={t("kitchen.kds.stat_new", "New")} value={stats.newCount} tone="sky" />
+          <Stat label={t("kitchen.kds.stat_cooking", "Cooking")} value={stats.cookingCount} tone="amber" />
+          <Stat label={t("kitchen.kds.stat_late", "Late")} value={stats.lateCount} tone={stats.lateCount > 0 ? "rose" : "muted"} />
           <Stat
-            label="Avg time"
+            label={t("kitchen.kds.stat_avg", "Avg time")}
             value={stats.avgSec != null ? formatDuration(stats.avgSec) : "—"}
             tone="muted"
-            title={stats.avgSample ? `Average of ${stats.avgSample} ticket(s) bumped in the last hour` : "No tickets bumped in the last hour"}
+            title={
+              stats.avgSample
+                ? t("kitchen.kds.avg_hint", "Average of {{count}} tickets bumped in the last hour", { count: stats.avgSample })
+                : t("kitchen.kds.avg_none", "No tickets bumped in the last hour")
+            }
           />
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2 ml-auto">
-          <ToolButton onClick={() => setIsRecallOpen(true)} title="Recall bumped tickets (R)">
+          <ToolButton onClick={() => setIsRecallOpen(true)} title={t("kitchen.kds.recall_hint", "Recall bumped tickets (R)")}>
             <IconHistory size={19} stroke={2} />
-            <span className="hidden xl:inline">Recall</span>
+            <span className="hidden xl:inline">{t("kitchen.kds.recall", "Recall")}</span>
             {recallEntries.length > 0 && (
-              <span className="min-w-[20px] h-5 px-1 rounded-full bg-white/10 text-[11px] font-black tabular-nums flex items-center justify-center">
+              <span className="min-w-[20px] h-5 px-1 rounded-full bg-[var(--kds-soft-2)] text-[11px] font-black tabular-nums flex items-center justify-center">
                 {recallEntries.length}
               </span>
             )}
           </ToolButton>
-          <ToolButton onClick={toggleSound} active={soundEnabled} title={soundEnabled ? "Mute new-order chime" : "Turn on new-order chime"}>
+          <ToolButton onClick={toggleSound} active={soundEnabled} title={soundEnabled ? t("kitchen.kds.mute", "Mute new-order chime") : t("kitchen.kds.unmute", "Turn on new-order chime")}>
             {soundEnabled ? <IconVolume size={19} stroke={2} /> : <IconVolumeOff size={19} stroke={2} />}
           </ToolButton>
-          <ToolButton onClick={toggleLock} warn={isStationLocked} title={isStationLocked ? "Unlock station switching" : "Lock this screen to the current station"}>
+          <ToolButton onClick={toggleLock} warn={isStationLocked} title={isStationLocked ? t("kitchen.kds.unlock", "Unlock station switching") : t("kitchen.kds.lock", "Lock this screen to the current station")}>
             {isStationLocked ? <IconLock size={19} stroke={2} /> : <IconLockOpen size={19} stroke={2} />}
           </ToolButton>
-          <ToolButton onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "Full screen"}>
+          <ToolButton
+            onClick={toggleTheme}
+            title={kdsTheme === "light" ? t("kitchen.kds.dark_mode", "Dark mode") : t("kitchen.kds.light_mode", "Light mode")}
+          >
+            {kdsTheme === "light" ? <IconMoon size={19} stroke={2} /> : <IconSun size={19} stroke={2} />}
+          </ToolButton>
+          <ToolButton
+            onClick={toggleFullscreen}
+            title={isFullscreen ? t("kitchen.kds.exit_fullscreen", "Exit full screen") : t("kitchen.kds.fullscreen", "Full screen")}
+          >
             {isFullscreen ? <IconArrowsMinimize size={19} stroke={2} /> : <IconArrowsMaximize size={19} stroke={2} />}
           </ToolButton>
           <ToolButton onClick={() => refresh({ silent: false })} title={t("kitchen.refresh", "Refresh")}>
             <IconRefresh size={19} stroke={2} className={clsx(isRefreshing && "animate-spin")} />
           </ToolButton>
           <div className="relative">
-            <ToolButton data-kds-settings-toggle onClick={() => setIsSettingsOpen((v) => !v)} active={isSettingsOpen} title="Screen settings">
+            <ToolButton data-kds-settings-toggle onClick={() => setIsSettingsOpen((v) => !v)} active={isSettingsOpen} title={t("kitchen.kds.screen_settings", "Screen settings")}>
               <IconSettings size={19} stroke={2} />
             </ToolButton>
-            <KdsSettingsPopover open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onChange={updateSettings} />
+            <KdsSettingsPopover
+              open={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              settings={settings}
+              onChange={updateSettings}
+              theme={kdsTheme}
+              onThemeChange={(next) => next !== kdsTheme && toggleTheme()}
+            />
           </div>
         </div>
       </header>
 
       {/* ── Station rail + dining filter ── */}
-      <div className="shrink-0 px-4 sm:px-5 py-3 flex items-center gap-3 border-b border-white/[0.06]">
-        <nav aria-label="Kitchen stations" className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar touch-pan-x">
+      <div className="shrink-0 px-4 sm:px-5 py-3 flex items-center gap-3 border-b border-[color:var(--kds-line)]">
+        <nav aria-label={t("kitchen.kds.stations_aria", "Kitchen stations")} className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar touch-pan-x">
           <StationTab
-            label="All stations"
-            sublabel="Expo"
+            label={t("kitchen.kds.all_stations", "All stations")}
+            sublabel={t("kitchen.kds.expo", "Expo")}
             icon={<IconChefHat size={18} stroke={2} />}
             count={stationCounts.all}
             selected={isExpo}
@@ -611,7 +669,7 @@ export default function KitchenPage() {
           ))}
           {(stationCounts.unassigned > 0 || selectedStationId === "unassigned") && (
             <StationTab
-              label="Unassigned"
+              label={t("kitchen.kds.unassigned", "Unassigned")}
               color="#64748b"
               count={stationCounts.unassigned}
               selected={selectedStationId === "unassigned"}
@@ -621,19 +679,21 @@ export default function KitchenPage() {
           )}
         </nav>
 
-        <div className="hidden md:flex items-center p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] shrink-0">
+        <div className="hidden md:flex items-center p-1 rounded-xl bg-[var(--kds-chip)] border border-[color:var(--kds-line)] shrink-0">
           {DINING_TYPES.map((d) => (
             <button
               key={d.id}
               type="button"
               onClick={() => changeDining(d.id)}
               className={clsx(
-                "h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition active:scale-95",
-                diningFilter === d.id ? "bg-white text-slate-950" : "text-slate-400 hover:text-white"
+                "h-[42px] px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition active:scale-95",
+                diningFilter === d.id
+                  ? "bg-[var(--kds-invert-bg)] text-[color:var(--kds-invert-text)]"
+                  : "text-[color:var(--kds-muted)] hover:text-[color:var(--kds-text)]"
               )}
             >
-              {d.label}
-              <span className={clsx("tabular-nums", diningFilter === d.id ? "text-slate-500" : "text-slate-600")}>{diningCounts[d.id] || 0}</span>
+              {t(`kitchen.kds.dining_${d.id}`, d.label)}
+              <span className={clsx("tabular-nums", diningFilter === d.id ? "text-[color:var(--kds-invert-muted)]" : "text-[color:var(--kds-faint)]")}>{diningCounts[d.id] || 0}</span>
             </button>
           ))}
         </div>
@@ -642,7 +702,7 @@ export default function KitchenPage() {
       {/* ── Ticket rail ── */}
       <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 sm:px-5 py-4" onClick={() => setSelectedTicketId(null)}>
         {isLoading ? (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-[color:var(--kds-muted)]">
             <span className="loading loading-spinner loading-lg text-amber-400" />
             <span className="text-sm font-semibold">{t("kitchen.loading_message", "Loading tickets…")}</span>
           </div>
@@ -651,38 +711,41 @@ export default function KitchenPage() {
             <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5">
               <IconCircleCheck size={40} stroke={1.6} />
             </div>
-            <h3 className="text-xl font-black text-white">
-              {diningFilter !== "all" && scopedTickets.length > 0 ? "No tickets for this order type" : "All caught up"}
-            </h3>
-            <p className="text-sm text-slate-400 mt-1.5 max-w-md">
+            <h3 className="text-xl font-black text-[color:var(--kds-text)]">
               {diningFilter !== "all" && scopedTickets.length > 0
-                ? `${scopedTickets.length} other ticket(s) are hidden by the order-type filter.`
+                ? t("kitchen.kds.empty_filtered", "No tickets for this order type")
+                : t("kitchen.kds.empty_title", "All caught up")}
+            </h3>
+            <p className="text-sm text-[color:var(--kds-muted)] mt-1.5 max-w-md">
+              {diningFilter !== "all" && scopedTickets.length > 0
+                ? t("kitchen.kds.hidden_by_filter", "{{count}} other tickets are hidden by the order-type filter.", { count: scopedTickets.length })
                 : isExpo
-                ? "New orders from POS and QR ordering land here instantly, with a chime."
-                : `Nothing waiting at ${scopeLabel}. Items routed here will appear automatically.`}
+                ? t("kitchen.kds.empty_expo", "New orders from POS and QR ordering land here instantly, with a chime.")
+                : t("kitchen.kds.empty_station", "Nothing waiting at {{scope}}. Items routed here will appear automatically.", { scope: scopeLabel })}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               {diningFilter !== "all" && scopedTickets.length > 0 && (
-                <button type="button" onClick={() => changeDining("all")} className="h-11 px-5 rounded-xl bg-white text-slate-950 font-bold text-sm active:scale-95 transition">
-                  Show all order types
+                <button type="button" onClick={() => changeDining("all")} className="h-11 px-5 rounded-xl bg-[var(--kds-invert-bg)] text-[color:var(--kds-invert-text)] font-bold text-sm active:scale-95 transition"
+                >
+                  {t("kitchen.kds.show_all_types", "Show all order types")}
                 </button>
               )}
               {otherStationsBusy && !isStationLocked && (
                 <button
                   type="button"
                   onClick={() => changeStation("all")}
-                  className="h-11 px-5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-slate-100 font-bold text-sm active:scale-95 transition"
+                  className="h-11 px-5 rounded-xl bg-[var(--kds-soft)] hover:bg-[var(--kds-soft-2)] border border-[color:var(--kds-line)] text-[color:var(--kds-text)] font-bold text-sm active:scale-95 transition"
                 >
-                  View all stations · {stationCounts.all}
+                  {t("kitchen.kds.view_all_stations", "View all stations")} · {stationCounts.all}
                 </button>
               )}
               {recallEntries.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setIsRecallOpen(true)}
-                  className="h-11 px-5 rounded-xl text-slate-400 hover:text-white font-bold text-sm flex items-center gap-2 active:scale-95 transition"
+                  className="h-11 px-5 rounded-xl text-[color:var(--kds-muted)] hover:text-[color:var(--kds-text)] font-bold text-sm flex items-center gap-2 active:scale-95 transition"
                 >
-                  <IconHistory size={17} stroke={2} /> Recall ({recallEntries.length})
+                  <IconHistory size={17} stroke={2} /> {t("kitchen.kds.recall", "Recall")} ({recallEntries.length})
                 </button>
               )}
             </div>
@@ -733,17 +796,17 @@ export default function KitchenPage() {
 // ── Small presentational pieces ──
 
 const STAT_TONES = {
-  white: "text-white",
+  white: "text-[color:var(--kds-text)]",
   sky: "text-sky-300",
   amber: "text-amber-300",
   rose: "text-rose-400",
-  muted: "text-slate-300",
+  muted: "text-[color:var(--kds-text-2)]",
 };
 
 function Stat({ label, value, tone = "white", title }) {
   return (
-    <div title={title} className="h-11 px-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-2 shrink-0">
-      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+    <div title={title} className="h-11 px-3.5 rounded-xl bg-[var(--kds-chip)] border border-[color:var(--kds-line)] flex items-center gap-2 shrink-0">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-[color:var(--kds-faint)] whitespace-nowrap">{label}</span>
       <span className={clsx("text-lg font-black tabular-nums", STAT_TONES[tone])}>{value}</span>
     </div>
   );
@@ -762,8 +825,8 @@ function ToolButton({ children, onClick, title, active, warn, ...rest }) {
         warn
           ? "bg-amber-400 text-slate-950 border-amber-400"
           : active
-          ? "bg-white/[0.1] text-white border-white/[0.14]"
-          : "bg-white/[0.03] text-slate-300 border-white/[0.07] hover:bg-white/[0.07] hover:text-white"
+          ? "bg-[var(--kds-soft-2)] text-[color:var(--kds-text)] border-[color:var(--kds-line-2)]"
+          : "bg-[var(--kds-chip)] text-[color:var(--kds-text-2)] border-[color:var(--kds-line)] hover:bg-[var(--kds-chip-hover)] hover:text-[color:var(--kds-text)]"
       )}
     >
       {children}
@@ -779,28 +842,36 @@ function StationTab({ label, sublabel, icon, color, count, selected, disabled, o
       disabled={disabled}
       className={clsx(
         "relative h-12 pl-3.5 pr-2.5 rounded-xl border flex items-center gap-2.5 shrink-0 transition active:scale-95",
-        selected ? "bg-white text-slate-950 border-white" : "bg-white/[0.03] text-slate-200 border-white/[0.07] hover:bg-white/[0.07]",
+        selected
+          ? "bg-[var(--kds-invert-bg)] text-[color:var(--kds-invert-text)] border-[color:var(--kds-invert-bg)]"
+          : "bg-[var(--kds-chip)] text-[color:var(--kds-text-2)] border-[color:var(--kds-line)] hover:bg-[var(--kds-chip-hover)]",
         disabled && "opacity-30 cursor-not-allowed active:scale-100"
       )}
     >
       {icon ? (
-        <span className={selected ? "text-slate-950" : "text-slate-400"}>{icon}</span>
+        <span className={selected ? "text-[color:var(--kds-invert-text)]" : "text-[color:var(--kds-muted)]"}>{icon}</span>
       ) : (
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
       )}
       <span className="text-sm font-bold whitespace-nowrap">
         {label}
-        {sublabel && <span className={clsx("ml-1.5 font-semibold", selected ? "text-slate-500" : "text-slate-500")}>{sublabel}</span>}
+        {sublabel && <span className={clsx("ml-1.5 font-semibold", selected ? "text-[color:var(--kds-invert-muted)]" : "text-[color:var(--kds-faint)]")}>{sublabel}</span>}
       </span>
       <span
         className={clsx(
           "min-w-[26px] h-7 px-1.5 rounded-lg text-xs font-black tabular-nums flex items-center justify-center",
-          count > 0 ? (selected ? "bg-slate-950 text-white" : "bg-amber-400 text-slate-950") : selected ? "bg-slate-200 text-slate-500" : "bg-white/[0.06] text-slate-500"
+          count > 0
+            ? selected
+              ? "bg-[var(--kds-invert-text)] text-[color:var(--kds-invert-bg)]"
+              : "bg-amber-400 text-slate-950"
+            : selected
+            ? "bg-[var(--kds-soft-2)] text-[color:var(--kds-invert-muted)]"
+            : "bg-[var(--kds-soft)] text-[color:var(--kds-faint)]"
         )}
       >
         {count}
       </span>
-      {disabled && <IconLock size={13} stroke={2.2} className="text-slate-400 -ml-1" />}
+      {disabled && <IconLock size={13} stroke={2.2} className="text-[color:var(--kds-muted)] -ml-1" />}
       {selected && color && <span className="absolute left-3 right-3 -bottom-[1px] h-[3px] rounded-full" style={{ backgroundColor: color }} />}
     </button>
   );
