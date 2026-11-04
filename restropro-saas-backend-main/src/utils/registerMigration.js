@@ -257,6 +257,16 @@ exports.ensureRegisterSchema = async (pool) => {
         [scope, scope]
       );
     }
+    // Same for the invoice sub-permissions (void, audit log): every plan that sells
+    // INVOICES gets them, otherwise the Invoice Audit Log page is blocked for everyone.
+    for (const scope of ["VOID_INVOICES", "VIEW_INVOICE_AUDIT_LOG"]) {
+      await conn.query(
+        `UPDATE plans
+         SET features = JSON_ARRAY_APPEND(features, '$', ?)
+         WHERE JSON_VALID(features) AND JSON_CONTAINS(features, '"INVOICES"') AND NOT JSON_CONTAINS(features, JSON_QUOTE(?))`,
+        [scope, scope]
+      );
+    }
 
     console.log("[Migration] Register schema verified");
   } finally {

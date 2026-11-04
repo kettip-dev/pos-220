@@ -1,4 +1,5 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db")
+const { FULL_ACCESS_FEATURES } = require("../config/user.config");
 const { tenantFilter } = require("../utils/tenant_scope");
 
 exports.getUserDB = async (username, tenantId) => {
@@ -27,12 +28,7 @@ exports.getUserDB = async (username, tenantId) => {
         const [result] = await conn.query(sql, [username, tenantId]);
         const user = result[0];
         if (user && user.is_active == 1 && (!user.plan_features || user.plan_features === "[]" || user.plan_features === "null")) {
-            const ALL_FEATURES = [
-                "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
-                "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-                "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
-            ];
-            user.plan_features = JSON.stringify(ALL_FEATURES);
+            user.plan_features = JSON.stringify(FULL_ACCESS_FEATURES);
             user.planFeatures = user.plan_features;
             user.plan_title = user.plan_title || "Full Access";
         }

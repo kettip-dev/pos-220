@@ -45,6 +45,13 @@ const SCOPES = {
     USER: "USER",
 }
 
+// Feature list for a tenant with no subscription plan ("Full Access").
+// Built from SCOPES so a new permission is never forgotten here: authorize()
+// checks plan features before anything else, so a missing entry blocks the
+// feature even for admins. QRMENU is a plan feature that is not a user scope.
+const FULL_ACCESS_FEATURES = [...new Set([...Object.values(SCOPES), "QRMENU"])];
+
 exports.ROLES = ROLES;
 exports.SCOPES = SCOPES;
+exports.FULL_ACCESS_FEATURES = FULL_ACCESS_FEATURES;
 exports.GROUP_PERMISSION_LEVELS = GROUP_PERMISSION_LEVELS;

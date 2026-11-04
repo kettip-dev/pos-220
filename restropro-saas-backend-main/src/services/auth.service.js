@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const { FULL_ACCESS_FEATURES } = require("../config/user.config");
 const { CONFIG } = require("../config/index");
 const {
   getMySqlPromiseConnection,
@@ -57,18 +58,13 @@ exports.signInDB = async (username, password) => {
       if (superAdmin) {
         const passwordMatch = await bcrypt.compare(password, superAdmin.password);
         if (passwordMatch) {
-          const ALL_FEATURES = [
-            "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
-            "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-            "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
-          ];
           return {
             username: superAdmin.email,
             email: superAdmin.email,
             name: superAdmin.name,
             role: "superadmin",
             is_active: 1,
-            features: JSON.stringify(ALL_FEATURES),
+            features: JSON.stringify(FULL_ACCESS_FEATURES),
             plan_title: "Super Admin",
             scope: null,
             tenant_id: null,
@@ -88,12 +84,7 @@ exports.signInDB = async (username, password) => {
     );
     if (passwordMatch) {
       if (user.is_active == 1 && (!user.features || user.features === "[]" || user.features === "null")) {
-        const ALL_FEATURES = [
-          "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
-          "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-          "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
-        ];
-        user.features = JSON.stringify(ALL_FEATURES);
+        user.features = JSON.stringify(FULL_ACCESS_FEATURES);
         user.plan_title = user.plan_title || "Full Access";
       }
       return user;
@@ -192,12 +183,7 @@ exports.getGroupOwnerAuthContextDB = async (username) => {
     const [rows] = await conn.query(sql, [username]);
     const user = rows[0] || null;
     if (user && user.is_active == 1 && (!user.planFeatures || user.planFeatures === "[]" || user.planFeatures === "null")) {
-      const ALL_FEATURES = [
-        "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
-        "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-        "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
-      ];
-      user.planFeatures = JSON.stringify(ALL_FEATURES);
+      user.planFeatures = JSON.stringify(FULL_ACCESS_FEATURES);
       user.plan_features = user.planFeatures;
       user.plan_title = user.plan_title || "Full Access";
     }
@@ -258,12 +244,7 @@ exports.getUserDB = async (username, tenantId) => {
     const user = rows[0] || null;
 
     if (user && user.is_active == 1 && (!user.planFeatures || user.planFeatures === "[]" || user.planFeatures === "null")) {
-      const ALL_FEATURES = [
-        "DASHBOARD", "POS", "ORDERS", "KITCHEN", "RESERVATIONS",
-        "CUSTOMERS", "INVOICES", "MEMBERSHIP", "INVENTORY",
-        "SETTINGS", "REPORTS", "FEEDBACK", "USER", "QRMENU", "VOID_INVOICES", "REGISTER_MANAGE", "REFUND_INVOICES"
-      ];
-      user.planFeatures = JSON.stringify(ALL_FEATURES);
+      user.planFeatures = JSON.stringify(FULL_ACCESS_FEATURES);
       user.plan_features = user.planFeatures;
       user.plan_title = user.plan_title || "Full Access";
     }
