@@ -32,7 +32,7 @@ const { execFileSync } = require("child_process");
 const { io } = require("socket.io-client");
 const { parseTcpTarget, parseSpoolerName } = require("./address");
 const { sendTcp } = require("./transports/tcp");
-const { sendToSpooler, listInstalledPrinters } = require("./transports/spooler");
+const { sendToSpooler, listInstalledPrinters, listInstalledPrinterDetails } = require("./transports/spooler");
 const { isPackaged, agentHome, configPath, logDir } = require("./paths");
 const { log, enableFileLog, recentLines } = require("./logger");
 const { buildTestPage, buildDrawerKick } = require("./escpos");
@@ -213,7 +213,7 @@ function startPrinterTools(args) {
   startDashboard({
     port: Number(args["tools-port"] || process.env.RESTRO_TOOLS_PORT || saved.toolsPort) || DEFAULT_PORT,
     getStatus: () => ({ ...agentState, version, hostname: os.hostname(), platform: process.platform }),
-    listPrinters: listInstalledPrinters,
+    listPrinters: listInstalledPrinterDetails,
     testPrint: runTestPrint,
     checkPrinter: checkNetworkPrinter,
     scan: scanNetworkShared,
@@ -413,8 +413,12 @@ async function main() {
   }
 
   if (args["list-printers"]) {
-    const printers = await listInstalledPrinters();
-    console.log(printers.length ? printers.join("\n") : "No installed printers found.");
+    const printers = await listInstalledPrinterDetails();
+    if (!printers.length) console.log("No installed printers found.");
+    for (const p of printers) {
+      const notes = [p.virtual && "virtual: cannot print receipts", p.offline && "offline"].filter(Boolean);
+      console.log(`${p.name}${notes.length ? `  (${notes.join(", ")})` : ""}`);
+    }
     return;
   }
 

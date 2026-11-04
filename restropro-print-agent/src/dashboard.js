@@ -196,7 +196,7 @@ const PAGE_HTML = `<!doctype html>
 
   <section class="card">
     <h2>USB / installed printers</h2>
-    <p class="hint">Printers installed in Windows. Use the exact name in POS → Thermal Printers → USB / Installed.</p>
+    <p class="hint">Printers installed in Windows. Use the exact name in POS → Thermal Printers → USB / Installed. Virtual printers (PDF, OneNote, XPS) save to a file and cannot print receipts.</p>
     <div id="usbList" class="empty">Loading…</div>
     <div class="row" style="margin-top:8px"><button onclick="loadPrinters()">Refresh list</button></div>
   </section>
@@ -285,17 +285,25 @@ async function loadPrinters() {
   try {
     const { printers } = await api("/api/printers");
     if (!printers.length) { box.className = "empty"; box.textContent = "No printers installed in Windows."; return; }
+    // Real printers first; virtual ones (PDF, OneNote…) cannot print receipts.
+    printers.sort((a, b) => Number(a.virtual) - Number(b.virtual));
     box.className = "";
-    box.innerHTML = printers.map((p, i) =>
-      '<div class="item"><div class="name">' + esc(p) + '</div><div class="row">' +
-      '<button class="primary" data-i="' + i + '" data-kind="page">Test print</button>' +
-      '<button data-i="' + i + '" data-kind="drawer">Drawer</button></div>' +
-      '<div class="result" id="usbRes' + i + '" style="width:100%"></div></div>').join("");
+    box.innerHTML = printers.map((p, i) => {
+      const tags = (p.virtual ? '<span class="pill warn">Virtual, not a paper printer</span> ' : "") +
+        (p.offline ? '<span class="pill bad">Offline</span>' : "");
+      const off = p.virtual ? " disabled" : "";
+      return '<div class="item"><div><div class="name">' + esc(p.name) + '</div>' +
+        '<div class="meta">' + esc([p.driver, p.port].filter(Boolean).join(" · ")) + '</div>' +
+        (tags ? '<div style="margin-top:4px">' + tags + '</div>' : "") + '</div><div class="row">' +
+        '<button class="primary" data-i="' + i + '" data-kind="page"' + off + '>Test print</button>' +
+        '<button data-i="' + i + '" data-kind="drawer"' + off + '>Drawer</button></div>' +
+        '<div class="result" id="usbRes' + i + '" style="width:100%"></div></div>';
+    }).join("");
     box.querySelectorAll("button").forEach((b) => b.onclick = () => withBusy(b, async () => {
       const i = b.dataset.i, res = $("usbRes" + i);
-      res.className = "result"; res.textContent = "Sending…";
-      const r = await api("/api/test-print", { target: { type: "usb", name: printers[i] }, kind: b.dataset.kind });
-      showResult(res, r, (r) => "✓ Sent in " + r.ms + " ms. Check the printer.");
+      res.className = "result"; res.textContent = "Printing… (waiting for the printer to take the job)";
+      const r = await api("/api/test-print", { target: { type: "usb", name: printers[i].name }, kind: b.dataset.kind });
+      showResult(res, r, (r) => "✓ The printer took the job (" + r.ms + " ms). Check the paper.");
       loadJobs();
     }));
   } catch (e) { box.className = "empty"; box.textContent = e.message; }

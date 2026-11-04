@@ -20,7 +20,7 @@ public static class RestroRawPrint {
   [DllImport("winspool.drv", SetLastError = true)]
   public static extern bool ClosePrinter(IntPtr handle);
   [DllImport("winspool.drv", EntryPoint = "StartDocPrinterW", SetLastError = true, CharSet = CharSet.Unicode)]
-  public static extern bool StartDocPrinter(IntPtr handle, int level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFO info);
+  public static extern int StartDocPrinter(IntPtr handle, int level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFO info);
   [DllImport("winspool.drv", SetLastError = true)]
   public static extern bool EndDocPrinter(IntPtr handle);
   [DllImport("winspool.drv", SetLastError = true)]
@@ -30,7 +30,8 @@ public static class RestroRawPrint {
   [DllImport("winspool.drv", SetLastError = true)]
   public static extern bool WritePrinter(IntPtr handle, byte[] bytes, int count, out int written);
 
-  public static void Send(string printer, byte[] bytes) {
+  // Returns the Windows print job id, so the caller can follow the job in the queue.
+  public static int Send(string printer, byte[] bytes) {
     IntPtr handle;
     if (!OpenPrinter(printer, out handle, IntPtr.Zero))
       throw new Exception("Cannot open printer '" + printer + "' (Win32 error " + Marshal.GetLastWin32Error() + ")");
@@ -38,7 +39,8 @@ public static class RestroRawPrint {
       DOCINFO info = new DOCINFO();
       info.pDocName = "Restro POS";
       info.pDataType = "RAW";
-      if (!StartDocPrinter(handle, 1, info))
+      int jobId = StartDocPrinter(handle, 1, info);
+      if (jobId == 0)
         throw new Exception("StartDocPrinter failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
       try {
         StartPagePrinter(handle);
@@ -49,6 +51,7 @@ public static class RestroRawPrint {
       } finally {
         EndDocPrinter(handle);
       }
+      return jobId;
     } finally {
       ClosePrinter(handle);
     }
