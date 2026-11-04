@@ -76,16 +76,24 @@ export function canvasToEscPosRaster(canvas, options = {}) {
     }
   }
 
-  // Build the complete ESC/POS command buffer
-  // Command: GS v 0 m xL xH yL yH d1...dk
-  const header = [
-    0x1b, 0x40, // ESC @ (Initialize printer)
-    0x1d, 0x76, 0x30, 0x00, // GS v 0 0 (Raster bit image normal mode)
-    widthBytes & 0xff, // xL
-    (widthBytes >> 8) & 0xff, // xH
-    height & 0xff, // yL
-    (height >> 8) & 0xff, // yH
-  ];
+  // Build the complete ESC/POS command buffer.
+  // The image is sent as a series of GS v 0 bands instead of one block: many
+  // thermal printers cannot buffer a whole receipt as a single image and drop
+  // or garble the rest of the job, including the cut command at the end.
+  const chunks = [Uint8Array.from([0x1b, 0x40])]; // ESC @ (Initialize printer)
+  for (let startRow = 0; startRow < height; startRow += RASTER_BAND_ROWS) {
+    const rows = Math.min(RASTER_BAND_ROWS, height - startRow);
+    chunks.push(
+      Uint8Array.from([
+        0x1d, 0x76, 0x30, 0x00, // GS v 0 0 (Raster bit image normal mode)
+        widthBytes & 0xff, // xL
+        (widthBytes >> 8) & 0xff, // xH
+        rows & 0xff, // yL
+        (rows >> 8) & 0xff, // yH
+      ])
+    );
+    chunks.push(rasterData.subarray(startRow * widthBytes, (startRow + rows) * widthBytes));
+  }
 
   const footer = [];
 
@@ -101,14 +109,62 @@ export function canvasToEscPosRaster(canvas, options = {}) {
   if (autoCut) {
     footer.push(0x1d, 0x56, 0x00); // GS V 0
   }
+  chunks.push(Uint8Array.from(footer));
 
-  const totalLength = header.length + rasterData.length + footer.length;
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
   const result = new Uint8Array(totalLength);
-  result.set(header, 0);
-  result.set(rasterData, header.length);
-  result.set(footer, header.length + rasterData.length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
 
   return result;
+}
+
+/** Image rows per GS v 0 command (small enough for low-memory printers). */
+const RASTER_BAND_ROWS = 128;
+
+/** Only the add-ons the guest picked (cart items carry the full list in `addons`). */
+function selectedAddons(item = {}) {
+  const addons = Array.isArray(item.addons) ? item.addons.filter(Boolean) : [];
+  if (!Array.isArray(item.addons_ids)) return addons;
+  const ids = item.addons_ids.map(String);
+  return addons.filter((a) => ids.includes(String(a.id)));
+}
+
+function addonNamesOf(item) {
+  return selectedAddons(item)
+    .map((a) => a.title || a.name)
+    .filter(Boolean)
+    .join(", ");
+}
+
+const firstDefined = (...values) => values.find((v) => v !== undefined && v !== null && v !== "");
+
+/**
+ * Receipts are triggered from several screens with slightly different payloads
+ * (POS cart, order/invoice reprints, split-bill sub receipts). Map them all to
+ * the fields the canvas renderers read.
+ */
+function normalizePrintDetails(details = {}) {
+  return {
+    ...details,
+    cartItems: details.cartItems || details.items || [],
+    tableName: firstDefined(details.tableName, details.table?.table_title, details.order_title),
+    customer: details.customer || (details.customer_name ? { name: details.customer_name } : null),
+    itemsTotal: Number(firstDefined(details.itemsTotal, details.sub_total, 0)),
+    discountAmount: Number(firstDefined(details.discountAmount, details.discount_total, 0)),
+    taxTotal: Number(firstDefined(details.taxTotal, details.tax_total, 0)),
+    serviceChargeTotal: Number(firstDefined(details.serviceChargeTotal, details.service_charge_total, 0)),
+    payableTotal: Number(firstDefined(details.payableTotal, details.total, 0)),
+    tipAmount: Number(firstDefined(details.tipAmount, details.tip_amount, 0)),
+    tokenNo: firstDefined(details.tokenNo, details.token_no),
+    orderId: firstDefined(details.orderId, details.order_id, details.orderIds),
+    paymentMethod: firstDefined(details.paymentMethod, details.paymentType, details.payment_type),
+    cashTendered: firstDefined(details.cashTendered, details.tenderedAmount, null),
+    changeAmount: firstDefined(details.changeAmount, details.changeDue, null),
+  };
 }
 
 /**
@@ -150,6 +206,7 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
     taxTotal = 0,
     serviceChargeTotal = 0,
     payableTotal = 0,
+    tipAmount = 0,
     tokenNo,
     orderId,
     paymentMethod = "Cash",
@@ -157,7 +214,7 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
     dualTenderInfo = null,
     cashTendered = null,
     changeAmount = null,
-  } = details;
+  } = normalizePrintDetails(details);
 
   // Measurement canvas to dynamically compute height
   const mCanvas = document.createElement("canvas");
@@ -272,17 +329,17 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
 
     // ─── Line Items ────────────────────────────────
     cartItems.forEach((item) => {
-      const itemTitle = item.title || item.name || "Item";
-      const qty = item.quantity || 1;
+      const itemTitle = item.title || item.item_title || item.name || "Item";
+      const qty = Number(item.quantity || 1);
       const price = Number(item.price || 0);
       const lineTotal = Number(item.total || price * qty);
 
-      // Main line: Item title (with wrap) + Qty/Price
+      // Main line: Item title (with wrap) + line total
       ctx.font = `bold ${paperSize === 58 ? 17 : 20}px ${FONT_FAMILY}`;
       ctx.textAlign = "left";
 
       const maxTitleWidth = contentWidth - (paperSize === 58 ? 90 : 120);
-      const titleLines = wrapTextLines(ctx, `${itemTitle} x${qty}`, maxTitleWidth);
+      const titleLines = wrapTextLines(ctx, itemTitle, maxTitleWidth);
 
       // Draw first line of title and right-aligned total
       ctx.fillText(titleLines[0] || "", padding, y);
@@ -297,19 +354,25 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
         y += paperSize === 58 ? 20 : 23;
       }
 
+      // Quantity x unit price
+      ctx.font = `normal ${paperSize === 58 ? 15 : 17}px ${FONT_FAMILY}`;
+      ctx.fillText(`${qty} x ${currency}${price.toFixed(2)}`, padding + 12, y);
+      y += paperSize === 58 ? 19 : 22;
+
       // Variant
-      if (item.variant?.title) {
+      const variantTitle = item.variant?.title || item.variant_title;
+      if (variantTitle) {
         ctx.font = `italic ${paperSize === 58 ? 14 : 16}px ${FONT_FAMILY}`;
         ctx.fillStyle = "#222222";
-        ctx.fillText(`  * ${item.variant.title}`, padding + 12, y);
+        ctx.fillText(`  * ${variantTitle}`, padding + 12, y);
         y += paperSize === 58 ? 18 : 21;
       }
 
-      // Addons
-      if (Array.isArray(item.addons) && item.addons.length > 0) {
+      // Addons (only the ones that were selected)
+      const addonNames = addonNamesOf(item);
+      if (addonNames) {
         ctx.font = `normal ${paperSize === 58 ? 14 : 16}px ${FONT_FAMILY}`;
         ctx.fillStyle = "#222222";
-        const addonNames = item.addons.map((a) => a.title || a.name).join(", ");
         const addonLines = wrapTextLines(ctx, `  + ${addonNames}`, contentWidth - 20);
         addonLines.forEach((al) => {
           ctx.fillText(al, padding + 12, y);
@@ -364,6 +427,10 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
       drawSummaryRow("Service Charge", `${currency}${Number(serviceChargeTotal).toFixed(2)}`);
     }
 
+    if (tipAmount > 0) {
+      drawSummaryRow("Tip", `${currency}${Number(tipAmount).toFixed(2)}`);
+    }
+
     y += 6;
     drawSolidLine(ctx, y, 2);
     y += 26;
@@ -381,14 +448,33 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
 
     // ─── Tender & Payment Details ───────────────────
     ctx.font = `normal ${paperSize === 58 ? 15 : 18}px ${FONT_FAMILY}`;
-    drawSummaryRow("Payment Method", paymentMethod);
+    drawSummaryRow("Payment Method", String(paymentMethod || "Cash"));
 
-    if (dualTenderInfo) {
-      drawSummaryRow(`Split: ${dualTenderInfo.primaryMethod}`, `${currency}${Number(dualTenderInfo.primaryAmount).toFixed(2)}`);
-      drawSummaryRow(`Split: ${dualTenderInfo.secondaryMethod}`, `${currency}${Number(dualTenderInfo.secondaryAmount).toFixed(2)}`);
+    if (dualTenderInfo?.primaryMethod) {
+      drawSummaryRow(`Split: ${dualTenderInfo.primaryMethod}`, `${currency}${Number(dualTenderInfo.primaryAmount || 0).toFixed(2)}`);
+      if (dualTenderInfo.secondaryMethod) {
+        drawSummaryRow(`Split: ${dualTenderInfo.secondaryMethod}`, `${currency}${Number(dualTenderInfo.secondaryAmount || 0).toFixed(2)}`);
+      }
+    } else if (dualTenderInfo) {
+      // POS cash tender (USD / KHR)
+      if (Number(dualTenderInfo.tenderedUSD) > 0) {
+        drawSummaryRow("Cash (USD)", `$${Number(dualTenderInfo.tenderedUSD).toFixed(2)}`);
+      }
+      if (Number(dualTenderInfo.tenderedKHR) > 0) {
+        drawSummaryRow("Cash (KHR)", `KHR ${Math.round(Number(dualTenderInfo.tenderedKHR)).toLocaleString()}`);
+      }
+      if (Number(dualTenderInfo.changeTotalUSD) > 0 || Number(dualTenderInfo.changeTotalKHR) > 0) {
+        const change =
+          dualTenderInfo.changeMode === "MIXED" && Number(dualTenderInfo.changeBreakdownUSD) > 0
+            ? `$${Number(dualTenderInfo.changeBreakdownUSD).toFixed(2)} + KHR ${Math.round(Number(dualTenderInfo.changeBreakdownKHR || 0)).toLocaleString()}`
+            : Number(dualTenderInfo.changeTotalUSD) > 0
+              ? `$${Number(dualTenderInfo.changeTotalUSD).toFixed(2)}`
+              : `KHR ${Math.round(Number(dualTenderInfo.changeTotalKHR)).toLocaleString()}`;
+        drawSummaryRow("Change", change, true);
+      }
     }
 
-    if (cashTendered !== null && Number(cashTendered) > 0) {
+    if (!dualTenderInfo && cashTendered !== null && Number(cashTendered) > 0) {
       drawSummaryRow("Cash Tendered", `${currency}${Number(cashTendered).toFixed(2)}`);
       if (changeAmount !== null && Number(changeAmount) >= 0) {
         drawSummaryRow("Change Due", `${currency}${Number(changeAmount).toFixed(2)}`, true);
@@ -453,7 +539,7 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     orderId,
     stationName,
     notes,
-  } = details;
+  } = normalizePrintDetails(details);
 
   // Measurement canvas
   const mCanvas = document.createElement("canvas");
@@ -546,7 +632,7 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
 
     // Items List
     cartItems.forEach((item) => {
-      const itemTitle = item.title || item.name || "Item";
+      const itemTitle = item.title || item.item_title || item.name || "Item";
       const qty = item.quantity || 1;
 
       // Item Quantity Box + Title
@@ -560,16 +646,17 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
       });
 
       // Variant
-      if (item.variant?.title) {
+      const variantTitle = item.variant?.title || item.variant_title;
+      if (variantTitle) {
         ctx.font = `bold ${paperSize === 58 ? 16 : 20}px ${FONT_FAMILY}`;
-        ctx.fillText(`    Option: ${item.variant.title}`, padding, y);
+        ctx.fillText(`    Option: ${variantTitle}`, padding, y);
         y += paperSize === 58 ? 20 : 24;
       }
 
-      // Addons
-      if (Array.isArray(item.addons) && item.addons.length > 0) {
+      // Addons (only the ones that were selected)
+      const addonNames = addonNamesOf(item);
+      if (addonNames) {
         ctx.font = `normal ${paperSize === 58 ? 16 : 20}px ${FONT_FAMILY}`;
-        const addonNames = item.addons.map((a) => a.title || a.name).join(", ");
         const addonLines = wrapTextLines(ctx, `    + ${addonNames}`, contentWidth - 30);
         addonLines.forEach((al) => {
           ctx.fillText(al, padding, y);
@@ -656,10 +743,12 @@ export async function printReceiptDirectTcp(details, printer, { batchId } = {}) 
   }
   const paperSize = Number(printer.paper_size || 80);
   const canvas = renderReceiptToCanvas(details, paperSize);
-  const isCash = details.paymentMethod?.toLowerCase().includes("cash");
+  const { paymentMethod } = normalizePrintDetails(details);
+  const isCash = String(paymentMethod || "").toLowerCase().includes("cash");
+  const drawerEnabled = Number(details.printSettings?.cash_drawer_kick ?? 1) !== 0 && details.printSettings?.cashDrawerKick !== false;
   const bytes = canvasToEscPosRaster(canvas, {
-    autoCut: Boolean(printer.auto_cut !== 0),
-    cashDrawerKick: isCash,
+    autoCut: Number(printer.auto_cut ?? 1) !== 0,
+    cashDrawerKick: isCash && drawerEnabled,
   });
   const base64 = uint8ArrayToBase64(bytes);
   return await sendRasterToBackendPrinter(printer.id, base64, {
@@ -687,7 +776,7 @@ export async function printKotDirectTcp(details, printerConfigs = [], stations =
   }
 
   const summary = { printed: [], queued: [], failed: [] };
-  const cartItems = details.cartItems || [];
+  const cartItems = details.cartItems || details.items || [];
   if (cartItems.length === 0) {
     return summary;
   }
@@ -747,7 +836,7 @@ export async function printKotDirectTcp(details, printerConfigs = [], stations =
 
       const canvas = renderKotToCanvas(stationDetails, paperSize);
       const bytes = canvasToEscPosRaster(canvas, {
-        autoCut: Boolean(targetPrinter.auto_cut !== 0),
+        autoCut: Number(targetPrinter.auto_cut ?? 1) !== 0,
         cashDrawerKick: false,
       });
       const base64 = uint8ArrayToBase64(bytes);

@@ -2160,6 +2160,7 @@ export default function POSPage() {
           payableTotal: summary.payableTotal,
           tokenNo: data.tokenNo,
           orderId: data.orderId,
+          tableName: currentSelectedTable?.table_title || activeTableContext?.tableTitle || selectedTableTitle || undefined,
           paymentMethod: paymentMethodText,
           paymentStatus: "paid",
           billingMode: "prepaid",
@@ -2209,6 +2210,10 @@ export default function POSPage() {
 
         if(is_enable_print) {
           triggerPrintReceipt(receiptPayload);
+          // "Pay & Send to Kitchen": the kitchen needs its ticket too.
+          if (isKitchenEnabled) {
+            triggerPrintToken(receiptPayload);
+          }
         }
 
         const defaultRate = customExchangeRate || storeSettings?.exchange_rate_usd_to_khr || storeSettings?.exchangeRateUsdToKhr || 4100;
@@ -2349,6 +2354,7 @@ export default function POSPage() {
           payableTotal: summary.payableTotal,
           tokenNo: data.tokenNo,
           orderId: data.orderId,
+          tableName: currentSelectedTable?.table_title || activeTableContext?.tableTitle || selectedTableTitle || undefined,
           paymentMethod: paymentMethodText,
           paymentStatus: "unpaid",
           billingMode: "postpaid",
@@ -2390,9 +2396,14 @@ export default function POSPage() {
         playTapSound();
         _initPOS();
 
-        // Background auto print if enabled
+        // Background auto print if enabled: the kitchen gets its ticket (KOT);
+        // without a kitchen workflow, print the guest check instead.
         if (is_enable_print) {
-          triggerPrintReceipt(receiptPayload);
+          if (isKitchenEnabled) {
+            triggerPrintToken(receiptPayload);
+          } else {
+            triggerPrintReceipt(receiptPayload);
+          }
         }
 
         // Sleek non-blocking success notification with fast Print KOT shortcut (if kitchen enabled)
