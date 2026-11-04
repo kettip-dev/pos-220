@@ -651,12 +651,25 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
             ) AS split_remaining_payable,
             c.name AS customer_name,
             c.phone AS customer_phone,
+            oa.order_ids AS active_order_ids,
+            oa.order_tokens AS active_order_tokens,
+            COALESCE(oa.order_count, 0) AS active_orders_count,
             COALESCE(
-                (SELECT SUM(oi.price * oi.quantity) FROM order_items oi WHERE oi.order_id = o.id AND oi.status NOT IN ('cancelled')),
+                (SELECT SUM(oi.price * oi.quantity)
+                 FROM order_items oi
+                 INNER JOIN orders o2 ON o2.id = oi.order_id
+                 WHERE o2.tenant_id = st.tenant_id AND o2.table_id = st.id
+                   AND o2.status NOT IN ('completed', 'cancelled')
+                   AND oi.status NOT IN ('cancelled')),
                 0
             ) AS order_total,
             COALESCE(
-                (SELECT SUM(oi.quantity) FROM order_items oi WHERE oi.order_id = o.id AND oi.status NOT IN ('cancelled')),
+                (SELECT SUM(oi.quantity)
+                 FROM order_items oi
+                 INNER JOIN orders o2 ON o2.id = oi.order_id
+                 WHERE o2.tenant_id = st.tenant_id AND o2.table_id = st.id
+                   AND o2.status NOT IN ('completed', 'cancelled')
+                   AND oi.status NOT IN ('cancelled')),
                 0
             ) AS order_items_count,
             COALESCE(
@@ -674,12 +687,33 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
                 GROUP BY table_id
             ) o_latest ON o1.id = o_latest.max_id
         ) o ON st.id = o.table_id
+        LEFT JOIN (
+            -- Every open order on the table: each POS submit to an occupied
+            -- table creates its own order, so the table must show all of them.
+            SELECT
+                table_id,
+                GROUP_CONCAT(id ORDER BY id ASC) AS order_ids,
+                GROUP_CONCAT(COALESCE(token_no, id) ORDER BY id ASC) AS order_tokens,
+                COUNT(*) AS order_count
+            FROM orders
+            WHERE tenant_id = ? AND status NOT IN ('completed', 'cancelled') AND table_id IS NOT NULL
+            GROUP BY table_id
+        ) oa ON st.id = oa.table_id
         LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = st.tenant_id
         WHERE st.tenant_id = ?
         ORDER BY st.id ASC;
         `;
 
-        const [tables] = await conn.query(sql, [CONFIG.ENCRYPTION_KEY, tenantId, tenantId]);
+        const [rawTables] = await conn.query(sql, [CONFIG.ENCRYPTION_KEY, tenantId, tenantId, tenantId]);
+        const tables = rawTables.map((t) => ({
+            ...t,
+            active_order_ids: t.active_order_ids
+                ? String(t.active_order_ids).split(",").map(Number).filter(Boolean)
+                : [],
+            active_order_tokens: t.active_order_tokens
+                ? String(t.active_order_tokens).split(",")
+                : [],
+        }));
 
         const [layouts] = await conn.query(
             `SELECT floor, show_cashier, cashier_x, cashier_y, cashier_w, cashier_h, floor_plan_image, floor_plan_opacity, floor_plan_fit, walls, cashier_rotation, merged_pairs FROM store_floor_layouts WHERE tenant_id = ?`,
@@ -729,6 +763,10 @@ exports.getStoreTablesWithLiveStatusDB = async (tenantId) => {
                     // If master has an active order and secondary doesn't, secondary inherits master's active order info
                     if (master.active_order_id && !secondary.active_order_id) {
                         secondary.active_order_id = master.active_order_id;
+                        secondary.active_order_ids = master.active_order_ids;
+                        secondary.active_order_tokens = master.active_order_tokens;
+                        secondary.active_orders_count = master.active_orders_count;
+                        secondary.order_total = master.order_total;
                         secondary.active_order_token = master.active_order_token;
                         secondary.active_order_total = master.active_order_total;
                         secondary.active_order_date = master.active_order_date;
