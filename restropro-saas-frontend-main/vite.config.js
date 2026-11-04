@@ -6,6 +6,8 @@ import path from "path";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
+const APP_VERSION = JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url), "utf-8")).version;
+const BUILD_TIME = new Date().toISOString();
 
 // Curated mapping from Tabler Icon names to Solar Duotone icon candidates (in priority order)
 const SOLAR_ICON_CANDIDATES = {
@@ -395,6 +397,10 @@ ${exportsCode}
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
+  },
   server: {
     host: true,
     port: 5173,

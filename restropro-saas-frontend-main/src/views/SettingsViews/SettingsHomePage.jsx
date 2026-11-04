@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   IconArmchair2,
@@ -14,17 +14,48 @@ import {
   IconTag,
   IconAward,
   IconCashRegister,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import Page from "../../components/Page";
 import { useTranslation } from "react-i18next";
 import { useStoreSettings } from "../../controllers/settings.controller";
 
+/* global __APP_VERSION__, __BUILD_TIME__ */
+const APP_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
+const BUILD_TIME_LABEL =
+  typeof __BUILD_TIME__ !== "undefined" ? new Date(__BUILD_TIME__).toLocaleString() : "-";
+
 export default function SettingsHomePage() {
   const {t} = useTranslation();
   const navigate = useNavigate();
   const { data: storeSettings } = useStoreSettings();
   const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
+  const [isFlushing, setIsFlushing] = useState(false);
+
+  // Clears the PWA service worker + Cache Storage so the browser fetches the
+  // newest build. localStorage/cookies are kept so the user stays signed in.
+  const handleFlushCache = async () => {
+    if (!window.confirm(t("settings.flush_cache_confirm", "Clear browser cache and reload the app now?"))) return;
+    setIsFlushing(true);
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      sessionStorage.clear();
+    } catch (err) {
+      console.error("Cache flush failed", err);
+    }
+    // Cache-busting query forces a fresh fetch of index.html
+    const url = new URL(window.location.href);
+    url.searchParams.set("_v", Date.now().toString());
+    window.location.replace(url.toString());
+  };
 
   const rawSettingsCards = [
     {
@@ -220,6 +251,41 @@ export default function SettingsHomePage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* App Version & Browser Cache */}
+      <div className="rounded-3xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-[#252525] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-100 dark:bg-[#333] text-[#59A352] shrink-0">
+            <IconInfoSquareRounded stroke={iconStroke} className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-restro-green-dark dark:text-white leading-tight">
+              {t("settings.app_version", "App Version")}{" "}
+              <span className="text-[#59A352]">v{APP_VERSION}</span>
+            </h3>
+            <span className="text-[11px] font-medium text-slate-400 dark:text-gray-500 mt-0.5 block">
+              {t("settings.build_time", "Build")}: {BUILD_TIME_LABEL}
+            </span>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mt-1.5 leading-relaxed">
+              {t(
+                "settings.desc_flush_cache",
+                "Not seeing the latest update? Clear the browser cache to download the newest version. You stay signed in."
+              )}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleFlushCache}
+          disabled={isFlushing}
+          className="min-h-[42px] px-5 rounded-2xl bg-[#59A352] hover:bg-[#4c8e46] text-white font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-60 shrink-0"
+        >
+          <IconRefresh stroke={iconStroke} className={`w-5 h-5 ${isFlushing ? "animate-spin" : ""}`} />
+          {isFlushing
+            ? t("settings.flushing_cache", "Clearing...")
+            : t("settings.flush_cache", "Clear Cache & Reload")}
+        </button>
       </div>
     </Page>
   );
