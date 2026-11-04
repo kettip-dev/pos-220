@@ -9,7 +9,8 @@ import {
 } from "../../controllers/settings.controller";
 import { testPrint80mm } from "../../helpers/EscPosHelper";
 import { toast } from "react-hot-toast";
-import { mutate } from "swr";
+import useSWR, { mutate } from "swr";
+import ApiClient from "../../helpers/ApiClient";
 import Popover from "../../components/Popover";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
@@ -45,6 +46,11 @@ export default function PrintSettingsPage() {
   const { APIURL, data, error, isLoading } = usePrintSettings();
   const { data: storeSettings } = useStoreSettings();
   const isKitchenEnabled = storeSettings?.isKitchenEnabled !== false;
+
+  // Printers configured on the Thermal Printers page (used only in Direct Network mode)
+  const { data: printerData } = useSWR("/pos/printers", (url) => ApiClient.get(url).then((res) => res.data));
+  const printers = printerData?.printerConfigs || [];
+  const defaultPrinter = printers.find((p) => p.is_default === 1) || printers[0];
 
   useEffect(() => {
     if (data?.printMode) {
@@ -218,7 +224,7 @@ export default function PrintSettingsPage() {
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
-                Silent 100% Unicode canvas raster printing directly over Wi-Fi/LAN (Port 9100). No popups, instant &lt; 150ms print!
+                Silent printing (100% Unicode) to the printers you add on the Thermal Printers page, over LAN or USB via a Print Agent. No popups.
               </p>
             </div>
 
@@ -313,8 +319,20 @@ export default function PrintSettingsPage() {
               </Link>
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-              Customer receipts and kitchen tickets bypass the browser print dialog completely and stream directly to your printer IPs (Port 9100) with 100% Unicode font fidelity.
+              Receipts go to your <strong>Default Receipt</strong> printer and kitchen tickets to your KOT / station printers.
+              Paper width and auto-cut are set per printer on the Thermal Printers page.
             </p>
+            {printerData && printers.length === 0 && (
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                No thermal printers added yet, so printing falls back to the browser dialog. Add one on the Thermal Printers page.
+              </p>
+            )}
+            {printers.length > 0 && (
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                {printers.length} printer{printers.length > 1 ? "s" : ""} configured
+                {defaultPrinter ? <> · receipts print on <strong>{defaultPrinter.name}</strong></> : null}
+              </p>
+            )}
           </div>
         )}
 
@@ -382,8 +400,8 @@ export default function PrintSettingsPage() {
           </div>
         )}
 
-        {/* Paper Size */}
-        <div className="mt-6 w-full">
+        {/* Paper Size (Direct Network uses each printer's own paper width instead) */}
+        <div className={`mt-6 w-full ${printMode === "direct_tcp" ? "hidden" : ""}`}>
           <label htmlFor="pageSize" className="block mb-1 font-medium text-gray-800 dark:text-gray-200">
             {t('print_settings.format_page_size', 'Paper Width')}
           </label>
