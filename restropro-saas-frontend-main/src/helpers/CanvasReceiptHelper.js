@@ -45,7 +45,7 @@ function wrapTextLines(ctx, text, maxWidth) {
  * @returns {Uint8Array}
  */
 export function canvasToEscPosRaster(canvas, options = {}) {
-  const { autoCut = true, cashDrawerKick = false } = options;
+  const { autoCut = true, cashDrawerKick = false, feed = true } = options;
   const width = canvas.width;
   const height = canvas.height;
   const ctx = canvas.getContext("2d");
@@ -97,8 +97,8 @@ export function canvasToEscPosRaster(canvas, options = {}) {
 
   const footer = [];
 
-  // Feed 4 lines for tear/cut clearance
-  footer.push(0x1b, 0x64, 0x04); // ESC d 4
+  // Feed 4 lines for tear/cut clearance (skipped when a separate cut job feeds)
+  if (feed) footer.push(0x1b, 0x64, 0x04); // ESC d 4
 
   // RJ11 Cash drawer kick pulse pin 2 (if requested)
   if (cashDrawerKick) {
@@ -748,6 +748,39 @@ export async function sendRasterToBackendPrinter(printerId, base64Data, meta = {
   return res.data;
 }
 
+// ESC @ (reset), ESC d 4 (feed 4 lines), GS V 0 (full cut): the same ending
+// as the printer test page, which cuts on every printer we have seen.
+const CUT_JOB_BASE64 = uint8ArrayToBase64(Uint8Array.from([0x1b, 0x40, 0x1b, 0x64, 0x04, 0x1d, 0x56, 0x00]));
+
+/**
+ * Print a raster ticket, then cut the paper with a separate small job.
+ * Many LAN printers print a large raster image completely but drop the cut
+ * command that follows it in the same job; a cut sent as its own job (like
+ * the test page) is reliable. The ticket job is awaited first, so the cut is
+ * queued behind it on the backend / print agent.
+ */
+async function sendTicketWithCut(printer, canvas, { cashDrawerKick = false, jobType, reference, idempotencyKey }) {
+  const autoCut = Number(printer.auto_cut ?? 1) !== 0;
+  const bytes = canvasToEscPosRaster(canvas, { autoCut: false, feed: !autoCut, cashDrawerKick });
+  const result = await sendRasterToBackendPrinter(printer.id, uint8ArrayToBase64(bytes), {
+    jobType,
+    reference,
+    idempotencyKey,
+  });
+  if (autoCut && result?.status !== "failed" && !result?.duplicate) {
+    try {
+      await sendRasterToBackendPrinter(printer.id, CUT_JOB_BASE64, {
+        jobType: "raw",
+        reference: `Cut: ${reference}`.slice(0, 100),
+        idempotencyKey: idempotencyKey ? `${idempotencyKey}:cut` : undefined,
+      });
+    } catch (err) {
+      console.warn("[Print] Paper cut job failed:", err?.response?.data?.message || err?.message);
+    }
+  }
+  return result;
+}
+
 function orderLabel(details = {}) {
   if (details.tokenNo) return `#${details.tokenNo}`;
   if (details.orderId) return `Order ${details.orderId}`;
@@ -768,12 +801,8 @@ export async function printReceiptDirectTcp(details, printer, { batchId } = {}) 
   const { paymentMethod } = normalizePrintDetails(details);
   const isCash = String(paymentMethod || "").toLowerCase().includes("cash");
   const drawerEnabled = Number(details.printSettings?.cash_drawer_kick ?? 1) !== 0 && details.printSettings?.cashDrawerKick !== false;
-  const bytes = canvasToEscPosRaster(canvas, {
-    autoCut: Number(printer.auto_cut ?? 1) !== 0,
+  return await sendTicketWithCut(printer, canvas, {
     cashDrawerKick: isCash && drawerEnabled,
-  });
-  const base64 = uint8ArrayToBase64(bytes);
-  return await sendRasterToBackendPrinter(printer.id, base64, {
     jobType: "receipt",
     reference: `Receipt ${orderLabel(details)}`.trim(),
     idempotencyKey: batchId ? `receipt:${batchId}:${printer.id}` : undefined,
@@ -844,10 +873,13 @@ export async function printKotDirectTcp(details, printerConfigs = [], stations =
     stationMap.get(key).items.push(item);
   });
 
-  // Dispatch a dedicated ticket for each station group, all in parallel
+  // Dispatch a dedicated ticket for each station group. They go one after
+  // another so each ticket's cut lands right behind it when stations share a
+  // printer; a failure on one station never stops the others.
   const groups = [...stationMap.values()];
-  const outcomes = await Promise.allSettled(
-    groups.map(async (group) => {
+  const outcomes = [];
+  for (const group of groups) {
+    try {
       const targetPrinter = printerConfigs.find((p) => String(p.id) === String(group.printerId)) || printerConfigs[0];
       const paperSize = Number(targetPrinter.paper_size || 80);
       const stationDetails = {
@@ -857,20 +889,16 @@ export async function printKotDirectTcp(details, printerConfigs = [], stations =
       };
 
       const canvas = renderKotToCanvas(stationDetails, paperSize);
-      const bytes = canvasToEscPosRaster(canvas, {
-        autoCut: Number(targetPrinter.auto_cut ?? 1) !== 0,
-        cashDrawerKick: false,
-      });
-      const base64 = uint8ArrayToBase64(bytes);
-
-      const result = await sendRasterToBackendPrinter(targetPrinter.id, base64, {
+      const result = await sendTicketWithCut(targetPrinter, canvas, {
         jobType: "kot",
         reference: `${group.stationName} ${orderLabel(details)}`.trim(),
         idempotencyKey: batchId ? `kot:${batchId}:${group.key}:${targetPrinter.id}` : undefined,
       });
-      return { printer: targetPrinter.name, result };
-    })
-  );
+      outcomes.push({ status: "fulfilled", value: { printer: targetPrinter.name, result } });
+    } catch (reason) {
+      outcomes.push({ status: "rejected", reason });
+    }
+  }
 
   outcomes.forEach((outcome, index) => {
     const station = groups[index].stationName;
