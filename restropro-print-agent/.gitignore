@@ -1,3 +1,5 @@
 # Holds the agent token
 config.json
 node_modules/
+build/
+dist/

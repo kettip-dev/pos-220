@@ -16,9 +16,87 @@ reconnects. Jobs older than 15 minutes expire, so staff never get stale kitchen 
 
 - An always-on computer on the same network as the printers (Windows PC, mini PC,
   Mac, or Raspberry Pi)
-- Node.js 18 or newer
+- Windows 10/11 (64-bit) with the installer below, **or** Node.js 18+ on any OS
 
-## Setup
+## Windows: one-click installer (recommended)
+
+1. In Restro PRO, open **Settings → Thermal Printers → Print Agents**, click
+   **Add Agent** and copy the token.
+2. Run `RestroPrintAgent-Setup-<version>.exe` on the restaurant PC, enter the POS
+   address and paste the token. The installer checks the connection before it
+   installs.
+3. Done. The agent runs in the background as SYSTEM, starts at boot before anyone
+   logs in, and is restarted within 5 minutes if it ever stops. Nothing else
+   (Node.js, npm, pm2) is needed.
+
+| What | Where |
+|---|---|
+| Program | `C:\Program Files\Restro Print Agent\` |
+| Settings (token) | `C:\ProgramData\RestroPrintAgent\config.json` (Administrators only) |
+| Log | `C:\ProgramData\RestroPrintAgent\logs\agent.log` (Start menu → **View print agent log**) |
+| Background task | Task Scheduler → **Restro Print Agent** |
+
+### Printer Tools
+
+While the agent runs, open **Start menu → Restro Printer Tools** (or
+http://localhost:17171 on that computer). It shows:
+
+- **Agent status:** connected or offline, POS server, last problem
+- **USB / installed printers:** the exact names to use in POS, with **Test print**
+  and **Drawer** (open cash drawer) buttons
+- **Network printer:** check an IP is reachable, print a test page, open the drawer
+- **Find network printers:** scans this computer's network for port 9100 printers
+- **Recent print jobs** and the **log** (with a Copy button for support)
+
+The page is only reachable from this computer and never shows the token. The same
+tools work from the command line:
+
+```bat
+restro-print-agent.exe --scan                        :: find network printers
+restro-print-agent.exe --check 192.168.1.200         :: is it reachable?
+restro-print-agent.exe --test-print 192.168.1.200    :: test page (IP[:port] or installed printer name)
+restro-print-agent.exe --test-print "EPSON TM-T82"
+restro-print-agent.exe --drawer 192.168.1.200        :: open the cash drawer
+```
+
+Other useful commands (in an Administrator terminal, from the program folder):
+
+```bat
+restro-print-agent.exe --test                      :: check address + token
+restro-print-agent.exe --configure --token rpa_... :: replace the token, then:
+powershell -ExecutionPolicy Bypass -File service.ps1 restart
+restro-print-agent.exe --list-printers
+```
+
+Install on many PCs without the wizard:
+
+```bat
+RestroPrintAgent-Setup-1.0.0.exe /VERYSILENT /SERVER=https://pos.example.com /TOKEN=rpa_xxx
+```
+
+Running the installer again upgrades the agent and keeps its settings.
+
+> **Shared printers:** the agent runs as SYSTEM, so it sees printers installed for
+> the whole computer (normal USB / network printers). A printer added only for one
+> Windows user (for example `\\OTHER-PC\Printer`) is not visible to it. Install it
+> as a local printer instead.
+
+### Building the installer
+
+On a Windows x64 PC with Node.js 20+ and [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+
+```bash
+npm run build:win
+# or, to pre-fill your POS address and sign the files:
+powershell -ExecutionPolicy Bypass -File installer/build.ps1 -DefaultServer https://pos.example.com -Sign
+```
+
+Output in `dist/`: `restro-print-agent.exe` (Node.js built in), `RestroRawPrint.dll`
+and `RestroPrintAgent-Setup-<version>.exe`. The version comes from `package.json`.
+Sign the release files with a code-signing certificate (`-Sign`), or Windows
+SmartScreen warns users that the publisher is unknown.
+
+## Setup from source (any OS)
 
 1. In Restro PRO, open **Settings → Thermal Printers → Print Agents** and click
    **Add Agent**. Copy the token (it is shown only once).
@@ -40,14 +118,7 @@ reconnects. Jobs older than 15 minutes expire, so staff never get stale kitchen 
 
 ## Run automatically at startup
 
-Windows (using [pm2](https://pm2.keymetrics.io/)):
-
-```bash
-npm install -g pm2 pm2-windows-startup
-pm2 start src/index.js --name restro-print-agent
-pm2 save
-pm2-startup install
-```
+Windows: use the installer above; it sets this up for you.
 
 Linux / Raspberry Pi:
 
@@ -73,4 +144,5 @@ pm2 startup
 | `The agent token was rejected` | Create or regenerate the token and run again with `--token`. |
 | `did not respond within 5000ms` | Printer is off, on another network, or has a different IP. Print its self-test page to check the IP. |
 | `Cannot open printer '…'` | The USB printer name does not match. Run `npm run list-printers`. |
-| Agent shows **Offline** in settings | Check the agent's console and that this computer can open the POS website. |
+| Agent shows **Offline** in settings | Check the agent's console (Windows installer: `agent.log`) and that this computer can open the POS website. |
+| `The server closed this connection … another agent started with the same token` | The same token is used on two computers. Give each computer its own agent. |

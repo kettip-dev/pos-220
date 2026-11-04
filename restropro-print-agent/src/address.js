@@ -45,4 +45,4 @@ function parseSpoolerName(address) {
   return name;
 }
 
-module.exports = { parseTcpTarget, parseSpoolerName };
+module.exports = { parseTcpTarget, parseSpoolerName, parseIPv4, isPrivateLan };

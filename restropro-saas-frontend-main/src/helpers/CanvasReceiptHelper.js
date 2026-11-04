@@ -350,9 +350,9 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
       drawSummaryRow(discLabel, `-${currency}${Number(discountAmount).toFixed(2)}`);
     }
 
-    const customerGroupDiscount = Number(receiptDetails.customer_group_discount || receiptDetails.customerGroupDiscountTotal || 0);
+    const customerGroupDiscount = Number(details.customer_group_discount || details.customerGroupDiscountTotal || 0);
     if (customerGroupDiscount > 0) {
-      const grpLabel = (receiptDetails.customer_group_name || receiptDetails.customerGroupName || "Group") + " Disc";
+      const grpLabel = (details.customer_group_name || details.customerGroupName || "Group") + " Disc";
       drawSummaryRow(grpLabel, `-${currency}${customerGroupDiscount.toFixed(2)}`);
     }
 
