@@ -1,4 +1,18 @@
 import moment from "moment";
+import "moment/locale/km";
+import { getLanguage } from "./LocalizationHelper";
+
+// Loading a moment locale also makes it the global default; keep English as the
+// global so other moment.format() callers are unaffected, and pick per call.
+moment.locale("en");
+
+const momentLocale = () => {
+  try {
+    return getLanguage() === "km" ? "km" : "en";
+  } catch {
+    return "en";
+  }
+};
 
 /**
  * Safely parses any date representation (Date, ISO string, MySQL datetime string)
@@ -56,7 +70,7 @@ export function formatRelativeTime(dateVal, fallback = "Just now") {
     return fallback;
   }
 
-  return moment(parsed).fromNow();
+  return moment(parsed).locale(momentLocale()).fromNow();
 }
 
 /**

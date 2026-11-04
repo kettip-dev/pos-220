@@ -116,6 +116,7 @@ function TableCard({
   onNewOrder,
   onPayTable,
   onMoveTable,
+  onSplitChecks,
 }) {
   const { t } = useTranslation();
   const statusKey = getTableBindoStatus(table);
@@ -135,7 +136,7 @@ function TableCard({
     if (rawNum == null) return null;
     const num = Number(rawNum);
     if (Number.isNaN(num)) return null;
-    return `${currency} ${num.toLocaleString(undefined, {
+    return `${currency}${String(currency).length > 1 ? " " : ""}${num.toLocaleString(undefined, {
       minimumFractionDigits: num % 1 === 0 ? 0 : 2,
       maximumFractionDigits: 2,
     })}`;
@@ -156,57 +157,54 @@ function TableCard({
         }
       `}
     >
-      {/* ── Top Header: Table Title + Capacity + Status Badge ── */}
-      <div>
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          {/* Table Title & Seating */}
-          <div className="min-w-0">
-            <h3 className={`text-xl font-black tracking-tight leading-tight truncate ${meta.titleCls}`}>
-              {table.table_title}
-            </h3>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 dark:text-zinc-400 mt-0.5">
-              <IconArmchair size={13} className="shrink-0" />
-              <span>{seatingCap} {t("tables.seats", "seats")}</span>
+      {/* ── Top Header: Title + timer, then status + seats (two rows so nothing collides on narrow cards) ── */}
+      <div className="min-w-0">
+        <div className="flex items-start gap-2">
+          <h3
+            title={table.table_title}
+            className={`flex-1 min-w-0 text-lg font-black tracking-tight leading-tight truncate ${meta.titleCls}`}
+          >
+            {table.table_title}
+          </h3>
+          {elapsed && (
+            <span className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-bold tabular-nums text-slate-500 dark:text-zinc-400 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">
+              <IconClock size={12} className="shrink-0" />
+              <span>{elapsed}</span>
             </span>
-          </div>
+          )}
+        </div>
 
-          {/* Status Badge + Live dot */}
-          <div className="flex flex-col items-end gap-1 shrink-0">
+        <div className="mt-1.5 flex items-center gap-2 min-w-0">
+          <span
+            className={`
+              min-w-0 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide
+              px-2 py-0.5 rounded-full border ${meta.badgeCls}
+            `}
+          >
             <span
-              className={`
-                inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider
-                px-2 py-0.5 rounded-full border ${meta.badgeCls}
-              `}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${meta.dotCls} ${
-                  isOccupied ? "animate-pulse" : ""
-                }`}
-              />
-              <span>{meta.label}</span>
-            </span>
-
-            {/* Live Elapsed Timer */}
-            {elapsed && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md">
-                <IconClock size={11} className="shrink-0" />
-                <span>{elapsed}</span>
-              </span>
-            )}
-          </div>
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta.dotCls} ${
+                isOccupied ? "animate-pulse" : ""
+              }`}
+            />
+            <span className="truncate">{t(`tables.status_${statusKey}`, meta.label)}</span>
+          </span>
+          <span className="ml-auto shrink-0 inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold text-slate-400 dark:text-zinc-400">
+            <IconArmchair size={13} className="shrink-0" />
+            <span>{seatingCap} {t("tables.seats", "seats")}</span>
+          </span>
         </div>
 
         {/* ── Middle Info: Order details / Guest / Amount ── */}
         <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800/80">
           {isOccupied ? (
             <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-600 dark:text-zinc-300 truncate max-w-[120px]">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 flex-1 font-bold text-slate-600 dark:text-zinc-300 truncate">
                   {table.active_order_token ? `#${table.active_order_token}` : t("pos.dinein", "Dine-in")}
                   {table.customer_name ? ` • ${table.customer_name}` : ""}
                 </span>
                 {hasItems && (
-                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded">
+                  <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded">
                     {table.order_items_count} {t("tables.items", "items")}
                   </span>
                 )}
@@ -230,7 +228,7 @@ function TableCard({
       {/* ── Bottom Quick Action Row (Tablet-native touch targets >= 42px) ── */}
       <div className="mt-3 pt-2">
         {isOccupied ? (
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_42px] gap-1.5">
             {/* Primary Action: Settle / Pay Bill */}
             <button
               type="button"
@@ -244,7 +242,7 @@ function TableCard({
               }}
               title={isSplitInProgress ? t("tables.settle_split", "Settle Split Checks") : t("tables.settle_bill", "Settle Bill")}
               className={`
-                col-span-3 min-h-[42px] px-3 rounded-xl font-bold text-xs
+                min-w-0 min-h-[42px] px-2.5 rounded-xl font-bold text-xs
                 flex items-center justify-center gap-1.5 text-white transition-all
                 cursor-pointer active:scale-95 shadow-xs
                 ${
@@ -258,8 +256,8 @@ function TableCard({
                 }
               `}
             >
-              <IconCreditCard size={15} />
-              <span>
+              <IconCreditCard size={15} className="shrink-0" />
+              <span className="truncate">
                 {isSplitInProgress
                   ? `${t("tables.split_badge", "Split")} (${table.split_paid_checks || 0}/${table.split_total_checks || 2})`
                   : statusKey === "paid"
@@ -278,7 +276,7 @@ function TableCard({
                 onTableClick(table);
               }}
               title={t("tables.more_actions", "More Actions")}
-              className="col-span-1 min-h-[42px] rounded-xl font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all flex items-center justify-center cursor-pointer active:scale-95 border border-slate-200 dark:border-zinc-700"
+              className="min-h-[42px] rounded-xl font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all flex items-center justify-center cursor-pointer active:scale-95 border border-slate-200 dark:border-zinc-700"
             >
               <IconDotsVertical size={16} />
             </button>
@@ -591,7 +589,9 @@ export default function TableGridView({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3.5 md:gap-4">
+          // Columns follow the grid's own width (not the viewport), so cards keep a
+          // readable size when the table drawer takes half the screen.
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))] gap-3.5 md:gap-4">
             {displayedTables.map((table) => (
               <TableCard
                 key={table.id}
@@ -602,6 +602,7 @@ export default function TableGridView({
                 onNewOrder={onNewOrder}
                 onPayTable={onPayTable}
                 onMoveTable={onMoveTable}
+                onSplitChecks={onSplitChecks}
               />
             ))}
           </div>

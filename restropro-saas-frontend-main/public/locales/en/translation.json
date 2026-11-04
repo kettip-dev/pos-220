@@ -3756,6 +3756,18 @@
     "audit_log_action_title": "Audit Log"
   },
   "tables": {
+    "status_available": "Free",
+    "status_seated": "Seated",
+    "status_ordered": "Ordered",
+    "status_ck_dropped": "Bill Req",
+    "status_paid": "Paid",
+    "status_unsent": "Unsent",
+    "status_alert": "Alert",
+    "status_over_time": "Overtime",
+    "status_reserved": "Reserved",
+    "status_multiple": "Multi",
+    "status_blocked": "Blocked",
+    "item_status_created": "New",
     "tables": "Tables",
     "edit_tables": "Edit Tables",
     "edit_hint": "Drag tables to rearrange. Click a table to rotate, edit or delete.",

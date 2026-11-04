@@ -3861,6 +3861,18 @@
     "audit_log_action_title": "កំណត់ហេតុសវនកម្ម"
   },
   "tables": {
+    "status_available": "ទំនេរ",
+    "status_seated": "អង្គុយ",
+    "status_ordered": "បានកុម្ម៉ង់",
+    "status_ck_dropped": "ស្នើវិក្កយបត្រ",
+    "status_paid": "បានទូទាត់",
+    "status_unsent": "មិនទាន់ផ្ញើ",
+    "status_alert": "ជូនដំណឹង",
+    "status_over_time": "ហួសម៉ោង",
+    "status_reserved": "បានកក់",
+    "status_multiple": "ច្រើន",
+    "status_blocked": "បានបិទ",
+    "item_status_created": "ថ្មី",
     "tables": "តុទាំងអស់",
     "edit_tables": "កែសម្រួលតុ",
     "edit_hint": "អូសដើម្បីផ្លាស់ទីទីតាំងតុ",

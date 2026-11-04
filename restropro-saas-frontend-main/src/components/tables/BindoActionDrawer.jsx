@@ -55,6 +55,11 @@ export default function BindoActionDrawer({
   onRefreshTables = () => {},
 }) {
   const { t } = useTranslation();
+  // Currency codes ("USD") need a space before the amount; symbols ("$") don't.
+  const formatMoney = (amount) =>
+    `${currency}${String(currency).length > 1 ? " " : ""}${Number(amount || 0).toFixed(2)}`;
+  const itemStatusLabel = (status) =>
+    status === "created" ? t("tables.item_status_created", "New") : t(`kitchen.${status}`, status);
   const [tableQrOrders, setTableQrOrders] = useState([]);
   const [isRotatingPin, setIsRotatingPin] = useState(false);
   const [processingQrOrderId, setProcessingQrOrderId] = useState(null);
@@ -282,8 +287,7 @@ export default function BindoActionDrawer({
                       {it.variant_title ? ` (${it.variant_title})` : ""}
                     </span>
                     <span className="font-semibold">
-                      {currency}
-                      {(Number(it.price) * Number(it.quantity)).toFixed(2)}
+                      {formatMoney(Number(it.price) * Number(it.quantity))}
                     </span>
                   </div>
                 ))}
@@ -566,7 +570,7 @@ export default function BindoActionDrawer({
                                 </span>
                                 {item.status && item.status !== "cancelled" && (
                                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200/70 dark:bg-zinc-700/70 text-slate-600 dark:text-slate-300 font-semibold shrink-0 uppercase tracking-tight">
-                                    {item.status}
+                                    {itemStatusLabel(item.status)}
                                   </span>
                                 )}
                               </div>
@@ -584,7 +588,7 @@ export default function BindoActionDrawer({
 
                             <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                               <span className="font-black text-slate-800 dark:text-slate-200 text-xs">
-                                {currency}{lineTotal.toFixed(2)}
+                                {formatMoney(lineTotal)}
                               </span>
                               <button
                                 type="button"
@@ -612,7 +616,7 @@ export default function BindoActionDrawer({
                         {t("orders.total", "Total Payable")}
                       </span>
                       <span className="text-xl font-black text-[#0ea5e9]">
-                        {currency}{totalPayable.toFixed(2)}
+                        {formatMoney(totalPayable)}
                       </span>
                     </div>
 
@@ -785,7 +789,7 @@ export default function BindoActionDrawer({
                                   </span>
                                   {item.status && item.status !== "cancelled" && (
                                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 font-medium shrink-0">
-                                      {item.status}
+                                      {itemStatusLabel(item.status)}
                                     </span>
                                   )}
                                 </div>
@@ -801,7 +805,7 @@ export default function BindoActionDrawer({
 
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="font-bold text-slate-700 dark:text-slate-300">
-                                  {currency}{lineTotal.toFixed(2)}
+                                  {formatMoney(lineTotal)}
                                 </span>
                                 <button
                                   type="button"
@@ -826,7 +830,7 @@ export default function BindoActionDrawer({
                     <div className="pt-2 mt-2 border-t border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-500">{t("orders.total", "Total Payable")}</span>
                       <span className="text-lg font-black text-[#0ea5e9]">
-                        {currency}{totalPayable.toFixed(2)}
+                        {formatMoney(totalPayable)}
                       </span>
                     </div>
                   </div>
