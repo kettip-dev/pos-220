@@ -452,6 +452,12 @@ export function getQBOAppCategories(t, options = {}) {
       features: [],
       items: [
         {
+          label: t("navbar.user_guide", "User Guide"),
+          path: "/dashboard/user-guide",
+          scopes: [],
+          features: [],
+        },
+        {
           label: t("navbar.contact_support", "Contact Support"),
           path: "/dashboard/contact-support",
           scopes: [],
