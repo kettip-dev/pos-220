@@ -885,6 +885,9 @@
     "try_again_message": "Try Again!"
   },
   "orders": {
+    "showing_count_one": "Showing {{count}} order",
+    "showing_count_other": "Showing {{count}} orders",
+    "back_to_top": "Back to top",
     "title": "Orders",
     "subtitle": "Manage active dine-in, takeaway, and delivery orders in real time",
     "refresh": "Refresh",

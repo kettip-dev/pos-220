@@ -16,6 +16,7 @@ import {
 import { toast } from "react-hot-toast";
 import {
   IconArmchair,
+  IconArrowUp,
   IconBoxSeam,
   IconCash,
   IconCheck,
@@ -64,6 +65,8 @@ export default function OrdersPage() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const orderDisplayMenuRef = useRef(null);
+  const scrollRef = useRef(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const user = getUserDetailsInLocalStorage();
   const { socket, isSocketConnected } = useContext(SocketContext);
 
@@ -951,9 +954,11 @@ export default function OrdersPage() {
   }
 
   return (
-    <Page>
+    // Operational layout gives us a fixed-height, overflow-hidden <main>, so the
+    // page owns its scroll area: title pinned, KPIs scroll away, toolbar sticks.
+    <Page className="h-full min-h-0 flex flex-col relative">
       {/* ── Header: Title, live sync, display menu & refresh ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="shrink-0 px-4 pt-3 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/80">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-11 h-11 rounded-xl bg-[#2CA01C] text-white flex items-center justify-center shrink-0 shadow-sm">
             <IconReceipt size={22} stroke={iconStroke} />
@@ -1071,6 +1076,14 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      <div
+        ref={scrollRef}
+        onScroll={(e) => {
+          const next = e.currentTarget.scrollTop > 600;
+          if (next !== showScrollTop) setShowScrollTop(next);
+        }}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-24"
+      >
       {/* ── KPI tiles (tap to filter) ── */}
       {kitchenOrders?.length > 0 && (
         <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
@@ -1166,7 +1179,7 @@ export default function OrdersPage() {
 
       {/* ── Toolbar: filter tabs · search · sort · view · density ── */}
       {kitchenOrders?.length > 0 && (
-        <div className="mt-4 flex flex-col xl:flex-row xl:items-center gap-2.5">
+        <div className="sticky top-0 z-20 -mx-4 px-4 mt-1.5 py-2.5 bg-background flex flex-col xl:flex-row xl:items-center gap-2.5">
           <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-zinc-800/80 overflow-x-auto no-scrollbar touch-pan-x min-w-0">
             {filterTabs.map((tab) => {
               const isSelected = activeFilter === tab.key;
@@ -1319,9 +1332,17 @@ export default function OrdersPage() {
 
       {/* ── Orders Grid ── */}
       {filteredOrders?.length > 0 && (
+        <p className="mt-2 text-xs font-semibold text-slate-400 dark:text-zinc-500 tabular-nums">
+          {t("orders.showing_count", {
+            count: filteredOrders.length,
+            defaultValue: "Showing {{count}} orders",
+          })}
+        </p>
+      )}
+      {filteredOrders?.length > 0 && (
         <div
           className={clsx(
-            "mt-4 grid items-stretch",
+            "mt-2 grid items-stretch",
             density === "compact"
               ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3"
               : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"
@@ -1345,6 +1366,19 @@ export default function OrdersPage() {
             />
           ))}
         </div>
+      )}
+      </div>
+
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          title={t("orders.back_to_top", "Back to top")}
+          aria-label={t("orders.back_to_top", "Back to top")}
+          className="absolute right-5 bottom-20 md:bottom-6 z-30 w-12 h-12 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg flex items-center justify-center transition active:scale-95 cursor-pointer"
+        >
+          <IconArrowUp size={20} stroke={2.4} />
+        </button>
       )}
 
       {/* ── Slide-over Order Details Drawer ── */}
