@@ -5,6 +5,7 @@ import { IconArrowsSplit2 } from "@tabler/icons-react";
 import { getCompleteOrderPaymentSummary, payAndCompleteKitchenOrder } from "../../controllers/orders.controller";
 import { triggerPrintReceipt } from "../../helpers/ReceiptHelper";
 import POSPaymentDrawer from "../pos/POSPaymentDrawer";
+import { getTableOrderIds } from "../../helpers/TableOrderHelper";
 
 /**
  * TablePayModal — Settle Bill from the Floor Plan / Tables page.
@@ -45,7 +46,7 @@ export default function TablePayModal({
     const fetchSummary = async () => {
       try {
         setIsLoading(true);
-        const res = await getCompleteOrderPaymentSummary([table.active_order_id]);
+        const res = await getCompleteOrderPaymentSummary(getTableOrderIds(table));
         if (isMounted && res?.status === 200 && res?.data) {
           setSummaryData(res.data);
         }
@@ -59,7 +60,7 @@ export default function TablePayModal({
 
     fetchSummary();
     return () => { isMounted = false; };
-  }, [isOpen, table?.active_order_id, t]);
+  }, [isOpen, table?.active_order_id, getTableOrderIds(table).join(","), t]);
 
   // Auto-select first payment method
   useEffect(() => {
@@ -137,7 +138,7 @@ export default function TablePayModal({
 
     try {
       setIsSubmitting(true);
-      const orderIds = [table.active_order_id];
+      const orderIds = getTableOrderIds(table);
 
       const res = await payAndCompleteKitchenOrder(
         orderIds,

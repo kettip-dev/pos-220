@@ -43,6 +43,7 @@ import { getTableBindoStatus } from "../components/tables/BindoTableNode";
 import { generateDuplicateTableTitle } from "../helpers/TableHelper";
 import TableGridView from "../components/tables/TableGridView";
 import useConfirm from "../hooks/useConfirm";
+import { getTableOrderIds } from "../helpers/TableOrderHelper";
 
 export default function TablesPage() {
   const { t } = useTranslation();
@@ -312,7 +313,7 @@ export default function TablesPage() {
       setMoveItemSource(masterTable);
       if (masterTable?.active_order_id) {
         setIsLoadingOrderSummary(true);
-        const res = await getCompleteOrderPaymentSummary([masterTable.active_order_id]);
+        const res = await getCompleteOrderPaymentSummary(getTableOrderIds(masterTable));
         if (res?.data) setActiveOrderSummary(res.data);
       }
       setIsMoveItemModalOpen(true);
@@ -527,7 +528,7 @@ export default function TablesPage() {
 
     let isMounted = true;
     setIsLoadingOrderSummary(true);
-    getCompleteOrderPaymentSummary([selectedTable.active_order_id])
+    getCompleteOrderPaymentSummary(getTableOrderIds(selectedTable))
       .then((res) => {
         if (isMounted && res?.status === 200 && res?.data) {
           setActiveOrderSummary(res.data);
@@ -543,7 +544,7 @@ export default function TablesPage() {
     return () => {
       isMounted = false;
     };
-  }, [selectedTable?.id, selectedTable?.active_order_id]);
+  }, [selectedTable?.id, selectedTable?.active_order_id, getTableOrderIds(selectedTable).join(",")]);
 
   // Primary Table Action 1: Add Menu Items -> Direct POS Launch
   const handleAddMenuItems = (table) => {
@@ -636,7 +637,7 @@ export default function TablesPage() {
         toast.success(t("orders.item_voided_successfully", { name: itemName, defaultValue: "Voided {{name}}" }));
         await mutate();
         if (selectedTable?.active_order_id) {
-          const updatedSummary = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
+          const updatedSummary = await getCompleteOrderPaymentSummary(getTableOrderIds(selectedTable));
           if (updatedSummary?.data) {
             setActiveOrderSummary(updatedSummary.data);
           }
@@ -688,22 +689,24 @@ export default function TablesPage() {
 
     try {
       let summary = activeOrderSummary;
-      const isCurrentSummary = summary?.orders?.some(
-        (o) => Number(o.id) === Number(table.active_order_id)
-      );
+      // Totals must cover only the order being split, not every order on the table
+      const isCurrentSummary =
+        summary?.orders?.length === 1 &&
+        Number(summary.orders[0].id) === Number(table.active_order_id);
 
       if (!isCurrentSummary || !summary?.orders) {
         const res = await getCompleteOrderPaymentSummary([table.active_order_id]);
         if (res?.status === 200 && res?.data) {
           summary = res.data;
-          setActiveOrderSummary(res.data);
         }
       }
 
       // Extract items from summary.orders (as returned by complete-order-payment-summary)
       let rawItems = [];
       if (Array.isArray(summary?.orders)) {
+        // Split checks are per order on the backend, so only split the latest one
         rawItems = summary.orders
+          .filter((o) => Number(o.id) === Number(table.active_order_id))
           .flatMap((o) => o.items || [])
           .filter((it) => it.status !== "cancelled");
       } else if (Array.isArray(summary?.kitchenOrdersItems)) {
@@ -1172,7 +1175,7 @@ export default function TablesPage() {
           onSuccess={async () => {
             await mutate();
             if (selectedTable?.active_order_id) {
-              const updatedSummary = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
+              const updatedSummary = await getCompleteOrderPaymentSummary(getTableOrderIds(selectedTable));
               if (updatedSummary?.data) setActiveOrderSummary(updatedSummary.data);
             }
           }}
@@ -1197,7 +1200,7 @@ export default function TablesPage() {
         onPaymentComplete={async (data) => {
           await mutate();
           if (selectedTable?.active_order_id) {
-            const updated = await getCompleteOrderPaymentSummary([selectedTable.active_order_id]);
+            const updated = await getCompleteOrderPaymentSummary(getTableOrderIds(selectedTable));
             if (updated?.data) setActiveOrderSummary(updated.data);
           }
           if (data?.isFullyCompleted) {
