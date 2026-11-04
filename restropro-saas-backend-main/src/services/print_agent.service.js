@@ -35,6 +35,10 @@ exports.getPrintAgentsDB = async (tenantId) => {
         ...row,
         online: Boolean(live),
         installed_printers: live?.printers || [],
+        // LAN printers (port 9100) the agent found on its network; agents < 1.1 do not scan.
+        network_printers: live?.networkPrinters || [],
+        network_scanned_at: live?.networkScannedAt || null,
+        can_scan: Boolean(live?.canScan),
       };
     });
   } finally {
@@ -132,6 +136,67 @@ function cleanLabel(value, max) {
   return cleaned || null;
 }
 
+// Agent-reported LAN printers: keep only well-formed "a.b.c.d:port" entries.
+function cleanNetworkPrinters(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const item of list.slice(0, 64)) {
+    const address = typeof item?.address === "string" ? item.address.trim() : "";
+    const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3}):(\d{1,5})$/.exec(address);
+    if (!m || m.slice(1, 5).some((o) => Number(o) > 255) || Number(m[5]) > 65535 || seen.has(address)) continue;
+    seen.add(address);
+    const ms = Number(item.ms);
+    result.push({ address, ms: Number.isFinite(ms) && ms >= 0 ? Math.round(ms) : null });
+  }
+  return result;
+}
+
+function cleanTimestamp(value) {
+  const time = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
+}
+
+function applyNetworkScan(live, { found, scannedAt }) {
+  live.canScan = true;
+  live.networkPrinters = cleanNetworkPrinters(found);
+  live.networkScannedAt = cleanTimestamp(scannedAt);
+}
+
+const SCAN_TIMEOUT_MS = 25000;
+
+/**
+ * Ask an online agent to scan its LAN for printers now ("Scan again" in settings).
+ * Resolves with { network_printers, network_scanned_at }.
+ */
+exports.scanAgentNetwork = async (tenantId, agentId) => {
+  const live = onlineAgents.get(Number(agentId));
+  if (!live || String(live.tenantId) !== String(tenantId)) {
+    throw Object.assign(new Error("This print agent is offline. Start it on the restaurant computer and try again."), { statusCode: 409 });
+  }
+  if (!live.canScan) {
+    throw Object.assign(new Error("This print agent is too old to scan for printers. Install the latest agent (v1.1 or newer)."), {
+      statusCode: 409,
+    });
+  }
+  let reply;
+  try {
+    reply = await live.socket.timeout(SCAN_TIMEOUT_MS).emitWithAck("scan_network", {});
+  } catch (_) {
+    throw Object.assign(new Error("The print agent did not finish scanning in time. Try again."), { statusCode: 504 });
+  }
+  if (!reply?.ok) {
+    throw Object.assign(new Error(cleanLabel(reply?.error, 200) || "The network scan failed."), { statusCode: 502 });
+  }
+  // The agent may have reconnected meanwhile; update whichever connection is current.
+  const current = onlineAgents.get(Number(agentId));
+  if (current) applyNetworkScan(current, { found: reply.found, scannedAt: reply.scanned_at });
+  return {
+    network_printers: current?.networkPrinters || cleanNetworkPrinters(reply.found),
+    network_scanned_at: current?.networkScannedAt || cleanTimestamp(reply.scanned_at),
+  };
+};
+
 /**
  * Mount the "/print-agent" Socket.IO namespace.
  * @param {import("socket.io").Server} io
@@ -182,6 +247,9 @@ exports.attachPrintAgentNamespace = (io, { onAgentOnline } = {}) => {
       if (!live || live.socket.id !== socket.id) return;
       const printers = Array.isArray(info.printers) ? info.printers : [];
       live.printers = printers.map((p) => cleanLabel(p, 128)).filter(Boolean).slice(0, 50);
+      if ("network_printers" in info) {
+        applyNetworkScan(live, { found: info.network_printers, scannedAt: info.network_scanned_at });
+      }
     });
 
     socket.on("disconnect", () => {

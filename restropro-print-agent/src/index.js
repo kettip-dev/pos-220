@@ -187,6 +187,26 @@ function parseCliTarget(value) {
   return /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(text) ? { type: "tcp", address: text } : { type: "usb", name: text };
 }
 
+// Network printers found by the last LAN scan. Sent to the server so the POS
+// settings can offer them as choices instead of asking for an IP address.
+const NETWORK_RESCAN_MS = 15 * 60 * 1000;
+const networkScan = { printers: [], scannedAt: null, inFlight: null, onUpdate: null };
+
+/** Scan the LAN (one scan at a time) and remember the result. */
+function scanNetworkShared() {
+  if (!networkScan.inFlight) {
+    networkScan.inFlight = scanNetwork()
+      .then((result) => {
+        networkScan.printers = result.found.map(({ address, ms }) => ({ address, ms }));
+        networkScan.scannedAt = new Date().toISOString();
+        if (networkScan.onUpdate) networkScan.onUpdate();
+        return result;
+      })
+      .finally(() => (networkScan.inFlight = null));
+  }
+  return networkScan.inFlight;
+}
+
 function startPrinterTools(args) {
   if (args["no-tools"]) return;
   const saved = readSavedConfig();
@@ -196,7 +216,7 @@ function startPrinterTools(args) {
     listPrinters: listInstalledPrinters,
     testPrint: runTestPrint,
     checkPrinter: checkNetworkPrinter,
-    scan: () => scanNetwork(),
+    scan: scanNetworkShared,
     recentJobs: () => recentJobs,
     recentLog: () => recentLines(150),
   });
@@ -290,7 +310,18 @@ function runAgent(config) {
 
   const reportPrinters = async () => {
     if (!socket.connected) return;
-    socket.emit("agent_info", { printers: await listInstalledPrinters(), platform: process.platform });
+    socket.emit("agent_info", {
+      printers: await listInstalledPrinters(),
+      platform: process.platform,
+      network_printers: networkScan.printers,
+      network_scanned_at: networkScan.scannedAt,
+    });
+  };
+  networkScan.onUpdate = reportPrinters;
+
+  const rescanIfStale = () => {
+    const age = networkScan.scannedAt ? Date.now() - Date.parse(networkScan.scannedAt) : Infinity;
+    if (age >= NETWORK_RESCAN_MS) scanNetworkShared().catch((err) => log(`Network scan failed: ${err.message}`));
   };
 
   socket.on("connect", () => {
@@ -299,6 +330,19 @@ function runAgent(config) {
     agentState.connectedAt = new Date().toISOString();
     agentState.lastError = null;
     reportPrinters();
+    rescanIfStale();
+  });
+
+  // "Scan again" in the POS printer settings.
+  socket.on("scan_network", async (_payload, ack) => {
+    const reply = typeof ack === "function" ? ack : typeof _payload === "function" ? _payload : () => {};
+    try {
+      const result = await scanNetworkShared();
+      log(`Network scan from POS: ${result.found.length} printer(s) on ${result.subnets.map((s) => s.cidr).join(", ") || "no network"}`);
+      reply({ ok: true, found: networkScan.printers, scanned_at: networkScan.scannedAt, subnets: result.subnets.map((s) => s.cidr) });
+    } catch (err) {
+      reply({ ok: false, error: err.message });
+    }
   });
 
   socket.on("disconnect", (reason) => {
@@ -357,6 +401,7 @@ function runAgent(config) {
   });
 
   setInterval(reportPrinters, PRINTER_REFRESH_MS).unref();
+  setInterval(() => socket.connected && rescanIfStale(), PRINTER_REFRESH_MS).unref();
 }
 
 async function main() {

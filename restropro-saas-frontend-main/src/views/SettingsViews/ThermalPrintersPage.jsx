@@ -21,6 +21,7 @@ import {
   IconCopy,
   IconKey,
   IconClock,
+  IconRadar,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import ApiClient from "../../helpers/ApiClient";
@@ -35,7 +36,7 @@ const fetcher = (url) => ApiClient.get(url).then((res) => res.data);
 const EMPTY_FORM = {
   name: "",
   transport: "tcp",
-  ip: "192.168.1.200",
+  ip: "",
   port: "9100",
   usb_name: "",
   agent_id: "",
@@ -100,6 +101,32 @@ export default function ThermalPrintersPage() {
   const [formData, setFormData] = useState(EMPTY_FORM);
 
   const selectedAgent = agents.find((a) => String(a.id) === String(formData.agent_id));
+  const [scanningAgentId, setScanningAgentId] = useState(null);
+
+  // Ask the agent to look for network printers again (it also scans when it connects).
+  const scanAgentNetwork = async (agent) => {
+    if (!agent) return;
+    setScanningAgentId(agent.id);
+    try {
+      const res = await ApiClient.post(`/pos/print-agents/${agent.id}/scan`);
+      const count = res.data?.network_printers?.length || 0;
+      toast.success(count ? `Found ${count} network printer(s).` : "No network printers found.");
+      await mutateAgents();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Could not scan for printers.");
+    } finally {
+      setScanningAgentId(null);
+    }
+  };
+
+  // Which saved printer (other than the one being edited) already uses this address.
+  const printerUsing = (transport, address) =>
+    printers.find((p) => p.transport === transport && p.address === address && p.id !== editingPrinter?.id);
+
+  const pickNetworkPrinter = (address) => {
+    const [ip, port] = address.split(":");
+    setFormData((prev) => ({ ...prev, ip, port: port || "9100" }));
+  };
 
   const openAddModal = () => {
     setEditingPrinter(null);
@@ -119,7 +146,7 @@ export default function ThermalPrintersPage() {
     setFormData({
       name: printer.name || "",
       transport: isUsb ? "usb" : "tcp",
-      ip: parts[0] || "192.168.1.200",
+      ip: parts[0] || "",
       port: parts[1] || "9100",
       usb_name: isUsb ? printer.address || "" : "",
       agent_id: printer.agent_id ? String(printer.agent_id) : "",
@@ -550,6 +577,9 @@ export default function ThermalPrintersPage() {
                       {agent.online && agent.installed_printers?.length
                         ? ` · ${agent.installed_printers.length} installed on this computer`
                         : ""}
+                      {agent.online && agent.network_printers?.length
+                        ? ` · ${agent.network_printers.length} found on the network`
+                        : ""}
                     </p>
                     <p>Last seen: {agent.online ? "now" : formatTime(agent.last_seen_at)}</p>
                     <p className="font-mono">Token: ••••{agent.token_hint}</p>
@@ -812,6 +842,31 @@ export default function ThermalPrintersPage() {
                   <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Installed Printer Name *
                   </label>
+                  {selectedAgent?.installed_printers?.length > 0 && (
+                    <div className="mb-2 rounded-xl border border-gray-200 dark:border-gray-700 p-2 space-y-1.5 max-h-56 overflow-y-auto">
+                      {selectedAgent.installed_printers.map((name) => {
+                        const selected = formData.usb_name === name;
+                        const usedBy = printerUsing("usb", name);
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, usb_name: name }))}
+                            className={`w-full min-h-[42px] px-3 py-2 rounded-lg border text-left text-sm transition active:scale-95 flex items-center gap-2 ${
+                              selected
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200 ring-2 ring-emerald-500/20"
+                                : "border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
+                            }`}
+                          >
+                            <IconPrinter size={16} className="shrink-0 text-gray-400" />
+                            <span className="flex-1 break-words">{name}</span>
+                            {usedBy && <span className="text-[11px] text-amber-600 shrink-0">used by “{usedBy.name}”</span>}
+                            {selected && <IconCheck size={16} className="shrink-0 text-emerald-600" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <input
                     type="text"
                     list="agent-installed-printers"
@@ -827,9 +882,80 @@ export default function ThermalPrintersPage() {
                   </datalist>
                   <p className="text-[11px] text-gray-400 mt-1">
                     {selectedAgent?.installed_printers?.length
-                      ? `Pick from the ${selectedAgent.installed_printers.length} printer(s) installed on "${selectedAgent.name}".`
-                      : "Must match the printer name in the agent computer's printer list (run: npm run list-printers)."}
+                      ? `Tap a printer installed on "${selectedAgent.name}", or type its name.`
+                      : selectedAgent && !selectedAgent.online
+                      ? `"${selectedAgent.name}" is offline. Start the print agent to see its printers.`
+                      : "Must match the printer name in the agent computer's printer list (Printer Tools on that computer shows it)."}
                   </p>
+                </div>
+              )}
+
+              {/* Network printers found by the selected agent */}
+              {formData.transport !== "usb" && selectedAgent && (
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Printers found on the network</p>
+                      <p className="text-[11px] text-gray-400 truncate">
+                        {selectedAgent.network_scanned_at
+                          ? `Seen by "${selectedAgent.name}" · ${formatTime(selectedAgent.network_scanned_at)}`
+                          : `Searched by "${selectedAgent.name}"`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!selectedAgent.online || !selectedAgent.can_scan || scanningAgentId === selectedAgent.id}
+                      onClick={() => scanAgentNetwork(selectedAgent)}
+                      className="h-[42px] px-3 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition active:scale-95 flex items-center gap-1.5 shrink-0 disabled:opacity-50 disabled:active:scale-100"
+                    >
+                      <IconRadar size={16} className={scanningAgentId === selectedAgent.id ? "animate-spin" : ""} />
+                      {scanningAgentId === selectedAgent.id ? "Scanning…" : "Scan again"}
+                    </button>
+                  </div>
+
+                  {!selectedAgent.online ? (
+                    <p className="text-[12px] text-gray-500">
+                      “{selectedAgent.name}” is offline. Start the print agent on the restaurant computer to find printers.
+                    </p>
+                  ) : !selectedAgent.can_scan ? (
+                    <p className="text-[12px] text-gray-500">
+                      Update the print agent on “{selectedAgent.name}” to v1.1 or newer to find network printers automatically, or
+                      enter the IP below.
+                    </p>
+                  ) : !selectedAgent.network_scanned_at || scanningAgentId === selectedAgent.id ? (
+                    <p className="text-[12px] text-gray-500">Looking for printers on the restaurant network…</p>
+                  ) : selectedAgent.network_printers.length === 0 ? (
+                    <p className="text-[12px] text-gray-500">
+                      No network printers found. Check the printer is on and connected to the same network as “
+                      {selectedAgent.name}”, then tap Scan again, or enter its IP below.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedAgent.network_printers.map(({ address }) => {
+                        const selected = `${formData.ip.trim()}:${formData.port.trim() || "9100"}` === address;
+                        const usedBy = printerUsing("tcp", address);
+                        return (
+                          <button
+                            key={address}
+                            type="button"
+                            onClick={() => pickNetworkPrinter(address)}
+                            className={`min-h-[42px] px-3 py-2 rounded-lg border text-left transition active:scale-95 flex items-center gap-2 ${
+                              selected
+                                ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200 ring-2 ring-emerald-500/20"
+                                : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
+                            }`}
+                          >
+                            <IconWifi size={16} className="shrink-0 text-gray-400" />
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-sm font-mono">{address}</span>
+                              {usedBy && <span className="block text-[11px] text-amber-600 truncate">used by “{usedBy.name}”</span>}
+                            </span>
+                            {selected && <IconCheck size={16} className="shrink-0 text-emerald-600" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -837,7 +963,7 @@ export default function ThermalPrintersPage() {
               <div className={`grid grid-cols-3 gap-3 ${formData.transport === "usb" ? "hidden" : ""}`}>
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    IP Address (LAN/Wi-Fi) *
+                    {selectedAgent?.network_printers?.length ? "Or enter the IP address *" : "IP Address (LAN/Wi-Fi) *"}
                   </label>
                   <input
                     type="text"

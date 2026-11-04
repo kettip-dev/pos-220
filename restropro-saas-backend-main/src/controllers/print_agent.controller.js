@@ -3,6 +3,7 @@ const {
   createPrintAgentDB,
   regeneratePrintAgentTokenDB,
   deletePrintAgentDB,
+  scanAgentNetwork,
 } = require("../services/print_agent.service");
 const { getPrintJobsDB, retryPrintJob } = require("../services/print_job.service");
 
@@ -51,6 +52,15 @@ exports.deletePrintAgent = async (req, res) => {
   try {
     await deletePrintAgentDB(req.user.tenant_id, req.params.id);
     return res.status(200).json({ success: true });
+  } catch (error) {
+    return handleError(req, res, error);
+  }
+};
+
+exports.scanPrintAgentNetwork = async (req, res) => {
+  try {
+    const result = await scanAgentNetwork(req.user.tenant_id, req.params.id);
+    return res.status(200).json({ success: true, ...result });
   } catch (error) {
     return handleError(req, res, error);
   }

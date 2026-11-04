@@ -31,6 +31,7 @@ const {
   createPrintAgent,
   regeneratePrintAgentToken,
   deletePrintAgent,
+  scanPrintAgentNetwork,
   getPrintJobs,
   retryPrintJob,
 } = require("../controllers/print_agent.controller");
@@ -191,6 +192,15 @@ router.post(
   isSubscriptionActive,
   authorize([SCOPES.SETTINGS]),
   regeneratePrintAgentToken
+);
+
+router.post(
+  "/print-agents/:id/scan",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  scanPrintAgentNetwork
 );
 
 router.delete(
