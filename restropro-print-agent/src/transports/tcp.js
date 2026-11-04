@@ -31,7 +31,15 @@ function sendTcp(host, port, buffer, timeoutMs = 5000) {
     socket.connect(port, host, () => {
       socket.write(buffer, (err) => {
         if (err) return done(new Error(`Failed writing to printer ${host}:${port}: ${err.message}`));
-        socket.end();
+        // Many LAN printer interfaces discard their unread buffer when the
+        // connection closes: closing right after a large raster ticket loses
+        // its tail (the cut command). Give the printer time to take it all in
+        // (assume a slow printer reads ~40 KB/s).
+        const linger = Math.min(8000, 300 + Math.ceil(buffer.length / 40));
+        socket.setTimeout(timeoutMs + linger);
+        setTimeout(() => {
+          if (!finished) socket.end();
+        }, linger);
       });
     });
     socket.on("close", (hadError) => {

@@ -143,6 +143,28 @@ function addonNamesOf(item) {
 const firstDefined = (...values) => values.find((v) => v !== undefined && v !== null && v !== "");
 
 /**
+ * Order items loaded back from the server (table pay, order / invoice
+ * reprints) name the item `item_title`, keep the variant in `variant_title` /
+ * `variant_price`, and carry the menu's base `price`. POS cart items already
+ * have `title` and a unit price that includes the variant and add-ons.
+ */
+function normalizeItem(item = {}) {
+  const variant = item.variant || (item.variant_title ? { id: item.variant_id, title: item.variant_title, price: item.variant_price } : null);
+  const normalized = {
+    ...item,
+    title: firstDefined(item.title, item.item_title, item.name, "Item"),
+    variant,
+  };
+  const isServerOrderRow = item.order_id !== undefined && item.item_title !== undefined;
+  if (isServerOrderRow && item.total === undefined) {
+    const base = Number(firstDefined(item.variant_price, variant?.price, item.price, 0));
+    const addonsTotal = selectedAddons(item).reduce((sum, a) => sum + Number(a.price || 0), 0);
+    normalized.price = base + addonsTotal;
+  }
+  return normalized;
+}
+
+/**
  * Receipts are triggered from several screens with slightly different payloads
  * (POS cart, order/invoice reprints, split-bill sub receipts). Map them all to
  * the fields the canvas renderers read.
@@ -150,7 +172,7 @@ const firstDefined = (...values) => values.find((v) => v !== undefined && v !== 
 function normalizePrintDetails(details = {}) {
   return {
     ...details,
-    cartItems: details.cartItems || details.items || [],
+    cartItems: (details.cartItems || details.items || []).map(normalizeItem),
     tableName: firstDefined(details.tableName, details.table?.table_title, details.order_title),
     customer: details.customer || (details.customer_name ? { name: details.customer_name } : null),
     itemsTotal: Number(firstDefined(details.itemsTotal, details.sub_total, 0)),

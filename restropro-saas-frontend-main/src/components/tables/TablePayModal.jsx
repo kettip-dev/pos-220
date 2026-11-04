@@ -161,12 +161,8 @@ export default function TablePayModal({
           (summaryData?.orders || []).forEach((ord) => {
             (ord.items || []).forEach((item) => {
               formattedItems.push({
-                title: item.title,
-                quantity: item.quantity,
-                price: item.price,
-                variant: item.variant,
-                addons: item.addons,
-                notes: item.notes,
+                ...item,
+                title: item.title || item.item_title,
               });
             });
           });

@@ -699,6 +699,7 @@ export default function OrdersPage() {
           (summaryOrders || []).forEach((ord) => {
             (ord.items || []).forEach((item) => {
               formattedItems.push({
+                ...item,
                 title: item.title || item.item_title,
                 quantity: item.quantity,
                 price: item.price,

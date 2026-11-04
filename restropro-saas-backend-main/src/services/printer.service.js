@@ -183,6 +183,18 @@ exports.deletePrinterConfigDB = async (tenantId, printerId) => {
 /**
  * Send raw binary ESC/POS buffer directly over TCP socket to network printer (port 9100).
  */
+/**
+ * How long to keep the connection open after the last byte is written.
+ * Many LAN printer interfaces discard whatever is still in their receive
+ * buffer when the connection closes, so closing right after a large raster
+ * job loses its tail: the ticket prints but the cut command never arrives.
+ * Assume a slow printer takes in ~40 KB/s.
+ */
+function drainDelayMs(byteLength) {
+  return Math.min(8000, 300 + Math.ceil(byteLength / 40));
+}
+exports.drainDelayMs = drainDelayMs;
+
 function sendRawTcpPrintJob(host, port = 9100, buffer, timeoutMs = 3500) {
   return new Promise((resolve, reject) => {
     let finished = false;
@@ -200,7 +212,11 @@ function sendRawTcpPrintJob(host, port = 9100, buffer, timeoutMs = 3500) {
           }
           return;
         }
-        socket.end();
+        const linger = drainDelayMs(buffer.length);
+        socket.setTimeout(timeoutMs + linger);
+        setTimeout(() => {
+          if (!finished) socket.end();
+        }, linger);
       });
     });
 
