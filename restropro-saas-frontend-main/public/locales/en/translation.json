@@ -271,6 +271,7 @@
     "showing_search_result": "Showing Search Result for \"{{search}}\"",
     "showing_reservations_for": "Showing Reservations for {{filter}}",
     "no_reservation": "Table for... no one? 🍽️❌",
+    "show_all_bookings": "Show all bookings",
     "double_checked": "We double-checked—still no reservations.",
     "book_first": "Book First Reservation",
     "clear_search": "Clear Search",

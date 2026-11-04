@@ -19,6 +19,7 @@ import {
   IconClockPlay,
   IconTable,
   IconLayoutGrid,
+  IconCalendarOff,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { toast } from "react-hot-toast";
@@ -221,21 +222,32 @@ export default function ReservationPage() {
 
   return (
     <Page className="flex flex-col h-full max-h-screen overflow-hidden p-3 md:p-4 gap-3 bg-background text-foreground">
-      {/* Top Header: Title, Date Filter Pills, Search, View Switcher & Action */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 flex-shrink-0 border-b border-gray-100 pb-2.5 dark:border-zinc-800">
-        {/* Left Section: Title + Date Filter Pills */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black tracking-tight text-gray-900 dark:text-white">
+      {/* Header: title + new, then date range / search / view switch */}
+      <div className="flex flex-col gap-3 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-black leading-snug tracking-tight text-gray-900 dark:text-white">
               {t("reservations.title") || "Table Reservations"}
             </h2>
-            <span className="rounded-full bg-emerald-500/10 px-2 py-0.2 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-emerald-500/10 px-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
               {filteredReservations.length}
             </span>
           </div>
 
-          {/* Date Filter Pills moved up directly into header */}
-          <div className="flex items-center gap-1 rounded-xl border border-gray-200/90 bg-gray-50/80 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
+          {isManageAllowed && (
+            <button
+              onClick={handleOpenAdd}
+              className="flex h-[42px] items-center gap-1.5 rounded-xl bg-restro-green px-4 text-sm font-bold text-white shadow-sm transition active:scale-95 hover:bg-restro-green-button-hover"
+            >
+              <IconPlus size={18} stroke={iconStroke} />
+              <span>{t("reservations.new") || "New"}</span>
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Date range segmented control */}
+          <div className="flex items-center gap-1 rounded-2xl border border-gray-200 bg-gray-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
             {filters.slice(0, 4).map((f) => {
               const isSelected = state.filter === f.key && !state.search;
               return (
@@ -245,10 +257,10 @@ export default function ReservationPage() {
                     btnClearSearch();
                     setState((prev) => ({ ...prev, filter: f.key }));
                   }}
-                  className={`h-7 rounded-lg px-2 text-[11px] font-bold transition active:scale-95 ${
+                  className={`min-h-[42px] whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold leading-snug transition active:scale-95 ${
                     isSelected
-                      ? "bg-restro-green text-white shadow-xs"
-                      : "text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                      ? "bg-restro-green text-white shadow-sm"
+                      : "text-gray-600 hover:bg-white dark:text-gray-300 dark:hover:bg-zinc-800"
                   }`}
                 >
                   {f.value}
@@ -256,17 +268,16 @@ export default function ReservationPage() {
               );
             })}
 
-            {/* Dropdown for extra date filters */}
             <div className="dropdown">
               <button
                 tabIndex={0}
-                className={`flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-bold transition active:scale-95 ${
+                className={`flex min-h-[42px] items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold leading-snug transition active:scale-95 ${
                   ["this_month", "last_month", "all", "custom"].includes(state.filter) && !state.search
-                    ? "bg-restro-green text-white shadow-xs"
-                    : "text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                    ? "bg-restro-green text-white shadow-sm"
+                    : "text-gray-600 hover:bg-white dark:text-gray-300 dark:hover:bg-zinc-800"
                 }`}
               >
-                <IconCalendar size={13} stroke={iconStroke} />
+                <IconCalendar size={16} stroke={iconStroke} />
                 <span>
                   {["this_month", "last_month", "all", "custom"].includes(state.filter)
                     ? filters.find((f) => f.key === state.filter)?.value
@@ -275,11 +286,12 @@ export default function ReservationPage() {
               </button>
               <ul
                 tabIndex={0}
-                className="dropdown-content menu z-30 mt-1 w-44 rounded-xl border border-gray-200 bg-white p-1 text-xs shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+                className="dropdown-content menu z-30 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-1 text-sm shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
               >
                 {filters.slice(4).map((f) => (
                   <li key={f.key}>
                     <button
+                      className="min-h-[42px]"
                       onClick={() => {
                         btnClearSearch();
                         if (f.key === "custom") {
@@ -296,12 +308,9 @@ export default function ReservationPage() {
               </ul>
             </div>
           </div>
-        </div>
 
-        {/* Right Section: Compact Search, View Switcher & New Button */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Header Search Input */}
-          <div className="relative w-44 sm:w-52">
+          {/* Search */}
+          <div className="relative min-w-[200px] flex-1 sm:max-w-sm">
             <input
               ref={searchRef}
               type="text"
@@ -310,101 +319,47 @@ export default function ReservationPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") btnSearch();
               }}
-              className="h-8 w-full rounded-xl border border-gray-200 bg-white py-1 pl-7 pr-6 text-xs text-gray-900 outline-none transition focus:border-restro-border-green dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
+              className="h-[42px] w-full rounded-2xl border border-gray-200 bg-white pl-10 pr-10 text-sm text-gray-900 outline-none transition focus:border-restro-border-green focus:ring-2 focus:ring-restro-green/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white"
             />
             <IconSearch
-              size={14}
+              size={18}
               stroke={iconStroke}
-              className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
             {state.search && (
               <button
                 onClick={btnClearSearch}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 active:scale-95"
               >
-                <IconX size={13} stroke={iconStroke} />
+                <IconX size={16} stroke={iconStroke} />
               </button>
             )}
           </div>
 
-          {/* View Mode Toggle: Timeline, Kanban, Calendar, Table, Cards */}
-          <div className="flex items-center rounded-xl border border-gray-200 bg-gray-50/80 p-0.5 dark:border-zinc-800 dark:bg-zinc-900">
-            <button
-              onClick={() => setState((prev) => ({ ...prev, viewMode: "timeline" }))}
-              title={t("reservations.views.timeline") || "Timeline View"}
-              className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
-                state.viewMode === "timeline"
-                  ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-              }`}
-            >
-              <IconClockPlay size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">{t("reservations.views.timeline") || "Timeline"}</span>
-            </button>
-
-            <button
-              onClick={() => setState((prev) => ({ ...prev, viewMode: "kanban" }))}
-              title={t("reservations.views.kanban") || "Kanban Board View"}
-              className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
-                state.viewMode === "kanban"
-                  ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-              }`}
-            >
-              <IconLayoutKanban size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">{t("reservations.views.kanban") || "Kanban"}</span>
-            </button>
-
-            <button
-              onClick={() => setState((prev) => ({ ...prev, viewMode: "calendar" }))}
-              title={t("reservations.views.calendar") || "Calendar View"}
-              className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
-                state.viewMode === "calendar"
-                  ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-              }`}
-            >
-              <IconCalendar size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">{t("reservations.views.calendar") || "Calendar"}</span>
-            </button>
-
-            <button
-              onClick={() => setState((prev) => ({ ...prev, viewMode: "table" }))}
-              title={t("reservations.views.table") || "Table List View"}
-              className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
-                state.viewMode === "table"
-                  ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-              }`}
-            >
-              <IconTable size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">{t("reservations.views.table") || "Table"}</span>
-            </button>
-
-            <button
-              onClick={() => setState((prev) => ({ ...prev, viewMode: "cards" }))}
-              title={t("reservations.views.cards") || "Card Grid View"}
-              className={`flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-semibold transition ${
-                state.viewMode === "cards"
-                  ? "bg-white text-gray-900 shadow-xs dark:bg-zinc-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-              }`}
-            >
-              <IconLayoutGrid size={14} stroke={iconStroke} />
-              <span className="hidden xl:inline">{t("reservations.views.cards") || "Cards"}</span>
-            </button>
+          {/* View switcher (icons; labels on wide screens) */}
+          <div className="ml-auto flex items-center gap-1 rounded-2xl border border-gray-200 bg-gray-50 p-1 dark:border-zinc-800 dark:bg-zinc-900">
+            {[
+              { key: "timeline", Icon: IconClockPlay, label: t("reservations.views.timeline") || "Timeline" },
+              { key: "kanban", Icon: IconLayoutKanban, label: t("reservations.views.kanban") || "Kanban" },
+              { key: "calendar", Icon: IconCalendar, label: t("reservations.views.calendar") || "Calendar" },
+              { key: "table", Icon: IconTable, label: t("reservations.views.table") || "Table" },
+              { key: "cards", Icon: IconLayoutGrid, label: t("reservations.views.cards") || "Cards" },
+            ].map(({ key, Icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setState((prev) => ({ ...prev, viewMode: key }))}
+                title={label}
+                className={`flex min-h-[42px] min-w-[42px] items-center justify-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold transition active:scale-95 ${
+                  state.viewMode === key
+                    ? "bg-white text-gray-900 shadow-sm dark:bg-zinc-800 dark:text-white"
+                    : "text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                }`}
+              >
+                <Icon size={18} stroke={iconStroke} />
+                <span className="hidden 2xl:inline">{label}</span>
+              </button>
+            ))}
           </div>
-
-          {/* New Reservation Action */}
-          {isManageAllowed && (
-            <button
-              onClick={handleOpenAdd}
-              className="flex h-8 items-center gap-1 rounded-xl bg-restro-green px-3 text-xs font-bold text-white shadow-xs transition active:scale-95 hover:bg-restro-green-button-hover"
-            >
-              <IconPlus size={16} stroke={iconStroke} />
-              <span>{t("reservations.new") || "New"}</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -443,22 +398,38 @@ export default function ReservationPage() {
             </p>
           </div>
         ) : filteredReservations.length === 0 && state.viewMode !== "calendar" ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 p-8 text-center dark:border-zinc-800">
-            <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+          <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-gray-50/50 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900/30">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-restro-green/10 text-restro-green">
+              <IconCalendarOff size={32} stroke={1.5} />
+            </div>
+            <h4 className="text-lg font-bold leading-snug text-gray-800 dark:text-gray-100">
               {t("reservations.no_reservation") || "No reservations found"}
             </h4>
-            <p className="mt-1 text-xs text-gray-400 max-w-sm">
+            <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-gray-500 dark:text-gray-400">
               {t("reservations.double_checked") || "There are no bookings matching your selected date or filters."}
             </p>
-            {isManageAllowed && (
-              <button
-                onClick={handleOpenAdd}
-                className="mt-3 flex h-8 items-center gap-1 rounded-xl bg-restro-green px-3 py-1 text-xs font-bold text-white shadow-xs transition active:scale-95 hover:bg-restro-green-button-hover"
-              >
-                <IconPlus size={15} stroke={iconStroke} />
-                <span>{t("reservations.book_first") || "Book First Reservation"}</span>
-              </button>
-            )}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              {isManageAllowed && (
+                <button
+                  onClick={handleOpenAdd}
+                  className="flex h-[42px] items-center gap-1.5 rounded-xl bg-restro-green px-4 text-sm font-bold text-white shadow-sm transition active:scale-95 hover:bg-restro-green-button-hover"
+                >
+                  <IconPlus size={18} stroke={iconStroke} />
+                  <span>{t("reservations.book_first") || "Book First Reservation"}</span>
+                </button>
+              )}
+              {(state.filter !== "all" || state.activeStatusFilter !== "all" || state.search) && (
+                <button
+                  onClick={() => {
+                    btnClearSearch();
+                    setState((prev) => ({ ...prev, filter: "all", activeStatusFilter: "all" }));
+                  }}
+                  className="flex h-[42px] items-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition active:scale-95 hover:bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200"
+                >
+                  {t("reservations.show_all_bookings") || "Show all bookings"}
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="h-full">

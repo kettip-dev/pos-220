@@ -25,7 +25,7 @@ export default function ReservationKPIHeader({
     {
       id: "all",
       label: t("reservations.kpi.total_bookings") || "Total Bookings",
-      value: summary?.today ?? totalCount,
+      value: totalCount,
       subtext: t("reservations.kpi.selected") || "Selected",
       icon: IconCalendarEvent,
       color: "text-blue-500",
@@ -61,39 +61,42 @@ export default function ReservationKPIHeader({
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 flex-shrink-0">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-shrink-0">
       {stats.map((st) => {
         const Icon = st.icon;
         const isSelected = activeStatusFilter === st.id;
+        const clickable = st.id !== "guests";
         return (
-          <div
+          <button
+            type="button"
             key={st.id}
             onClick={() => {
-              if (st.id === "guests") return;
+              if (!clickable) return;
               onStatusFilterChange(isSelected ? "all" : st.id);
             }}
-            className={`flex items-center justify-between cursor-pointer rounded-xl border px-3 py-2 transition-all duration-150 active:scale-95 ${
+            className={`flex min-h-[72px] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-150 ${
+              clickable ? "cursor-pointer active:scale-95" : "cursor-default"
+            } ${
               isSelected
-                ? "border-restro-border-green bg-restro-green/10 shadow-xs ring-1 ring-restro-border-green/50"
+                ? "border-restro-border-green bg-restro-green/10 shadow-sm ring-1 ring-restro-border-green/50"
                 : "border-gray-200/80 bg-white hover:border-gray-300 dark:border-zinc-800 dark:bg-zinc-900"
             }`}
           >
-            <div>
-              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${st.bg} ${st.color}`}>
+              <Icon size={22} stroke={iconStroke} />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold leading-snug text-gray-500 dark:text-gray-400">
                 {st.label}
-              </span>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-lg font-black tracking-tight text-gray-900 dark:text-white">
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black leading-tight tracking-tight text-gray-900 dark:text-white">
                   {st.value}
                 </span>
-                <span className="text-[10px] text-gray-400">({st.subtext})</span>
+                <span className="truncate text-xs leading-snug text-gray-400">{st.subtext}</span>
               </div>
             </div>
-
-            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${st.bg} ${st.color}`}>
-              <Icon size={17} stroke={iconStroke} />
-            </div>
-          </div>
+          </button>
         );
       })}
     </div>

@@ -409,6 +409,7 @@
     "showing_search_result": "បង្ហាញលទ្ធផលស្វែងរកសម្រាប់ \"{{search}}\"",
     "showing_reservations_for": "បង្ហាញការកក់ទុកសម្រាប់ {{filter}}",
     "no_reservation": "មិនទាន់មានការកក់ទុកទេ? 🍽️❌",
+    "show_all_bookings": "បង្ហាញការកក់ទុកទាំងអស់",
     "double_checked": "យើងបានពិនិត្យហើយ — មិនទាន់មានការកក់ទុកណាមួយនៅឡើយទេ។",
     "book_first": "បង្កើតការកក់ដំបូង",
     "clear_search": "សម្អាតការស្វែងរក",
