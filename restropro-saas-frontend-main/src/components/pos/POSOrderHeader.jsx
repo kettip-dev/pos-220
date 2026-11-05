@@ -313,7 +313,7 @@ export default function POSOrderHeader({
 
   return (
     <header className="w-full bg-white dark:bg-[#0D1829] border-b border-[#E3E5E8] dark:border-slate-800 px-2 sm:px-3 py-1.5 select-none shrink-0">
-      <div className="flex items-center justify-between gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 touch-pan-x">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 touch-pan-x">
         
         {/* Left Segment: Navigation Trigger, Dining Mode Tabs & Table / Guests */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -430,11 +430,9 @@ export default function POSOrderHeader({
           {renderCustomerChip()}
         </div>
 
-        {/* Center / Right Segment: Responsive Search & Register Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 justify-end ml-auto">
-          
-          {/* Responsive Menu Search Input */}
-          <div className="relative min-w-[100px] sm:min-w-[130px] max-w-[200px] xl:max-w-[240px] flex-1">
+        {/* Responsive Menu Search Input — the only element that shrinks, so
+            nothing overlaps on narrow/older POS screens (row scrolls instead) */}
+        <div className="relative min-w-[110px] max-w-[240px] flex-1 ml-auto">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
               <IconSearch size={15} stroke={2} />
             </span>
@@ -459,7 +457,10 @@ export default function POSOrderHeader({
                 /
               </span>
             )}
-          </div>
+        </div>
+
+        {/* Right Segment: Register Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
           {/* Quick Register Actions (QBO Bordered Pill Toolbar - Icon Only) */}
           <div className="flex items-center p-0.5 rounded-xl bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 shrink-0 gap-0.5">
@@ -522,7 +523,7 @@ export default function POSOrderHeader({
               title={t('register.register', 'Register')}
             >
               <IconCashRegister size={17} stroke={iconStroke} />
-              <span className="hidden lg:inline max-w-[140px] truncate">
+              <span className="hidden xl:inline max-w-[140px] truncate">
                 {registerSession ? registerSession.register_name : t('register.closed', 'Register closed')}
               </span>
               <span className={clsx("w-2 h-2 rounded-full", registerSession ? "bg-emerald-500" : "bg-rose-500")} />
@@ -537,7 +538,7 @@ export default function POSOrderHeader({
             title={t('pos.new_order', 'New Ticket')}
           >
             <IconPlus size={16} stroke={2.5} />
-            <span className="hidden md:inline">{t('pos.new_order', 'New')}</span>
+            <span className="hidden lg:inline">{t('pos.new_order', 'New')}</span>
           </button>
 
         </div>
