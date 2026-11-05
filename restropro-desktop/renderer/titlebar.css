@@ -1,0 +1,69 @@
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #ffffff;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: #1f2937;
+  user-select: none;
+}
+
+/* The native minimize / maximize / close buttons sit to the right of this area. */
+.bar {
+  position: fixed;
+  top: 0;
+  left: env(titlebar-area-x, 0);
+  width: env(titlebar-area-width, calc(100% - 140px));
+  height: env(titlebar-area-height, 40px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  border-bottom: 1px solid #eef0f2;
+  -webkit-app-region: drag;
+}
+.bar button { -webkit-app-region: no-drag; }
+
+.logo { width: 20px; height: 20px; border-radius: 5px; margin-left: 2px; }
+.name { font-weight: 600; letter-spacing: 0.1px; }
+.drag { flex: 1; align-self: stretch; }
+
+.icon-btn {
+  width: 40px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+}
+.icon-btn:hover { background: #f3f4f6; color: #111827; }
+.icon-btn:active, .chip:active { transform: scale(0.95); }
+
+.chip {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+.chip:hover { background: #f9fafb; }
+.chip.update { background: #16a34a; border-color: #16a34a; color: #fff; }
+.chip.update:hover { background: #15803d; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
+.agent.connected .dot { background: #16a34a; }
+.agent.offline .dot { background: #dc2626; }
+.agent.offline { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
+[hidden] { display: none !important; }

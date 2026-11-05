@@ -2,6 +2,7 @@ const path = require("path");
 const {
   app,
   BrowserWindow,
+  WebContentsView,
   Menu,
   Tray,
   Notification,
@@ -69,6 +70,19 @@ function isPosUrl(url) {
 }
 
 // ---------------------------------------------------------------- main window
+//
+// VS Code style: no Windows title bar. The window's own page is a slim custom
+// title bar (renderer/titlebar.html) with the native minimize / maximize /
+// close buttons drawn over its right end (titleBarOverlay). The POS website
+// runs in a separate view below it, so the website needs no changes.
+
+const TITLEBAR_HEIGHT = 40;
+const TITLEBAR_COLOR = "#ffffff";
+let posView = null;
+
+function posContents() {
+  return posView && !posView.webContents.isDestroyed() ? posView.webContents : null;
+}
 
 function createMainWindow() {
   const bounds = settings.get("windowBounds");
@@ -82,9 +96,23 @@ function createMainWindow() {
     show: false,
     title: "Bong POS",
     icon: ICON,
-    backgroundColor: "#ECF1EB",
-    autoHideMenuBar: true,
+    backgroundColor: TITLEBAR_COLOR,
+    titleBarStyle: "hidden",
+    titleBarOverlay: { color: TITLEBAR_COLOR, symbolColor: "#1f2937", height: TITLEBAR_HEIGHT },
     kiosk: settings.get("kiosk"),
+    webPreferences: {
+      preload: path.join(__dirname, "titlebar-preload.js"),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+    },
+  });
+  mainWindow.loadFile(path.join(RENDERER, "titlebar.html"));
+  mainWindow.webContents.on("will-navigate", (e) => e.preventDefault());
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("did-finish-load", sendTitlebarState);
+
+  posView = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -96,16 +124,23 @@ function createMainWindow() {
       backgroundThrottling: false,
     },
   });
+  posView.setBackgroundColor("#ECF1EB");
+  mainWindow.contentView.addChildView(posView);
+  layoutViews();
 
   mainWindow.once("ready-to-show", () => {
     if (settings.get("windowMaximized") && !settings.get("kiosk")) mainWindow.maximize();
     if (!process.argv.includes("--hidden")) mainWindow.show();
+    layoutViews();
   });
-
-  // Keep the native title "Bong POS" instead of the website's <title>.
+  for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen", "restore"]) {
+    mainWindow.on(ev, layoutViews);
+  }
+  // Typing goes to the POS, not the title bar.
+  mainWindow.on("focus", () => posContents()?.focus());
   mainWindow.on("page-title-updated", (event) => event.preventDefault());
 
-  const wc = mainWindow.webContents;
+  const wc = posView.webContents;
   wc.setZoomFactor(settings.get("zoomFactor") || 1);
   wc.on("did-finish-load", () => wc.setZoomFactor(settings.get("zoomFactor") || 1));
 
@@ -136,7 +171,7 @@ function createMainWindow() {
     // -3 = navigation aborted (e.g. replaced by another one): not an error.
     if (!isMainFrame || errorCode === -3 || !isPosUrl(validatedURL)) return;
     log.warn(`Could not load ${validatedURL}: ${errorDescription} (${errorCode})`);
-    mainWindow.loadFile(path.join(RENDERER, "offline.html"), {
+    wc.loadFile(path.join(RENDERER, "offline.html"), {
       query: { url: posUrl(), error: errorDescription || String(errorCode) },
     });
   });
@@ -176,9 +211,26 @@ function createMainWindow() {
       }).show();
     }
   });
-  mainWindow.on("closed", () => (mainWindow = null));
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+    posView = null;
+  });
 
   loadPos();
+}
+
+/** POS view fills the window below the title bar (all of it in full screen / kiosk). */
+function layoutViews() {
+  if (!mainWindow || mainWindow.isDestroyed() || !posView) return;
+  const { width, height } = mainWindow.getContentBounds();
+  const top = mainWindow.isFullScreen() || mainWindow.isKiosk() ? 0 : TITLEBAR_HEIGHT;
+  posView.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) });
+}
+
+function setKiosk(on) {
+  if (!mainWindow) return;
+  mainWindow.setKiosk(on);
+  setTimeout(layoutViews, 50);
 }
 
 /**
@@ -187,18 +239,48 @@ function createMainWindow() {
  * Sign-in (cookies, localStorage) is kept. Offline, the cached app is used.
  */
 async function loadPos({ clearCache = true } = {}) {
-  if (!mainWindow) return;
+  if (!posContents()) return;
   const url = posUrl();
   if (clearCache && (await isReachable(url))) {
     try {
-      await mainWindow.webContents.session.clearStorageData({ origin: posOrigin(), storages: ["serviceworkers", "cachestorage"] });
-      await mainWindow.webContents.session.clearCache();
+      await posContents().session.clearStorageData({ origin: posOrigin(), storages: ["serviceworkers", "cachestorage"] });
+      await posContents().session.clearCache();
     } catch (err) {
       log.warn(`Could not clear the app cache: ${err.message}`);
     }
   }
-  if (mainWindow) mainWindow.loadURL(url);
+  posContents()?.loadURL(url);
 }
+
+// ---------------------------------------------------------------- title bar
+
+async function sendTitlebarState() {
+  const wc = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+  if (!wc) return;
+  const running = agentShouldRun();
+  const st = running && agent.isRunning() ? await agent.status() : null;
+  wc.send("titlebar:state", {
+    version: app.getVersion(),
+    agent: !running ? "off" : st?.connected ? "connected" : "offline",
+    agentError: st?.lastError || "",
+    update: updater.getState(),
+  });
+}
+
+function fromTitlebar(event) {
+  return mainWindow && event.sender === mainWindow.webContents;
+}
+
+ipcMain.on("titlebar:menu", (event, pos) => {
+  if (!fromTitlebar(event)) return;
+  Menu.getApplicationMenu()?.popup({ window: mainWindow, x: Math.round(pos?.x || 0), y: Math.round(pos?.y || TITLEBAR_HEIGHT) });
+});
+ipcMain.on("titlebar:action", (event, action) => {
+  if (!fromTitlebar(event)) return;
+  if (action === "settings") openSettings();
+  if (action === "printer-tools") openPrinterTools();
+  if (action === "install-update") updater.quitAndInstall();
+});
 
 async function isReachable(url) {
   try {
@@ -235,6 +317,7 @@ function applyAgent({ restart = false } = {}) {
     agent.stop();
   }
   updateTrayMenu();
+  setTimeout(sendTitlebarState, 3000);
 }
 
 // ---------------------------------------------------------------- settings window
@@ -324,7 +407,7 @@ ipcMain.handle("settings:save", async (event, patch = {}) => {
     updater.configure(next.posUrl);
     loadPos();
   }
-  if (next.kiosk !== undefined && mainWindow) mainWindow.setKiosk(next.kiosk);
+  if (next.kiosk !== undefined) setKiosk(next.kiosk);
   if (next.autoStart !== undefined) applyAutoStart();
   if (next.keepAwake !== undefined) applyKeepAwake();
   applyAgent({ restart: Boolean(token) || urlChanged || patch.removeToken });
@@ -352,10 +435,10 @@ ipcMain.on("desktop:info", (event) => {
   event.returnValue = { isDesktop: true, version: app.getVersion(), platform: process.platform, printAgent: agentShouldRun() };
 });
 ipcMain.on("desktop:retry", (event) => {
-  if (mainWindow && event.sender === mainWindow.webContents) loadPos();
+  if (event.sender === posContents()) loadPos();
 });
 ipcMain.on("desktop:open-settings", (event) => {
-  if (mainWindow && event.sender === mainWindow.webContents) openSettings();
+  if (event.sender === posContents()) openSettings();
 });
 
 // ---------------------------------------------------------------- printer tools
@@ -391,13 +474,13 @@ function openPrinterTools() {
 function setZoom(factor) {
   const value = Math.min(2, Math.max(0.5, Math.round(factor * 10) / 10));
   settings.set({ zoomFactor: value });
-  mainWindow?.webContents.setZoomFactor(value);
+  posContents()?.setZoomFactor(value);
 }
 
 function toggleKiosk() {
   const kiosk = !settings.get("kiosk");
   settings.set({ kiosk });
-  mainWindow?.setKiosk(kiosk);
+  setKiosk(kiosk);
   buildMenu();
 }
 
@@ -416,8 +499,8 @@ function buildMenu() {
     {
       label: "&View",
       submenu: [
-        { label: "Reload", accelerator: "F5", click: () => mainWindow?.webContents.reload() },
-        { label: "Reload", accelerator: "CmdOrCtrl+R", visible: false, click: () => mainWindow?.webContents.reload() },
+        { label: "Reload", accelerator: "F5", click: () => posContents()?.reload() },
+        { label: "Reload", accelerator: "CmdOrCtrl+R", visible: false, click: () => posContents()?.reload() },
         { label: "Clear Cache and Reload", accelerator: "CmdOrCtrl+Shift+R", click: () => loadPos() },
         { type: "separator" },
         { label: "Zoom In", accelerator: "CmdOrCtrl+=", click: () => setZoom((settings.get("zoomFactor") || 1) + 0.1) },
@@ -428,7 +511,7 @@ function buildMenu() {
         { label: "Full Screen", accelerator: "F11", click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
         { label: "Kiosk Mode", type: "checkbox", checked: Boolean(settings.get("kiosk")), accelerator: "CmdOrCtrl+Shift+K", click: toggleKiosk },
         { type: "separator" },
-        { label: "Developer Tools", accelerator: "CmdOrCtrl+Shift+I", click: () => mainWindow?.webContents.toggleDevTools() },
+        { label: "Developer Tools", accelerator: "CmdOrCtrl+Shift+I", click: () => posContents()?.toggleDevTools() },
       ],
     },
     {
@@ -525,4 +608,6 @@ app.whenReady().then(() => {
   applyAutoStart();
   applyKeepAwake();
   updater.init({ posUrl: posUrl(), window: () => mainWindow });
+  updater.onState(() => sendTitlebarState());
+  setInterval(sendTitlebarState, 10 * 1000);
 });
