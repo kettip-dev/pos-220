@@ -67,6 +67,8 @@ if ($Action -eq "deploy") {
         '--exclude=tmp',
         '--exclude=*/tmp/*',
         '--exclude=backups',
+        '--exclude=desktop-releases',
+        '--exclude=restropro-desktop',
         '--exclude=*.log',
         '--exclude=*.zip',
         '--exclude=.gemini',

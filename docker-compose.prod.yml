@@ -133,6 +133,9 @@ services:
     ports:
       # Main production ingress on port 4001
       - "${PORT:-4001}:80"
+    volumes:
+      # Desktop app installer + auto-update feed, served at /desktop/
+      - ./desktop-releases:/usr/share/nginx/desktop:ro
     networks:
       - restropro_network
     healthcheck:

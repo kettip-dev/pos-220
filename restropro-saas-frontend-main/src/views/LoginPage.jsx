@@ -5,13 +5,13 @@ import {
   signIn,
   googleSignIn,
 } from "../controllers/auth.controller";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { isRestroUserAuthenticated } from "../helpers/AuthStatus";
 import {
   getUserDetailsInLocalStorage,
   saveUserDetailsInLocalStorage,
 } from "../helpers/UserDetails";
-import { SCOPES } from "../config/scopes";
+import { parseUser, getHomePathForUser, getSafeNextPath, getDesktopBridge } from "../helpers/SignInHelper";
 import { useTranslation } from "react-i18next";
 import LanguageChanger from "../components/LanguageChanger";
 import ManagerPinModal from "../components/common/ManagerPinModal";
@@ -32,6 +32,7 @@ import {
   IconChefHat,
   IconLayoutDashboard,
   IconX,
+  IconExternalLink,
 } from "@tabler/icons-react";
 
 // Shared tablets: remember the last email so staff only type their password
@@ -53,14 +54,6 @@ const writeLastEmail = (email) => {
   }
 };
 
-const parseUser = (resultUser) => ({
-  ...resultUser,
-  planFeautures: resultUser.features ? JSON.parse(resultUser.features) : null,
-  features_description: resultUser.features_description
-    ? JSON.parse(resultUser.features_description)
-    : null,
-});
-
 const inputClass = (hasError) =>
   `w-full pl-11 pr-4 min-h-[52px] text-[15px] rounded-xl outline-none border bg-white dark:bg-[#0D1117] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 transition ${
     hasError
@@ -81,6 +74,12 @@ function FieldError({ children }) {
 export default function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Inside the Bong POS desktop app, sign-in can happen in the system browser
+  // (Google, saved passwords, password managers) like VS Code.
+  const desktop = getDesktopBridge();
+  const canUseBrowserSignIn = typeof desktop?.signInWithBrowser === "function";
+  const [browserSignInStarted, setBrowserSignInStarted] = useState(false);
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
 
@@ -122,35 +121,14 @@ export default function LoginPage() {
   const routeAuthenticatedUser = () => {
     const user = getUserDetailsInLocalStorage();
     if (!user) return;
+    navigate(getSafeNextPath(location.search) || getHomePathForUser(user), {
+      replace: true,
+    });
+  };
 
-    const { role, scope } = user;
-
-    if (role === "superadmin") {
-      navigate("/superadmin/dashboard/home", {
-        replace: true,
-      });
-      return;
-    }
-
-    // A Business Group Owner has no per-user scope string (their access comes
-    // from the business group), so they route like an admin.
-    if (role === "admin" || role === "group_owner") {
-      navigate("/dashboard/home", {
-        replace: true,
-      });
-      return;
-    }
-
-    const userScopes = scope?.split(",") || [];
-    if (userScopes.includes(SCOPES.DASHBOARD)) {
-      navigate("/dashboard/home", {
-        replace: true,
-      });
-    } else {
-      navigate("/dashboard/profile", {
-        replace: true,
-      });
-    }
+  const handleBrowserSignIn = () => {
+    desktop?.signInWithBrowser();
+    setBrowserSignInStarted(true);
   };
 
   useEffect(() => {
@@ -386,7 +364,34 @@ export default function LoginPage() {
             </div>
           )}
 
-          {googleAuthClient && (
+          {canUseBrowserSignIn && (
+            <>
+              <button
+                type="button"
+                onClick={handleBrowserSignIn}
+                disabled={isLoading}
+                className="w-full min-h-[52px] rounded-xl font-bold text-[15px] bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 transition flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60"
+              >
+                <IconExternalLink size={20} />
+                <span>{t("login.desktop_browser_signin", "Sign in with your browser")}</span>
+              </button>
+              <p className="mt-2 text-xs text-center text-slate-500 dark:text-zinc-400 leading-relaxed">
+                {browserSignInStarted
+                  ? t("login.desktop_browser_waiting", "Finish signing in in your browser. Bong POS opens again by itself.")
+                  : t("login.desktop_browser_hint", "Opens your web browser to sign in with Google or email, then returns here.")}
+              </p>
+
+              <div className="my-5 flex items-center gap-3">
+                <div className="flex-1 border-b border-slate-200 dark:border-[#30363D]" />
+                <span className="text-xs font-medium text-slate-400 dark:text-zinc-500">
+                  {t("login.desktop_or_here", "or sign in here")}
+                </span>
+                <div className="flex-1 border-b border-slate-200 dark:border-[#30363D]" />
+              </div>
+            </>
+          )}
+
+          {googleAuthClient && !canUseBrowserSignIn && (
             <>
               <button
                 type="button"

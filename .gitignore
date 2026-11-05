@@ -26,3 +26,6 @@ Thumbs.db
 # Docker volumes
 mysql_data/
 backend_uploads/
+
+# Desktop app releases (served by nginx at /desktop/ on the server)
+desktop-releases/

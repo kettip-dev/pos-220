@@ -1,0 +1,48 @@
+appId: app.allkh.bongpos
+productName: Bong POS
+copyright: Copyright © Bong POS
+
+directories:
+  output: dist
+  buildResources: assets
+
+files:
+  - src/**/*
+  - renderer/**/*
+  - assets/**/*
+  - package.json
+
+# The print agent runs in a separate Node process, so it lives outside app.asar.
+extraResources:
+  - from: build/agent
+    to: agent
+
+# bongpos:// links bring browser sign-in back to the app.
+protocols:
+  - name: Bong POS
+    schemes: [bongpos]
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.png
+  # Code signing: set CSC_LINK / CSC_KEY_PASSWORD (or use Azure Trusted Signing)
+  # before `npm run dist`. Unsigned builds work, but SmartScreen warns on first install.
+
+nsis:
+  # One click, per-user install: no admin prompt for installs or updates.
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Bong POS
+  artifactName: Bong-POS-Setup-${version}.${ext}
+
+# Where the auto-updater looks by default. At runtime the app switches this to
+# <POS address>/desktop/, so each POS server hosts its own desktop releases.
+publish:
+  - provider: generic
+    url: https://pos.allkh.app/desktop/

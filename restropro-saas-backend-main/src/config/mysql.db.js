@@ -24,6 +24,7 @@ const { ensureCustomerCreditSchema } = require("../utils/customerCreditMigration
 const { ensureCustomer360Schema } = require("../utils/customer360Migration");
 const { ensureAddonAvailabilitySchema } = require("../utils/addonAvailabilityMigration");
 const { ensureAddonLibrarySchema } = require("../utils/addonLibraryMigration");
+const { ensureDesktopLoginSchema } = require("../utils/desktopLoginMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -118,6 +119,10 @@ ensurePrintAgentsSchema(pool).catch((err) => {
 
 ensureCustomer360Schema(pool).catch((err) => {
   console.error("[Migration] Error ensuring customer 360 schema:", err);
+});
+
+ensureDesktopLoginSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring desktop login schema:", err);
 });
 
 // Add-on library extends menu_item_addons, so it waits for the availability column.

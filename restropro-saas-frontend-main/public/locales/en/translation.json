@@ -49,7 +49,11 @@
     "email_required": "Enter your email address",
     "email_invalid": "Enter a valid email address",
     "password_required": "Enter your password",
-    "network_error": "Can't reach the server. Check your internet connection and try again."
+    "network_error": "Can't reach the server. Check your internet connection and try again.",
+    "desktop_browser_signin": "Sign in with your browser",
+    "desktop_browser_hint": "Opens your web browser to sign in with Google or email, then returns here.",
+    "desktop_browser_waiting": "Finish signing in in your browser. Bong POS opens again by itself.",
+    "desktop_or_here": "or sign in here"
   },
   "home": {
     "cafe_restaurant": "Cafe. Restaurant.",
@@ -5167,5 +5171,20 @@
     "from_list": "From add-on list",
     "edit_in_addons": "Edit in add-ons",
     "edit_in_addons_title": "This ingredient comes from the shared add-on. Edit it in the add-on list."
+  },
+  "desktop_login": {
+    "title": "Sign in to the Bong POS app",
+    "signed_in_as": "Signed in as",
+    "open_app": "Open Bong POS",
+    "opening": "Opening Bong POS...",
+    "switch_account": "Use a different account",
+    "opened_title": "You're signed in to the Bong POS app",
+    "opened_desc": "If your browser asks, allow it to open Bong POS. You can close this tab.",
+    "open_again": "Bong POS didn't open? Try again",
+    "invalid_title": "Open this page from the Bong POS app",
+    "invalid_desc": "In the Bong POS desktop app, click \"Sign in with your browser\".",
+    "error": "Could not sign in to the app. Try again.",
+    "finishing": "Signing you in...",
+    "back_to_login": "Back to sign in"
   }
 }

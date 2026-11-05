@@ -2141,3 +2141,132 @@ exports.switchBusiness = async (req, res) => {
     });
   }
 };
+
+/* ==========================================================================
+ * Desktop app: "Sign in with your browser" (like VS Code)
+ * ========================================================================== */
+
+const {
+  createDesktopLoginCodeDB,
+  consumeDesktopLoginCodeDB,
+} = require("../services/desktop_login.service");
+
+const BASE64URL_43 = /^[A-Za-z0-9_-]{43}$/;
+const PKCE_VERIFIER = /^[A-Za-z0-9_-]{43,128}$/;
+
+/**
+ * POST /auth/desktop/code  (signed in, in the browser)
+ * Body: { code_challenge }  →  { code, expires_in }
+ * The browser passes the code to the desktop app through a bongpos:// link.
+ */
+exports.createDesktopLoginCode = async (req, res) => {
+  try {
+    const codeChallenge = String(req.body?.code_challenge || "");
+    if (!BASE64URL_43.test(codeChallenge)) {
+      return res.status(400).json({ success: false, message: req.__("please_provide_required_details") });
+    }
+    const { code, expiresIn } = await createDesktopLoginCodeDB({
+      tenantId: req.user.tenant_id,
+      username: req.user.username,
+      codeChallenge,
+    });
+    return res.status(200).json({ success: true, code, expires_in: expiresIn });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("facing_issues_try_later") });
+  }
+};
+
+/**
+ * POST /auth/desktop/exchange  (from the desktop app, not signed in yet)
+ * Body: { code, code_verifier }
+ * Issues the same session (cookies + response body) as a normal sign-in.
+ */
+exports.exchangeDesktopLoginCode = async (req, res) => {
+  try {
+    const code = String(req.body?.code || "");
+    const codeVerifier = String(req.body?.code_verifier || "");
+    if (!BASE64URL_43.test(code) || !PKCE_VERIFIER.test(codeVerifier)) {
+      return res.status(400).json({ success: false, message: req.__("please_provide_required_details") });
+    }
+
+    const grant = await consumeDesktopLoginCodeDB({ code, codeVerifier });
+    if (!grant) {
+      return res.status(401).json({
+        success: false,
+        message: "This sign-in link has expired or was already used. Click Sign in again.",
+      });
+    }
+
+    const user = await findUserByUsernameDB(grant.username);
+    if (!user) {
+      return res.status(401).json({ success: false, message: req.__("email_or_password_invalid") });
+    }
+
+    const payload = {
+      tenant_id: user.tenant_id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      tokenVersion: user.token_version,
+      is_active: user.is_active,
+      ...(user.business_group_id ? { business_group_id: user.business_group_id, isGroupOwner: true } : {}),
+    };
+
+    let groupOwnerResponse = null;
+    if (user.role === ROLES.GROUP_OWNER) {
+      if (user.status === "inactive") {
+        return res.status(403).json({ success: false, message: req.__("account_inactive") });
+      }
+      if (!user.business_group_id) {
+        return res.status(403).json({ success: false, message: req.__("operation_not_allowed") });
+      }
+      groupOwnerResponse = await applyGroupOwnerSignInContext(user, payload);
+    } else if (user.business_group_id) {
+      await ensureGroupOwnerActiveBusinessDB(user.username);
+    }
+
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+    const refreshTokenExpiry = new Date(Date.now() + parseInt(CONFIG.COOKIE_EXPIRY_REFRESH));
+    const baseCookie = {
+      httpOnly: true,
+      domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
+      sameSite: false,
+      secure: CONFIG.COOKIE_SECURE,
+      path: "/",
+    };
+
+    res.cookie("accessToken", accessToken, { ...baseCookie, expires: new Date(Date.now() + parseInt(CONFIG.COOKIE_EXPIRY)) });
+    res.cookie("refreshToken", refreshToken, { ...baseCookie, expires: refreshTokenExpiry });
+    res.cookie("restroprosaas__authenticated", true, {
+      expires: refreshTokenExpiry,
+      domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
+      sameSite: false,
+      secure: CONFIG.COOKIE_SECURE,
+      path: "/",
+    });
+
+    const deviceDetails = req.useragent || {};
+    await addRefreshTokenDB(
+      user.username,
+      refreshToken,
+      refreshTokenExpiry,
+      req.connection.remoteAddress,
+      `Bong POS desktop app\n${deviceDetails.platform || ""}`.trim(),
+      "",
+      user.tenant_id,
+    );
+
+    user.password = undefined;
+    return res.status(200).json({
+      success: true,
+      message: req.__("login_successful"),
+      user,
+      ...(groupOwnerResponse || {}),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("facing_issues_try_later") });
+  }
+};

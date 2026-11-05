@@ -42,6 +42,8 @@ function logDir() {
  * Administrators can write there, so helper files loaded from it are safe.
  */
 function installDir() {
+  // The Bong POS desktop app runs the agent from its own resources folder.
+  if (process.env.RESTRO_AGENT_INSTALL_DIR) return process.env.RESTRO_AGENT_INSTALL_DIR;
   return isPackaged() ? path.dirname(process.execPath) : null;
 }
 
