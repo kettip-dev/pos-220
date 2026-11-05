@@ -154,6 +154,14 @@ const resolveDataScope = async (req, res, next) => {
     // consolidate. `tenantFilter` refuses to build an unscoped query, so answer
     // the same "pick a business" 409 the gate uses rather than surfacing a 500.
     if (businesses.length === 0) {
+      // Session endpoints (my-businesses, switch-business, refresh, signout)
+      // carry no business data, and refusing them strands the owner: the
+      // switcher could no longer list businesses to switch back to. Let them
+      // through as single-business.
+      if (requestPath(req).startsWith("/api/v1/auth")) {
+        req.dataScope = singleBusinessScope(req.user?.tenant_id, businessGroupId);
+        return next();
+      }
       return res.status(409).json({
         success: false,
         requiresSingleBusiness: true,

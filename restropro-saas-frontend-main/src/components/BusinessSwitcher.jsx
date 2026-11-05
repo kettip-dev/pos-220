@@ -47,6 +47,7 @@ export default function BusinessSwitcher({ variant = "dark" }) {
     permissionLevel: null,
     businessGroupName: null,
     isLoading: false,
+    isLoaded: false,
     isSwitching: false,
   });
 
@@ -74,6 +75,7 @@ export default function BusinessSwitcher({ variant = "dark" }) {
           permissionLevel: data?.permissionLevel ?? null,
           businessGroupName: data?.businessGroupName ?? null,
           isLoading: false,
+          isLoaded: true,
         }));
       } catch (error) {
         if (cancelled) return;
@@ -88,6 +90,20 @@ export default function BusinessSwitcher({ variant = "dark" }) {
       cancelled = true;
     };
   }, [isGroupOwner]);
+
+  // Consolidating aggregates the GROUP only, so a group with no member
+  // businesses (e.g. the owner's own business was unlinked) has nothing to show
+  // and the backend refuses every consolidated request. Leave All Businesses
+  // mode if we are stuck in it; the option itself is hidden below.
+  const groupMemberCount = state.businesses.filter((b) => b.isGroupMember).length;
+  const canConsolidate = !state.isLoaded || groupMemberCount > 0;
+
+  useEffect(() => {
+    if (!isGroupOwner || !state.isLoaded || groupMemberCount > 0) return;
+    if (getBusinessScope() !== SCOPE_ALL) return;
+    saveBusinessScope(SCOPE_TENANT);
+    window.location.reload();
+  }, [isGroupOwner, state.isLoaded, groupMemberCount]);
 
   // Business Admins and Staff must never see the switcher dropdown,
   // but in QBO header mode we still display the clean company/store name label.
@@ -238,6 +254,7 @@ export default function BusinessSwitcher({ variant = "dark" }) {
           {/* Enterprise consolidated view, pinned above the individual
               businesses. Group Owners only — this whole component already
               returns null for Business Admins and Staff. */}
+          {canConsolidate && (
           <div className="py-2">
             <Menu.Item>
               {({ active }) => (
@@ -265,6 +282,7 @@ export default function BusinessSwitcher({ variant = "dark" }) {
               )}
             </Menu.Item>
           </div>
+          )}
 
           <div className="max-h-72 overflow-y-auto py-2 divide-y divide-gray-100 dark:divide-zinc-800/50">
             {state.businesses.length === 0 ? (
