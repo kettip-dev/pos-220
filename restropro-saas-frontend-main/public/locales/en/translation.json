@@ -5186,5 +5186,59 @@
     "error": "Could not sign in to the app. Try again.",
     "finishing": "Signing you in...",
     "back_to_login": "Back to sign in"
+  },
+  "widgets": {
+    "todays_revenue": "Today's Revenue",
+    "orders_today": "Orders Today",
+    "avg_order_value": "Avg Order Value",
+    "new_customers": "New Customers",
+    "repeat_customers": "Repeat Customers",
+    "cancelled_orders": "Cancelled Orders",
+    "tax_collected": "Tax Collected",
+    "service_charge": "Service Charge",
+    "vs_yesterday": "vs yesterday",
+    "yesterday": "Yesterday",
+    "today": "Today",
+    "revenue": "Revenue",
+    "revenue_trend": "Revenue Trend",
+    "last_7_days": "Last 7 days",
+    "daily_avg": "Daily avg",
+    "best_day": "Best day",
+    "avg": "Avg",
+    "no_sales_week": "No sales in the last 7 days",
+    "no_sales_week_hint": "Your weekly trend will appear here after your first orders.",
+    "of_daily_goal": "of daily goal",
+    "sold_today": "Sold today",
+    "to_go": "To go",
+    "goal": "Goal",
+    "goal_reached": "Goal reached 🎉"
+  },
+  "widget_titles": {
+    "kpi": {
+      "revenue": "Today's Revenue",
+      "orders": "Orders Today",
+      "aov": "Avg Order Value",
+      "newCustomers": "New Customers"
+    },
+    "sales": {
+      "revenueTrend": "Revenue Trend",
+      "peakHours": "Peak Hours",
+      "topItems": "Top Selling Items",
+      "orderTypeDonut": "Order Type Mix",
+      "paymentMix": "Payment Mix"
+    },
+    "inventory": {
+      "lowStock": "Low Stock Alerts"
+    },
+    "ops": {
+      "feedback": "Recent Feedback",
+      "reservations": "Today's Reservations"
+    },
+    "productivity": {
+      "quickActions": "Quick Actions",
+      "notes": "Sticky Note",
+      "clock": "Clock & Date",
+      "salesGoal": "Daily Sales Goal"
+    }
   }
 }

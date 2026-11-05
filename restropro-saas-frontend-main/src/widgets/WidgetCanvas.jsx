@@ -34,15 +34,25 @@ export default function WidgetCanvas({
     const breakpoints = Object.keys(layout?.breakpoints || BREAKPOINTS);
     const out = {};
     for (const bp of breakpoints) {
+      // On the 4-column tablet grid, full-width compact KPI tiles leave each
+      // number alone on a very wide row. Pair consecutive ones two-per-row.
+      let pairIdx = 0;
       out[bp] = items.map((it) => {
         const desc = getWidget(it.type);
+        const pairCompact =
+          bp === "xs" && desc?.compact && (it.layout?.xs?.w ?? 4) >= 4;
+        if (!pairCompact) pairIdx = 0;
         const fallback = {
           x: 0,
           y: Infinity,
           w: desc?.defaultSize?.w ?? 4,
           h: desc?.defaultSize?.h ?? 3,
         };
-        const placement = it.layout?.[bp] || it.layout?.lg || fallback;
+        let placement = it.layout?.[bp] || it.layout?.lg || fallback;
+        if (pairCompact) {
+          placement = { ...placement, w: 2, x: (pairIdx % 2) * 2 };
+          pairIdx += 1;
+        }
         return {
           i: it.i,
           x: placement.x,
