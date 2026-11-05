@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   IconRotate,
@@ -16,6 +16,12 @@ import {
 import { useTheme } from "../../contexts/ThemeContext";
 import { getImageURL } from "../../helpers/ImageHelper";
 import BindoTableNode, { getTableBindoStatus } from "./BindoTableNode";
+
+const GRID_SIZE = 28;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.0;
+const DRAG_THRESHOLD = 6; // px of movement before a touch becomes a pan (keeps taps as taps)
+const MAX_FLING_SPEED = 2.5; // px per ms — caps momentum so a fast flick glides ~500px, not off-screen
 
 function getBezierCurveData(x1, y1, x2, y2) {
   const dx = x2 - x1;
@@ -103,9 +109,387 @@ export default function FloorPlanCanvas({
       : internalPanOffset;
   const setPanOffset = externalSetPanOffset || setInternalPanOffset;
 
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
+
+  // ── Smooth pan / zoom engine ─────────────────────────────────────────
+  // The live view lives in a ref and is written straight to the DOM once per
+  // animation frame. React state is only updated when a gesture settles, so
+  // tables do not re-render while the user is scrolling.
+  const contentRef = useRef(null);
+  const gridRef = useRef(null);
+  const viewRef = useRef({ x: panOffset.x, y: panOffset.y, z: zoomLevel });
+  const lastCommittedRef = useRef({ x: panOffset.x, y: panOffset.y, z: zoomLevel });
+  const rafRef = useRef(0);
+  const momentumRafRef = useRef(0);
+  const wheelCommitTimerRef = useRef(0);
+  const transitionTimerRef = useRef(0);
+  const pointersRef = useRef(new Map()); // pointerId -> { x, y }
+  const gestureRef = useRef(null); // { type: "pending" | "pan" | "pinch", ... }
+  const velocitySamplesRef = useRef([]); // [{ t, x, y }]
+  const suppressClickRef = useRef(false);
+  const settersRef = useRef({ setPanOffset, setZoomLevel });
+  settersRef.current = { setPanOffset, setZoomLevel };
+
+  const applyView = (animate = false) => {
+    const { x, y, z } = viewRef.current;
+    const content = contentRef.current;
+    if (content) {
+      content.style.transition = animate ? "transform 160ms ease-out" : "none";
+      content.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${z})`;
+    }
+    const grid = gridRef.current;
+    if (grid) {
+      const size = GRID_SIZE * z;
+      grid.style.backgroundSize = `${size}px ${size}px`;
+      grid.style.backgroundPosition = `${x}px ${y}px`;
+    }
+    if (animate) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = setTimeout(() => {
+        if (contentRef.current) contentRef.current.style.transition = "none";
+      }, 180);
+    }
+  };
+
+  const scheduleApply = () => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      applyView();
+    });
+  };
+
+  const setGestureActive = (active) => {
+    const content = contentRef.current;
+    // will-change only while moving: keeps panning on the GPU without leaving
+    // text blurry (rasterised at the old scale) once the gesture ends.
+    if (content) content.style.willChange = active ? "transform" : "auto";
+    if (canvasRef.current) canvasRef.current.style.cursor = active ? "grabbing" : "";
+  };
+
+  const commitView = () => {
+    const { x, y, z } = viewRef.current;
+    const last = lastCommittedRef.current;
+    if (last.x === x && last.y === y && last.z === z) return;
+    lastCommittedRef.current = { x, y, z };
+    if (last.x !== x || last.y !== y) settersRef.current.setPanOffset({ x, y });
+    if (last.z !== z) settersRef.current.setZoomLevel(z);
+  };
+
+  const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+
+  // Zoom keeping the content point under (clientX, clientY) fixed on screen
+  const zoomAt = (nextZ, clientX, clientY) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const v = viewRef.current;
+    const z = clampZoom(nextZ);
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const cx = (px - v.x) / v.z;
+    const cy = (py - v.y) / v.z;
+    viewRef.current = { x: px - cx * z, y: py - cy * z, z };
+  };
+
+  const stopMomentum = () => {
+    if (momentumRafRef.current) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = 0;
+    }
+  };
+
+  const startMomentum = () => {
+    const samples = velocitySamplesRef.current;
+    const now = performance.now();
+    const recent = samples.filter((s) => now - s.t < 100);
+    if (recent.length < 2) return false;
+    const first = recent[0];
+    const last = recent[recent.length - 1];
+    const dt = last.t - first.t;
+    // Finger paused before lifting → no fling
+    if (dt <= 0 || now - last.t > 50) return false;
+    let vx = (last.x - first.x) / dt; // px per ms
+    let vy = (last.y - first.y) / dt;
+    const speed = Math.hypot(vx, vy);
+    if (speed < 0.25) return false;
+    if (speed > MAX_FLING_SPEED) {
+      vx = (vx / speed) * MAX_FLING_SPEED;
+      vy = (vy / speed) * MAX_FLING_SPEED;
+    }
+
+    setGestureActive(true);
+    let prev = now;
+    const step = (t) => {
+      const elapsed = Math.min(32, t - prev);
+      prev = t;
+      const decay = Math.pow(0.995, elapsed); // friction per ms
+      vx *= decay;
+      vy *= decay;
+      viewRef.current = {
+        ...viewRef.current,
+        x: viewRef.current.x + vx * elapsed,
+        y: viewRef.current.y + vy * elapsed,
+      };
+      applyView();
+      if (Math.hypot(vx, vy) < 0.02) {
+        momentumRafRef.current = 0;
+        setGestureActive(false);
+        commitView();
+        return;
+      }
+      momentumRafRef.current = requestAnimationFrame(step);
+    };
+    momentumRafRef.current = requestAnimationFrame(step);
+    return true;
+  };
+
+  // External / button-driven changes to zoom & pan flow back into the live view
+  useLayoutEffect(() => {
+    const last = lastCommittedRef.current;
+    if (last.x === panOffset.x && last.y === panOffset.y && last.z === zoomLevel) return;
+    lastCommittedRef.current = { x: panOffset.x, y: panOffset.y, z: zoomLevel };
+    viewRef.current = { x: panOffset.x, y: panOffset.y, z: zoomLevel };
+  }, [panOffset.x, panOffset.y, zoomLevel]);
+
+  // Keep the DOM in sync with the live view after every render (cheap: 2 style writes)
+  useLayoutEffect(() => {
+    applyView();
+  });
+
+  const startPinch = () => {
+    const pts = [...pointersRef.current.values()];
+    if (pts.length < 2) return;
+    const [a, b] = pts;
+    gestureRef.current = {
+      type: "pinch",
+      startDist: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+      startMidX: (a.x + b.x) / 2,
+      startMidY: (a.y + b.y) / 2,
+      startView: { ...viewRef.current },
+    };
+    setGestureActive(true);
+  };
+
+  const startPendingPan = (x, y, alreadyMoved = false) => {
+    gestureRef.current = {
+      type: alreadyMoved ? "pan" : "pending",
+      startX: x,
+      startY: y,
+      startPanX: viewRef.current.x,
+      startPanY: viewRef.current.y,
+    };
+    velocitySamplesRef.current = [{ t: performance.now(), x: viewRef.current.x, y: viewRef.current.y }];
+  };
+
+  // Capture phase: runs before table nodes stop propagation, so a swipe that
+  // starts on a table still scrolls the floor (a plain tap still opens it).
+  const handleCanvasPointerDownCapture = (e) => {
+    suppressClickRef.current = false;
+    stopMomentum();
+    if (isDrawingWall) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    const onPanSurface =
+      e.target === canvasRef.current || e.target.classList?.contains("canvas-pan-surface");
+    // In edit mode, pointer-downs on tables / cashier drag the item instead.
+    if (isEditMode && !onPanSurface && (e.isPrimary || pointersRef.current.size === 0)) return;
+
+    // A primary pointer means no other pointer is down: drop any stale entries
+    // (e.g. a pointerup that was swallowed by an alert or a lost window focus).
+    if (e.isPrimary) pointersRef.current.clear();
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size >= 2) {
+      setDraggingItem(null);
+      startPinch();
+    } else {
+      startPendingPan(e.clientX, e.clientY);
+    }
+  };
+
+  // Window-level gesture listeners, registered once and reading refs only
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!pointersRef.current.has(e.pointerId)) return;
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const g = gestureRef.current;
+      if (!g) return;
+
+      if (g.type === "pinch") {
+        const pts = [...pointersRef.current.values()];
+        if (pts.length < 2) return;
+        const [a, b] = pts;
+        const dist = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const sv = g.startView;
+        const z = clampZoom((sv.z * dist) / g.startDist);
+        // Content point that was under the starting midpoint follows the fingers
+        const cx = (g.startMidX - rect.left - sv.x) / sv.z;
+        const cy = (g.startMidY - rect.top - sv.y) / sv.z;
+        viewRef.current = { x: midX - rect.left - cx * z, y: midY - rect.top - cy * z, z };
+        scheduleApply();
+        return;
+      }
+
+      const dx = e.clientX - g.startX;
+      const dy = e.clientY - g.startY;
+      if (g.type === "pending") {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        g.type = "pan";
+        suppressClickRef.current = true;
+        setGestureActive(true);
+      }
+      viewRef.current = { ...viewRef.current, x: g.startPanX + dx, y: g.startPanY + dy };
+      const samples = velocitySamplesRef.current;
+      samples.push({ t: performance.now(), x: viewRef.current.x, y: viewRef.current.y });
+      if (samples.length > 8) samples.shift();
+      scheduleApply();
+    };
+
+    const onUp = (e) => {
+      if (!pointersRef.current.has(e.pointerId)) return;
+      pointersRef.current.delete(e.pointerId);
+      const g = gestureRef.current;
+      if (!g) return;
+
+      if (g.type === "pinch") {
+        suppressClickRef.current = true;
+        const remaining = [...pointersRef.current.values()][0];
+        if (remaining) {
+          // One finger lifted: continue as a pan with the other finger
+          startPendingPan(remaining.x, remaining.y, true);
+          return;
+        }
+      }
+
+      if (pointersRef.current.size > 0) return;
+      gestureRef.current = null;
+      if (g.type === "pending") return; // simple tap — let the click through
+
+      applyView();
+      const flung = e.type === "pointerup" && g.type === "pan" && startMomentum();
+      if (!flung) {
+        setGestureActive(false);
+        commitView();
+      }
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Swallow the click that follows a drag so panning never opens a table
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onClickCapture = (e) => {
+      if (!suppressClickRef.current) return;
+      suppressClickRef.current = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    el.addEventListener("click", onClickCapture, true);
+    return () => el.removeEventListener("click", onClickCapture, true);
+  }, []);
+
+  // Mouse wheel / trackpad: two-finger scroll pans, pinch or Ctrl+wheel zooms.
+  // Must be a non-passive native listener so preventDefault works.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      stopMomentum();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
+      const dx = e.deltaX * unit;
+      const dy = e.deltaY * unit;
+      if (e.ctrlKey || e.metaKey) {
+        zoomAt(viewRef.current.z * Math.exp(-dy * 0.01), e.clientX, e.clientY);
+      } else if (e.shiftKey && dx === 0) {
+        viewRef.current = { ...viewRef.current, x: viewRef.current.x - dy };
+      } else {
+        viewRef.current = {
+          ...viewRef.current,
+          x: viewRef.current.x - dx,
+          y: viewRef.current.y - dy,
+        };
+      }
+      scheduleApply();
+      clearTimeout(wheelCommitTimerRef.current);
+      wheelCommitTimerRef.current = setTimeout(commitView, 150);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Safari trackpad pinch fires gesture events instead of ctrl+wheel
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || typeof window.GestureEvent === "undefined") return;
+    let startZ = 1;
+    const onStart = (e) => {
+      e.preventDefault();
+      startZ = viewRef.current.z;
+    };
+    const onChange = (e) => {
+      e.preventDefault();
+      zoomAt(startZ * e.scale, e.clientX, e.clientY);
+      scheduleApply();
+    };
+    const onEnd = (e) => {
+      e.preventDefault();
+      commitView();
+    };
+    el.addEventListener("gesturestart", onStart);
+    el.addEventListener("gesturechange", onChange);
+    el.addEventListener("gestureend", onEnd);
+    return () => {
+      el.removeEventListener("gesturestart", onStart);
+      el.removeEventListener("gesturechange", onChange);
+      el.removeEventListener("gestureend", onEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cleanup any in-flight frames / timers on unmount
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(momentumRafRef.current);
+      clearTimeout(wheelCommitTimerRef.current);
+      clearTimeout(transitionTimerRef.current);
+    },
+    []
+  );
+
+  // Zoom buttons: zoom around the centre of the visible canvas, animated
+  const zoomByButton = (delta) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    stopMomentum();
+    const next = Number((viewRef.current.z + delta).toFixed(2));
+    zoomAt(next, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    applyView(true);
+    commitView();
+  };
+
+  const resetView = () => {
+    stopMomentum();
+    viewRef.current = { x: 0, y: 0, z: 1 };
+    applyView(true);
+    commitView();
+  };
 
   // Wall drawing states
   const [drawingWall, setDrawingWall] = useState(null); // { x1, y1, x2, y2 }
@@ -219,37 +603,38 @@ export default function FloorPlanCanvas({
     });
   };
 
-  // Canvas pan or wall drawing handler
+  // Convert a screen point to snapped floor-plan coordinates
+  const toFloorPoint = (clientX, clientY) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const v = viewRef.current;
+    return {
+      x: Math.round((clientX - rect.left - v.x) / v.z / 10) * 10,
+      y: Math.round((clientY - rect.top - v.y) / v.z / 10) * 10,
+    };
+  };
+
+  // Canvas wall drawing / deselect handler (panning is handled in the capture phase)
   const handleCanvasPointerDown = (e) => {
     if (isDrawingWall) {
       if (!canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
-      const rawX = (e.clientX - rect.left - panOffset.x) / zoomLevel;
-      const rawY = (e.clientY - rect.top - panOffset.y) / zoomLevel;
-      const snapX = Math.round(rawX / 10) * 10;
-      const snapY = Math.round(rawY / 10) * 10;
-      setDrawingWall({ x1: snapX, y1: snapY, x2: snapX, y2: snapY });
+      const { x, y } = toFloorPoint(e.clientX, e.clientY);
+      setDrawingWall({ x1: x, y1: y, x2: x, y2: y });
       return;
     }
 
     if (e.target !== canvasRef.current && !e.target.classList.contains("canvas-pan-surface")) return;
-    if (isEditMode) {
-      onSelectTable(null);
-      return;
-    }
-    setIsPanning(true);
-    setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    if (isEditMode) onSelectTable(null);
   };
 
+  // Edit-mode item dragging & wall drawing. Only re-subscribes when a drag or
+  // wall starts/changes — never during plain panning.
   useEffect(() => {
+    if (!drawingWall && !draggingItem) return;
+
     const handlePointerMove = (e) => {
       if (drawingWall) {
         if (!canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const rawX = (e.clientX - rect.left - panOffset.x) / zoomLevel;
-        const rawY = (e.clientY - rect.top - panOffset.y) / zoomLevel;
-        let snapX = Math.round(rawX / 10) * 10;
-        let snapY = Math.round(rawY / 10) * 10;
+        let { x: snapX, y: snapY } = toFloorPoint(e.clientX, e.clientY);
 
         if (e.shiftKey) {
           const dx = Math.abs(snapX - drawingWall.x1);
@@ -262,18 +647,13 @@ export default function FloorPlanCanvas({
         return;
       }
 
-      if (isPanning) {
-        setPanOffset({
-          x: e.clientX - panStart.x,
-          y: e.clientY - panStart.y,
-        });
-        return;
-      }
-
       if (!draggingItem) return;
+      // Second finger turned this into a pinch — stop dragging the item
+      if (gestureRef.current?.type === "pinch") return;
 
-      const deltaX = (e.clientX - draggingItem.startMouseX) / zoomLevel;
-      const deltaY = (e.clientY - draggingItem.startMouseY) / zoomLevel;
+      const z = viewRef.current.z;
+      const deltaX = (e.clientX - draggingItem.startMouseX) / z;
+      const deltaY = (e.clientY - draggingItem.startMouseY) / z;
 
       const rawX = draggingItem.startX + deltaX;
       const rawY = draggingItem.startY + deltaY;
@@ -316,35 +696,50 @@ export default function FloorPlanCanvas({
         setDrawingWall(null);
       }
 
-      setIsPanning(false);
       setDraggingItem(null);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [
-    isPanning,
-    panStart,
-    draggingItem,
-    drawingWall,
-    zoomLevel,
-    panOffset,
-    onTableUpdate,
-    onFloorSettingsChange,
-    setPanOffset,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingItem, drawingWall, onTableUpdate, onFloorSettingsChange]);
 
-  const handleRotateTable = (e, table) => {
+  // Stable callbacks for memoised BindoTableNode — always call the latest props
+  const latestRef = useRef({});
+  latestRef.current = {
+    onSelectTable,
+    onTableClick,
+    onTableUpdate,
+    onTableDelete,
+    onOpenEditModal,
+    handlePointerDownItem,
+  };
+
+  const handleNodePointerDown = useCallback((e, table) => {
+    latestRef.current.handlePointerDownItem(e, "table", table.id, table.pos_x, table.pos_y);
+  }, []);
+
+  const handleNodeClick = useCallback((tbl) => {
+    latestRef.current.onSelectTable(tbl.id);
+    latestRef.current.onTableClick(tbl);
+  }, []);
+
+  const handleRotateTable = useCallback((e, table) => {
     e.stopPropagation();
     const currentRot = table.rotation || 0;
     const nextRot = (currentRot + 45) % 360;
-    onTableUpdate(table.id, { rotation: nextRot });
-  };
+    latestRef.current.onTableUpdate(table.id, { rotation: nextRot });
+  }, []);
+
+  const handleNodeDelete = useCallback((...args) => latestRef.current.onTableDelete(...args), []);
+  const handleNodeEdit = useCallback((...args) => latestRef.current.onOpenEditModal(...args), []);
 
   const isDark = theme === "black" || theme === "dark";
 
@@ -382,25 +777,31 @@ export default function FloorPlanCanvas({
   return (
     <div
       ref={canvasRef}
+      onPointerDownCapture={handleCanvasPointerDownCapture}
       onPointerDown={handleCanvasPointerDown}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className="absolute inset-0 w-full h-full bg-white dark:bg-zinc-950 overflow-hidden select-none"
       style={{
-        cursor: isDrawingWall ? "crosshair" : isPanning ? "grabbing" : "default",
+        cursor: isDrawingWall ? "crosshair" : undefined,
+        // The canvas owns all touch gestures: stops the browser from scrolling /
+        // zooming the page mid-drag (which cancels the pointer and stutters).
+        touchAction: "none",
+        overscrollBehavior: "contain",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
       }}
     >
       {/* Blueprint Grid Lines Background (Subtle architectural dot/grid pattern) */}
       {showGrid ? (
         <div
+          ref={gridRef}
           className="canvas-pan-surface absolute inset-0 pointer-events-auto"
           style={{
             backgroundImage: isDark
               ? "linear-gradient(to right, rgba(63,63,70,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(63,63,70,0.35) 1px, transparent 1px)"
               : "linear-gradient(to right, rgba(226,232,240,0.75) 1px, transparent 1px), linear-gradient(to bottom, rgba(226,232,240,0.75) 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
-            backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
           }}
         />
       ) : (
@@ -409,10 +810,8 @@ export default function FloorPlanCanvas({
 
       {/* Main Transform Container for Zoom & Pan */}
       <div
-        className="absolute inset-0 origin-top-left transition-transform duration-75 pointer-events-none"
-        style={{
-          transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
-        }}
+        ref={contentRef}
+        className="absolute inset-0 origin-top-left pointer-events-none"
       >
         {/* Optional Custom Floor Plan Background Image */}
         {floorSettings?.floor_plan_image && (
@@ -581,7 +980,7 @@ export default function FloorPlanCanvas({
                 floorSettings.cashier_y ?? 260
               )
             }
-            className={`absolute rounded-2xl border-2 border-slate-300/90 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xs flex items-center justify-center shadow-sm z-[3] group transition-all ${
+            className={`absolute rounded-2xl border-2 border-slate-300/90 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center shadow-sm z-[3] group transition-colors ${
               isEditMode
                 ? "cursor-grab active:cursor-grabbing hover:border-[#0ea5e9] hover:shadow-md pointer-events-auto"
                 : "pointer-events-none"
@@ -682,16 +1081,11 @@ export default function FloorPlanCanvas({
                 isMergeTarget={isMergeMode && !isMergeSource}
                 isEditMode={isEditMode}
                 isDimmed={isDimmed}
-                onPointerDown={(e) =>
-                  handlePointerDownItem(e, "table", table.id, table.pos_x, table.pos_y)
-                }
-                onClick={(tbl) => {
-                  onSelectTable(tbl.id);
-                  onTableClick(tbl);
-                }}
+                onPointerDown={handleNodePointerDown}
+                onClick={handleNodeClick}
                 onRotate={handleRotateTable}
-                onDelete={onTableDelete}
-                onEdit={onOpenEditModal}
+                onDelete={handleNodeDelete}
+                onEdit={handleNodeEdit}
               />
             );
           })}
@@ -718,7 +1112,7 @@ export default function FloorPlanCanvas({
 
           <button
             type="button"
-            onClick={() => setZoomLevel((z) => Math.max(0.5, Number((z - 0.15).toFixed(2))))}
+            onClick={() => zoomByButton(-0.15)}
             title="Zoom Out"
             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
           >
@@ -727,7 +1121,7 @@ export default function FloorPlanCanvas({
 
           <button
             type="button"
-            onClick={() => setZoomLevel((z) => Math.min(2.0, Number((z + 0.15).toFixed(2))))}
+            onClick={() => zoomByButton(0.15)}
             title="Zoom In"
             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
           >
@@ -736,10 +1130,7 @@ export default function FloorPlanCanvas({
 
           <button
             type="button"
-            onClick={() => {
-              setZoomLevel(1);
-              setPanOffset({ x: 0, y: 0 });
-            }}
+            onClick={resetView}
             title="Reset Zoom"
             className="px-2.5 h-8 flex items-center justify-center rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
           >
