@@ -41,20 +41,20 @@ exports.createLibraryAddon = async (req, res) => {
     const price = parsePrice(req.body?.price);
 
     if (!title || Number.isNaN(price)) {
-      return res.status(400).json({ success: false, message: "Please provide an add-on name and a valid price." });
+      return res.status(400).json({ success: false, message: req.__("addon_library_name_price_required") });
     }
 
     const existing = await findLibraryAddonByTitleDB(tenantId, title);
     if (existing) {
       return res.status(409).json({
         success: false,
-        message: `"${existing.title}" already exists in the add-on list.`,
+        message: req.__("addon_library_exists", { name: existing.title }),
         addon: existing,
       });
     }
 
     const id = await createLibraryAddonDB(tenantId, title, price);
-    return res.status(200).json({ success: true, message: "Add-on created.", id });
+    return res.status(200).json({ success: true, message: req.__("addon_library_created"), id });
   } catch (error) {
     return serverError(req, res, error);
   }
@@ -68,16 +68,16 @@ exports.updateLibraryAddon = async (req, res) => {
     const price = parsePrice(req.body?.price);
 
     if (!title || Number.isNaN(price)) {
-      return res.status(400).json({ success: false, message: "Please provide an add-on name and a valid price." });
+      return res.status(400).json({ success: false, message: req.__("addon_library_name_price_required") });
     }
     if (await findLibraryAddonByTitleDB(tenantId, title, id)) {
-      return res.status(409).json({ success: false, message: `Another add-on is already named "${title}".` });
+      return res.status(409).json({ success: false, message: req.__("addon_library_name_taken", { name: title }) });
     }
 
     const affected = await updateLibraryAddonDB(tenantId, id, title, price);
-    if (!affected) return res.status(404).json({ success: false, message: "Add-on not found." });
+    if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_not_found") });
 
-    return res.status(200).json({ success: true, message: "Add-on updated on all items." });
+    return res.status(200).json({ success: true, message: req.__("addon_library_updated") });
   } catch (error) {
     return serverError(req, res, error);
   }
@@ -87,14 +87,14 @@ exports.setLibraryAddonEnabled = async (req, res) => {
   try {
     const { isEnabled } = req.body || {};
     if (typeof isEnabled !== "boolean") {
-      return res.status(400).json({ success: false, message: "isEnabled must be true or false." });
+      return res.status(400).json({ success: false, message: req.__("addon_library_enabled_invalid") });
     }
     const affected = await setLibraryAddonEnabledDB(req.user.tenant_id, Number(req.params.id), isEnabled);
-    if (!affected) return res.status(404).json({ success: false, message: "Add-on not found." });
+    if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_not_found") });
 
     return res.status(200).json({
       success: true,
-      message: isEnabled ? "Add-on is available again." : "Add-on hidden on every item.",
+      message: isEnabled ? req.__("addon_library_available") : req.__("addon_library_hidden_all"),
     });
   } catch (error) {
     return serverError(req, res, error);
@@ -104,8 +104,8 @@ exports.setLibraryAddonEnabled = async (req, res) => {
 exports.deleteLibraryAddon = async (req, res) => {
   try {
     const affected = await deleteLibraryAddonDB(req.user.tenant_id, Number(req.params.id));
-    if (!affected) return res.status(404).json({ success: false, message: "Add-on not found." });
-    return res.status(200).json({ success: true, message: "Add-on deleted." });
+    if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_not_found") });
+    return res.status(200).json({ success: true, message: req.__("addon_library_deleted") });
   } catch (error) {
     return serverError(req, res, error);
   }
@@ -116,7 +116,7 @@ exports.upsertLibraryRecipe = async (req, res) => {
     const inventoryItemId = Number(req.body?.inventoryItemId);
     const quantity = Number(req.body?.quantity);
     if (!inventoryItemId || !Number.isFinite(quantity) || quantity <= 0) {
-      return res.status(400).json({ success: false, message: "Please select an ingredient and a quantity above 0." });
+      return res.status(400).json({ success: false, message: req.__("addon_library_ingredient_required") });
     }
 
     const affected = await upsertLibraryRecipeDB(
@@ -125,9 +125,9 @@ exports.upsertLibraryRecipe = async (req, res) => {
       inventoryItemId,
       quantity
     );
-    if (!affected) return res.status(404).json({ success: false, message: "Add-on or ingredient not found." });
+    if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_ingredient_target_not_found") });
 
-    return res.status(200).json({ success: true, message: "Ingredient saved." });
+    return res.status(200).json({ success: true, message: req.__("addon_library_ingredient_saved") });
   } catch (error) {
     return serverError(req, res, error);
   }
@@ -140,8 +140,8 @@ exports.deleteLibraryRecipe = async (req, res) => {
       Number(req.params.id),
       Number(req.params.recipeId)
     );
-    if (!affected) return res.status(404).json({ success: false, message: "Ingredient not found." });
-    return res.status(200).json({ success: true, message: "Ingredient removed." });
+    if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_ingredient_not_found") });
+    return res.status(200).json({ success: true, message: req.__("addon_library_ingredient_removed") });
   } catch (error) {
     return serverError(req, res, error);
   }
@@ -156,8 +156,8 @@ exports.attachLibraryAddonToItem = async (req, res) => {
       Number(req.params.itemId),
       Number(req.body?.libraryAddonId)
     );
-    if (!addonId) return res.status(404).json({ success: false, message: "Item or add-on not found." });
-    return res.status(200).json({ success: true, message: "Add-on added to item.", addonId });
+    if (!addonId) return res.status(404).json({ success: false, message: req.__("addon_library_item_or_addon_not_found") });
+    return res.status(200).json({ success: true, message: req.__("addon_library_added_to_item"), addonId });
   } catch (error) {
     return serverError(req, res, error);
   }
@@ -170,7 +170,7 @@ exports.setItemAddonPrice = async (req, res) => {
     if (raw !== null && raw !== undefined && raw !== "") {
       price = parsePrice(raw);
       if (Number.isNaN(price)) {
-        return res.status(400).json({ success: false, message: "Please provide a valid price." });
+        return res.status(400).json({ success: false, message: req.__("addon_library_valid_price") });
       }
     }
 
@@ -180,11 +180,11 @@ exports.setItemAddonPrice = async (req, res) => {
       Number(req.params.addonId),
       price
     );
-    if (!affected) return res.status(404).json({ success: false, message: "Add-on not found on this item." });
+    if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_not_on_item") });
 
     return res.status(200).json({
       success: true,
-      message: price === null ? "Price reset to the add-on default." : "Item price saved.",
+      message: price === null ? req.__("addon_library_price_reset") : req.__("addon_library_price_saved"),
     });
   } catch (error) {
     return serverError(req, res, error);

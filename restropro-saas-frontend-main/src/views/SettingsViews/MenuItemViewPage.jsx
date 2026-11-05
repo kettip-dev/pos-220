@@ -1347,7 +1347,7 @@ export default function MenuItemViewPage() {
                         )}
                         {item.source === "library" && (
                           <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                            From add-on list
+                            {t("addons.from_list")}
                           </span>
                         )}
                       </p>
@@ -1361,10 +1361,10 @@ export default function MenuItemViewPage() {
                     {item.source === "library" ? (
                       <Link
                         to={ADDON_LIBRARY_PATH}
-                        title="This ingredient comes from the shared add-on. Edit it in the add-on list."
+                        title={t("addons.edit_in_addons_title")}
                         className="min-h-[42px] px-3 rounded-xl border border-restro-border-green text-xs font-bold text-restro-text hover:bg-restro-button-hover flex items-center gap-1.5 shrink-0 transition active:scale-95"
                       >
-                        <IconPencil stroke={iconStroke} size={14} /> Edit in add-ons
+                        <IconPencil stroke={iconStroke} size={14} /> {t("addons.edit_in_addons")}
                       </Link>
                     ) : (
                     <div className="flex items-center gap-1">

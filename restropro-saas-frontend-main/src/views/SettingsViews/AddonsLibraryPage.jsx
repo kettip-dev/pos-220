@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import clsx from "clsx";
+import { useTranslation } from "react-i18next";
 import {
   IconCarrot,
   IconCheck,
@@ -29,8 +30,7 @@ import {
   useAddonLibrary,
 } from "../../controllers/addon_library.controller";
 
-const errMsg = (error, fallback = "Something went wrong") =>
-  error?.response?.data?.message || fallback;
+const errMsg = (error, fallback) => error?.response?.data?.message || fallback;
 const isOn = (v) => v === undefined || v === null || Number(v) === 1;
 
 const fieldCls =
@@ -43,10 +43,12 @@ const inputCls = `${fieldCls} w-full`;
  * menu items just pick which add-ons they offer.
  */
 export default function AddonsLibraryPage() {
+  const { t } = useTranslation();
+  const fail = (error) => toast.error(errMsg(error, t("addons.error_generic")));
   const { data: storeSettings } = useStoreSettings();
   const currency = storeSettings?.currency || "$";
   const formatPrice = (val) => `${currency}${Number(val || 0).toFixed(2)}`;
-  const priceLabel = (val) => (Number(val) ? `+${formatPrice(val)}` : "Free");
+  const priceLabel = (val) => (Number(val) ? `+${formatPrice(val)}` : t("addons.free"));
 
   const { data, isLoading, mutate } = useAddonLibrary();
   const addons = Array.isArray(data) ? data : [];
@@ -69,16 +71,16 @@ export default function AddonsLibraryPage() {
   const handleCreate = async () => {
     const title = newTitle.trim();
     const price = newPrice === "" ? 0 : Number(newPrice);
-    if (!title) return toast.error("Type an add-on name");
-    if (Number.isNaN(price) || price < 0) return toast.error("Enter a valid price");
+    if (!title) return toast.error(t("addons.type_name"));
+    if (Number.isNaN(price) || price < 0) return toast.error(t("addons.invalid_price"));
     try {
       await createLibraryAddon(title, price);
       await mutate();
       setNewTitle("");
       setNewPrice("");
-      toast.success(`Created "${title}"`);
+      toast.success(t("addons.created_named", { name: title }));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     }
   };
 
@@ -90,10 +92,12 @@ export default function AddonsLibraryPage() {
       await setLibraryAddonEnabled(addon.id, next);
       await mutate();
       toast.success(
-        next ? `"${addon.title}" available again` : `"${addon.title}" hidden on all items`
+        next
+          ? t("addons.available_again_named", { name: addon.title })
+          : t("addons.hidden_all_named", { name: addon.title })
       );
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     } finally {
       setOptimistic((s) => {
         const { [addon.id]: _drop, ...rest } = s;
@@ -107,9 +111,9 @@ export default function AddonsLibraryPage() {
     try {
       await deleteLibraryAddon(deleteTarget.id);
       await mutate();
-      toast.success(`Deleted "${deleteTarget.title}"`);
+      toast.success(t("addons.deleted_named", { name: deleteTarget.title }));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     } finally {
       setDeleteTarget(null);
     }
@@ -124,13 +128,13 @@ export default function AddonsLibraryPage() {
             to="/dashboard/settings/menu-items"
             className="text-sm text-gray-500 hover:text-restro-green transition"
           >
-            ← Menu Items
+            ← {t("menu_items.title", "Menu Items")}
           </Link>
-          <h3 className="text-2xl font-bold text-restro-text">Add-ons</h3>
+          <h3 className="text-2xl font-bold text-restro-text">{t("addons.title")}</h3>
           <p className="text-sm text-gray-500 mt-0.5">
             {addons.length
-              ? `${addons.length} add-ons · ${enabledCount} available`
-              : "Create add-ons once, then pick them on any menu item"}
+              ? t("addons.summary", { total: addons.length, available: enabledCount })
+              : t("addons.page_empty_subtitle")}
           </p>
         </div>
       </div>
@@ -143,7 +147,7 @@ export default function AddonsLibraryPage() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder="New add-on name (e.g. Extra Cheese, Oat Milk)"
+            placeholder={t("addons.new_name_placeholder")}
             className={clsx(inputCls, "flex-1")}
           />
           <div className="relative w-full sm:w-40">
@@ -167,7 +171,7 @@ export default function AddonsLibraryPage() {
             onClick={handleCreate}
             className="min-h-[42px] px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition active:scale-95"
           >
-            <IconPlus size={16} stroke={iconStroke} /> Create add-on
+            <IconPlus size={16} stroke={iconStroke} /> {t("addons.create")}
           </button>
         </div>
 
@@ -183,7 +187,7 @@ export default function AddonsLibraryPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search add-ons"
+              placeholder={t("addons.search_placeholder")}
               className={clsx(inputCls, "pl-9")}
             />
           </div>
@@ -192,10 +196,10 @@ export default function AddonsLibraryPage() {
         {/* List */}
         <div className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#252525] overflow-hidden">
           {isLoading ? (
-            <p className="text-sm text-gray-400 text-center py-10">Loading…</p>
+            <p className="text-sm text-gray-400 text-center py-10">{t("addons.loading")}</p>
           ) : filtered.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-10">
-              {addons.length ? "No add-ons match your search." : "No add-ons yet. Create your first one above."}
+              {addons.length ? t("addons.no_match") : t("addons.empty_list")}
             </p>
           ) : (
             <ul className="divide-y divide-restro-border-green">
@@ -213,7 +217,11 @@ export default function AddonsLibraryPage() {
                     <AddonSwitch
                       checked={on}
                       onChange={() => handleToggle(addon)}
-                      label={on ? `Hide ${addon.title} on all items` : `Show ${addon.title} on all items`}
+                      label={
+                        on
+                          ? t("addons.hide_all_named", { name: addon.title })
+                          : t("addons.show_all_named", { name: addon.title })
+                      }
                     />
 
                     <button
@@ -227,13 +235,13 @@ export default function AddonsLibraryPage() {
                       <p className="text-[11px] font-semibold text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
                         {!on && (
                           <span className="flex items-center gap-1">
-                            <IconEyeOff size={12} stroke={iconStroke} /> Hidden on all items ·
+                            <IconEyeOff size={12} stroke={iconStroke} /> {t("addons.hidden_all_items")} ·
                           </span>
                         )}
                         <span>
                           {addon.used_by_count
-                            ? `On ${addon.used_by_count} item${addon.used_by_count > 1 ? "s" : ""}`
-                            : "Not on any item"}
+                            ? t("addons.used_on_count", { count: addon.used_by_count })
+                            : t("addons.not_on_any_item")}
                         </span>
                         <span
                           className={clsx(
@@ -242,7 +250,7 @@ export default function AddonsLibraryPage() {
                           )}
                         >
                           <IconCarrot size={12} stroke={iconStroke} />
-                          {ingredients ? `${ingredients} ingredient${ingredients > 1 ? "s" : ""}` : "No recipe"}
+                          {ingredients ? t("addons.ingredients_count", { count: ingredients }) : t("addons.no_recipe")}
                         </span>
                       </p>
                     </button>
@@ -262,8 +270,8 @@ export default function AddonsLibraryPage() {
 
                     <button
                       type="button"
-                      title="Edit add-on"
-                      aria-label={`Edit ${addon.title}`}
+                      title={t("addons.edit_addon")}
+                      aria-label={t("addons.edit_named", { name: addon.title })}
                       onClick={() => setEditingId(addon.id)}
                       className="w-[42px] h-[42px] rounded-xl flex items-center justify-center transition active:scale-95 text-gray-500 hover:text-restro-text hover:bg-restro-button-hover shrink-0"
                     >
@@ -271,8 +279,8 @@ export default function AddonsLibraryPage() {
                     </button>
                     <button
                       type="button"
-                      title="Delete add-on"
-                      aria-label={`Delete ${addon.title}`}
+                      title={t("addons.delete_addon")}
+                      aria-label={t("addons.delete_named", { name: addon.title })}
                       onClick={() => setDeleteTarget(addon)}
                       className="w-[42px] h-[42px] rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
                     >
@@ -301,14 +309,14 @@ export default function AddonsLibraryPage() {
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete add-on?"
+        title={t("addons.delete_title")}
         itemName={deleteTarget?.title}
         description={
           deleteTarget?.used_by_count
-            ? `It will be removed from ${deleteTarget.used_by_count} item${deleteTarget.used_by_count > 1 ? "s" : ""}, along with its ingredients.`
-            : "Its ingredients will be removed too."
+            ? t("addons.delete_desc_used", { count: deleteTarget.used_by_count })
+            : t("addons.delete_desc_unused")
         }
-        warningMessage="To stop selling it for a while, switch it off instead. Past orders are not affected either way."
+        warningMessage={t("addons.delete_warning")}
       />
     </Page>
   );
@@ -316,6 +324,8 @@ export default function AddonsLibraryPage() {
 
 /** Edit name / default price, ingredients, and see which items use the add-on. */
 function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
+  const { t } = useTranslation();
+  const fail = (error) => toast.error(errMsg(error, t("addons.error_generic")));
   const [title, setTitle] = useState(addon.title);
   const [price, setPrice] = useState(String(Number(addon.price || 0)));
   const [saving, setSaving] = useState(false);
@@ -330,15 +340,15 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
 
   const saveDetails = async () => {
     const p = price === "" ? 0 : Number(price);
-    if (!title.trim()) return toast.error("Name can't be empty");
-    if (Number.isNaN(p) || p < 0) return toast.error("Enter a valid price");
+    if (!title.trim()) return toast.error(t("addons.name_empty"));
+    if (Number.isNaN(p) || p < 0) return toast.error(t("addons.invalid_price"));
     setSaving(true);
     try {
       const res = await updateLibraryAddon(addon.id, title.trim(), p);
       await onChanged();
-      toast.success(res.data?.message || "Saved");
+      toast.success(res.data?.message || t("addons.saved"));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     } finally {
       setSaving(false);
     }
@@ -346,16 +356,16 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
 
   const addIngredient = async () => {
     const qty = Number(quantity);
-    if (!ingredientId) return toast.error("Choose an ingredient");
-    if (!qty || qty <= 0) return toast.error("Enter a quantity above 0");
+    if (!ingredientId) return toast.error(t("addons.choose_ingredient_error"));
+    if (!qty || qty <= 0) return toast.error(t("addons.qty_error"));
     try {
       await saveLibraryAddonIngredient(addon.id, Number(ingredientId), qty);
       await onChanged();
       setIngredientId("");
       setQuantity("");
-      toast.success("Ingredient saved");
+      toast.success(t("addons.ingredient_saved"));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     }
   };
 
@@ -363,9 +373,9 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
     try {
       await removeLibraryAddonIngredient(addon.id, recipe.id);
       await onChanged();
-      toast.success(`Removed ${recipe.ingredient_title}`);
+      toast.success(t("addons.ingredient_removed_named", { name: recipe.ingredient_title }));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     }
   };
 
@@ -377,13 +387,13 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
       >
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-restro-border-green">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Edit add-on</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{t("addons.edit_addon")}</p>
             <p className="text-lg font-bold text-restro-text truncate">{addon.title}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("addons.close")}
             className="w-[42px] h-[42px] rounded-xl flex items-center justify-center text-gray-500 hover:bg-restro-button-hover transition active:scale-95"
           >
             <IconX size={20} stroke={iconStroke} />
@@ -394,11 +404,11 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
           {/* Details */}
           <section className="space-y-3">
             <div>
-              <label className="text-xs font-semibold text-gray-500">Name</label>
+              <label className="text-xs font-semibold text-gray-500">{t("addons.name")}</label>
               <input value={title} onChange={(e) => setTitle(e.target.value)} className={clsx(inputCls, "mt-1")} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500">Default price ({currency})</label>
+              <label className="text-xs font-semibold text-gray-500">{t("addons.default_price", { currency })}</label>
               <div className="relative mt-1">
                 <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
                   +
@@ -414,7 +424,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
                 />
               </div>
               <p className="text-[11px] text-gray-400 mt-1">
-                Applies to every item, except items where you set a custom price.
+                {t("addons.default_price_hint")}
               </p>
             </div>
             <button
@@ -423,15 +433,15 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
               onClick={saveDetails}
               className="min-h-[42px] w-full rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
             >
-              <IconCheck size={16} stroke={iconStroke} /> Save changes
+              <IconCheck size={16} stroke={iconStroke} /> {t("addons.save_changes")}
             </button>
           </section>
 
           {/* Recipe */}
           <section>
-            <p className="text-sm font-bold uppercase tracking-wider text-restro-text">Ingredients</p>
+            <p className="text-sm font-bold uppercase tracking-wider text-restro-text">{t("addons.ingredients")}</p>
             <p className="text-xs text-gray-400 mt-0.5 mb-3">
-              Deducted from inventory each time this add-on is sold, on any item.
+              {t("addons.ingredients_hint")}
             </p>
 
             {addon.recipeItems?.length > 0 && (
@@ -440,7 +450,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
                   <li key={r.id} className="flex items-center gap-3 pl-3 pr-1 min-h-[52px]">
                     <IconCarrot size={16} stroke={iconStroke} className="text-orange-500 shrink-0" />
                     <span className="flex-1 min-w-0 text-sm font-semibold text-restro-text truncate">
-                      {r.ingredient_title || "Deleted ingredient"}
+                      {r.ingredient_title || t("addons.deleted_ingredient")}
                     </span>
                     <span className="text-xs font-bold text-gray-500 tabular-nums">
                       {Number(r.quantity)} {r.unit}
@@ -448,7 +458,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
                     <button
                       type="button"
                       onClick={() => removeIngredient(r)}
-                      aria-label={`Remove ${r.ingredient_title}`}
+                      aria-label={t("addons.remove_named", { name: r.ingredient_title })}
                       className="w-[42px] h-[42px] rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition active:scale-95"
                     >
                       <IconX size={16} stroke={iconStroke} />
@@ -464,7 +474,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
                 onChange={(e) => setIngredientId(e.target.value)}
                 className={clsx(fieldCls, "flex-1 min-w-0")}
               >
-                <option value="">Choose ingredient…</option>
+                <option value="">{t("addons.choose_ingredient")}</option>
                 {inventory.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.title} ({i.unit})
@@ -479,13 +489,13 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addIngredient()}
-                placeholder={selectedIngredient?.unit || "Qty"}
+                placeholder={selectedIngredient?.unit || t("addons.qty")}
                 className={clsx(fieldCls, "w-24 shrink-0")}
               />
               <button
                 type="button"
                 onClick={addIngredient}
-                aria-label="Add ingredient"
+                aria-label={t("addons.add_ingredient")}
                 className="min-h-[42px] w-[42px] rounded-xl bg-orange-500 hover:bg-orange-400 text-white flex items-center justify-center shrink-0 transition active:scale-95"
               >
                 <IconPlus size={18} stroke={iconStroke} />
@@ -495,9 +505,9 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
 
           {/* Used on */}
           <section>
-            <p className="text-sm font-bold uppercase tracking-wider text-restro-text">Used on</p>
+            <p className="text-sm font-bold uppercase tracking-wider text-restro-text">{t("addons.used_on")}</p>
             <p className="text-xs text-gray-400 mt-0.5 mb-3">
-              Default price {priceLabel(addon.price)}. Add it to more items from each item's page.
+              {t("addons.used_on_hint", { price: priceLabel(addon.price) })}
             </p>
             {addon.items?.length ? (
               <div className="flex flex-wrap gap-2">
@@ -512,7 +522,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400">Not on any item yet.</p>
+              <p className="text-sm text-gray-400">{t("addons.not_on_any_item_yet")}</p>
             )}
           </section>
         </div>
