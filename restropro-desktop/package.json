@@ -1,7 +1,7 @@
 {
   "name": "bong-pos-desktop",
   "productName": "Bong POS",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Bong POS desktop app for Windows: native window, built-in print agent and automatic updates.",
   "main": "src/main.js",
   "author": "Bong POS",
