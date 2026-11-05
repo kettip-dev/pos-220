@@ -13,6 +13,7 @@ const DEFAULT_POS_URL = "https://pos.allkh.app";
 const DEFAULTS = {
   posUrl: DEFAULT_POS_URL,
   kiosk: false,
+  fullScreen: false,
   autoStart: false,
   keepAwake: false,
   agentEnabled: false,

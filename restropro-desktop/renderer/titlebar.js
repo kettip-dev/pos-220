@@ -8,8 +8,33 @@ $("menu").addEventListener("click", () => {
 $("settings").addEventListener("click", () => tb.action("settings"));
 $("agent").addEventListener("click", () => tb.action("printer-tools"));
 $("update").addEventListener("click", () => tb.action("install-update"));
+$("fullscreen").addEventListener("click", () => tb.action("fullscreen"));
+
+// Full screen: the handle brings the bar back; it hides again a few seconds
+// after the pointer leaves it (or after a tap on a touch screen).
+let fullScreen = false;
+let hideTimer = null;
+function scheduleHide(ms = 3000) {
+  clearTimeout(hideTimer);
+  if (fullScreen) hideTimer = setTimeout(() => tb.reveal(false), ms);
+}
+function reveal() {
+  if (!fullScreen) return;
+  tb.reveal(true);
+  scheduleHide(4000);
+}
+$("handle").addEventListener("pointerenter", reveal);
+$("handle").addEventListener("pointerdown", reveal);
+document.addEventListener("pointermove", () => fullScreen && document.body.classList.contains("revealed") && scheduleHide(3000));
+document.documentElement.addEventListener("pointerleave", () => scheduleHide(1200));
 
 tb.onState((s) => {
+  fullScreen = Boolean(s.fullScreen);
+  document.body.classList.toggle("fs", fullScreen);
+  document.body.classList.toggle("revealed", fullScreen && Boolean(s.revealed));
+  if (!fullScreen) clearTimeout(hideTimer);
+  $("fullscreen").title = fullScreen ? "Exit full screen (F11)" : "Full screen (F11)";
+
   const agent = $("agent");
   agent.hidden = s.agent === "off";
   agent.className = `chip agent ${s.agent}`;
