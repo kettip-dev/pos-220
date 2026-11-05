@@ -21,6 +21,7 @@ const loyaltyRoutes = require("./routes/loyalty.routes");
 const reservationRoutes = require("./routes/reservation.routes");
 const userRoutes = require("./routes/user.routes");
 const menuItemRoutes = require("./routes/menu_item.routes");
+const addonLibraryRoutes = require("./routes/addon_library.routes");
 const posRoutes = require("./routes/pos.routes");
 const kitchenRoutes = require("./routes/kitchen.routes")
 const waiterRoutes = require("./routes/waiter.routes")
@@ -159,6 +160,7 @@ app.use("/api/v1/loyalty", loyaltyRoutes);
 app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/menu-items", menuItemRoutes);
+app.use("/api/v1/addon-library", addonLibraryRoutes);
 app.use("/api/v1/pos", posRoutes);
 app.use("/api/v1/kitchen", kitchenRoutes);
 app.use("/api/v1/waiter", waiterRoutes);

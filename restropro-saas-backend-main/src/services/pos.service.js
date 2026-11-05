@@ -411,7 +411,9 @@ exports.getPOSQROrdersDB = async (tenantId) => {
           ii.unit,
           ii.quantity as current_quantity,
           ii.min_quantity_threshold,
-          mir.quantity as recipe_quantity
+          mir.quantity as recipe_quantity,
+          'item' AS source,
+          NULL AS library_addon_id
         FROM
           menu_item_recipes mir
         LEFT JOIN menu_items mi ON mir.menu_item_id = mi.id
@@ -419,9 +421,31 @@ exports.getPOSQROrdersDB = async (tenantId) => {
         LEFT JOIN menu_item_addons a ON mir.addon_id = a.id
         LEFT JOIN inventory_items ii ON mir.inventory_item_id = ii.id
         WHERE mir.tenant_id = ?
+        UNION ALL
+        SELECT
+            -alr.id AS id,
+            mia.item_id AS menu_item_id,
+            0 AS variant_id,
+            mia.id AS addon_id,
+            alr.inventory_item_id,
+            mi.title AS menu_item_title,
+            NULL AS variant_title,
+            mia.title AS addon_title,
+            ii.title AS ingredient_title,
+            ii.unit,
+            ii.quantity as current_quantity,
+            ii.min_quantity_threshold,
+            alr.quantity as recipe_quantity,
+            'library' AS source,
+            alr.library_addon_id
+        FROM addon_library_recipes alr
+        JOIN menu_item_addons mia ON mia.library_addon_id = alr.library_addon_id AND mia.tenant_id = alr.tenant_id
+        LEFT JOIN menu_items mi ON mi.id = mia.item_id
+        LEFT JOIN inventory_items ii ON ii.id = alr.inventory_item_id
+        WHERE alr.tenant_id = ?
       `;
 
-      const [recipeItemsResult] = await conn.query(recipeSql, [tenantId]);
+      const [recipeItemsResult] = await conn.query(recipeSql, [tenantId, tenantId]);
       recipeItems = recipeItemsResult;
 
       // Attach recipeItems to each kitchenOrderItem

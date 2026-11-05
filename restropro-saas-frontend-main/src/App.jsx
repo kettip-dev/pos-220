@@ -37,6 +37,7 @@ import DevicesPage from "./views/SettingsViews/DevicesPage";
 import ContactSupport from "./views/SettingsViews/ContactSupportPage";
 import UserGuidePage from "./views/UserGuidePage";
 import CategoriesPage from "./views/SettingsViews/CategoriesPage";
+import AddonsLibraryPage from "./views/SettingsViews/AddonsLibraryPage";
 import MenuItemViewPage from "./views/SettingsViews/MenuItemViewPage";
 import { NavbarContext } from "./contexts/NavbarContext";
 import { getIsNavbarCollapsed } from "./helpers/NavbarSettings";
@@ -480,6 +481,7 @@ export default function App() {
               <Route path="table-assignments" element={<RequiresSingleBusiness><TableAssignmentsPage /></RequiresSingleBusiness>} />
               <Route path="menu-items" element={<RequiresSingleBusiness><MenuItemsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="menu-items/:id" element={<RequiresSingleBusiness><MenuItemViewPage /></RequiresSingleBusiness>} />
+              <Route path="menu-items/addons" element={<RequiresSingleBusiness><AddonsLibraryPage /></RequiresSingleBusiness>} />
               <Route
                 path="menu-items/categories"
                 element={<RequiresSingleBusiness><CategoriesPage /></RequiresSingleBusiness>}
