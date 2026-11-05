@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "react-apexcharts";
+import { useTranslation } from "react-i18next";
 import {
   IconTrendingUp,
   IconTrendingDown,
@@ -53,6 +54,42 @@ const chartBaseConfig = {
   },
 };
 
+// ─── AutoSizeChart ────────────────────────────────────────────────
+// ApexCharts measures its parent once on mount. Inside react-grid-layout the
+// cell is still animating to its final width at that moment, so charts got
+// stuck at a stale size. Measure the box ourselves and hand Apex exact pixels.
+export function AutoSizeChart({ className = "", ...chartProps }) {
+  const ref = useRef(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let frame = 0;
+    const ro = new ResizeObserver(([entry]) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const { width, height } = entry.contentRect;
+        setSize((prev) =>
+          Math.abs(prev.w - width) < 1 && Math.abs(prev.h - height) < 1
+            ? prev
+            : { w: Math.floor(width), h: Math.floor(height) }
+        );
+      });
+    });
+    ro.observe(el);
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); };
+  }, []);
+  return (
+    <div ref={ref} className={`relative min-h-0 min-w-0 ${className}`}>
+      {size.w > 0 && size.h > 0 && (
+        <div className="absolute inset-0">
+          <Chart {...chartProps} width={size.w} height={size.h} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── KPI Card ─────────────────────────────────────────────────────
 export function KPICard({ label, value, delta, icon: Icon, iconColor, isMoney, currencySymbol }) {
   const deltaVal = Number(delta) || 0;
@@ -103,23 +140,55 @@ export function KPICard({ label, value, delta, icon: Icon, iconColor, isMoney, c
 }
 
 // ─── Revenue Trend Chart (7 days) ─────────────────────────────────
+// The API only returns days that had invoices, so a quiet Monday (or today
+// before the first sale) would silently vanish and the line would bridge
+// the gap. Build the full 7-day window locally and fill gaps with 0.
+function localDayKey(date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+function parseApiDate(value) {
+  // Plain "YYYY-MM-DD" strings parse as UTC midnight; treat them as local.
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(value);
+}
+function buildWeek(data) {
+  const byDay = new Map();
+  (data || []).forEach((row) => {
+    const key = localDayKey(parseApiDate(row.date));
+    byDay.set(key, (byDay.get(key) || 0) + (Number(row.revenue) || 0));
+  });
+  const days = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    days.push({ date: d, revenue: byDay.get(localDayKey(d)) || 0, isToday: i === 0 });
+  }
+  return days;
+}
+
 export function RevenueTrendChart({ data, currencySymbol }) {
-  const categories = useMemo(() => {
-    return (data || []).map((d) => {
-      const date = new Date(d.date);
-      return date.toLocaleDateString("en", { weekday: "short", month: "short", day: "numeric" });
-    });
-  }, [data]);
+  const { t, i18n } = useTranslation();
+  const week = useMemo(() => buildWeek(data), [data]);
+  const locale = i18n?.language || undefined;
+  const categories = week.map((d) =>
+    d.isToday
+      ? t("widgets.today", "Today")
+      : d.date.toLocaleDateString(locale, { weekday: "short", day: "numeric" })
+  );
+  const values = week.map((d) => d.revenue);
+  const total = values.reduce((a, b) => a + b, 0);
+  const avg = total / 7;
+  const best = week.reduce((a, b) => (b.revenue > a.revenue ? b : a), week[0]);
 
-  const series = useMemo(() => {
-    return [{ name: "Revenue", data: (data || []).map((d) => Number(d.revenue) || 0) }];
-  }, [data]);
-
-  if (!data || data.length === 0) {
+  if (total === 0) {
     return (
-      <div className="rounded-2xl border border-restro-border-green bg-background p-6">
-        <h3 className="font-bold text-foreground">Revenue Trend</h3>
-        <p className="mt-4 text-sm text-restro-text">No revenue data for the last 7 days.</p>
+      <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+        <h3 className="font-bold text-foreground">{t("widgets.revenue_trend", "Revenue Trend")}</h3>
+        <p className="text-sm font-semibold text-foreground">{t("widgets.no_sales_week", "No sales in the last 7 days")}</p>
+        <p className="text-xs text-restro-text">{t("widgets.no_sales_week_hint", "Your weekly trend will appear here after your first orders.")}</p>
       </div>
     );
   }
@@ -129,54 +198,101 @@ export function RevenueTrendChart({ data, currencySymbol }) {
     chart: {
       ...chartBaseConfig.chart,
       type: "area",
-      height: 260,
       zoom: { enabled: false },
+      parentHeightOffset: 0,
     },
-    colors: ["#18181b"],
+    colors: ["#2CA01C"],
     fill: {
       type: "gradient",
-      gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.45,
-        opacityTo: 0.05,
-        stops: [0, 100],
-      },
+      gradient: { shadeIntensity: 1, opacityFrom: 0.28, opacityTo: 0.02, stops: [0, 95] },
     },
-    stroke: { curve: "smooth", width: 3 },
+    // monotoneCubic never overshoots below zero or above a peak, unlike "smooth".
+    stroke: { curve: "monotoneCubic", width: 2.5 },
+    markers: {
+      size: 0,
+      discrete: [{ seriesIndex: 0, dataPointIndex: 6, size: 5, fillColor: "#2CA01C", strokeColor: "#fff", strokeWidth: 2 }],
+      hover: { size: 5 },
+    },
     dataLabels: { enabled: false },
     xaxis: {
       categories,
       labels: {
-        style: { colors: "#9ca3af", fontFamily: "Nunito", fontSize: "11px" },
+        rotate: 0,
+        hideOverlappingLabels: true,
+        style: { colors: "#9ca3af", fontSize: "11px" },
       },
       axisBorder: { show: false },
       axisTicks: { show: false },
+      tooltip: { enabled: false },
     },
     yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      tickAmount: 4,
       labels: {
-        style: { colors: "#9ca3af", fontFamily: "Nunito", fontSize: "11px" },
+        style: { colors: "#9ca3af", fontSize: "11px" },
         formatter: (val) => formatCurrency(val, currencySymbol),
       },
     },
+    annotations: avg > 0 ? {
+      yaxis: [{
+        y: avg,
+        borderColor: "#9ca3af",
+        strokeDashArray: 4,
+        label: {
+          text: `${t("widgets.avg", "Avg")} ${formatCurrency(avg, currencySymbol)}`,
+          position: "left",
+          textAnchor: "start",
+          offsetX: 4,
+          borderWidth: 0,
+          style: { background: "transparent", color: "#9ca3af", fontSize: "10px", fontWeight: 600 },
+        },
+      }],
+    } : {},
     tooltip: {
       ...chartBaseConfig.tooltip,
+      x: { formatter: (_v, { dataPointIndex }) => week[dataPointIndex]?.date.toLocaleDateString(locale, { weekday: "long", month: "short", day: "numeric" }) },
       y: { formatter: (val) => `${currencySymbol}${Number(val).toLocaleString()}` },
     },
     grid: {
       borderColor: "rgba(156, 163, 175, 0.15)",
       strokeDashArray: 4,
+      padding: { left: 4, right: 8, top: 0, bottom: 0 },
       yaxis: { lines: { show: true } },
       xaxis: { lines: { show: false } },
     },
   };
 
   return (
-    <div className="rounded-2xl border border-restro-border-green bg-background p-6">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="font-bold text-foreground">Revenue Trend</h3>
-        <span className="text-xs font-semibold text-restro-text">Last 7 days</span>
+    <div className="flex h-full flex-col">
+      <h3 className="font-bold text-foreground">{t("widgets.revenue_trend", "Revenue Trend")}</h3>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-restro-text">{t("widgets.last_7_days", "Last 7 days")}</p>
+          <p data-sensitive className="text-2xl font-extrabold leading-tight tracking-tight tabular-nums text-foreground">
+            {formatCurrency(total, currencySymbol)}
+          </p>
+        </div>
+        <div className="flex gap-5 text-right">
+          <div>
+            <p className="text-[11px] font-semibold text-restro-text">{t("widgets.daily_avg", "Daily avg")}</p>
+            <p data-sensitive className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(avg, currencySymbol)}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-restro-text">{t("widgets.best_day", "Best day")}</p>
+            <p className="text-sm font-bold text-foreground">
+              {best.date.toLocaleDateString(locale, { weekday: "short" })}{" "}
+              <span data-sensitive className="tabular-nums">{formatCurrency(best.revenue, currencySymbol)}</span>
+            </p>
+          </div>
+        </div>
       </div>
-      <Chart options={options} series={series} type="area" height={260} />
+      <AutoSizeChart
+        className="-mx-2 min-h-[160px] flex-1"
+        options={options}
+        series={[{ name: t("widgets.revenue", "Revenue"), data: values }]}
+        type="area"
+      />
     </div>
   );
 }

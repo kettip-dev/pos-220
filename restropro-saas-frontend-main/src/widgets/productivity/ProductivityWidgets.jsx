@@ -135,56 +135,72 @@ export function ClockWidget() {
    Sales Goal Gauge — compares todayRevenue to a configurable target.
    ─────────────────────────────────────────────────────────────── */
 
-import Chart from "react-apexcharts";
+import { AutoSizeChart } from "../../components/DashboardWidgets";
 import { CURRENCIES } from "../../config/currencies.config";
 import { ContextLoading } from "../system/EmptyContext";
 
 export function SalesGoalWidget({ config = {}, context }) {
+  const { t } = useTranslation();
   if (!context || context.isLoading || !context.data) return <ContextLoading />;
   const target = Number(config.target || 10000);
   const today = Number(context.data?.todayRevenue?.total_revenue || 0);
-  const pct = target > 0 ? Math.min(100, (today / target) * 100) : 0;
+  const rawPct = target > 0 ? (today / target) * 100 : 0;
+  const pct = Math.min(100, rawPct);
+  const reached = rawPct >= 100;
+  const remaining = Math.max(0, target - today);
 
   const code = context.data?.currency;
   const sym = CURRENCIES.find((c) => c.cc === code)?.symbol || "";
+  const money = (v) => `${sym}${Math.round(v).toLocaleString()}`;
+  const color = reached ? "#16A34A" : "#2CA01C";
 
   const options = {
     chart: { type: "radialBar", sparkline: { enabled: true } },
     plotOptions: {
       radialBar: {
-        startAngle: -130,
-        endAngle: 130,
-        hollow: { size: "62%" },
+        startAngle: -120,
+        endAngle: 120,
+        hollow: { size: "66%" },
         track: { background: "rgba(156,163,175,0.18)", strokeWidth: "100%" },
-        dataLabels: {
-          name: { show: true, color: "#9ca3af", fontFamily: "Nunito", fontSize: "11px", offsetY: 10 },
-          value: {
-            color: "#70B56A",
-            fontFamily: "Nunito",
-            fontWeight: 800,
-            fontSize: "26px",
-            offsetY: -22,
-            formatter: () => `${pct.toFixed(0)}%`,
-          },
-        },
+        dataLabels: { show: false },
       },
     },
-    fill: { type: "solid", colors: [pct >= 100 ? "#22c55e" : "#70B56A"] },
-    stroke: { lineCap: "round" },
-    labels: ["of daily goal"],
+    fill: { type: "solid", colors: [color] },
+    // A round cap on a 0-length arc renders as a lone dot — use a butt cap
+    // until there is real progress to show.
+    stroke: { lineCap: pct > 0 ? "round" : "butt" },
+    states: { hover: { filter: { type: "none" } }, active: { filter: { type: "none" } } },
   };
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1">
-        <Chart options={options} series={[Math.round(pct)]} type="radialBar" height="100%" />
+      <div className="relative min-h-0 flex-1">
+        <AutoSizeChart className="h-full w-full" options={options} series={[Math.round(pct * 10) / 10]} type="radialBar" />
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <p className="text-3xl font-extrabold leading-none tabular-nums" style={{ color: pct > 0 ? color : undefined }}>
+            {rawPct >= 10 || rawPct === 0 ? Math.round(rawPct) : rawPct.toFixed(1)}%
+          </p>
+          <p className="mt-1 text-[11px] font-semibold text-restro-text">{t("widgets.of_daily_goal", "of daily goal")}</p>
+        </div>
       </div>
-      <div className="text-center">
-        <p className="text-xs text-restro-text">
-          <span className="font-bold text-foreground">{sym}{today.toLocaleString()}</span>
-          {" / "}
-          <span>{sym}{target.toLocaleString()}</span>
-        </p>
+      <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-restro-bg-gray px-3 py-2 text-xs">
+        <div className="min-w-0">
+          <p className="text-[11px] text-restro-text">{t("widgets.sold_today", "Sold today")}</p>
+          <p data-sensitive className="truncate font-bold tabular-nums text-foreground">{money(today)}</p>
+        </div>
+        <div className="min-w-0 text-right">
+          {reached ? (
+            <>
+              <p className="text-[11px] text-restro-text">{t("widgets.goal", "Goal")} {money(target)}</p>
+              <p className="font-bold text-emerald-600 dark:text-emerald-400">{t("widgets.goal_reached", "Goal reached 🎉")}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[11px] text-restro-text">{t("widgets.to_go", "To go")}</p>
+              <p data-sensitive className="truncate font-bold tabular-nums text-foreground">{money(remaining)}</p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

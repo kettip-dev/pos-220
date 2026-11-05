@@ -11,6 +11,12 @@ import {
 } from "@tabler/icons-react";
 import { Menu, Transition } from "@headlessui/react";
 import { iconStroke } from "../config/config";
+import i18n from "../i18n";
+
+// Registry titles are English; look up a translation keyed by widget type
+// (e.g. widget_titles.kpi.revenue) and fall back to the registry title.
+const widgetTitle = (d) =>
+  d?.type ? i18n.t(`widget_titles.${d.type}`, { defaultValue: d.title || "Widget" }) : (d?.title || "Widget");
 
 /**
  * WidgetShell — the universal chrome around every widget.
@@ -70,7 +76,7 @@ export default class WidgetShell extends React.Component {
         <div className="flex min-w-0 items-center gap-2">
           {Icon && <Icon size={16} stroke={iconStroke} className="text-restro-text shrink-0" />}
           <h3 className="truncate text-[13px] font-bold text-foreground">
-            {descriptor?.title || "Widget"}
+            {widgetTitle(descriptor)}
           </h3>
         </div>
 

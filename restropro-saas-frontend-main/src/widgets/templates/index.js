@@ -21,7 +21,7 @@ function place(x, y, w, h, mdW = w, smW = Math.min(w, 6)) {
     md: { x: Math.min(x, 10 - mdW), y, w: mdW, h },
     // Half-width tiles pair up two-per-row on tablets instead of stacking.
     sm: { x: smW <= 3 ? x % 6 : 0, y, w: smW, h },
-    xs: { x: 0, y, w: 4, h },
+    xs: smW <= 3 ? { x: (x / 3) % 2 ? 2 : 0, y, w: 2, h } : { x: 0, y, w: 4, h },
     xxs: { x: 0, y, w: 2, h },
   };
 }

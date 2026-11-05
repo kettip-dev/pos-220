@@ -115,6 +115,8 @@ export default function DashboardPage() {
 
   const greetingText = useMemo(() => {
     const hour = new Date().getHours();
+    // Restaurants close late: past midnight is still "evening", not morning.
+    if (hour < 5) return t("dashboard.good_evening", "Good evening");
     if (hour < 12) return t("dashboard.good_morning", "Good morning");
     if (hour < 18) return t("dashboard.good_afternoon", "Good afternoon");
     return t("dashboard.good_evening", "Good evening");
@@ -311,10 +313,10 @@ export default function DashboardPage() {
       )}
 
       {/* Greeting */}
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="mb-6 flex items-start justify-between gap-3 sm:items-end">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-restro-text">{todayLabel}</p>
-          <h1 className="mt-1 truncate text-2xl font-extrabold tracking-tight text-foreground sm:text-[28px]">
+          <h1 className="mt-1 text-2xl font-extrabold leading-tight tracking-tight text-foreground [overflow-wrap:anywhere] sm:text-[28px]">
             {greetingText}, {firstName}
           </h1>
           <p className="mt-1 text-sm text-restro-text">
@@ -332,15 +334,16 @@ export default function DashboardPage() {
               className={`${toolbarBtn} border ${privacyMode ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400" : "border-restro-border-green bg-background text-foreground hover:bg-restro-bg-gray"}`}
             >
               {privacyMode ? <IconEyeOff size={17} stroke={1.8} /> : <IconEye size={17} stroke={1.8} />}
-              <span>{t("dashboard.privacy", "Privacy")}</span>
+              <span className="hidden sm:inline">{t("dashboard.privacy", "Privacy")}</span>
             </button>
             <button
               type="button"
               onClick={() => setEditMode(true)}
+              title={t("navbar.customise", "Customise")}
               className={`${toolbarBtn} border border-restro-border-green bg-background text-foreground hover:bg-restro-bg-gray`}
             >
               <IconAdjustments size={17} stroke={1.8} />
-              <span>{t("navbar.customise", "Customise")}</span>
+              <span className="hidden sm:inline">{t("navbar.customise", "Customise")}</span>
             </button>
           </div>
         )}
@@ -358,9 +361,9 @@ export default function DashboardPage() {
               <Link
                 key={a.key}
                 to={a.to}
-                className={`group flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition hover:-translate-y-0.5 hover:shadow-md active:scale-95 ${
+                className={`group flex items-center justify-center gap-2 ${a.primary ? "col-span-3 min-h-[64px] flex-row sm:col-span-1 sm:min-h-[88px] sm:flex-col" : "min-h-[88px] flex-col"} rounded-2xl border px-2 py-3 text-center transition hover:-translate-y-0.5 hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2CA01C] focus-visible:ring-offset-2 ${
                   a.primary
-                    ? "border-transparent bg-[#2CA01C] text-white hover:bg-[#248417]"
+                    ? "border-transparent bg-[#2CA01C] text-white shadow-sm shadow-[#2CA01C]/30 hover:bg-[#248417]"
                     : "border-restro-border-green bg-background text-foreground hover:border-gray-300 dark:hover:border-slate-600"
                 }`}
               >
@@ -370,7 +373,7 @@ export default function DashboardPage() {
                 >
                   <Icon size={20} stroke={iconStroke} />
                 </span>
-                <span className="line-clamp-1 text-[13px] font-bold leading-tight">{t(a.labelKey, a.fallback)}</span>
+                <span className={`text-[13px] font-bold leading-tight ${a.primary ? "line-clamp-1 sm:line-clamp-2" : "line-clamp-2"}`}>{t(a.labelKey, a.fallback)}</span>
               </Link>
             );
           })}

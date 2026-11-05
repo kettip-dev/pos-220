@@ -15,6 +15,8 @@ export function useDashboardData() {
   const { data, error, isLoading, mutate } = useSWR("/dashboard", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30 * 1000,
+    // Keep "Today at a glance" live on a tablet left open at the counter.
+    refreshInterval: 60 * 1000,
   });
   return { data, error, isLoading, refresh: mutate };
 }
