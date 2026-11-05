@@ -102,6 +102,9 @@ function createMainWindow() {
     if (!process.argv.includes("--hidden")) mainWindow.show();
   });
 
+  // Keep the native title "Bong POS" instead of the website's <title>.
+  mainWindow.on("page-title-updated", (event) => event.preventDefault());
+
   const wc = mainWindow.webContents;
   wc.setZoomFactor(settings.get("zoomFactor") || 1);
   wc.on("did-finish-load", () => wc.setZoomFactor(settings.get("zoomFactor") || 1));
