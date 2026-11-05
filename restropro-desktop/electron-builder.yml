@@ -17,6 +17,11 @@ extraResources:
   - from: build/agent
     to: agent
 
+# bongpos:// links bring browser sign-in back to the app.
+protocols:
+  - name: Bong POS
+    schemes: [bongpos]
+
 win:
   target:
     - target: nsis

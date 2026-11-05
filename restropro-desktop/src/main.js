@@ -1,4 +1,5 @@
 const path = require("path");
+const crypto = require("crypto");
 const {
   app,
   BrowserWindow,
@@ -302,6 +303,86 @@ function openExternal(url) {
   if (/^(https?:|mailto:|tel:)/i.test(url)) shell.openExternal(url);
 }
 
+// ---------------------------------------------------------------- browser sign-in
+//
+// Like VS Code: "Sign in with your browser" opens <POS>/desktop-login in the
+// system browser (Google sign-in, saved passwords and password managers all
+// work there). The browser returns a one-time code through
+// bongpos://auth/callback?code=…&state=…, and the POS page in this app
+// exchanges it, together with the PKCE verifier that never left this app, for
+// its own session.
+
+const PROTOCOL = "bongpos";
+const SIGNIN_TTL_MS = 10 * 60 * 1000;
+let pendingSignIn = null; // { state, verifier, at }
+let readySignIn = null; // { code, verifier, at }
+
+function registerProtocol() {
+  if (process.defaultApp) {
+    // Development (`electron .`): Windows must start electron.exe with the app folder.
+    app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1] || ".")]);
+  } else {
+    app.setAsDefaultProtocolClient(PROTOCOL);
+  }
+}
+
+function findDeepLink(argv = []) {
+  return argv.find((arg) => typeof arg === "string" && arg.toLowerCase().startsWith(`${PROTOCOL}://`)) || null;
+}
+
+function startBrowserSignIn() {
+  const verifier = crypto.randomBytes(32).toString("base64url");
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+  const state = crypto.randomBytes(16).toString("base64url");
+  pendingSignIn = { state, verifier, at: Date.now() };
+  const url = new URL("/desktop-login", posOrigin());
+  url.searchParams.set("state", state);
+  url.searchParams.set("challenge", challenge);
+  log.info("Browser sign-in started.");
+  shell.openExternal(url.toString());
+}
+
+function handleDeepLink(link) {
+  let url;
+  try {
+    url = new URL(link);
+  } catch (_) {
+    return;
+  }
+  // bongpos://auth/callback?code=…&state=…
+  if (url.hostname !== "auth" || url.pathname.replace(/\/+$/, "") !== "/callback") return;
+  const code = url.searchParams.get("code") || "";
+  const state = url.searchParams.get("state") || "";
+  const pending = pendingSignIn;
+  if (!pending || pending.state !== state || Date.now() - pending.at > SIGNIN_TTL_MS || !/^[A-Za-z0-9_-]{43}$/.test(code)) {
+    log.warn("Ignored a sign-in link that this app did not start (or that expired).");
+    dialog.showMessageBox(mainWindow || undefined, {
+      type: "warning",
+      title: "Bong POS",
+      message: "This sign-in link has expired.",
+      detail: 'Click "Sign in with your browser" in Bong POS again.',
+    });
+    return;
+  }
+  pendingSignIn = null;
+  readySignIn = { code, verifier: pending.verifier, at: Date.now() };
+  log.info("Browser sign-in received; finishing in the app.");
+  showMainWindow();
+  posContents()?.loadURL(new URL("/desktop-login/complete", posOrigin()).toString());
+}
+
+ipcMain.on("desktop:browser-signin", (event) => {
+  if (event.sender === posContents() && isPosUrl(event.sender.getURL())) startBrowserSignIn();
+});
+
+ipcMain.handle("desktop:take-browser-signin", (event) => {
+  if (event.sender !== posContents() || !isPosUrl(event.sender.getURL())) return null;
+  const ready = readySignIn;
+  readySignIn = null; // one use only
+  if (!ready || Date.now() - ready.at > 2 * 60 * 1000) return null;
+  return { code: ready.code, verifier: ready.verifier };
+});
+
 // ---------------------------------------------------------------- print agent
 
 function agentShouldRun() {
@@ -589,7 +670,11 @@ function setupPermissions() {
   });
 }
 
-app.on("second-instance", showMainWindow);
+app.on("second-instance", (_event, argv) => {
+  showMainWindow();
+  const link = findDeepLink(argv);
+  if (link) handleDeepLink(link);
+});
 app.on("before-quit", () => (quitting = true));
 app.on("window-all-closed", () => {
   if (!agentShouldRun()) app.quit();
@@ -601,6 +686,7 @@ process.on("unhandledRejection", (err) => log.error("Unhandled:", err));
 app.whenReady().then(() => {
   log.info(`Bong POS ${app.getVersion()} starting (POS ${posUrl()})`);
   setupPermissions();
+  registerProtocol();
   buildMenu();
   createTray();
   createMainWindow();
@@ -609,5 +695,8 @@ app.whenReady().then(() => {
   applyKeepAwake();
   updater.init({ posUrl: posUrl(), window: () => mainWindow });
   updater.onState(() => sendTitlebarState());
+  // Started by a bongpos:// link while the app was closed.
+  const startLink = findDeepLink(process.argv);
+  if (startLink) setTimeout(() => handleDeepLink(startLink), 1500);
   setInterval(sendTitlebarState, 10 * 1000);
 });

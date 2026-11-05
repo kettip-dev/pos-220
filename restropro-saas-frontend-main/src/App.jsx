@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import PrivateRoute from "./helpers/PrivateRoute";
 import LoginPage from "./views/LoginPage";
+import DesktopLoginPage from "./views/DesktopLoginPage";
+import DesktopLoginCompletePage from "./views/DesktopLoginCompletePage";
 import DashboardLayout from "./views/DashboardLayout";
 import DashboardPage from "./views/DashboardPage";
 import POSPage from "./views/POSPage";
@@ -115,6 +117,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/desktop-login" element={<DesktopLoginPage />} />
+          <Route path="/desktop-login/complete" element={<DesktopLoginCompletePage />} />
           <Route path="/register" element={<RegistrationPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

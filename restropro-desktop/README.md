@@ -17,6 +17,7 @@ Bong POS.exe  (Electron)
 | Feature | Notes |
 |---|---|
 | Custom title bar | VS Code style: no Windows title bar. A slim bar with ☰ menu, Bong POS name, printer status, "Restart to update" and Settings, with the native minimize/maximize/close buttons. The POS runs in a view below it, so the website needs no changes. Hidden in full screen / kiosk mode |
+| Sign in with your browser | Like VS Code: the login screen's "Sign in with your browser" opens `<POS>/desktop-login` in the default browser (Google sign-in and password managers work there). "Open Bong POS" sends a one-time code back through a `bongpos://` link and the app signs in. Codes last 2 minutes, work once, and need a PKCE verifier that never leaves the app |
 | Native window | Remembers size/position, single instance, F11 full screen, Ctrl+Shift+K kiosk mode, Ctrl +/- zoom (saved) |
 | Always the newest POS | On each launch (when online) the cached PWA bundle is dropped, so a deploy never needs Ctrl+Shift+R. Sign-in is kept. Ctrl+Shift+R = clear cache and reload |
 | Offline screen | If the server cannot be reached and nothing is cached, a "Can't reach Bong POS" page retries every 15 s |
