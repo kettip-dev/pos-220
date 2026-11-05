@@ -842,11 +842,11 @@ export default function QBONavigation({ children }) {
                   type="button"
                   onClick={() => setCustomiseModalOpen(true)}
                   title={t("navbar.customise_pinned", "Customise pinned apps")}
-                  className="group inline-flex items-center gap-1 h-6 px-1.5 rounded-full text-[10px] font-semibold text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white transition cursor-pointer"
+                  aria-label={t("navbar.customise_pinned", "Customise pinned apps")}
+                  className="group shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white active:scale-95 transition cursor-pointer"
                 >
-                  <IconPin size={11} stroke={2} className="group-hover:hidden" />
-                  <IconPencil size={11} stroke={2} className="hidden group-hover:block" />
-                  <span className="max-w-[40px] truncate leading-normal">{t("navbar.pinned", "Pinned")}</span>
+                  <IconPin size={14} stroke={2} className="group-hover:hidden" />
+                  <IconPencil size={14} stroke={2} className="hidden group-hover:block" />
                 </button>
                 <span className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
               </div>
