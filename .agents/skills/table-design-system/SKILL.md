@@ -2,18 +2,18 @@
 name: table-design-system
 description: >-
   Use this skill when designing, building, or refactoring high-density, compact data tables,
-  toolbars, search/filter bars, row selection, badges, action menus, and pagination across Restro PRO.
+  toolbars, search/filter bars, row selection, badges, action menus, and pagination across Bong POS.
 ---
 
-# Restro PRO — Table Design System & Compact Table Standards
+# Bong POS — Table Design System & Compact Table Standards
 
-This skill defines the official standard for data tables across the Restro PRO SaaS platform, matching the high-density, QuickBooks/Toast-inspired compact table design (`PromotionsPage`, `InventoryPage`, `StockAdjustmentsListPage`, `StockTransfersListPage`).
+This skill defines the official standard for data tables across the Bong POS SaaS platform, matching the high-density, QuickBooks/Toast-inspired compact table design (`PromotionsPage`, `InventoryPage`, `StockAdjustmentsListPage`, `StockTransfersListPage`).
 
 ---
 
 ## 1. Visual & Anatomical Blueprint
 
-Every standard Restro PRO list view consists of 4 distinct sections:
+Every standard Bong POS list view consists of 4 distinct sections:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐

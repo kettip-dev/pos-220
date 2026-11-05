@@ -1,5 +1,5 @@
 # ==============================================================================
-# Restro PRO - Remote 1-Click Deployment Script (PowerShell)
+# Bong POS - Remote 1-Click Deployment Script (PowerShell)
 # Targets:
 #   - Primary: root@10.36.200.125:/opt/restro-pos
 #   - Second:  root@rocky.tail5d006f.ts.net:/opt/restro-pos
@@ -33,7 +33,7 @@ function Write-Err { Write-Host "[ERROR] $($args[0])" -ForegroundColor Red }
 $SSH_TARGET = "${RemoteUser}@${RemoteHost}"
 
 Write-Host "==================================================================" -ForegroundColor Cyan
-Write-Host "       Restro PRO - 1-Click Remote Deployment to $RemoteHost       " -ForegroundColor Cyan
+Write-Host "       Bong POS - 1-Click Remote Deployment to $RemoteHost       " -ForegroundColor Cyan
 Write-Host "==================================================================" -ForegroundColor Cyan
 
 # Test SSH Connection

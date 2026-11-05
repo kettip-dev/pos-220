@@ -131,7 +131,7 @@ async function dispatchJob(job, printer) {
   }
 
   if (!serverDirectEnabled()) {
-    const message = `${printer.name} has no print agent. Install the Restro print agent on a computer in the restaurant and assign it to this printer.`;
+    const message = `${printer.name} has no print agent. Install the Bong POS print agent on a computer in the restaurant and assign it to this printer.`;
     await markJob(tenantId, job.id, "failed", message);
     return { jobId: job.id, status: "failed", message };
   }

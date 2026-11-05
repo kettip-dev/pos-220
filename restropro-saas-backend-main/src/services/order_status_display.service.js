@@ -12,7 +12,7 @@ exports.getOrderStatusDisplayDB = async (tenantId) => {
       [tenantId]
     );
     const storeInfo = storeRows[0] || {};
-    const storeName = storeInfo.store_name || storeInfo.tenant_name || "RestroPro";
+    const storeName = storeInfo.store_name || storeInfo.tenant_name || "Bong POS";
     const storeImage = storeInfo.store_image || null;
 
     // Get active orders (last 24 hours, not completed, not cancelled)

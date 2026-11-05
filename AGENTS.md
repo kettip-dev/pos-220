@@ -1,6 +1,6 @@
-# Restro PRO - AI Agent System & Architecture Guide
+# Bong POS - AI Agent System & Architecture Guide
 
-Welcome to the **Restro PRO** repository (`restro-220`). This project is a comprehensive multi-tenant Restaurant POS (Point of Sale), Kitchen Display System (KDS), Table Management, and SaaS Operations platform.
+Welcome to the **Bong POS** repository (`restro-220`). This project is a comprehensive multi-tenant Restaurant POS (Point of Sale), Kitchen Display System (KDS), Table Management, and SaaS Operations platform.
 
 This guide provides the core agent persona, architecture blueprint, directory reference, and operational guardrails to maximize development velocity and prevent regression.
 

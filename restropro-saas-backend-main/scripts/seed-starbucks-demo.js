@@ -1,5 +1,5 @@
 /**
- * Seed Starbucks Coffee Demo Data for Restro PRO
+ * Seed Starbucks Coffee Demo Data for Bong POS
  * Configured for Tenant 721 (demo@demo.com)
  */
 

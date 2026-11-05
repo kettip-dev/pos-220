@@ -19,7 +19,7 @@ function buildTestPage({ printerLabel, hostname, version }) {
     Buffer.from([ESC, 0x40]), // initialise
     Buffer.from([ESC, 0x61, 1]), // centre
     Buffer.from([GS, 0x21, 0x11]), // double width + height
-    ascii("RESTRO PRO\n"),
+    ascii("BONG POS\n"),
     Buffer.from([GS, 0x21, 0x00]),
     ascii("Printer test\n"),
     ascii("--------------------------------\n"),

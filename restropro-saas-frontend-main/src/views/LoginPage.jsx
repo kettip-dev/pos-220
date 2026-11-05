@@ -315,7 +315,7 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            {t("login.rail_label", "Restro PRO")}
+            {t("login.rail_label", "Bong POS")}
           </p>
           <h2 className="mt-2 text-2xl xl:text-3xl font-black leading-tight tracking-tight">
             {t("login.rail_title", "Everything your shift needs, in one place")}
@@ -353,7 +353,7 @@ export default function LoginPage() {
       <main className="flex-1 min-h-screen flex flex-col">
         <header className="w-full px-5 sm:px-8 lg:px-12 pt-5 flex items-center justify-between gap-3">
           <Link to="/" className="shrink-0 hover:opacity-90 transition">
-            <img src={Logo} alt="Restro PRO" className="h-8 sm:h-9 w-auto dark:invert" />
+            <img src={Logo} alt="Bong POS" className="h-8 sm:h-9 w-auto dark:invert" />
           </Link>
           <div className="flex items-center gap-2">
             <LanguageChanger className="min-h-[42px] px-3 text-sm font-semibold rounded-full border border-slate-200 dark:border-[#30363D] bg-white dark:bg-[#161B22] text-slate-700 dark:text-zinc-300 outline-none cursor-pointer hover:border-slate-300 transition" />
@@ -522,7 +522,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center text-sm text-slate-500 dark:text-zinc-400">
-            {t("login.new_here", "New to Restro PRO?")}{" "}
+            {t("login.new_here", "New to Bong POS?")}{" "}
             <Link to="/register" className="font-semibold text-slate-900 dark:text-white underline-offset-4 hover:underline">
               {t("login.create_account")}
             </Link>
@@ -530,7 +530,7 @@ export default function LoginPage() {
         </div>
 
         <footer className="w-full py-5 text-center text-xs text-slate-400 dark:text-zinc-600">
-          © {new Date().getFullYear()} Restro PRO
+          © {new Date().getFullYear()} Bong POS
         </footer>
       </main>
 

@@ -513,7 +513,7 @@ export default function ImportMenuItemsModal({ isOpen, onClose, onImportSuccess 
                 {/* Arrow */}
                 <span className="text-gray-300 dark:text-gray-600 shrink-0 text-xs sm:text-sm">←</span>
 
-                {/* Custom Restropro Styled Dropdown */}
+                {/* Custom Bong POS Styled Dropdown */}
                 <CustomSelect
                   value={fieldMapping[field.key] || ""}
                   options={fileHeaders}

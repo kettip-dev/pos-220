@@ -430,8 +430,8 @@ export default defineConfig({
       },
 
       manifest: {
-        name: "RestroPro",
-        short_name: "RestroPro",
+        name: "Bong POS",
+        short_name: "Bong POS",
         description: "Manage Your Restaurant, Cafe, Hotel, Bar, Food Truck, Stall, any food store.",
         theme_color: "#ECF1EB",
         icons: [

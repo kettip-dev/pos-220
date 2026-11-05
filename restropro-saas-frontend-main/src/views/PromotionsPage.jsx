@@ -2129,7 +2129,7 @@ export default function PromotionsPage() {
                       <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-transparent via-amber-300/40 to-transparent" />
 
                       <div className="text-center pb-2 border-b border-dashed border-gray-300 dark:border-slate-700 space-y-0.5">
-                        <p className="font-black text-sm tracking-widest uppercase">RESTRO PRO CAFE</p>
+                        <p className="font-black text-sm tracking-widest uppercase">BONG POS CAFE</p>
                         <p className="text-[10px] text-gray-500">Thermal Receipt #INV-8821</p>
                         <p className="text-[10px] text-gray-400">{new Date().toLocaleDateString()}</p>
                       </div>

@@ -454,7 +454,7 @@ export default function OrderStatusDisplayPage() {
         });
 
         setState({
-          storeName: storeName || "RestroPro",
+          storeName: storeName || "Bong POS",
           storeImage: storeImage || null,
           orders: orders || [],
           isLoading: false,

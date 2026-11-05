@@ -96,7 +96,7 @@ export default function BusinessSwitcher({ variant = "dark" }) {
       return (
         <div className="flex items-center gap-2 px-2 py-1.5 select-none">
           <span className="font-bold text-sm text-gray-800 dark:text-slate-100 tracking-tight truncate max-w-[180px]">
-            {user?.store_name || user?.business_name || "RestroPRO"}
+            {user?.store_name || user?.business_name || "Bong POS"}
           </span>
         </div>
       );

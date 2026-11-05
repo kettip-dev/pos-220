@@ -275,7 +275,7 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
     ctx.fillStyle = "#000000";
     ctx.textAlign = "center";
     ctx.font = `bold ${paperSize === 58 ? 24 : 32}px ${FONT_FAMILY}`;
-    const storeName = storeSettings.store_name || "RESTRO PRO";
+    const storeName = storeSettings.store_name || "BONG POS";
     const storeLines = wrapTextLines(ctx, storeName, contentWidth);
     storeLines.forEach((line) => {
       ctx.fillText(line, width / 2, y);

@@ -1,7 +1,7 @@
 {
   "name": "restropro-print-agent",
   "version": "1.1.1",
-  "description": "Restro PRO print agent: relays cloud POS print jobs to LAN and USB thermal printers inside the restaurant.",
+  "description": "Bong POS print agent: relays cloud POS print jobs to LAN and USB thermal printers inside the restaurant.",
   "main": "src/index.js",
   "bin": {
     "restropro-print-agent": "src/index.js"

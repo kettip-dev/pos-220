@@ -273,7 +273,7 @@ exports.buildTestPrintPayloadDB = async (tenantId, printerId) => {
 
     const printer = rows[0];
 
-    let storeName = "Restro PRO POS";
+    let storeName = "Bong POS";
     try {
       const [storeRows] = await conn.query(`SELECT store_name FROM store_details WHERE tenant_id = ?`, [tenantId]);
       if (storeRows.length > 0 && storeRows[0].store_name) {

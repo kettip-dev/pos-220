@@ -1,4 +1,4 @@
-; Restro PRO print agent: Windows installer (Inno Setup 6).
+; Bong POS print agent: Windows installer (Inno Setup 6).
 ; Built by installer\build.ps1, which passes /DAppVersion and /DDefaultServer.
 ;
 ; Silent install for many PCs:
@@ -10,7 +10,7 @@
 #ifndef DefaultServer
   #define DefaultServer ""
 #endif
-#define AppName "Restro Print Agent"
+#define AppName "Bong POS Print Agent"
 #define ExeName "restro-print-agent.exe"
 
 [Setup]
@@ -18,10 +18,10 @@ AppId={{8C3E6F1A-5B2D-4F7E-9A41-2D7C9B0E6A53}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher=Restro PRO
+AppPublisher=Bong POS
 VersionInfoVersion={#AppVersion}
-DefaultDirName={autopf}\Restro Print Agent
-DefaultGroupName=Restro Print Agent
+DefaultDirName={autopf}\Bong POS Print Agent
+DefaultGroupName=Bong POS Print Agent
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
@@ -53,10 +53,16 @@ Filename: "{app}\Printer Tools.url"; Section: "InternetShortcut"; Key: "IconFile
 Filename: "{app}\Printer Tools.url"; Section: "InternetShortcut"; Key: "IconIndex"; String: "16"
 
 [Icons]
-Name: "{group}\Restro Printer Tools"; Filename: "{app}\Printer Tools.url"; IconFilename: "{sys}\shell32.dll"; IconIndex: 16
-Name: "{autodesktop}\Restro Printer Tools"; Filename: "{app}\Printer Tools.url"; IconFilename: "{sys}\shell32.dll"; IconIndex: 16; Tasks: desktopicon
+Name: "{group}\Bong POS Printer Tools"; Filename: "{app}\Printer Tools.url"; IconFilename: "{sys}\shell32.dll"; IconIndex: 16
+Name: "{autodesktop}\Bong POS Printer Tools"; Filename: "{app}\Printer Tools.url"; IconFilename: "{sys}\shell32.dll"; IconIndex: 16; Tasks: desktopicon
 Name: "{group}\View print agent log"; Filename: "{win}\notepad.exe"; Parameters: """{commonappdata}\RestroPrintAgent\logs\agent.log"""
-Name: "{group}\Uninstall Restro Print Agent"; Filename: "{uninstallexe}"
+Name: "{group}\Uninstall Bong POS Print Agent"; Filename: "{uninstallexe}"
+
+; Remove shortcuts left by installs made before the Bong POS rename.
+[InstallDelete]
+Type: files; Name: "{group}\Restro Printer Tools.lnk"
+Type: files; Name: "{autodesktop}\Restro Printer Tools.lnk"
+Type: files; Name: "{group}\Uninstall Restro Print Agent.lnk"
 
 [UninstallDelete]
 Type: files; Name: "{app}\Printer Tools.url"
@@ -187,9 +193,9 @@ begin
   Token := Trim(ExpandConstant('{param:TOKEN|}'));
 
   ConnPage := CreateInputQueryPage(wpWelcome,
-    'Connect to Restro PRO',
+    'Connect to Bong POS',
     'Enter your POS address and the agent token.',
-    'In Restro PRO open Settings > Thermal Printers > Print Agents, click Add Agent and copy the token.');
+    'In Bong POS open Settings > Thermal Printers > Print Agents, click Add Agent and copy the token.');
   ConnPage.Add('POS address (for example https://pos.example.com):', False);
   ConnPage.Add('Agent token:', True);
   ConnPage.Values[0] := ServerUrl;
@@ -226,7 +232,7 @@ begin
   end;
   if (Token <> '') and not IsValidToken(Token) then
   begin
-    MsgBox('The token contains unexpected characters. Copy it again from Restro PRO.', mbError, MB_OK);
+    MsgBox('The token contains unexpected characters. Copy it again from Bong POS.', mbError, MB_OK);
     Result := False;
     Exit;
   end;

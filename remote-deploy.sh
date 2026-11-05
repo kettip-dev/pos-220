@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Restro PRO - Remote 1-Click Deployment Script (Bash)
+# Bong POS - Remote 1-Click Deployment Script (Bash)
 # Targets:
 #   - Primary: root@10.36.200.125:/opt/restro-pos
 #   - Second:  root@rocky.tail5d006f.ts.net:/opt/restro-pos
@@ -40,7 +40,7 @@ log_warn() { echo -e "${CLR_YELLOW}[WARN]${CLR_RESET} $1"; }
 log_error() { echo -e "${CLR_RED}[ERROR]${CLR_RESET} $1" >&2; }
 
 echo -e "${CLR_CYAN}${CLR_BOLD}=================================================================="
-echo -e "       Restro PRO - 1-Click Remote Deployment to ${REMOTE_HOST}       "
+echo -e "       Bong POS - 1-Click Remote Deployment to ${REMOTE_HOST}       "
 echo -e "==================================================================${CLR_RESET}"
 
 log_info "Verifying SSH connection to ${SSH_TARGET}..."

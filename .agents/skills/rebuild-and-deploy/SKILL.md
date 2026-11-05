@@ -3,10 +3,10 @@ name: rebuild-and-deploy
 description: >-
   Use this skill when rebuilding local containers, compiling frontend Vite bundles,
   running local stack diagnostics, or executing remote and on-server production deployments
-  of Restro PRO to the target server (10.36.200.125 / pos.allkh.app).
+  of Bong POS to the target server (10.36.200.125 / pos.allkh.app).
 ---
 
-# Restro PRO Rebuild & Deployment Workflows
+# Bong POS Rebuild & Deployment Workflows
 
 This skill provides complete operational runbooks for rebuilding the local development stack and deploying the production stack to the remote server.
 

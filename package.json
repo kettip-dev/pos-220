@@ -2,7 +2,7 @@
   "name": "restro-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "Restro PRO monorepo workspace for local development",
+  "description": "Bong POS monorepo workspace for local development",
   "scripts": {
     "docker:up": "docker compose up -d db redis",
     "docker:down": "docker compose stop db redis",

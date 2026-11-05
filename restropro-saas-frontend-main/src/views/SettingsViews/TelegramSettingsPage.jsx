@@ -314,7 +314,7 @@ export default function TelegramSettingsPage() {
               </button>
             </div>
             <p className="text-[11px] text-slate-400 dark:text-gray-500">
-              Keep this token secure. Restro PRO uses this token to dispatch messages directly via official Telegram Bot API.
+              Keep this token secure. Bong POS uses this token to dispatch messages directly via official Telegram Bot API.
             </p>
           </div>
         </div>

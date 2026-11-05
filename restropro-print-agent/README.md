@@ -1,8 +1,8 @@
-# Restro PRO Print Agent
+# Bong POS Print Agent
 
 The cloud POS cannot open a connection to a printer inside your restaurant
 (`192.168.x.x` only exists on your local network). The print agent runs on a
-computer **inside** the restaurant, keeps an outbound connection to the Restro
+computer **inside** the restaurant, keeps an outbound connection to the Bong POS
 server, and prints receipts and kitchen tickets on:
 
 - **Network printers** (LAN / Wi-Fi, RAW port 9100–9109)
@@ -20,7 +20,7 @@ reconnects. Jobs older than 15 minutes expire, so staff never get stale kitchen 
 
 ## Windows: one-click installer (recommended)
 
-1. In Restro PRO, open **Settings → Thermal Printers → Print Agents**, click
+1. In Bong POS, open **Settings → Thermal Printers → Print Agents**, click
    **Add Agent** and copy the token.
 2. Run `RestroPrintAgent-Setup-<version>.exe` on the restaurant PC, enter the POS
    address and paste the token. The installer checks the connection before it
@@ -31,14 +31,14 @@ reconnects. Jobs older than 15 minutes expire, so staff never get stale kitchen 
 
 | What | Where |
 |---|---|
-| Program | `C:\Program Files\Restro Print Agent\` |
+| Program | `C:\Program Files\Bong POS Print Agent\` |
 | Settings (token) | `C:\ProgramData\RestroPrintAgent\config.json` (Administrators only) |
 | Log | `C:\ProgramData\RestroPrintAgent\logs\agent.log` (Start menu → **View print agent log**) |
-| Background task | Task Scheduler → **Restro Print Agent** |
+| Background task | Task Scheduler → **Bong POS Print Agent** |
 
 ### Printer Tools
 
-While the agent runs, open **Start menu → Restro Printer Tools** (or
+While the agent runs, open **Start menu → Bong POS Printer Tools** (or
 http://localhost:17171 on that computer). It shows:
 
 - **Agent status:** connected or offline, POS server, last problem
@@ -98,7 +98,7 @@ SmartScreen warns users that the publisher is unknown.
 
 ## Setup from source (any OS)
 
-1. In Restro PRO, open **Settings → Thermal Printers → Print Agents** and click
+1. In Bong POS, open **Settings → Thermal Printers → Print Agents** and click
    **Add Agent**. Copy the token (it is shown only once).
 2. On the restaurant computer:
 

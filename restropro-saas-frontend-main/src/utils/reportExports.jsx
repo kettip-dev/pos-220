@@ -88,7 +88,7 @@ export async function exportReportToExcel(report, currency) {
   };
 
   const brandRows = [
-    ["RestroPro Reports"],
+    ["Bong POS Reports"],
     [store.name || "Store"],
     [report.title],
     [`Generated ${generatedAt}`],
@@ -124,7 +124,7 @@ export async function exportReportToExcel(report, currency) {
   };
 
   const summaryRows = buildSummaryRows(report, currency);
-  const summarySheet = utils.aoa_to_sheet([...brandRows, ["Metric", "Value"], ...summaryRows.map((row) => [row.Metric, row.Value]), [], ["Powered by RestroPro"]]);
+  const summarySheet = utils.aoa_to_sheet([...brandRows, ["Metric", "Value"], ...summaryRows.map((row) => [row.Metric, row.Value]), [], ["Powered by Bong POS"]]);
   styleWorksheet(summarySheet, 2);
   utils.book_append_sheet(workbook, summarySheet, "Summary");
 
@@ -132,7 +132,7 @@ export async function exportReportToExcel(report, currency) {
     const rows = buildTableRows(table, currency);
     const headers = (table.columns || []).map((column) => column.label);
     const body = rows.length ? rows.map((row) => headers.map((header) => row[header])) : [["No data"]];
-    const sheet = utils.aoa_to_sheet([...brandRows, headers.length ? headers : ["No data"], ...body, [], ["Powered by RestroPro"]]);
+    const sheet = utils.aoa_to_sheet([...brandRows, headers.length ? headers : ["No data"], ...body, [], ["Powered by Bong POS"]]);
     styleWorksheet(sheet, Math.max(headers.length, 1));
     utils.book_append_sheet(workbook, sheet, safeSheetName(table.title));
   });
@@ -202,7 +202,7 @@ export async function exportReportToPdf(report, currency, filterLabel) {
             <Text style={styles.storeName}>{store.name || "Store"}</Text>
             {store.address ? <Text style={styles.storeMeta}>{store.address}</Text> : null}
             {[store.phone, store.email].filter(Boolean).length ? <Text style={styles.storeMeta}>{[store.phone, store.email].filter(Boolean).join(" | ")}</Text> : null}
-            <Text style={styles.badge}>RestroPro Report</Text>
+            <Text style={styles.badge}>Bong POS Report</Text>
           </View>
           <Image src={LogoUrl} style={styles.logo} />
         </View>
@@ -220,8 +220,8 @@ export async function exportReportToPdf(report, currency, filterLabel) {
           <PdfTable key={table.title} title={table.title} rows={table.rows || []} columns={table.columns || []} />
         ))}
         <View style={styles.footer} fixed>
-          <Text>Powered by RestroPro</Text>
-          <Text>Generated from RestroPro SaaS</Text>
+          <Text>Powered by Bong POS</Text>
+          <Text>Generated from Bong POS SaaS</Text>
         </View>
       </Page>
     </Document>
