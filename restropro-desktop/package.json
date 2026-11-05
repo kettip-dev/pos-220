@@ -1,0 +1,27 @@
+{
+  "name": "bong-pos-desktop",
+  "productName": "Bong POS",
+  "version": "1.0.0",
+  "description": "Bong POS desktop app for Windows: native window, built-in print agent and automatic updates.",
+  "main": "src/main.js",
+  "author": "Bong POS",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "postinstall": "install-electron",
+    "bundle-agent": "node scripts/bundle-agent.js",
+    "start": "npm run bundle-agent && electron .",
+    "dev": "npm run bundle-agent && electron . --pos-url http://localhost:5173",
+    "dist": "npm run bundle-agent && electron-builder --win --x64",
+    "dist:dir": "npm run bundle-agent && electron-builder --win --x64 --dir",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2"
+  }
+}

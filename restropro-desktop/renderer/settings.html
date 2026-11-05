@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' file:">
+  <title>Bong POS Settings</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="settings">
+    <header class="top">
+      <img src="../assets/icon.png" alt="" width="40" height="40">
+      <div>
+        <h1>Bong POS Settings</h1>
+        <p class="muted" id="version">&nbsp;</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>POS address</h2>
+      <p class="muted">The Bong POS website this app opens.</p>
+      <input id="posUrl" type="url" placeholder="https://pos.allkh.app" autocomplete="off" spellcheck="false">
+      <p class="note" id="posUrlOverride" hidden></p>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <div>
+          <h2>Built-in print agent</h2>
+          <p class="muted">Prints receipts and kitchen tickets on network (LAN) and USB printers connected to this computer.</p>
+        </div>
+        <label class="switch"><input id="agentEnabled" type="checkbox"><span></span></label>
+      </div>
+      <div class="status" id="agentStatus">&nbsp;</div>
+      <label class="field">
+        <span>Agent token</span>
+        <input id="token" type="password" placeholder="rpa_..." autocomplete="off" spellcheck="false">
+      </label>
+      <p class="muted small" id="tokenHelp">In Bong POS, open Settings &gt; Thermal Printers &gt; Print Agents, click Add Agent and paste the token here.
+        Use one token per computer, and do not also run the separate print agent with the same token.</p>
+      <div class="buttons">
+        <button id="testAgent" class="secondary">Test connection</button>
+        <button id="printerTools" class="secondary">Printer Tools</button>
+        <button id="removeToken" class="secondary danger" hidden>Remove token</button>
+      </div>
+      <p class="result" id="testResult" hidden></p>
+    </section>
+
+    <section class="card">
+      <h2>This computer</h2>
+      <div class="row"><span>Start Bong POS when Windows starts</span><label class="switch"><input id="autoStart" type="checkbox"><span></span></label></div>
+      <div class="row"><span>Kiosk mode (full screen, no window frame). Exit with Ctrl+Shift+K.</span><label class="switch"><input id="kiosk" type="checkbox"><span></span></label></div>
+      <div class="row"><span>Keep the screen on (kitchen display)</span><label class="switch"><input id="keepAwake" type="checkbox"><span></span></label></div>
+    </section>
+
+    <section class="card">
+      <h2>Updates</h2>
+      <p class="muted" id="updateStatus">&nbsp;</p>
+      <div class="buttons">
+        <button id="checkUpdates" class="secondary">Check for updates</button>
+        <button id="openLogs" class="secondary">Open log folder</button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="error" id="saveError" hidden></p>
+      <div class="buttons end">
+        <button id="cancel" class="secondary">Close</button>
+        <button id="save" class="primary">Save</button>
+      </div>
+    </footer>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>

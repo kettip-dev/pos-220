@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' file:">
+  <title>Bong POS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="offline">
+    <div class="box">
+      <img src="../assets/icon.png" alt="">
+      <h1>Can't reach Bong POS</h1>
+      <p class="muted">Check this computer's internet or Wi-Fi connection.</p>
+      <p class="muted" id="countdown">&nbsp;</p>
+      <div class="buttons">
+        <button id="retry" class="primary">Try again</button>
+        <button id="settings" class="secondary">Settings</button>
+      </div>
+      <p class="detail" id="detail"></p>
+    </div>
+  </main>
+  <script src="offline.js"></script>
+</body>
+</html>
