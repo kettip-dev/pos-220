@@ -12,12 +12,19 @@ const { registerError, cashBucketsForLine, getPaymentTypesMapTx, writeAuditTx } 
 
 const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
 
+/**
+ * A refused request. `key`/`args` let the controller translate the message
+ * into the user's language (translations/locales/*.json); `message` is the
+ * English fallback.
+ */
+const creditError = (code, key, args, message, extra = {}) => registerError(code, message, { i18n: { key, args }, ...extra });
+
 const OPEN_BALANCE_SQL = `status <> 'VOID' AND balance_due > 0`;
 
 const normaliseDueDate = (value) => {
   if (!value) return null;
   const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) throw registerError("INVALID_DUE_DATE", "Due date must be YYYY-MM-DD");
+  if (!match) throw creditError("INVALID_DUE_DATE", "credit_invalid_due_date", {}, "Due date must be YYYY-MM-DD");
   return `${match[1]}-${match[2]}-${match[3]}`;
 };
 
@@ -50,11 +57,11 @@ const getOutstandingTx = async (conn, tenantId, phone) => {
  */
 exports.prepareCreditSaleTx = async (conn, { tenantId, customerPhone, payments, total, payLater }) => {
   if (!customerPhone) {
-    throw registerError("PAY_LATER_NEEDS_CUSTOMER", "Attach a customer to this bill before putting it on their account");
+    throw creditError("PAY_LATER_NEEDS_CUSTOMER", "credit_needs_customer", {}, "Attach a customer to this bill before putting it on their account");
   }
   const customer = await getCustomerTx(conn, tenantId, customerPhone, { forUpdate: true });
   if (!customer) {
-    throw registerError("PAY_LATER_NEEDS_CUSTOMER", "Save this customer first, then put the bill on their account");
+    throw creditError("PAY_LATER_NEEDS_CUSTOMER", "credit_save_customer_first", {}, "Save this customer first, then put the bill on their account");
   }
 
   const totalDue = round2(total);
@@ -66,18 +73,20 @@ exports.prepareCreditSaleTx = async (conn, { tenantId, customerPhone, payments, 
   const balanceDue = round2(totalDue - paidNow);
 
   if (balanceDue <= 0) {
-    throw registerError("PAY_LATER_NOTHING_OWED", "This bill is already fully paid; settle it normally");
+    throw creditError("PAY_LATER_NOTHING_OWED", "credit_bill_fully_paid", {}, "This bill is already fully paid; settle it normally");
   }
 
   if (customer.credit_limit !== null && customer.credit_limit !== undefined) {
     const limit = round2(customer.credit_limit);
     const { outstanding } = await getOutstandingTx(conn, tenantId, customerPhone);
     if (limit <= 0) {
-      throw registerError("CREDIT_NOT_ALLOWED", `${customer.name} is not allowed to pay later`);
+      throw creditError("CREDIT_NOT_ALLOWED", "credit_not_allowed", { name: customer.name }, `${customer.name} is not allowed to pay later`);
     }
     if (round2(outstanding + balanceDue) > limit + 0.001) {
-      throw registerError(
+      throw creditError(
         "CREDIT_LIMIT_EXCEEDED",
+        "credit_limit_exceeded",
+        { name: customer.name, outstanding: outstanding.toFixed(2), limit: limit.toFixed(2), available: Math.max(0, limit - outstanding).toFixed(2) },
         `${customer.name} already owes ${outstanding.toFixed(2)}; this bill would exceed their credit limit of ${limit.toFixed(2)} (available ${Math.max(0, limit - outstanding).toFixed(2)})`,
         { outstanding, creditLimit: limit, available: round2(Math.max(0, limit - outstanding)) }
       );
@@ -276,15 +285,15 @@ exports.collectCustomerPaymentDB = async (tenantId, phone, { session, amount, pa
     await conn.beginTransaction();
 
     const customer = await getCustomerTx(conn, tenantId, phone, { forUpdate: true });
-    if (!customer) throw registerError("CUSTOMER_NOT_FOUND", "Customer not found");
+    if (!customer) throw creditError("CUSTOMER_NOT_FOUND", "credit_customer_not_found", {}, "Customer not found");
 
     const payAmount = round2(amount);
-    if (!(payAmount > 0)) throw registerError("AMOUNT_REQUIRED", "Enter the amount the customer is paying");
-    if (!paymentTypeId) throw registerError("PAYMENT_TYPE_REQUIRED", "Choose how the customer is paying");
+    if (!(payAmount > 0)) throw creditError("AMOUNT_REQUIRED", "credit_amount_required", {}, "Enter the amount the customer is paying");
+    if (!paymentTypeId) throw creditError("PAYMENT_TYPE_REQUIRED", "credit_payment_type_required", {}, "Choose how the customer is paying");
 
     const types = await getPaymentTypesMapTx(conn, tenantId, [paymentTypeId]);
     const type = types.get(Number(paymentTypeId));
-    if (!type) throw registerError("PAYMENT_TYPE_NOT_FOUND", "Payment type not found");
+    if (!type) throw creditError("PAYMENT_TYPE_NOT_FOUND", "credit_payment_type_not_found", {}, "Payment type not found");
     const isCash = Number(type.is_cash) === 1;
 
     const filterIds = Array.isArray(invoiceIds) ? invoiceIds.map(Number).filter((n) => n > 0) : [];
@@ -298,9 +307,9 @@ exports.collectCustomerPaymentDB = async (tenantId, phone, { session, amount, pa
       filterIds.length ? [tenantId, phone, filterIds] : [tenantId, phone]
     );
     const owed = round2(openInvoices.reduce((acc, i) => acc + Number(i.balance_due), 0));
-    if (owed <= 0) throw registerError("NOTHING_OWED", `${customer.name} has nothing to pay`);
+    if (owed <= 0) throw creditError("NOTHING_OWED", "credit_nothing_owed", { name: customer.name }, `${customer.name} has nothing to pay`);
     if (payAmount > owed + 0.001) {
-      throw registerError("OVERPAYMENT", `${customer.name} only owes ${owed.toFixed(2)}`, { owed });
+      throw creditError("OVERPAYMENT", "credit_overpayment", { name: customer.name, owed: owed.toFixed(2) }, `${customer.name} only owes ${owed.toFixed(2)}`, { owed });
     }
 
     // Oldest first.
@@ -422,7 +431,7 @@ exports.writeOffInvoiceBalanceDB = async (tenantId, phone, invoiceId, { reason, 
       [invoiceId, tenantId, phone]
     );
     const invoice = rows[0];
-    if (!invoice) throw registerError("NOTHING_OWED", "This bill has no balance to write off");
+    if (!invoice) throw creditError("NOTHING_OWED", "credit_nothing_to_write_off", {}, "This bill has no balance to write off");
     const amount = round2(invoice.balance_due);
 
     await conn.query(
@@ -452,12 +461,12 @@ exports.setCustomerCreditLimitDB = async (tenantId, phone, creditLimit) => {
   const conn = await getMySqlPromiseConnection();
   try {
     const value = creditLimit === null || creditLimit === undefined || creditLimit === "" ? null : round2(creditLimit);
-    if (value !== null && value < 0) throw registerError("INVALID_CREDIT_LIMIT", "Credit limit cannot be negative");
+    if (value !== null && value < 0) throw creditError("INVALID_CREDIT_LIMIT", "credit_invalid_limit", {}, "Credit limit cannot be negative");
     const [result] = await conn.query(
       `UPDATE customers SET credit_limit = ? WHERE phone = ? AND tenant_id = ?`,
       [value, phone, tenantId]
     );
-    if (!result.affectedRows) throw registerError("CUSTOMER_NOT_FOUND", "Customer not found");
+    if (!result.affectedRows) throw creditError("CUSTOMER_NOT_FOUND", "credit_customer_not_found", {}, "Customer not found");
     return { phone, credit_limit: value };
   } finally {
     conn.release();

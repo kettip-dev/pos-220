@@ -1,3 +1,4 @@
+const { translateError } = require("./customer_credit.controller");
 const {
   getCategoriesDB,
   getPaymentTypesDB,
@@ -213,7 +214,7 @@ exports.createOrderAndInvoice = async (req, res) => {
 
   } catch (error) {
     if (error?.isRegisterError) {
-      return res.status(400).json({ success: false, code: error.code, message: error.message });
+      return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
     }
     console.error(error);
     return res.status(500).json({

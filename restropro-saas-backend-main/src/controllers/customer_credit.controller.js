@@ -6,9 +6,13 @@ const {
   setCustomerCreditLimitDB,
 } = require("../services/customer_credit.service");
 
+/** Pay Later errors carry a translation key; anything else keeps its own message. */
+const translateError = (req, error) => (error?.i18n?.key ? req.__(error.i18n.key, error.i18n.args || {}) : error.message);
+exports.translateError = translateError;
+
 const fail = (req, res, error) => {
   if (error?.isRegisterError) {
-    return res.status(400).json({ success: false, code: error.code, message: error.message });
+    return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
   }
   console.error("[customer-credit]", error);
   return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
@@ -31,7 +35,7 @@ exports.getOutstandingCustomers = async (req, res) => {
 exports.getCustomerCredit = async (req, res) => {
   try {
     const result = await getCustomerCreditDB(req.user.tenant_id, req.params.id);
-    if (!result) return res.status(404).json({ success: false, message: "Customer not found" });
+    if (!result) return res.status(404).json({ success: false, message: req.__("credit_customer_not_found") });
     return res.status(200).json(result);
   } catch (error) {
     return fail(req, res, error);
@@ -52,7 +56,7 @@ exports.collectCustomerPayment = async (req, res) => {
       username: req.user.username,
     });
     emit(req, "customer_credit_update", { phone: req.params.id });
-    return res.status(200).json({ success: true, message: "Payment recorded", ...result });
+    return res.status(200).json({ success: true, message: req.__("credit_payment_recorded"), ...result });
   } catch (error) {
     return fail(req, res, error);
   }
@@ -61,16 +65,16 @@ exports.collectCustomerPayment = async (req, res) => {
 exports.writeOffInvoiceBalance = async (req, res) => {
   try {
     const { invoiceId, reason } = req.body || {};
-    if (!invoiceId) return res.status(400).json({ success: false, message: "invoiceId is required" });
+    if (!invoiceId) return res.status(400).json({ success: false, message: req.__("invalid_request") });
     if (!reason || !String(reason).trim()) {
-      return res.status(400).json({ success: false, code: "REASON_REQUIRED", message: "Give a reason for the write-off" });
+      return res.status(400).json({ success: false, code: "REASON_REQUIRED", message: req.__("credit_write_off_reason_required") });
     }
     const result = await writeOffInvoiceBalanceDB(req.user.tenant_id, req.params.id, invoiceId, {
       reason: String(reason).trim(),
       username: req.user.username,
     });
     emit(req, "customer_credit_update", { phone: req.params.id });
-    return res.status(200).json({ success: true, message: "Balance written off", ...result });
+    return res.status(200).json({ success: true, message: req.__("credit_written_off"), ...result });
   } catch (error) {
     return fail(req, res, error);
   }
@@ -79,7 +83,7 @@ exports.writeOffInvoiceBalance = async (req, res) => {
 exports.setCustomerCreditLimit = async (req, res) => {
   try {
     const result = await setCustomerCreditLimitDB(req.user.tenant_id, req.params.id, req.body?.creditLimit);
-    return res.status(200).json({ success: true, message: "Credit limit saved", ...result });
+    return res.status(200).json({ success: true, message: req.__("credit_limit_saved"), ...result });
   } catch (error) {
     return fail(req, res, error);
   }

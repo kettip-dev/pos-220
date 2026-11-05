@@ -1,3 +1,4 @@
+const { translateError } = require("./customer_credit.controller");
 const { getOrdersDB, updateOrderItemStatusDB, cancelOrderDB, completeOrderDB, getOrdersPaymentSummaryDB, createInvoiceDB, completeOrdersAndSaveInvoiceIdDB, getInvoiceIdFromOrderIdsDB, getEncryptedInvoiceIdDB, getCustomerPhoneFromOrderIdsDB, updateOrderCustomerDB, transferTableOrderDB, moveOrderItemsDB, splitCheckByItemsDB, createSplitSubInvoicesDB, getOrderSubInvoicesDB, settleSubInvoiceDB, cancelSplitPlanDB, mergeTablesDB, unlinkTablesDB } = require("../services/orders.service");
 const {
   getPaymentTypesDB,
@@ -365,7 +366,7 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
     });
   } catch (error) {
     if (error?.isRegisterError) {
-      return res.status(400).json({ success: false, code: error.code, message: error.message });
+      return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
     }
     console.error(error);
     return res.status(500).json({
