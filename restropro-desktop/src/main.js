@@ -132,10 +132,21 @@ function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     if (settings.get("windowMaximized") && !settings.get("kiosk")) mainWindow.maximize();
     if (!process.argv.includes("--hidden")) mainWindow.show();
+    if (settings.get("fullScreen") && !settings.get("kiosk")) mainWindow.setFullScreen(true);
     layoutViews();
   });
-  for (const ev of ["resize", "maximize", "unmaximize", "enter-full-screen", "leave-full-screen", "restore"]) {
+  for (const ev of ["resize", "maximize", "unmaximize", "restore"]) {
     mainWindow.on(ev, layoutViews);
+  }
+  for (const ev of ["enter-full-screen", "leave-full-screen"]) {
+    mainWindow.on(ev, () => {
+      titlebarRevealed = false;
+      // Remember full screen for the next launch (kiosk has its own setting).
+      if (!kioskOn()) settings.set({ fullScreen: mainWindow.isFullScreen() });
+      layoutViews();
+      sendTitlebarState();
+      buildMenu();
+    });
   }
   // Typing goes to the POS, not the title bar.
   mainWindow.on("focus", () => posContents()?.focus());
@@ -187,7 +198,7 @@ function createMainWindow() {
   const saveBounds = () => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isKiosk() || mainWindow.isFullScreen()) return;
+      if (!mainWindow || mainWindow.isDestroyed() || kioskOn() || mainWindow.isFullScreen()) return;
       const patch = { windowMaximized: mainWindow.isMaximized() };
       if (!mainWindow.isMaximized() && !mainWindow.isMinimized()) patch.windowBounds = mainWindow.getBounds();
       settings.set(patch);
@@ -220,12 +231,34 @@ function createMainWindow() {
   loadPos();
 }
 
-/** POS view fills the window below the title bar (all of it in full screen / kiosk). */
+/**
+ * POS view fills the window below the title bar.
+ *  - Full screen: only a thin handle of the title bar stays visible at the top;
+ *    hovering or tapping it slides the bar back in (titlebarRevealed), with an
+ *    "exit full screen" button, so touch screens never get stuck.
+ *  - Kiosk: the POS takes the whole screen (exit with Ctrl+Shift+K).
+ */
+const FULLSCREEN_HANDLE = 6;
+
+// Electron's isKiosk() also reports true for plain full screen on Windows,
+// so kiosk mode is tracked by its own setting.
+function kioskOn() {
+  return Boolean(settings.get("kiosk"));
+}
+let titlebarRevealed = false;
+
 function layoutViews() {
   if (!mainWindow || mainWindow.isDestroyed() || !posView) return;
   const { width, height } = mainWindow.getContentBounds();
-  const top = mainWindow.isFullScreen() || mainWindow.isKiosk() ? 0 : TITLEBAR_HEIGHT;
+  let top = TITLEBAR_HEIGHT;
+  if (kioskOn()) top = 0;
+  else if (mainWindow.isFullScreen()) top = titlebarRevealed ? TITLEBAR_HEIGHT : FULLSCREEN_HANDLE;
   posView.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) });
+}
+
+function toggleFullScreen() {
+  if (!mainWindow || kioskOn()) return;
+  mainWindow.setFullScreen(!mainWindow.isFullScreen());
 }
 
 function setKiosk(on) {
@@ -265,6 +298,8 @@ async function sendTitlebarState() {
     agent: !running ? "off" : st?.connected ? "connected" : "offline",
     agentError: st?.lastError || "",
     update: updater.getState(),
+    fullScreen: mainWindow.isFullScreen() && !kioskOn(),
+    revealed: titlebarRevealed,
   });
 }
 
@@ -281,6 +316,14 @@ ipcMain.on("titlebar:action", (event, action) => {
   if (action === "settings") openSettings();
   if (action === "printer-tools") openPrinterTools();
   if (action === "install-update") updater.quitAndInstall();
+  if (action === "fullscreen") toggleFullScreen();
+});
+ipcMain.on("titlebar:reveal", (event, show) => {
+  if (!fromTitlebar(event) || !mainWindow?.isFullScreen()) return;
+  if (titlebarRevealed === Boolean(show)) return;
+  titlebarRevealed = Boolean(show);
+  layoutViews();
+  sendTitlebarState();
 });
 
 async function isReachable(url) {
@@ -445,6 +488,7 @@ async function settingsSnapshot() {
     posUrl: settings.get("posUrl"),
     posUrlOverride: argPosUrl,
     kiosk: settings.get("kiosk"),
+    fullScreen: settings.get("fullScreen"),
     autoStart: settings.get("autoStart"),
     keepAwake: settings.get("keepAwake"),
     agentEnabled: settings.get("agentEnabled"),
@@ -471,7 +515,7 @@ ipcMain.handle("settings:save", async (event, patch = {}) => {
     if (!url) errors.push("Enter a valid POS address, for example https://pos.allkh.app");
     else next.posUrl = url;
   }
-  for (const key of ["kiosk", "autoStart", "keepAwake", "agentEnabled"]) {
+  for (const key of ["kiosk", "fullScreen", "autoStart", "keepAwake", "agentEnabled"]) {
     if (patch[key] !== undefined) next[key] = Boolean(patch[key]);
   }
   const token = typeof patch.token === "string" ? patch.token.trim() : "";
@@ -489,6 +533,9 @@ ipcMain.handle("settings:save", async (event, patch = {}) => {
     loadPos();
   }
   if (next.kiosk !== undefined) setKiosk(next.kiosk);
+  if (next.fullScreen !== undefined && mainWindow && !kioskOn() && mainWindow.isFullScreen() !== next.fullScreen) {
+    mainWindow.setFullScreen(next.fullScreen);
+  }
   if (next.autoStart !== undefined) applyAutoStart();
   if (next.keepAwake !== undefined) applyKeepAwake();
   applyAgent({ restart: Boolean(token) || urlChanged || patch.removeToken });
@@ -589,7 +636,7 @@ function buildMenu() {
         { label: "Zoom Out", accelerator: "CmdOrCtrl+-", click: () => setZoom((settings.get("zoomFactor") || 1) - 0.1) },
         { label: "Actual Size", accelerator: "CmdOrCtrl+0", click: () => setZoom(1) },
         { type: "separator" },
-        { label: "Full Screen", accelerator: "F11", click: () => mainWindow?.setFullScreen(!mainWindow.isFullScreen()) },
+        { label: "Full Screen", type: "checkbox", checked: Boolean(mainWindow?.isFullScreen()), accelerator: "F11", click: toggleFullScreen },
         { label: "Kiosk Mode", type: "checkbox", checked: Boolean(settings.get("kiosk")), accelerator: "CmdOrCtrl+Shift+K", click: toggleKiosk },
         { type: "separator" },
         { label: "Developer Tools", accelerator: "CmdOrCtrl+Shift+I", click: () => posContents()?.toggleDevTools() },

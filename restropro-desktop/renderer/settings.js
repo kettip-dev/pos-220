@@ -21,6 +21,7 @@ function render(s) {
   $("agentEnabled").checked = Boolean(s.agentEnabled);
   $("autoStart").checked = Boolean(s.autoStart);
   $("kiosk").checked = Boolean(s.kiosk);
+  $("fullScreen").checked = Boolean(s.fullScreen);
   $("keepAwake").checked = Boolean(s.keepAwake);
   renderStatus(s);
 }
@@ -54,6 +55,7 @@ async function save(extra = {}) {
     agentEnabled: $("agentEnabled").checked,
     autoStart: $("autoStart").checked,
     kiosk: $("kiosk").checked,
+    fullScreen: $("fullScreen").checked,
     keepAwake: $("keepAwake").checked,
     token: $("token").value,
     ...extra,

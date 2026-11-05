@@ -67,3 +67,27 @@ html, body {
 .agent.offline .dot { background: #dc2626; }
 .agent.offline { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
 [hidden] { display: none !important; }
+
+/* Full screen */
+.icon-btn .exit { display: none; }
+body.fs .icon-btn .enter { display: none; }
+body.fs .icon-btn .exit { display: block; }
+body.fs #fullscreen { color: #15803d; }
+
+.handle { display: none; }
+body.fs .handle {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  justify-content: center;
+  background: #f3f5f2;
+  cursor: pointer;
+  z-index: 2;
+}
+.handle span { width: 64px; height: 4px; margin-top: 1px; border-radius: 999px; background: #9ca3af; }
+body.fs.revealed .handle { display: none; }
+/* In full screen the bar spans the whole width (no window buttons) and is not a drag area. */
+body.fs .bar { width: 100%; -webkit-app-region: no-drag; }
