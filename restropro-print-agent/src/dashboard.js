@@ -140,7 +140,7 @@ const PAGE_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Restro PRO · Printer Tools</title>
+<title>Bong POS · Printer Tools</title>
 <style>
   :root { --bg:#f4f5f7; --card:#fff; --text:#111827; --muted:#6b7280; --line:#e5e7eb; --brand:#ea580c; --ok:#16a34a; --bad:#dc2626; --warn:#d97706; }
   * { box-sizing: border-box; }
@@ -182,7 +182,7 @@ const PAGE_HTML = `<!doctype html>
 <body>
 <header>
   <div>
-    <h1>Restro PRO · Printer Tools</h1>
+    <h1>Bong POS · Printer Tools</h1>
     <div class="sub" id="hdr">Print agent on this computer</div>
   </div>
 </header>

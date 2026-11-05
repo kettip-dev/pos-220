@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Restro PRO print agent.
+ * Bong POS print agent.
  *
  * Runs on any always-on computer in the restaurant (Windows, macOS, Linux,
- * Raspberry Pi). It keeps an outbound connection to the Restro server and
+ * Raspberry Pi). It keeps an outbound connection to the Bong POS server and
  * prints jobs on LAN (TCP 9100) and USB / installed printers, which a cloud
  * server cannot reach directly.
  *
@@ -298,7 +298,7 @@ async function waitForConfig(args) {
 }
 
 function runAgent(config) {
-  log(`Restro print agent v${version} connecting to ${config.serverUrl}`);
+  log(`Bong POS print agent v${version} connecting to ${config.serverUrl}`);
   agentState.serverUrl = config.serverUrl;
   agentState.configured = true;
 

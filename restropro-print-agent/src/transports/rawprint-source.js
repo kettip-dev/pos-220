@@ -37,7 +37,7 @@ public static class RestroRawPrint {
       throw new Exception("Cannot open printer '" + printer + "' (Win32 error " + Marshal.GetLastWin32Error() + ")");
     try {
       DOCINFO info = new DOCINFO();
-      info.pDocName = "Restro POS";
+      info.pDocName = "Bong POS";
       info.pDataType = "RAW";
       int jobId = StartDocPrinter(handle, 1, info);
       if (jobId == 0)

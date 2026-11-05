@@ -1,5 +1,5 @@
 /**
- * Pure evaluation engine for Restro PRO Promotions & Coupons.
+ * Pure evaluation engine for Bong POS Promotions & Coupons.
  */
 
 /**

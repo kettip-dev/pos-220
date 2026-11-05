@@ -1,5 +1,5 @@
 # ==============================================================================
-# Restro PRO - PowerShell Production Deployment & Management Script
+# Bong POS - PowerShell Production Deployment & Management Script
 # Domain: http://pos.allkh.app/ (Ingress Port: 4001)
 # Host IP: 10.36.200.125
 # ==============================================================================
@@ -136,7 +136,7 @@ $Port = Get-Port
 switch ($Action) {
     { $_ -in "deploy", "up" } {
         Write-Host "==================================================================" -ForegroundColor Cyan
-        Write-Host "          Restro PRO - Production Deployment Starting             " -ForegroundColor Cyan
+        Write-Host "          Bong POS - Production Deployment Starting             " -ForegroundColor Cyan
         Write-Host "==================================================================" -ForegroundColor Cyan
         
         Write-Info "Building production images (frontend Vite bundle + backend + MySQL)..."
@@ -150,7 +150,7 @@ switch ($Action) {
 
         Write-Host ""
         Write-Host "==================================================================" -ForegroundColor Green
-        Write-Host "         Restro PRO Deployment Successfully Completed!            " -ForegroundColor Green
+        Write-Host "         Bong POS Deployment Successfully Completed!            " -ForegroundColor Green
         Write-Host "==================================================================" -ForegroundColor Green
         Write-Host "Web POS Domain:   http://pos.allkh.app:$Port/ (or http://pos.allkh.app/ if proxied)" -ForegroundColor White
         Write-Host "Direct IP URL:    http://10.36.200.125:$Port/" -ForegroundColor White
@@ -166,12 +166,12 @@ switch ($Action) {
         Write-Host "==================================================================" -ForegroundColor Green
     }
     { $_ -in "down", "stop" } {
-        Write-Info "Stopping Restro PRO containers..."
+        Write-Info "Stopping Bong POS containers..."
         Invoke-Compose @("down")
         Write-Success "All containers stopped."
     }
     "restart" {
-        Write-Info "Restarting Restro PRO stack..."
+        Write-Info "Restarting Bong POS stack..."
         if ($Service) {
             Invoke-Compose @("restart", $Service)
         } else {

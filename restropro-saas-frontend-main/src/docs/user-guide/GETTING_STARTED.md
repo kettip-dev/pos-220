@@ -1,4 +1,4 @@
-# Restro PRO — Getting Started
+# Bong POS — Getting Started
 
 **From sign-up to your first completed order**
 
@@ -35,7 +35,7 @@ The example used throughout is a small café called **"Sunrise Café"** selling 
 
 ## Stage 1 — Create your account
 
-1. Open the Restro PRO sign-up page and tap **Create Account** (or **Continue with Google**).
+1. Open the Bong POS sign-up page and tap **Create Account** (or **Continue with Google**).
 2. **Let's set up your business:**
    - **Business name:** `Sunrise Café`
    - **Type of business:** Restaurant, Cafe & Bakery, Bar & Lounge, Fast Food, Food Truck & Kiosk, or Other

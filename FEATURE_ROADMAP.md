@@ -1,4 +1,4 @@
-# 🍽️ RestroPRO — Full Restaurant SaaS Feature Roadmap
+# 🍽️ Bong POS — Full Restaurant SaaS Feature Roadmap
 
 > **Target Market**: Restaurants, Cafes, Bars, Hotels (Multi-type SaaS)
 > **Last Updated**: September 2026

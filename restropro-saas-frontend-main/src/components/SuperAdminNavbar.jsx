@@ -249,7 +249,7 @@ export default function SuperAdminNavbar() {
             <Link
               to="/superadmin/dashboard/home"
               className="w-10 h-10 rounded-lg bg-[#2CA01C] text-white flex items-center justify-center font-black text-lg shadow-xs hover:bg-[#248417] transition-colors"
-              title="Restro SaaS Super Admin"
+              title="Bong POS Super Admin"
             >
               R
             </Link>
@@ -329,15 +329,15 @@ export default function SuperAdminNavbar() {
           <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800">
             <Link to="/superadmin/dashboard/home" className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-[#2CA01C] text-white flex items-center justify-center font-extrabold text-base shadow-xs">
-                R
+                B
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm tracking-tight text-gray-900 dark:text-white">
-                    Restro
+                    Bong
                   </span>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-[#108000] dark:text-[#2CA01C]">
-                    PRO
+                    POS
                   </span>
                 </div>
                 <span className="text-[10px] text-gray-500 font-medium leading-none">

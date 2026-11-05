@@ -152,7 +152,7 @@ exports.sendTelegramMessage = async (botToken, chatId, text, { threadId = null, 
 exports.testTelegramConnection = async (botToken, chatId, threadId = null) => {
   const timestamp = new Date().toLocaleString();
   const testMessage = [
-    `<b>RESTRO PRO — Connection Test</b>`,
+    `<b>BONG POS — Connection Test</b>`,
     `━━━━━━━━━━━━━━━━━━━━`,
     `<b>Status:</b> Success. Your Telegram bot is connected and ready to send notifications.`,
     `<b>Sent:</b> <i>${escapeHtml(timestamp)}</i>`,

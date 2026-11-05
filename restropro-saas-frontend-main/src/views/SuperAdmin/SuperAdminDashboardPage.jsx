@@ -198,7 +198,7 @@ export default function SuperAdminDashboardPage() {
       {/* Footer Branding */}
       <div className="pt-6 pb-2 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
         <img src={ImgUiflowLogo} alt="UIFLOW" className="w-5 h-5 rounded" />
-        <span>Restro PRO SaaS Administration • Version {appVersion}</span>
+        <span>Bong POS SaaS Administration • Version {appVersion}</span>
       </div>
 
     </div>

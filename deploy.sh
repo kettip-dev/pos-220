@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Restro PRO - Production Deployment & Management Script
+# Bong POS - Production Deployment & Management Script
 # Domain: http://pos.allkh.app/ (Ingress Port: 4001)
 # Host IP: 10.36.200.125
 # ==============================================================================
@@ -161,7 +161,7 @@ smoke_test() {
 deploy() {
     echo -e "${CLR_CYAN}${CLR_BOLD}"
     echo "=================================================================="
-    echo "          Restro PRO - Production Deployment Starting             "
+    echo "          Bong POS - Production Deployment Starting             "
     echo "=================================================================="
     echo -e "${CLR_RESET}"
 
@@ -178,7 +178,7 @@ deploy() {
     smoke_test
 
     echo -e "\n${CLR_GREEN}${CLR_BOLD}==================================================================${CLR_RESET}"
-    echo -e "${CLR_GREEN}${CLR_BOLD}         Restro PRO Deployment Successfully Completed!            ${CLR_RESET}"
+    echo -e "${CLR_GREEN}${CLR_BOLD}         Bong POS Deployment Successfully Completed!            ${CLR_RESET}"
     echo -e "${CLR_GREEN}${CLR_BOLD}==================================================================${CLR_RESET}"
     CURRENT_HOST=$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "127.0.0.1")
     PRIMARY_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
@@ -203,17 +203,17 @@ case "${1:-deploy}" in
     down|stop)
         check_prerequisites
         setup_environment
-        log_info "Stopping Restro PRO containers..."
+        log_info "Stopping Bong POS containers..."
         compose_cmd down
         log_success "All containers stopped cleanly."
         ;;
     restart)
         check_prerequisites
         setup_environment
-        log_info "Restarting Restro PRO stack..."
+        log_info "Restarting Bong POS stack..."
         compose_cmd restart
         wait_for_health
-        log_success "Restro PRO restarted."
+        log_success "Bong POS restarted."
         ;;
     status|ps)
         check_prerequisites

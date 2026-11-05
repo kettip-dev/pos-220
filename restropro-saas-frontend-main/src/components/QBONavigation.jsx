@@ -783,7 +783,7 @@ export default function QBONavigation({ children }) {
           {/* Circular Store Logo / Monogram */}
           <Link
             to="/dashboard/home"
-            title={storeName || "RestroPRO Home"}
+            title={storeName || "Bong POS Home"}
             className="w-10 h-10 rounded-full bg-[#2CA01C] hover:bg-[#258717] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 mb-2.5 shrink-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10"
           >
             {storeLogo ? (
@@ -1385,7 +1385,7 @@ export default function QBONavigation({ children }) {
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate">
-                      {storeName || "RestroPRO"}
+                      {storeName || "Bong POS"}
                     </h3>
                   </div>
                 </div>

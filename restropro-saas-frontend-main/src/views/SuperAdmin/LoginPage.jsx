@@ -141,7 +141,7 @@ export default function SuperAdminLoginPage() {
               <div className="flex justify-center mb-4">
                 <img
                   src={theme === "black" ? LogoDark : Logo}
-                  alt="Restro PRO Logo"
+                  alt="Bong POS Logo"
                   className="h-12 w-auto object-contain"
                 />
               </div>

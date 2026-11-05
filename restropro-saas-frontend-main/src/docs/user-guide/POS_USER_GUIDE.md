@@ -1,8 +1,8 @@
-# Restro PRO — POS User Guide
+# Bong POS — POS User Guide
 
-A step-by-step guide for cashiers, waiters, and managers using the Restro PRO Point of Sale.
+A step-by-step guide for cashiers, waiters, and managers using the Bong POS Point of Sale.
 
-> **New to Restro PRO?** Start with [Getting Started: from sign-up to your first completed order](GETTING_STARTED.md).
+> **New to Bong POS?** Start with [Getting Started: from sign-up to your first completed order](GETTING_STARTED.md).
 
 ---
 

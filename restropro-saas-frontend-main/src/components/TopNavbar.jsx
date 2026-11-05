@@ -348,7 +348,7 @@ export default function TopNavbar() {
             )}
           </div>
           <span className="font-bold text-sm tracking-wide text-white hidden sm:inline">
-            {storeName || "RestroPRO"}
+            {storeName || "Bong POS"}
           </span>
         </Link>
 

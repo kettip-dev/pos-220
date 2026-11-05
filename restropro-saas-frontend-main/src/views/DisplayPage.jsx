@@ -609,7 +609,7 @@ export default function DisplayPage() {
     storeSettings?.store_image || storeSettings?.image || storeSettings?.logo
       ? getImageURL(storeSettings.store_image || storeSettings.image || storeSettings.logo)
       : null;
-  const storeName = storeSettings?.store_name || t('pos.store', 'Restro PRO');
+  const storeName = storeSettings?.store_name || t('pos.store', 'Bong POS');
 
   return (
     <div className="h-screen max-h-screen w-screen flex flex-col bg-background text-restro-text overflow-hidden select-none">

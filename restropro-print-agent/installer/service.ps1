@@ -1,5 +1,5 @@
 <#
-  Registers the Restro print agent to run in the background on Windows.
+  Registers the Bong POS print agent to run in the background on Windows.
 
   It uses a Task Scheduler task running as SYSTEM instead of a classic
   service: it is built into Windows, needs no extra wrapper binary, starts at
@@ -72,7 +72,7 @@ function Register-Agent {
   $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
 
   Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $triggers -Settings $settings `
-    -Principal $principal -Description 'Relays Restro PRO print jobs to receipt and kitchen printers.' -Force | Out-Null
+    -Principal $principal -Description 'Relays Bong POS print jobs to receipt and kitchen printers.' -Force | Out-Null
 }
 
 switch ($Action) {

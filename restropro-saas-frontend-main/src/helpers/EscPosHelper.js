@@ -550,7 +550,7 @@ export async function testPrint80mm(storeSettings = {}, printSettings = {}) {
     tableId: "01",
     tableName: "Table 1",
     storeSettings: {
-      store_name: storeSettings.store_name || "RESTRO TEST STORE",
+      store_name: storeSettings.store_name || "BONG POS TEST STORE",
       address: storeSettings.address || "123 Restaurant Avenue, Suite 100",
       phone: storeSettings.phone || "+1 234 567 8900",
       email: storeSettings.email || "hello@restaurant.com",

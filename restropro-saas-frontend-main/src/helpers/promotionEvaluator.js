@@ -1,5 +1,5 @@
 /**
- * Client-side evaluation engine for Restro PRO Promotions & Coupons.
+ * Client-side evaluation engine for Bong POS Promotions & Coupons.
  * Perfectly mirrors backend logic for instant real-time cart recalculation without network lag.
  */
 

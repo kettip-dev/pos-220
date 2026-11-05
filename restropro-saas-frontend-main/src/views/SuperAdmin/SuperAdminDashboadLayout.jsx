@@ -16,7 +16,7 @@ export default function SuperAdminDashboadLayout() {
       <div className="flex min-h-screen items-center justify-center bg-white dark:bg-[#0D1117]">
         <div className="flex flex-col items-center gap-3">
           <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#2CA01C]" />
-          <span className="text-xs font-medium text-gray-500">Loading Restro Super Admin...</span>
+          <span className="text-xs font-medium text-gray-500">Loading Bong POS Super Admin...</span>
         </div>
       </div>
     );
