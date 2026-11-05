@@ -512,7 +512,7 @@ const BindoTableNode = memo(function BindoTableNode({
               className={`px-2 py-0.5 rounded-full border shadow-xs flex items-center gap-1.5 text-[10px] font-bold ${
                 effectiveDimmed
                   ? "bg-slate-100 dark:bg-zinc-800 border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400"
-                  : "bg-white/95 dark:bg-zinc-900/95 border-slate-200/90 dark:border-zinc-700 text-slate-800 dark:text-slate-100 backdrop-blur-xs"
+                  : "bg-white/95 dark:bg-zinc-900/95 border-slate-200/90 dark:border-zinc-700 text-slate-800 dark:text-slate-100"
               }`}
             >
               {isSplitInProgress ? (
