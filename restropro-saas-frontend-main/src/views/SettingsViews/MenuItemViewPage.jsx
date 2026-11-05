@@ -6,6 +6,7 @@ import {
   addMenuItemAddon,
   addMenuItemRecipeItem,
   addMenuItemVariant,
+  changeMenuItemAddonAvailability,
   changeMenuItemVisibility,
   deleteMenuItem,
   deleteMenuItemAddon,
@@ -490,6 +491,39 @@ export default function MenuItemViewPage() {
       console.error(error);
       toast.dismiss();
       toast.error(message);
+    }
+  }
+
+  // Addon availability (soft on/off — keeps order history & recipes intact)
+  const isAddonEnabled = (addon) =>
+    addon?.is_enabled === undefined ||
+    addon?.is_enabled === null ||
+    Number(addon.is_enabled) === 1;
+
+  async function handleToggleAddon(addon) {
+    const nextEnabled = !isAddonEnabled(addon);
+    const setAddonEnabled = (enabled) =>
+      setState((prev) => ({
+        ...prev,
+        addons: prev.addons.map((a) =>
+          a.id === addon.id ? { ...a, is_enabled: enabled ? 1 : 0 } : a
+        ),
+      }));
+
+    setAddonEnabled(nextEnabled); // optimistic
+    try {
+      await changeMenuItemAddonAvailability(id, addon.id, nextEnabled);
+      toast.success(
+        nextEnabled
+          ? `"${addon.title}" is available again`
+          : `"${addon.title}" hidden from POS & QR menu`
+      );
+    } catch (error) {
+      setAddonEnabled(!nextEnabled);
+      console.error(error);
+      toast.error(
+        error?.response?.data?.message || t("menu_items.something_went_wrong")
+      );
     }
   }
 
@@ -1373,19 +1407,20 @@ export default function MenuItemViewPage() {
             )}
           </div>
 
-          {/* ── Addons Card with Fast Inline Quick-Add ── */}
+          {/* ── Addons Card: quick-add + availability toggles ── */}
           <div className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#252525] p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="min-w-0">
                 <p className="text-sm font-bold uppercase tracking-wider text-restro-text">
                   {t("menu_item.show_addons")}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {state.addons?.length || 0} extra toppings or modifiers
-                  configured
+                  {state.addons?.length
+                    ? `${state.addons.filter(isAddonEnabled).length} of ${state.addons.length} available on POS & QR menu`
+                    : "Optional extras customers can add to this item"}
                 </p>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
                 {state.addons?.length || 0}
               </span>
             </div>
@@ -1397,19 +1432,25 @@ export default function MenuItemViewPage() {
                 value={inlineAddonTitle}
                 onChange={(e) => setInlineAddonTitle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleInlineAddAddon()}
-                placeholder="Addon title (e.g. Extra Cheese, Bacon, Oat Milk)..."
+                placeholder="Addon name (e.g. Extra Cheese, Oat Milk)"
                 className="min-h-[42px] flex-1 text-sm rounded-xl px-3.5 py-2 border border-restro-border-green bg-white dark:bg-black focus:outline-restro-border-green"
               />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={inlineAddonPrice}
-                onChange={(e) => setInlineAddonPrice(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleInlineAddAddon()}
-                placeholder={`+ Extra Price (${currency})`}
-                className="min-h-[42px] w-full sm:w-40 text-sm rounded-xl px-3.5 py-2 border border-restro-border-green bg-white dark:bg-black focus:outline-restro-border-green"
-              />
+              <div className="relative w-full sm:w-40">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
+                  +
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  value={inlineAddonPrice}
+                  onChange={(e) => setInlineAddonPrice(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleInlineAddAddon()}
+                  placeholder={`0.00 ${currency || ""}`.trim()}
+                  className="min-h-[42px] w-full text-sm rounded-xl pl-7 pr-3.5 py-2 border border-restro-border-green bg-white dark:bg-black focus:outline-restro-border-green"
+                />
+              </div>
               <button
                 type="button"
                 onClick={handleInlineAddAddon}
@@ -1426,50 +1467,114 @@ export default function MenuItemViewPage() {
                 extras.
               </p>
             ) : (
-              <div className="space-y-2">
-                {state.addons?.map((addon) => (
-                  <div
-                    key={addon.id}
-                    className="flex items-center justify-between p-3 rounded-xl transition hover:bg-restro-gray/40 border border-restro-border-green"
-                  >
-                    <div>
-                      <p className="text-sm font-bold text-restro-text">
-                        {addon.title}
-                      </p>
-                      <p className="text-xs font-semibold text-purple-600 dark:text-purple-400">
-                        {t("menu_item.price_increase")}: +{formatPrice(addon.price)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
+              <ul className="rounded-xl border border-restro-border-green divide-y divide-restro-border-green overflow-hidden">
+                {state.addons?.map((addon) => {
+                  const enabled = isAddonEnabled(addon);
+                  const isFree = !Number(addon.price);
+                  return (
+                    <li
+                      key={addon.id}
+                      className={clsx(
+                        "flex items-center gap-2 sm:gap-3 pl-1 pr-2 py-2 min-h-[60px] transition",
+                        enabled
+                          ? "hover:bg-restro-gray/40"
+                          : "bg-gray-50 dark:bg-white/[0.02]"
+                      )}
+                    >
+                      {/* Availability switch (42px touch target) */}
                       <button
                         type="button"
-                        title="Edit addon"
-                        onClick={() =>
-                          btnShowAddonUpdate(addon.id, addon.title, addon.price)
+                        role="switch"
+                        aria-checked={enabled}
+                        aria-label={`${enabled ? "Disable" : "Enable"} ${addon.title}`}
+                        title={
+                          enabled
+                            ? "Available — tap to hide"
+                            : "Hidden — tap to make available"
                         }
-                        className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
+                        onClick={() => handleToggleAddon(addon)}
+                        className="w-[56px] h-[42px] flex items-center justify-center shrink-0 rounded-xl active:scale-95 transition"
                       >
-                        <IconPencil stroke={iconStroke} size={16} />
+                        <span
+                          className={clsx(
+                            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                            enabled
+                              ? "bg-emerald-500"
+                              : "bg-gray-300 dark:bg-gray-600"
+                          )}
+                        >
+                          <span
+                            className={clsx(
+                              "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
+                              enabled ? "translate-x-[22px]" : "translate-x-0.5"
+                            )}
+                          />
+                        </span>
                       </button>
-                      <button
-                        type="button"
-                        title="Delete addon"
-                        onClick={() =>
-                          setDeleteConfirmState({
-                            type: "addon",
-                            payload: { addonId: addon.id },
-                            title: "Delete Addon?",
-                            description: `Delete addon "${addon.title}"?`,
-                          })
-                        }
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
+
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={clsx(
+                            "text-sm font-bold truncate",
+                            enabled ? "text-restro-text" : "text-gray-400"
+                          )}
+                        >
+                          {addon.title}
+                        </p>
+                        {!enabled && (
+                          <p className="text-[11px] font-semibold text-gray-400 flex items-center gap-1 mt-0.5">
+                            <IconEyeOff size={12} stroke={iconStroke} />
+                            Hidden on POS & QR menu
+                          </p>
+                        )}
+                      </div>
+
+                      <span
+                        className={clsx(
+                          "px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums shrink-0",
+                          !enabled
+                            ? "bg-gray-100 dark:bg-white/5 text-gray-400"
+                            : isFree
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                        )}
                       >
-                        <IconTrash stroke={iconStroke} size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        {isFree ? "Free" : `+${formatPrice(addon.price)}`}
+                      </span>
+
+                      <div className="flex items-center shrink-0">
+                        <button
+                          type="button"
+                          title="Edit addon"
+                          aria-label={`Edit ${addon.title}`}
+                          onClick={() =>
+                            btnShowAddonUpdate(addon.id, addon.title, addon.price)
+                          }
+                          className="w-[42px] h-[42px] rounded-xl flex items-center justify-center transition active:scale-95 text-gray-500 hover:text-restro-text hover:bg-restro-button-hover"
+                        >
+                          <IconPencil stroke={iconStroke} size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete addon"
+                          aria-label={`Delete ${addon.title}`}
+                          onClick={() =>
+                            setDeleteConfirmState({
+                              type: "addon",
+                              payload: { addonId: addon.id },
+                              title: "Delete Addon?",
+                              description: `Delete addon "${addon.title}"? Tip: switch it off instead to hide it temporarily.`,
+                            })
+                          }
+                          className="w-[42px] h-[42px] rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <IconTrash stroke={iconStroke} size={18} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
 

@@ -1,4 +1,4 @@
-const { addMenuItemDB, updateMenuItemDB, deleteMenuItemDB, addMenuItemAddonDB, updateMenuItemAddonDB, deleteMenuItemAddonDB, getMenuItemAddonsDB, getAllAddonsDB, addMenuItemVariantDB, updateMenuItemVariantDB, deleteMenuItemVariantDB, getMenuItemVariantsDB, getAllVariantsDB, getAllMenuItemsDB, getMenuItemDB, updateMenuItemImageDB, changeMenuItemVisibilityDB, getRecipeItemsDB, addRecipeItemDB, deleteRecipeItemDB, updateRecipeItemDB } = require("../services/menu_item.service");
+const { addMenuItemDB, updateMenuItemDB, deleteMenuItemDB, addMenuItemAddonDB, updateMenuItemAddonDB, deleteMenuItemAddonDB, changeMenuItemAddonAvailabilityDB, getMenuItemAddonsDB, getAllAddonsDB, addMenuItemVariantDB, updateMenuItemVariantDB, deleteMenuItemVariantDB, getMenuItemVariantsDB, getAllVariantsDB, getAllMenuItemsDB, getMenuItemDB, updateMenuItemImageDB, changeMenuItemVisibilityDB, getRecipeItemsDB, addRecipeItemDB, deleteRecipeItemDB, updateRecipeItemDB } = require("../services/menu_item.service");
 const { bingSearchImages } = require("../services/image_search.service");
 const { validateImageFile, getActiveStorageConfig, getStorageProvider, buildObjectKey, detectStorageType } = require("../utils/imageStorage");
 
@@ -459,6 +459,40 @@ exports.updateMenuItemAddon = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: req.__("something_went_wrong_try_later") // Translate message
+        });
+    }
+};
+exports.changeMenuItemAddonAvailability = async (req, res) => {
+    try {
+        const tenantId = req.user.tenant_id;
+        const itemId = req.params.id;
+        const addonId = req.params.addonId;
+        const { isEnabled } = req.body;
+
+        if (typeof isEnabled !== "boolean") {
+            return res.status(400).json({
+                success: false,
+                message: req.__("menu_item_addon_provide_required_details")
+            });
+        }
+
+        const affected = await changeMenuItemAddonAvailabilityDB(itemId, addonId, isEnabled, tenantId);
+        if (!affected) {
+            return res.status(404).json({
+                success: false,
+                message: req.__("no_addons_found_for_item")
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: req.__("menu_item_addon_updated"),
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: req.__("something_went_wrong_try_later")
         });
     }
 };
