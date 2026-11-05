@@ -20,6 +20,7 @@ import {
   IconLoader2,
   IconShoppingBag,
   IconHistory,
+  IconAlertTriangle,
 } from '@tabler/icons-react';
 import { clsx } from 'clsx';
 import { toast } from 'react-hot-toast';
@@ -492,6 +493,24 @@ export default function POSCustomerDrawer({
                       </button>
                     </div>
                   </div>
+
+                  {/* Allergy warning + staff notes (Customer 360) */}
+                  {selectedCustomer?.allergies && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-xl bg-rose-600 text-white">
+                      <IconAlertTriangle size={18} stroke={2.4} className="shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-wider opacity-90">
+                          {t('customer360.allergies', 'Allergies / dietary')}
+                        </p>
+                        <p className="text-sm font-bold break-words">{selectedCustomer.allergies}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedCustomer?.notes && (
+                    <p className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-gray-800 dark:text-slate-200 whitespace-pre-line break-words">
+                      {selectedCustomer.notes}
+                    </p>
+                  )}
 
                   {/* Customer Loyalty & Spend Metrics */}
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30">

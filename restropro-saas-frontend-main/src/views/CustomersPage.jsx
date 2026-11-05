@@ -1423,7 +1423,7 @@ export default function CustomersPage({ initialTab = "customers" }) {
                           <button
                             type="button"
                             onClick={() => navigate(`${phone}/insights`)}
-                            title={t("customers.insights", "View Insights")}
+                            title={t("customer360.open", "Customer 360")}
                             className="w-8 h-8 rounded-md text-slate-500 hover:text-emerald-700 hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center justify-center transition active:scale-95"
                           >
                             <IconChartBar size={16} stroke={iconStroke} />

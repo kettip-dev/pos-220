@@ -11,7 +11,7 @@ import KitchenPage from "./views/KitchenPage";
 import ReservationPage from "./views/ReservationPage";
 import CustomersPage from "./views/CustomersPage";
 import CustomerDuesPage from "./views/CustomerDuesPage";
-import CustomerInsightsPage from "./views/CustomerInsightsPage";
+import Customer360Page from "./views/Customer360Page";
 import InvoicesPage from "./views/InvoicesPage";
 import InvoiceAuditLogsPage from "./views/InvoiceAuditLogsPage";
 import UsersPage from "./views/UsersPage";
@@ -300,7 +300,7 @@ export default function App() {
                     SCOPES.MANAGE_CUSTOMERS,
                   ]}
                 >
-                  <CustomerInsightsPage />
+                  <Customer360Page />
                 </ScopeProtectedRoute>
               }
             />

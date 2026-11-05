@@ -2945,6 +2945,15 @@ export default function POSPage() {
                       {customer.phone}
                     </span>
                   )}
+                  {customer.allergies && (
+                    <span
+                      className="px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-black flex items-center gap-0.5 min-w-0"
+                      title={customer.allergies}
+                    >
+                      <IconAlertTriangleFilled size={11} className="shrink-0" />
+                      <span className="truncate max-w-[140px]">{customer.allergies}</span>
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">

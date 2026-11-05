@@ -235,7 +235,7 @@ function CustomerDuesContent() {
   );
 }
 
-function CustomerCreditPanel({ phone, money, onClose, onCollect, onChanged }) {
+export function CustomerCreditPanel({ phone, money, onClose, onCollect, onChanged }) {
   const { t } = useTranslation();
   const { data, error, isLoading, mutate } = useCustomerCredit(phone);
   const [isEditingLimit, setIsEditingLimit] = useState(false);
@@ -430,7 +430,7 @@ function CustomerCreditPanel({ phone, money, onClose, onCollect, onChanged }) {
   );
 }
 
-function CollectPaymentModal({ target, paymentTypes, currency, storeSettings, money, onClose, onDone }) {
+export function CollectPaymentModal({ target, paymentTypes, currency, storeSettings, money, onClose, onDone }) {
   const { t } = useTranslation();
   const [amount, setAmount] = useState(String(Number(target.outstanding || 0).toFixed(2)));
   const [paymentTypeId, setPaymentTypeId] = useState(paymentTypes.find((p) => Number(p.is_cash) === 1)?.id || paymentTypes[0]?.id || null);

@@ -113,3 +113,15 @@ export function useCustomerInvoices(phone, page = 1, limit = 10) {
     APIURL,
   };
 }
+
+/** Customer 360: profile, KPIs, habits, favourites, dues, reservations, feedback and timeline in one call. */
+export function useCustomer360(phone) {
+  const APIURL = phone ? `/customers/${encodeURIComponent(phone)}/360` : null;
+  const { data, error, isLoading, mutate } = useSWR(APIURL, fetcher);
+  return { data, error, isLoading, mutate, APIURL };
+}
+
+/** Save staff notes, allergy warning and tags for a customer. */
+export async function saveCustomerProfileNotes(phone, { notes, allergies, tags }) {
+  return ApiClient.post(`/customers/${encodeURIComponent(phone)}/profile-notes`, { notes, allergies, tags });
+}
