@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import clsx from "clsx";
+import { useTranslation } from "react-i18next";
 import {
   IconCheck,
   IconEyeOff,
@@ -27,8 +28,7 @@ import {
 
 export const ADDON_LIBRARY_PATH = "/dashboard/settings/menu-items/addons";
 
-const errMsg = (error, fallback = "Something went wrong") =>
-  error?.response?.data?.message || fallback;
+const errMsg = (error, fallback) => error?.response?.data?.message || fallback;
 
 const isOn = (v) => v === undefined || v === null || Number(v) === 1;
 
@@ -68,7 +68,10 @@ export function AddonSwitch({ checked, disabled, onChange, label }) {
  * Per item you can switch an add-on off or give it a different price.
  */
 export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatPrice, currency }) {
+  const { t } = useTranslation();
   const { data: library = [], mutate: mutateLibrary } = useAddonLibrary();
+  const fail = (error) => toast.error(errMsg(error, t("addons.error_generic")));
+  const priceText = (v) => (Number(v) ? `+${formatPrice(v)}` : t("addons.free"));
 
   const [query, setQuery] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -106,9 +109,9 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
       await refresh();
       setQuery("");
       setNewPrice("");
-      toast.success(`Added "${libraryAddon.title}"`);
+      toast.success(t("addons.added_named", { name: libraryAddon.title }));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     } finally {
       setBusy(false);
     }
@@ -117,12 +120,12 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
   const createAndAttach = async () => {
     const title = query.trim();
     if (!title) {
-      toast.error("Type an add-on name first");
+      toast.error(t("addons.type_name_first"));
       return;
     }
     if (exactMatch) {
       if (attachedLibraryIds.has(exactMatch.id)) {
-        toast(`"${exactMatch.title}" is already on this item`);
+        toast(t("addons.already_on_named", { name: exactMatch.title }));
       } else {
         await attach(exactMatch);
       }
@@ -130,7 +133,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
     }
     const price = newPrice === "" ? 0 : Number(newPrice);
     if (Number.isNaN(price) || price < 0) {
-      toast.error("Enter a valid price");
+      toast.error(t("addons.invalid_price"));
       return;
     }
     setBusy(true);
@@ -140,9 +143,9 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
       await refresh();
       setQuery("");
       setNewPrice("");
-      toast.success(`Created "${title}" and added it to this item`);
+      toast.success(t("addons.created_added_named", { name: title }));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     } finally {
       setBusy(false);
     }
@@ -159,10 +162,14 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
         const { [addon.id]: _drop, ...rest } = s;
         return rest;
       });
-      toast.success(next ? `"${addon.title}" available on this item` : `"${addon.title}" hidden on this item`);
+      toast.success(
+        next
+          ? t("addons.item_available_named", { name: addon.title })
+          : t("addons.item_hidden_named", { name: addon.title })
+      );
     } catch (error) {
       setLocalEnabled((s) => ({ ...s, [addon.id]: current }));
-      toast.error(errMsg(error));
+      fail(error);
     }
   };
 
@@ -173,7 +180,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
     if (!reset) {
       price = value === "" ? 0 : Number(value);
       if (Number.isNaN(price) || price < 0) {
-        toast.error("Enter a valid price");
+        toast.error(t("addons.invalid_price"));
         return;
       }
     }
@@ -181,9 +188,9 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
       const res = await setItemAddonPrice(itemId, addon.id, price);
       await onChanged?.();
       setPriceEdit(null);
-      toast.success(res.data?.message || "Saved");
+      toast.success(res.data?.message || t("addons.saved"));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     }
   };
 
@@ -192,9 +199,9 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
     try {
       await deleteMenuItemAddon(itemId, removeTarget.id);
       await refresh();
-      toast.success(`Removed "${removeTarget.title}" from this item`);
+      toast.success(t("addons.removed_from_item_named", { name: removeTarget.title }));
     } catch (error) {
-      toast.error(errMsg(error));
+      fail(error);
     } finally {
       setRemoveTarget(null);
     }
@@ -209,18 +216,18 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <p className="text-sm font-bold uppercase tracking-wider text-restro-text">Add-ons</p>
+          <p className="text-sm font-bold uppercase tracking-wider text-restro-text">{t("addons.title")}</p>
           <p className="text-xs text-gray-400 mt-0.5">
             {addons.length
-              ? `${enabledCount} of ${addons.length} available on POS & QR menu`
-              : "Pick extras from your shared add-on list"}
+              ? t("addons.item_subtitle_count", { available: enabledCount, total: addons.length })
+              : t("addons.item_subtitle_empty")}
           </p>
         </div>
         <Link
           to={ADDON_LIBRARY_PATH}
           className="min-h-[42px] px-3 rounded-xl border border-restro-border-green text-xs font-bold text-restro-text hover:bg-restro-button-hover flex items-center gap-1.5 shrink-0 transition active:scale-95"
         >
-          <IconSettings size={16} stroke={iconStroke} /> Manage list
+          <IconSettings size={16} stroke={iconStroke} /> {t("addons.manage_list")}
         </Link>
       </div>
 
@@ -238,7 +245,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && createAndAttach()}
-              placeholder="Search add-ons or type a new name"
+              placeholder={t("addons.picker_placeholder")}
               className="min-h-[42px] w-full text-sm rounded-xl pl-9 pr-3.5 py-2 border border-restro-border-green bg-white dark:bg-black focus:outline-restro-border-green"
             />
           </div>
@@ -268,7 +275,9 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
               className="min-h-[42px] px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition active:scale-95"
             >
               <IconPlus size={16} stroke={iconStroke} />
-              {exactMatch ? `Add "${exactMatch.title}"` : `Create "${query.trim()}"`}
+              {exactMatch
+                ? t("addons.add_named", { name: exactMatch.title })
+                : t("addons.create_named", { name: query.trim() })}
             </button>
           )}
         </div>
@@ -276,7 +285,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
         {available.length > 0 ? (
           <div className="mt-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
-              Tap to add
+              {t("addons.tap_to_add")}
             </p>
             <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto">
               {available.map((l) => (
@@ -291,12 +300,12 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                       ? "border-restro-border-green bg-white dark:bg-black text-restro-text hover:border-purple-400"
                       : "border-dashed border-gray-300 dark:border-gray-700 bg-transparent text-gray-400"
                   )}
-                  title={isOn(l.is_enabled) ? "Add to this item" : "Switched off in the add-on list"}
+                  title={isOn(l.is_enabled) ? t("addons.add_to_item") : t("addons.off_in_list")}
                 >
                   <IconPlus size={14} stroke={iconStroke} className="text-purple-500" />
                   {l.title}
                   <span className="px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-restro-gray text-gray-500 tabular-nums">
-                    {Number(l.price) ? `+${formatPrice(l.price)}` : "Free"}
+                    {priceText(l.price)}
                   </span>
                 </button>
               ))}
@@ -306,7 +315,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
           q === "" &&
           library.length > 0 && (
             <p className="mt-3 text-xs text-gray-400">
-              All add-ons from your list are already on this item.
+              {t("addons.all_added")}
             </p>
           )
         )}
@@ -315,7 +324,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
       {/* Selected add-ons */}
       {addons.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-4">
-          No add-ons on this item yet. Tap one above or type a new name.
+          {t("addons.item_empty")}
         </p>
       ) : (
         <ul className="rounded-xl border border-restro-border-green divide-y divide-restro-border-green overflow-hidden">
@@ -339,10 +348,10 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                   onChange={() => toggleItem(addon)}
                   label={
                     !libOn
-                      ? "Switched off for all items in the add-on list"
+                      ? t("addons.off_all_label")
                       : itemOn
-                      ? `Hide ${addon.title} on this item`
-                      : `Show ${addon.title} on this item`
+                      ? t("addons.hide_item_named", { name: addon.title })
+                      : t("addons.show_item_named", { name: addon.title })
                   }
                 />
 
@@ -353,19 +362,19 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                   {!libOn ? (
                     <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
                       <IconEyeOff size={12} stroke={iconStroke} />
-                      Off for all items ·{" "}
+                      {t("addons.off_all_items")} ·{" "}
                       <Link to={ADDON_LIBRARY_PATH} className="underline">
-                        change in list
+                        {t("addons.change_in_list")}
                       </Link>
                     </p>
                   ) : !itemOn ? (
                     <p className="text-[11px] font-semibold text-gray-400 flex items-center gap-1 mt-0.5">
                       <IconEyeOff size={12} stroke={iconStroke} />
-                      Hidden on this item
+                      {t("addons.hidden_this_item")}
                     </p>
                   ) : custom ? (
                     <p className="text-[11px] font-semibold text-gray-400 mt-0.5">
-                      Custom price · default {Number(addon.library_price) ? `+${formatPrice(addon.library_price)}` : "Free"}
+                      {t("addons.custom_price_default", { price: priceText(addon.library_price) })}
                     </p>
                   ) : null}
                 </div>
@@ -373,7 +382,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                 <button
                   type="button"
                   onClick={() => setPriceEdit({ addon, value: String(Number(addon.price || 0)) })}
-                  title="Change price for this item"
+                  title={t("addons.change_price_title")}
                   className={clsx(
                     "min-h-[42px] px-2.5 rounded-xl text-xs font-bold tabular-nums shrink-0 flex items-center gap-1 transition active:scale-95",
                     !live
@@ -384,14 +393,14 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                     custom && "ring-1 ring-inset ring-amber-400"
                   )}
                 >
-                  {isFree ? "Free" : `+${formatPrice(addon.price)}`}
+                  {priceText(addon.price)}
                   <IconPencil size={13} stroke={iconStroke} className="opacity-60" />
                 </button>
 
                 <button
                   type="button"
-                  title="Remove from this item"
-                  aria-label={`Remove ${addon.title} from this item`}
+                  title={t("addons.remove_from_item")}
+                  aria-label={t("addons.remove_from_item_named", { name: addon.title })}
                   onClick={() => setRemoveTarget(addon)}
                   className="w-[42px] h-[42px] rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
                 >
@@ -415,8 +424,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
           >
             <p className="text-base font-bold text-restro-text">{priceEdit.addon.title}</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Price on this item only. Default from add-on list:{" "}
-              {Number(priceEdit.addon.library_price) ? `+${formatPrice(priceEdit.addon.library_price)}` : "Free"}
+              {t("addons.price_modal_hint", { price: priceText(priceEdit.addon.library_price) })}
             </p>
             <div className="relative mt-4">
               <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
@@ -444,7 +452,7 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                   onClick={() => savePrice(true)}
                   className="min-h-[42px] flex-1 rounded-xl border border-restro-border-green text-xs font-bold text-restro-text hover:bg-restro-button-hover transition active:scale-95"
                 >
-                  Use default
+                  {t("addons.use_default")}
                 </button>
               )}
               <button
@@ -452,14 +460,14 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                 onClick={() => setPriceEdit(null)}
                 className="min-h-[42px] flex-1 rounded-xl border border-restro-border-green text-xs font-bold text-gray-500 hover:bg-restro-button-hover transition active:scale-95"
               >
-                Cancel
+                {t("addons.cancel")}
               </button>
               <button
                 type="button"
                 onClick={() => savePrice(false)}
                 className="min-h-[42px] flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
               >
-                <IconCheck size={16} stroke={iconStroke} /> Save
+                <IconCheck size={16} stroke={iconStroke} /> {t("addons.save")}
               </button>
             </div>
           </div>
@@ -471,10 +479,10 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
         isOpen={!!removeTarget}
         onClose={() => setRemoveTarget(null)}
         onConfirm={confirmRemove}
-        title="Remove add-on from this item?"
-        description="It stays in your add-on list and on other items."
+        title={t("addons.remove_title")}
+        description={t("addons.remove_desc")}
         itemName={removeTarget?.title}
-        confirmText="Remove"
+        confirmText={t("addons.remove_confirm")}
       />
     </div>
   );
