@@ -1,5 +1,6 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { getOrSetCache, invalidateTenantCatalog } = require("../utils/cache.util");
+const { linkUnlinkedAddons } = require("../utils/addonLibraryMigration");
 
 exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = null) => {
     const conn = await getMySqlPromiseConnection();
@@ -220,6 +221,7 @@ exports.addMenuItemAddonDB = async (itemId, title, price, tenantId) => {
         `;
 
         const [result] = await conn.query(sql, [itemId, title, price, tenantId]);
+        await linkUnlinkedAddons(conn, tenantId);
         await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
@@ -322,8 +324,14 @@ exports.getMenuItemAddonsDB = async (itemId, tenantId) => {
         try {
 
             const sql = `
-            SELECT id, item_id, title, price, is_enabled FROM menu_item_addons
-            WHERE item_id = ? AND tenant_id = ?;
+            SELECT mia.id, mia.item_id, mia.title, mia.price,
+              mia.library_addon_id, mia.has_custom_price, al.price AS library_price,
+              mia.is_enabled AS item_enabled, COALESCE(al.is_enabled, 1) AS library_enabled,
+              IF(mia.is_enabled = 1 AND COALESCE(al.is_enabled, 1) = 1, 1, 0) AS is_enabled
+            FROM menu_item_addons mia
+            LEFT JOIN addon_library al ON al.id = mia.library_addon_id AND al.tenant_id = mia.tenant_id
+            WHERE mia.item_id = ? AND mia.tenant_id = ?
+            ORDER BY mia.id ASC;
             `;
 
             const [result] = await conn.query(sql, [itemId, tenantId]);
@@ -344,8 +352,14 @@ exports.getAllAddonsDB = async (tenantId) => {
         try {
 
             const sql = `
-            SELECT id, item_id, title, price, is_enabled FROM menu_item_addons
-            WHERE tenant_id = ?;
+            SELECT mia.id, mia.item_id, mia.title, mia.price,
+              mia.library_addon_id, mia.has_custom_price, al.price AS library_price,
+              mia.is_enabled AS item_enabled, COALESCE(al.is_enabled, 1) AS library_enabled,
+              IF(mia.is_enabled = 1 AND COALESCE(al.is_enabled, 1) = 1, 1, 0) AS is_enabled
+            FROM menu_item_addons mia
+            LEFT JOIN addon_library al ON al.id = mia.library_addon_id AND al.tenant_id = mia.tenant_id
+            WHERE mia.tenant_id = ?
+            ORDER BY mia.id ASC;
             `;
 
             const [result] = await conn.query(sql, [tenantId]);
@@ -544,7 +558,9 @@ exports.getRecipeItemsDB = async (menuItemId, tenantId) => {
                 a.title AS addon_title,
                 ii.title AS ingredient_title,
                 ii.unit,
-                mir.quantity
+                mir.quantity,
+                'item' AS source,
+                NULL AS library_addon_id
             FROM
                 menu_item_recipes mir
             LEFT JOIN
@@ -557,9 +573,29 @@ exports.getRecipeItemsDB = async (menuItemId, tenantId) => {
                 inventory_items ii ON mir.inventory_item_id = ii.id
             WHERE
                 mir.menu_item_id = ? AND mir.tenant_id = ?
+            UNION ALL
+            SELECT
+                -alr.id AS id,
+                mia.item_id AS menu_item_id,
+                0 AS variant_id,
+                mia.id AS addon_id,
+                alr.inventory_item_id,
+                mi.title AS menu_item_title,
+                NULL AS variant_title,
+                mia.title AS addon_title,
+                ii.title AS ingredient_title,
+                ii.unit,
+                alr.quantity,
+                'library' AS source,
+                alr.library_addon_id
+            FROM addon_library_recipes alr
+            JOIN menu_item_addons mia ON mia.library_addon_id = alr.library_addon_id AND mia.tenant_id = alr.tenant_id
+            LEFT JOIN menu_items mi ON mi.id = mia.item_id
+            LEFT JOIN inventory_items ii ON ii.id = alr.inventory_item_id
+            WHERE mia.item_id = ? AND alr.tenant_id = ?
             `;
 
-            const [rows] = await conn.query(sql, [menuItemId, tenantId]);
+            const [rows] = await conn.query(sql, [menuItemId, tenantId, menuItemId, tenantId]);
             return rows;
         } catch (error) {
             console.error(error);
@@ -588,7 +624,9 @@ exports.getAllRecipeItemsDB = async (tenantId) => {
                 ii.unit,
                 ii.quantity as current_quantity,
                 ii.min_quantity_threshold,
-                mir.quantity as recipe_quantity
+                mir.quantity as recipe_quantity,
+                'item' AS source,
+                NULL AS library_addon_id
             FROM
                 menu_item_recipes mir
             LEFT JOIN
@@ -601,9 +639,31 @@ exports.getAllRecipeItemsDB = async (tenantId) => {
                 inventory_items ii ON mir.inventory_item_id = ii.id
             WHERE
                 mir.tenant_id = ?
+            UNION ALL
+            SELECT
+                -alr.id AS id,
+                mia.item_id AS menu_item_id,
+                0 AS variant_id,
+                mia.id AS addon_id,
+                alr.inventory_item_id,
+                mi.title AS menu_item_title,
+                NULL AS variant_title,
+                mia.title AS addon_title,
+                ii.title AS ingredient_title,
+                ii.unit,
+                ii.quantity as current_quantity,
+                ii.min_quantity_threshold,
+                alr.quantity as recipe_quantity,
+                'library' AS source,
+                alr.library_addon_id
+            FROM addon_library_recipes alr
+            JOIN menu_item_addons mia ON mia.library_addon_id = alr.library_addon_id AND mia.tenant_id = alr.tenant_id
+            LEFT JOIN menu_items mi ON mi.id = mia.item_id
+            LEFT JOIN inventory_items ii ON ii.id = alr.inventory_item_id
+            WHERE alr.tenant_id = ?
             `;
 
-            const [rows] = await conn.query(sql, [tenantId]);
+            const [rows] = await conn.query(sql, [tenantId, tenantId]);
             return rows;
         } catch (error) {
             console.error(error);

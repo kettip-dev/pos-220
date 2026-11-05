@@ -6,7 +6,6 @@ import {
   addMenuItemAddon,
   addMenuItemRecipeItem,
   addMenuItemVariant,
-  changeMenuItemAddonAvailability,
   changeMenuItemVisibility,
   deleteMenuItem,
   deleteMenuItemAddon,
@@ -17,7 +16,6 @@ import {
   removeMenuItemPhoto,
   selectMenuItemImageSuggestion,
   updateMenuItem,
-  updateMenuItemAddon,
   updateMenuItemRecipeItem,
   updateMenuItemVariant,
   uploadMenuItemPhoto,
@@ -54,6 +52,7 @@ import AsyncSelect from "react-select/async";
 import { useTheme } from "../../contexts/ThemeContext";
 import DeleteModal from "../../components/DeleteModal";
 import clsx from "clsx";
+import ItemAddonsCard, { ADDON_LIBRARY_PATH } from "../../components/menu/ItemAddonsCard";
 
 export default function MenuItemViewPage() {
   const { t } = useTranslation();
@@ -87,17 +86,12 @@ export default function MenuItemViewPage() {
   // Inline quick-add state for Variants & Addons
   const [inlineVariantTitle, setInlineVariantTitle] = useState("");
   const [inlineVariantPrice, setInlineVariantPrice] = useState("");
-  const [inlineAddonTitle, setInlineAddonTitle] = useState("");
-  const [inlineAddonPrice, setInlineAddonPrice] = useState("");
 
   // Legacy modal refs for editing variants/addons
   const variantIdRef = useRef();
   const variantTitleUpdateRef = useRef();
   const variantPriceUpdateRef = useRef();
 
-  const addonIdRef = useRef();
-  const addonTitleUpdateRef = useRef();
-  const addonPriceUpdateRef = useRef();
 
   // Image management state
   const [aiImageSuggestions, setAiImageSuggestions] = useState([]);
@@ -446,116 +440,6 @@ export default function MenuItemViewPage() {
         variantIdRef.current.value = null;
         variantTitleUpdateRef.current.value = null;
         variantPriceUpdateRef.current.value = null;
-
-        await _init(itemId);
-        toast.dismiss();
-        toast.success(res.data.message);
-      }
-    } catch (error) {
-      const message =
-        error?.response?.data?.message || t("menu_items.something_went_wrong");
-      console.error(error);
-      toast.dismiss();
-      toast.error(message);
-    }
-  }
-
-  // Addons Add & Update
-  async function handleInlineAddAddon() {
-    const addonTitle = inlineAddonTitle.trim();
-    const addonPrice = inlineAddonPrice !== "" ? Number(inlineAddonPrice) : 0;
-
-    if (!addonTitle) {
-      toast.error(t("menu_item.provide_addon_title_error"));
-      return;
-    }
-    if (addonPrice < 0) {
-      toast.error(t("menu_item.provide_valid_addon_price_error"));
-      return;
-    }
-
-    try {
-      toast.loading(t("menu_item.please_wait"));
-      const res = await addMenuItemAddon(id, addonTitle, addonPrice);
-
-      if (res.status === 200) {
-        setInlineAddonTitle("");
-        setInlineAddonPrice("");
-        await _init(itemId);
-        toast.dismiss();
-        toast.success(res.data.message);
-      }
-    } catch (error) {
-      const message =
-        error?.response?.data?.message || t("menu_items.something_went_wrong");
-      console.error(error);
-      toast.dismiss();
-      toast.error(message);
-    }
-  }
-
-  // Addon availability (soft on/off — keeps order history & recipes intact)
-  const isAddonEnabled = (addon) =>
-    addon?.is_enabled === undefined ||
-    addon?.is_enabled === null ||
-    Number(addon.is_enabled) === 1;
-
-  async function handleToggleAddon(addon) {
-    const nextEnabled = !isAddonEnabled(addon);
-    const setAddonEnabled = (enabled) =>
-      setState((prev) => ({
-        ...prev,
-        addons: prev.addons.map((a) =>
-          a.id === addon.id ? { ...a, is_enabled: enabled ? 1 : 0 } : a
-        ),
-      }));
-
-    setAddonEnabled(nextEnabled); // optimistic
-    try {
-      await changeMenuItemAddonAvailability(id, addon.id, nextEnabled);
-      toast.success(
-        nextEnabled
-          ? `"${addon.title}" is available again`
-          : `"${addon.title}" hidden from POS & QR menu`
-      );
-    } catch (error) {
-      setAddonEnabled(!nextEnabled);
-      console.error(error);
-      toast.error(
-        error?.response?.data?.message || t("menu_items.something_went_wrong")
-      );
-    }
-  }
-
-  const btnShowAddonUpdate = (addonId, aTitle, aPrice) => {
-    addonIdRef.current.value = addonId;
-    addonTitleUpdateRef.current.value = aTitle;
-    addonPriceUpdateRef.current.value = aPrice;
-    document.getElementById("modal-update-addon").showModal();
-  };
-
-  async function btnUpdateAddon() {
-    const addonId = addonIdRef.current.value;
-    const addonTitle = addonTitleUpdateRef.current.value?.trim();
-    const addonPrice = addonPriceUpdateRef.current.value || 0;
-
-    if (!addonTitle) {
-      toast.error(t("menu_item.provide_addon_title_error"));
-      return;
-    }
-    if (addonPrice < 0) {
-      toast.error(t("menu_item.provide_valid_addon_price_error"));
-      return;
-    }
-
-    try {
-      toast.loading(t("menu_item.please_wait"));
-      const res = await updateMenuItemAddon(id, addonId, addonTitle, addonPrice);
-
-      if (res.status === 200) {
-        addonIdRef.current.value = null;
-        addonTitleUpdateRef.current.value = null;
-        addonPriceUpdateRef.current.value = null;
 
         await _init(itemId);
         toast.dismiss();
@@ -1407,176 +1291,14 @@ export default function MenuItemViewPage() {
             )}
           </div>
 
-          {/* ── Addons Card: quick-add + availability toggles ── */}
-          <div className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#252525] p-5">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="min-w-0">
-                <p className="text-sm font-bold uppercase tracking-wider text-restro-text">
-                  {t("menu_item.show_addons")}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {state.addons?.length
-                    ? `${state.addons.filter(isAddonEnabled).length} of ${state.addons.length} available on POS & QR menu`
-                    : "Optional extras customers can add to this item"}
-                </p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
-                {state.addons?.length || 0}
-              </span>
-            </div>
-
-            {/* Inline Quick-Add Addon Row */}
-            <div className="flex flex-col sm:flex-row gap-2.5 mb-4 p-3 rounded-xl bg-restro-gray/50 border border-restro-border-green">
-              <input
-                type="text"
-                value={inlineAddonTitle}
-                onChange={(e) => setInlineAddonTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleInlineAddAddon()}
-                placeholder="Addon name (e.g. Extra Cheese, Oat Milk)"
-                className="min-h-[42px] flex-1 text-sm rounded-xl px-3.5 py-2 border border-restro-border-green bg-white dark:bg-black focus:outline-restro-border-green"
-              />
-              <div className="relative w-full sm:w-40">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
-                  +
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  inputMode="decimal"
-                  value={inlineAddonPrice}
-                  onChange={(e) => setInlineAddonPrice(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleInlineAddAddon()}
-                  placeholder={`0.00 ${currency || ""}`.trim()}
-                  className="min-h-[42px] w-full text-sm rounded-xl pl-7 pr-3.5 py-2 border border-restro-border-green bg-white dark:bg-black focus:outline-restro-border-green"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleInlineAddAddon}
-                className="min-h-[42px] px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 transition active:scale-95"
-              >
-                <IconPlus size={16} stroke={iconStroke} />
-                {t("menu_item.add_addon")}
-              </button>
-            </div>
-
-            {state.addons?.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">
-                No addons yet. Use the quick-add bar above to add optional
-                extras.
-              </p>
-            ) : (
-              <ul className="rounded-xl border border-restro-border-green divide-y divide-restro-border-green overflow-hidden">
-                {state.addons?.map((addon) => {
-                  const enabled = isAddonEnabled(addon);
-                  const isFree = !Number(addon.price);
-                  return (
-                    <li
-                      key={addon.id}
-                      className={clsx(
-                        "flex items-center gap-2 sm:gap-3 pl-1 pr-2 py-2 min-h-[60px] transition",
-                        enabled
-                          ? "hover:bg-restro-gray/40"
-                          : "bg-gray-50 dark:bg-white/[0.02]"
-                      )}
-                    >
-                      {/* Availability switch (42px touch target) */}
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={enabled}
-                        aria-label={`${enabled ? "Disable" : "Enable"} ${addon.title}`}
-                        title={
-                          enabled
-                            ? "Available — tap to hide"
-                            : "Hidden — tap to make available"
-                        }
-                        onClick={() => handleToggleAddon(addon)}
-                        className="w-[56px] h-[42px] flex items-center justify-center shrink-0 rounded-xl active:scale-95 transition"
-                      >
-                        <span
-                          className={clsx(
-                            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                            enabled
-                              ? "bg-emerald-500"
-                              : "bg-gray-300 dark:bg-gray-600"
-                          )}
-                        >
-                          <span
-                            className={clsx(
-                              "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
-                              enabled ? "translate-x-[22px]" : "translate-x-0.5"
-                            )}
-                          />
-                        </span>
-                      </button>
-
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={clsx(
-                            "text-sm font-bold truncate",
-                            enabled ? "text-restro-text" : "text-gray-400"
-                          )}
-                        >
-                          {addon.title}
-                        </p>
-                        {!enabled && (
-                          <p className="text-[11px] font-semibold text-gray-400 flex items-center gap-1 mt-0.5">
-                            <IconEyeOff size={12} stroke={iconStroke} />
-                            Hidden on POS & QR menu
-                          </p>
-                        )}
-                      </div>
-
-                      <span
-                        className={clsx(
-                          "px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums shrink-0",
-                          !enabled
-                            ? "bg-gray-100 dark:bg-white/5 text-gray-400"
-                            : isFree
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                        )}
-                      >
-                        {isFree ? "Free" : `+${formatPrice(addon.price)}`}
-                      </span>
-
-                      <div className="flex items-center shrink-0">
-                        <button
-                          type="button"
-                          title="Edit addon"
-                          aria-label={`Edit ${addon.title}`}
-                          onClick={() =>
-                            btnShowAddonUpdate(addon.id, addon.title, addon.price)
-                          }
-                          className="w-[42px] h-[42px] rounded-xl flex items-center justify-center transition active:scale-95 text-gray-500 hover:text-restro-text hover:bg-restro-button-hover"
-                        >
-                          <IconPencil stroke={iconStroke} size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete addon"
-                          aria-label={`Delete ${addon.title}`}
-                          onClick={() =>
-                            setDeleteConfirmState({
-                              type: "addon",
-                              payload: { addonId: addon.id },
-                              title: "Delete Addon?",
-                              description: `Delete addon "${addon.title}"? Tip: switch it off instead to hide it temporarily.`,
-                            })
-                          }
-                          className="w-[42px] h-[42px] rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 transition active:scale-95 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <IconTrash stroke={iconStroke} size={18} />
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          {/* ── Add-ons: picked from the shared add-on list ── */}
+          <ItemAddonsCard
+            itemId={itemId}
+            addons={state.addons || []}
+            onChanged={() => _init(itemId)}
+            formatPrice={formatPrice}
+            currency={currency}
+          />
 
           {/* ── Recipe / Inventory Card ── */}
           <div className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#252525] p-5">
@@ -1623,6 +1345,11 @@ export default function MenuItemViewPage() {
                             Addon: {item.addon_title}
                           </span>
                         )}
+                        {item.source === "library" && (
+                          <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                            From add-on list
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
                         Deducts:{" "}
@@ -1631,6 +1358,15 @@ export default function MenuItemViewPage() {
                         </span>
                       </p>
                     </div>
+                    {item.source === "library" ? (
+                      <Link
+                        to={ADDON_LIBRARY_PATH}
+                        title="This ingredient comes from the shared add-on. Edit it in the add-on list."
+                        className="min-h-[42px] px-3 rounded-xl border border-restro-border-green text-xs font-bold text-restro-text hover:bg-restro-button-hover flex items-center gap-1.5 shrink-0 transition active:scale-95"
+                      >
+                        <IconPencil stroke={iconStroke} size={14} /> Edit in add-ons
+                      </Link>
+                    ) : (
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
@@ -1697,6 +1433,7 @@ export default function MenuItemViewPage() {
                         <IconTrash stroke={iconStroke} size={16} />
                       </button>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1772,66 +1509,6 @@ export default function MenuItemViewPage() {
               </button>
               <button
                 onClick={btnUpdateVariant}
-                className="rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 ml-3 text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover"
-              >
-                {t("menu_item.save")}
-              </button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-
-      {/* Addon update dialog */}
-      <dialog
-        id="modal-update-addon"
-        className="modal modal-bottom sm:modal-middle"
-      >
-        <div className="modal-box border border-restro-border-green dark:rounded-2xl">
-          <h3 className="font-bold text-lg">{t("menu_item.update_addon")}</h3>
-          <div className="mt-4">
-            <input type="hidden" ref={addonIdRef} />
-            <label
-              htmlFor="addon-update-title"
-              className="mb-1 block text-gray-500 text-sm"
-            >
-              {t("menu_item.addon_title")}
-            </label>
-            <input
-              id="addon-update-title"
-              ref={addonTitleUpdateRef}
-              type="text"
-              name="title"
-              className="text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray"
-              placeholder={t("menu_item.addon_title")}
-            />
-          </div>
-          <div className="my-4">
-            <label
-              htmlFor="addon-update-price"
-              className="mb-1 block text-gray-500 text-sm"
-            >
-              {t("menu_item.addon_price")} ({currency})
-            </label>
-            <input
-              id="addon-update-price"
-              ref={addonPriceUpdateRef}
-              type="number"
-              step="0.01"
-              name="price"
-              className="text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray"
-              placeholder={t("menu_item.addon_price")}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {t("menu_item.final_price_note")}
-            </p>
-          </div>
-          <div className="modal-action">
-            <form method="dialog">
-              <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text">
-                {t("menu_item.close")}
-              </button>
-              <button
-                onClick={btnUpdateAddon}
                 className="rounded-xl transition active:scale-95 hover:shadow-lg px-4 py-3 ml-3 text-white border border-restro-border-green bg-restro-green hover:bg-restro-green-button-hover"
               >
                 {t("menu_item.save")}

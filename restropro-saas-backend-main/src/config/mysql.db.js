@@ -23,6 +23,7 @@ const { ensureRegisterSchema } = require("../utils/registerMigration");
 const { ensureCustomerCreditSchema } = require("../utils/customerCreditMigration");
 const { ensureCustomer360Schema } = require("../utils/customer360Migration");
 const { ensureAddonAvailabilitySchema } = require("../utils/addonAvailabilityMigration");
+const { ensureAddonLibrarySchema } = require("../utils/addonLibraryMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -119,9 +120,15 @@ ensureCustomer360Schema(pool).catch((err) => {
   console.error("[Migration] Error ensuring customer 360 schema:", err);
 });
 
-ensureAddonAvailabilitySchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring addon availability schema:", err);
-});
+// Add-on library extends menu_item_addons, so it waits for the availability column.
+ensureAddonAvailabilitySchema(pool)
+  .catch((err) => {
+    console.error("[Migration] Error ensuring addon availability schema:", err);
+  })
+  .then(() => ensureAddonLibrarySchema(pool))
+  .catch((err) => {
+    console.error("[Migration] Error ensuring addon library schema:", err);
+  });
 
 // Pay-later extends register_payments.source and invoice_audit_log.action, so it waits for the register schema.
 splitBillSchemaReady
