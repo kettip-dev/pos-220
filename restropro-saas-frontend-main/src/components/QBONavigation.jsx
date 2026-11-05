@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
@@ -491,39 +492,87 @@ export function getQBOAppCategories(t, options = {}) {
   ];
 }
 
-// Rail tile: icon chip + label. Labels wrap to 2 lines (no uppercase/tracking) so Khmer clusters render intact.
-function RailButton({ active, icon, label, onClick, title }) {
+// VS Code–style tooltip for the icon rail: dark label with an arrow, shown to the right
+// of the hovered (or keyboard-focused) item. Rendered in a portal with fixed positioning
+// so the rail's scroll container can't clip it. Touch taps don't trigger it.
+function RailTooltip({ label, children, className }) {
+  const anchorRef = useRef(null);
+  const timerRef = useRef(null);
+  const [pos, setPos] = useState(null);
+
+  const show = useCallback((delay) => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPos({ top: r.top + r.height / 2, left: r.right + 8 });
+    }, delay);
+  }, []);
+
+  const hide = useCallback(() => {
+    clearTimeout(timerRef.current);
+    setPos(null);
+  }, []);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title || label}
-      className="group relative w-full min-h-[56px] flex flex-col items-center justify-center gap-1 px-1 py-1.5 rounded-xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2CA01C]/50 active:scale-95 transition"
+    <div
+      ref={anchorRef}
+      className={className}
+      onPointerEnter={(e) => e.pointerType !== "touch" && show(250)}
+      onPointerLeave={hide}
+      onPointerDown={hide}
+      onFocus={(e) => e.target.matches?.(":focus-visible") && show(0)}
+      onBlur={hide}
     >
-      {active && (
-        <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-[#2CA01C] rounded-r-full" />
-      )}
-      <span
-        className={clsx(
-          "w-11 h-8 rounded-full flex items-center justify-center transition-colors",
-          active
-            ? "bg-[#2CA01C]/10 text-[#2CA01C] dark:bg-[#2CA01C]/20"
-            : "text-gray-500 dark:text-slate-400 group-hover:bg-gray-100 group-hover:text-gray-900 dark:group-hover:bg-slate-800 dark:group-hover:text-white"
+      {children}
+      {pos && label &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{ top: pos.top, left: pos.left }}
+            className="fixed z-[200] -translate-y-1/2 pointer-events-none animate-in fade-in duration-100"
+          >
+            <span className="absolute -left-[5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rotate-45 bg-[#1F2937] dark:bg-[#2B3A4F] border-l border-b border-black/10 dark:border-white/10" />
+            <span className="relative block whitespace-nowrap rounded-md bg-[#1F2937] dark:bg-[#2B3A4F] px-2.5 py-1.5 text-[12px] font-medium leading-normal text-white shadow-lg ring-1 ring-black/10 dark:ring-white/10">
+              {label}
+            </span>
+          </div>,
+          document.body
         )}
+    </div>
+  );
+}
+
+// Rail tile: icon only (like the VS Code activity bar). The label shows as a tooltip on hover.
+function RailButton({ active, icon, label, onClick, title }) {
+  const tip = title || label;
+  return (
+    <RailTooltip label={tip} className="w-full">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={tip}
+        aria-current={active ? "page" : undefined}
+        className="group relative w-full h-[48px] flex items-center justify-center rounded-xl cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2CA01C]/50 active:scale-95 transition"
       >
-        {icon}
-      </span>
-      <span
-        className={clsx(
-          "w-full text-[11px] leading-[1.35] text-center line-clamp-2 break-words transition-colors",
-          active
-            ? "font-semibold text-gray-900 dark:text-white"
-            : "font-medium text-gray-600 dark:text-slate-400 group-hover:text-gray-900 dark:group-hover:text-white"
+        {active && (
+          <span className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-[#2CA01C] rounded-r-full" />
         )}
-      >
-        {label}
-      </span>
-    </button>
+        <span
+          className={clsx(
+            "w-[42px] h-[42px] rounded-xl flex items-center justify-center transition-colors",
+            active
+              ? "bg-[#2CA01C]/10 text-[#2CA01C] dark:bg-[#2CA01C]/20"
+              : "text-gray-500 dark:text-slate-400 group-hover:bg-gray-100 group-hover:text-gray-900 dark:group-hover:bg-slate-800 dark:group-hover:text-white"
+          )}
+        >
+          {icon}
+        </span>
+      </button>
+    </RailTooltip>
   );
 }
 
@@ -782,14 +831,15 @@ export default function QBONavigation({ children }) {
   return (
     <div className="flex min-h-screen w-full bg-white dark:bg-[#08101D] text-foreground font-sans">
       {/* 1. FAR-LEFT ICON RAIL (Desktop & Tablet >= md) */}
-      <aside className="hidden md:flex flex-col items-center w-[74px] shrink-0 bg-white dark:bg-[#0B1522] border-r border-[#E3E5E8] dark:border-slate-800/90 h-screen sticky top-0 z-50 select-none py-3 justify-between">
+      <aside className="hidden md:flex flex-col items-center w-[64px] shrink-0 bg-white dark:bg-[#0B1522] border-r border-[#E3E5E8] dark:border-slate-800/90 h-screen sticky top-0 z-50 select-none py-3 justify-between">
         {/* Top: Logo & + Create */}
         <div className="w-full flex flex-col items-center shrink-0">
           {/* Circular Store Logo / Monogram */}
+          <RailTooltip label={storeName || "Bong POS Home"} className="mb-2.5 shrink-0">
           <Link
             to="/dashboard/home"
-            title={storeName || "Bong POS Home"}
-            className="w-10 h-10 rounded-full bg-[#2CA01C] hover:bg-[#258717] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 mb-2.5 shrink-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10"
+            aria-label={storeName || "Bong POS Home"}
+            className="w-10 h-10 rounded-full bg-[#2CA01C] hover:bg-[#258717] flex items-center justify-center text-white shadow-xs transition-transform active:scale-95 shrink-0 overflow-hidden ring-1 ring-black/5 dark:ring-white/10"
           >
             {storeLogo ? (
               <img
@@ -808,11 +858,12 @@ export default function QBONavigation({ children }) {
               </svg>
             )}
           </Link>
+          </RailTooltip>
 
           {/* + Create Button */}
-          <div className="w-full px-1 shrink-0 mb-1">
+          <RailTooltip label={t("quick_new.create", "Create")} className="w-full px-1 shrink-0 mb-1">
             <QuickNewMenu qboRail={true} />
-          </div>
+          </RailTooltip>
         </div>
 
         {/* Middle: Rail Items */}
@@ -837,15 +888,16 @@ export default function QBONavigation({ children }) {
             <div className="w-full mt-2 pt-2 flex flex-col items-center gap-0.5 px-1.5">
               <div className="w-full flex items-center gap-1 mb-1 px-0.5">
                 <span className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
-                <button
-                  type="button"
-                  onClick={() => setCustomiseModalOpen(true)}
-                  title={t("navbar.customise_pinned", "Customise pinned apps")}
-                  aria-label={t("navbar.customise_pinned", "Customise pinned apps")}
-                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white active:scale-95 transition cursor-pointer"
-                >
-                  <IconPin size={14} stroke={2} />
-                </button>
+                <RailTooltip label={t("navbar.customise_pinned", "Customise pinned apps")} className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setCustomiseModalOpen(true)}
+                    aria-label={t("navbar.customise_pinned", "Customise pinned apps")}
+                    className="inline-flex items-center justify-center w-7 h-7 rounded-full text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white active:scale-95 transition cursor-pointer"
+                  >
+                    <IconPin size={14} stroke={2} />
+                  </button>
+                </RailTooltip>
                 <span className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
               </div>
 

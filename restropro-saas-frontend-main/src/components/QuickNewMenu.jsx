@@ -165,7 +165,6 @@ export default function QuickNewMenu({ isCollapsed = false, compact = false, qbo
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          title={t("quick_new.create", "Create")}
           aria-label={t("quick_new.create", "Create")}
           className="group w-full flex items-center justify-center py-1 cursor-pointer select-none focus:outline-none"
         >
