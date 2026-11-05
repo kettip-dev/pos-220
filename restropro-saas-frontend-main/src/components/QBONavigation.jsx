@@ -30,7 +30,6 @@ import {
   IconTruck,
   IconLayoutGrid,
   IconPin,
-  IconPencil,
   IconTag,
 } from "@tabler/icons-react";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
@@ -843,10 +842,9 @@ export default function QBONavigation({ children }) {
                   onClick={() => setCustomiseModalOpen(true)}
                   title={t("navbar.customise_pinned", "Customise pinned apps")}
                   aria-label={t("navbar.customise_pinned", "Customise pinned apps")}
-                  className="group shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white active:scale-95 transition cursor-pointer"
+                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-gray-400 dark:text-slate-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-slate-800 dark:hover:text-white active:scale-95 transition cursor-pointer"
                 >
-                  <IconPin size={14} stroke={2} className="group-hover:hidden" />
-                  <IconPencil size={14} stroke={2} className="hidden group-hover:block" />
+                  <IconPin size={14} stroke={2} />
                 </button>
                 <span className="flex-1 h-px bg-gray-200 dark:bg-slate-800" />
               </div>
