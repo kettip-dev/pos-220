@@ -303,7 +303,8 @@ exports.getCustomerDB = async(phone, tenantId) => {
                 cg.target_category_ids AS group_target_category_ids,
                 cg.min_order_amount AS group_min_order_amount,
                 cg.max_discount_cap AS group_max_discount_cap,
-                c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at 
+                c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at,
+                c.notes, c.allergies, c.tags 
             FROM customers c
             LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
             WHERE c.phone = ? AND c.tenant_id = ?
@@ -348,7 +349,8 @@ exports.searchCustomerDB = async(searchString, scope) => {
                 cg.target_category_ids AS group_target_category_ids,
                 cg.min_order_amount AS group_min_order_amount,
                 cg.max_discount_cap AS group_max_discount_cap,
-                c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at${businessColumn} 
+                c.points_balance, c.lifetime_points_earned, c.membership_tier, c.created_at,
+                c.notes, c.allergies, c.tags${businessColumn} 
             FROM customers c
             LEFT JOIN customer_groups cg ON cg.id = c.customer_group_id AND cg.tenant_id = c.tenant_id
             WHERE (${phoneSql} OR c.name LIKE ?) AND ${tenantSql}

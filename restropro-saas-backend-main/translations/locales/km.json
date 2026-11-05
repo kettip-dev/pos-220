@@ -218,5 +218,7 @@
 	"credit_payment_recorded": "បានកត់ត្រាការបង់ប្រាក់",
 	"credit_write_off_reason_required": "សូមបញ្ចូលមូលហេតុនៃការលុបចោលបំណុល",
 	"credit_written_off": "បានលុបចោលបំណុល",
-	"credit_limit_saved": "បានរក្សាទុកដែនកំណត់ឥណទាន"
+	"credit_limit_saved": "បានរក្សាទុកដែនកំណត់ឥណទាន",
+	"customer_tags_invalid": "ស្លាកត្រូវតែជាបញ្ជី",
+	"customer_profile_notes_saved": "បានរក្សាទុកកំណត់ចំណាំអតិថិជន"
 }

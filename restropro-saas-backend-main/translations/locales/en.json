@@ -218,5 +218,7 @@
 	"credit_payment_recorded": "Payment recorded",
 	"credit_write_off_reason_required": "Give a reason for the write-off",
 	"credit_written_off": "Balance written off",
-	"credit_limit_saved": "Credit limit saved"
+	"credit_limit_saved": "Credit limit saved",
+	"customer_tags_invalid": "Tags must be a list",
+	"customer_profile_notes_saved": "Customer notes saved"
 }

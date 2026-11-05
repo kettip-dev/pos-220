@@ -17,6 +17,10 @@ const {
   setCustomerCreditLimit,
 } = require("../controllers/customer_credit.controller");
 const {
+  getCustomer360,
+  updateCustomerProfileNotes,
+} = require("../controllers/customer360.controller");
+const {
   addCustomer,
   getCustomers,
   updateCustomer,
@@ -139,6 +143,29 @@ router.get(
   authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS]),
   requiresSingleBusiness,
   getCustomerInvoices
+);
+
+// ─── Customer 360 ─────────────────────────────────────────
+
+router.get(
+  "/:id/360",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS]),
+  requiresSingleBusiness,
+  getCustomer360
+);
+
+// Notes/allergies are also editable from the POS so a cashier can record them at the counter.
+router.post(
+  "/:id/profile-notes",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS, SCOPES.POS]),
+  requiresSingleBusiness,
+  updateCustomerProfileNotes
 );
 
 // ─── Pay Later (customer credit / house accounts) ─────────
