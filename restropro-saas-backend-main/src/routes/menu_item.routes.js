@@ -15,6 +15,7 @@ const {
   addMenuItemAddon,
   updateMenuItemAddon,
   deleteMenuItemAddon,
+  changeMenuItemAddonAvailability,
   getMenuItemAddons,
   getAllAddons,
   addMenuItemVariant,
@@ -162,6 +163,14 @@ router.post(
   isSubscriptionActive,
   authorize([SCOPES.SETTINGS]),
   updateMenuItemAddon
+);
+router.patch(
+  "/addons/:id/availability/:addonId",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  changeMenuItemAddonAvailability
 );
 router.delete(
   "/addons/:id/delete/:addonId",

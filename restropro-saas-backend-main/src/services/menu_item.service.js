@@ -260,6 +260,33 @@ exports.updateMenuItemAddonDB = async (itemId, addonId, title, price, tenantId) 
 };
 
 /**
+ * Enable / disable an addon without deleting it (keeps order history & recipes intact).
+ * @param {number} itemId Menu Item ID
+ * @param {number} addonId Addon ID
+ * @param {boolean} isEnabled
+ * @returns {Promise<number>} affected rows
+ *  */
+exports.changeMenuItemAddonAvailabilityDB = async (itemId, addonId, isEnabled, tenantId) => {
+    const conn = await getMySqlPromiseConnection();
+    try {
+        const sql = `
+        UPDATE menu_item_addons
+        SET is_enabled = ?
+        WHERE id = ? AND item_id = ? AND tenant_id = ?
+        `;
+
+        const [result] = await conn.query(sql, [isEnabled ? 1 : 0, addonId, itemId, tenantId]);
+        await invalidateTenantCatalog(tenantId);
+        return result.affectedRows;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    } finally {
+        conn.release();
+    }
+};
+
+/**
  * @param {number} itemId Menu Item ID
  * @param {number} addonId Addon ID
  * @returns {Promise<void>}
@@ -295,7 +322,7 @@ exports.getMenuItemAddonsDB = async (itemId, tenantId) => {
         try {
 
             const sql = `
-            SELECT id, item_id, title, price FROM menu_item_addons
+            SELECT id, item_id, title, price, is_enabled FROM menu_item_addons
             WHERE item_id = ? AND tenant_id = ?;
             `;
 
@@ -317,7 +344,7 @@ exports.getAllAddonsDB = async (tenantId) => {
         try {
 
             const sql = `
-            SELECT id, item_id, title, price FROM menu_item_addons
+            SELECT id, item_id, title, price, is_enabled FROM menu_item_addons
             WHERE tenant_id = ?;
             `;
 

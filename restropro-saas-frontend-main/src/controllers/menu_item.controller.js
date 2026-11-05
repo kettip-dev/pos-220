@@ -174,6 +174,14 @@ export async function updateMenuItemAddon(itemId, addonId, title, price) {
   }
 }
 
+export async function changeMenuItemAddonAvailability(itemId, addonId, isEnabled) {
+  const response = await ApiClient.patch(
+    `/menu-items/addons/${itemId}/availability/${addonId}`,
+    { isEnabled }
+  );
+  return response;
+}
+
 export async function deleteMenuItemAddon(itemId, addonId) {
   try {
     const response = await ApiClient.delete(`/menu-items/addons/${itemId}/delete/${addonId}`);

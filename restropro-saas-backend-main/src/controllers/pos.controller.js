@@ -45,7 +45,7 @@ exports.getPOSInitData = async (req, res) => {
     ]);
 
     const formattedMenuItems = menuItems.map((item) => {
-      const itemAddons = addons.filter((addon) => addon.item_id == item.id);
+      const itemAddons = addons.filter((addon) => addon.item_id == item.id && addon.is_enabled !== 0);
       const itemVariants = variants.filter(
         (variant) => variant.item_id == item.id
       );
