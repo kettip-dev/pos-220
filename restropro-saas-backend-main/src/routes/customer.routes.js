@@ -8,6 +8,14 @@ const {
 } = require("../middlewares/auth.middleware");
 const { requiresSingleBusiness } = require("../middlewares/data_scope.middleware");
 const { SCOPES } = require("../config/user.config");
+const { attachRegisterSession } = require("../middlewares/register.middleware");
+const {
+  getOutstandingCustomers,
+  getCustomerCredit,
+  collectCustomerPayment,
+  writeOffInvoiceBalance,
+  setCustomerCreditLimit,
+} = require("../controllers/customer_credit.controller");
 const {
   addCustomer,
   getCustomers,
@@ -131,6 +139,52 @@ router.get(
   authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS]),
   requiresSingleBusiness,
   getCustomerInvoices
+);
+
+// ─── Pay Later (customer credit / house accounts) ─────────
+
+const creditBase = [isLoggedIn, isAuthenticated, isSubscriptionActive];
+
+router.get(
+  "/credit/outstanding",
+  ...creditBase,
+  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.POS]),
+  requiresSingleBusiness,
+  getOutstandingCustomers
+);
+
+router.get(
+  "/:id/credit",
+  ...creditBase,
+  authorize([SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.POS]),
+  requiresSingleBusiness,
+  getCustomerCredit
+);
+
+// Money moves into a drawer, so the register must be open when sessions are enforced.
+router.post(
+  "/:id/credit/payments",
+  ...creditBase,
+  authorize([SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS, SCOPES.POS]),
+  requiresSingleBusiness,
+  attachRegisterSession,
+  collectCustomerPayment
+);
+
+router.post(
+  "/:id/credit/write-off",
+  ...creditBase,
+  authorize([SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS]),
+  requiresSingleBusiness,
+  writeOffInvoiceBalance
+);
+
+router.post(
+  "/:id/credit-limit",
+  ...creditBase,
+  authorize([SCOPES.CUSTOMERS, SCOPES.MANAGE_CUSTOMERS]),
+  requiresSingleBusiness,
+  setCustomerCreditLimit
 );
 
 module.exports = router;

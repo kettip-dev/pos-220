@@ -550,6 +550,11 @@ export default function OrdersPage() {
     }
   };
 
+  // The customer lives on each order, not on the group; the drawer needs it for loyalty and Pay Later.
+  const drawerFirstOrder = paymentDrawerState.orderGroup?.orders?.find((o) => o.customer_id) || null;
+  const drawerCustomerPhone = paymentDrawerState.orderGroup?.customer_id || drawerFirstOrder?.customer_id || null;
+  const drawerCustomerName = paymentDrawerState.orderGroup?.customer_name || drawerFirstOrder?.customer_name || "";
+
   // ── Payment Settlement Flow (POSPaymentDrawer) ──
   const handleOpenPayDrawer = async (orderIds, orderGroup) => {
     try {
@@ -661,7 +666,8 @@ export default function OrdersPage() {
       orderGroup,
     } = paymentDrawerState;
 
-    if (!selectedPaymentType) {
+    const isPayLater = Boolean(tenderData?.payLater);
+    if (!selectedPaymentType && !isPayLater) {
       toast.error(t("orders.select_payment_method", "Please select a payment method"));
       return;
     }
@@ -685,7 +691,9 @@ export default function OrdersPage() {
         orderGroup?.customer_id || orderGroup?.orders?.[0]?.customer_id || null,
         paymentDrawerState.customerGroupId,
         paymentDrawerState.customerGroupName,
-        paymentDrawerState.customerGroupDiscountTotal
+        paymentDrawerState.customerGroupDiscountTotal,
+        isPayLater ? tenderData?.payments || [] : null,
+        isPayLater ? tenderData.payLater : null
       );
 
       if (res.status === 200) {
@@ -761,6 +769,14 @@ export default function OrdersPage() {
               tenderData?.changeTotalUSD ??
               Math.max(0, (parseFloat(paymentDrawerState.tenderedAmount) || 0) - totalPayable),
             invoiceNo: res?.data?.invoiceNo || res?.data?.invoiceId,
+            ...(isPayLater
+              ? {
+                  paymentMethod: t("pos.pay_later", "Pay Later"),
+                  paymentStatus: "unpaid",
+                  billingTag: `PAY LATER - DUE ${currency}${Number(tenderData?.payLaterBalance || 0).toFixed(2)}`,
+                  dualTenderInfo: tenderData,
+                }
+              : {}),
             orderIds: orderIds.join(", "),
             tokenNo: orderGroup?.orders?.map((o) => o.token_no)?.join(", ") || "",
           });
@@ -1459,8 +1475,8 @@ export default function OrdersPage() {
         onPayAndComplete={handleConfirmPayAndComplete}
         isProcessing={paymentDrawerState.isSubmitting}
         cartItems={paymentDrawerState.cartItems}
-        customer={paymentDrawerState.orderGroup?.customer_id ? { phone: paymentDrawerState.orderGroup.customer_id, name: paymentDrawerState.orderGroup.customer_name } : null}
-        customerType={paymentDrawerState.orderGroup?.customer_id ? "CUSTOMER" : "WALKIN"}
+        customer={drawerCustomerPhone ? { phone: drawerCustomerPhone, name: drawerCustomerName } : null}
+        customerType={drawerCustomerPhone ? "CUSTOMER" : "WALKIN"}
         tableTitle={
           paymentDrawerState.orderGroup?.table_title ||
           paymentDrawerState.orderGroup?.orders?.[0]?.delivery_type?.toUpperCase() ||

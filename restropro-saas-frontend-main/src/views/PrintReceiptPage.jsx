@@ -244,6 +244,31 @@ export default function PrintReceiptPage() {
         </div>
       )}
 
+      {/* Pay Later: what is still owed, and a line for the customer to sign */}
+      {dualTenderInfo?.payLater && (
+        <div className="border-t-2 border-black mt-2 pt-2 text-xs space-y-1">
+          <p className="text-center font-bold uppercase tracking-wider">*** Pay Later / On Account ***</p>
+          {Number(dualTenderInfo.payLaterPaidNow) > 0 && (
+            <div className="flex justify-between">
+              <p>Paid now:</p>
+              <p className="font-mono">{currency}{Number(dualTenderInfo.payLaterPaidNow).toFixed(2)}</p>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-sm">
+            <p>BALANCE DUE:</p>
+            <p className="font-mono">{currency}{Number(dualTenderInfo.payLaterBalance || 0).toFixed(2)}</p>
+          </div>
+          {dualTenderInfo.payLaterDueDate && (
+            <div className="flex justify-between">
+              <p>Due by:</p>
+              <p className="font-mono">{dualTenderInfo.payLaterDueDate}</p>
+            </div>
+          )}
+          <p className="pt-6 border-b border-black"></p>
+          <p className="text-center text-[10px]">Customer signature{customer?.name ? ` (${customer.name})` : ""}</p>
+        </div>
+      )}
+
       {customer && (Number(loyaltyPointsEarned || 0) > 0 || Number(loyaltyPointsRedeemed || 0) > 0) && (
         <div className="border-t border-dashed mt-2 pt-2 text-xs text-center space-y-0.5">
           <p className="font-bold uppercase tracking-wider text-[10px] text-gray-600">⭐ Customer Rewards ⭐</p>

@@ -20,6 +20,7 @@ const { ensureCustomerGroupSchema } = require("../utils/customerGroupMigration")
 const { ensureKitchenModeSchema } = require("../utils/kitchenModeMigration");
 const { ensurePrintAgentsSchema } = require("../utils/printAgentsMigration");
 const { ensureRegisterSchema } = require("../utils/registerMigration");
+const { ensureCustomerCreditSchema } = require("../utils/customerCreditMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -112,9 +113,16 @@ ensurePrintAgentsSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring print agents schema:", err);
 });
 
-splitBillSchemaReady.then(() => ensureRegisterSchema(pool)).catch((err) => {
-  console.error("[Migration] Error ensuring register schema:", err);
-});
+// Pay-later extends register_payments.source and invoice_audit_log.action, so it waits for the register schema.
+splitBillSchemaReady
+  .then(() => ensureRegisterSchema(pool))
+  .catch((err) => {
+    console.error("[Migration] Error ensuring register schema:", err);
+  })
+  .then(() => ensureCustomerCreditSchema(pool))
+  .catch((err) => {
+    console.error("[Migration] Error ensuring customer credit schema:", err);
+  });
 
 exports.getMySqlPromiseConnection = async () => {
   try {

@@ -284,6 +284,23 @@ export function buildReceiptEscPos(receiptDetails) {
     }
   }
 
+  // Pay Later: what is still owed, and a line for the customer to sign
+  if (dualTenderInfo?.payLater) {
+    out += formatDivider("=", width) + "\n";
+    out += ESCPOS.ALIGN_CENTER + ESCPOS.BOLD_ON + "*** PAY LATER / ON ACCOUNT ***\n" + ESCPOS.BOLD_OFF + ESCPOS.ALIGN_LEFT;
+    if (Number(dualTenderInfo.payLaterPaidNow) > 0) {
+      out += formatTwoColumns("Paid now:", `${currency}${Number(dualTenderInfo.payLaterPaidNow).toFixed(2)}`, width) + "\n";
+    }
+    out += ESCPOS.BOLD_ON;
+    out += formatTwoColumns("BALANCE DUE:", `${currency}${Number(dualTenderInfo.payLaterBalance || 0).toFixed(2)}`, width) + "\n";
+    out += ESCPOS.BOLD_OFF;
+    if (dualTenderInfo.payLaterDueDate) {
+      out += formatTwoColumns("Due by:", dualTenderInfo.payLaterDueDate, width) + "\n";
+    }
+    out += "\n\n" + formatDivider("_", width) + "\n";
+    out += ESCPOS.ALIGN_CENTER + `Customer signature${customer?.name ? ` (${customer.name})` : ""}\n` + ESCPOS.ALIGN_LEFT;
+  }
+
   // Customer Loyalty Rewards Summary
   if (customer && (loyaltyPointsEarned > 0 || loyaltyPointsRedeemed > 0)) {
     out += formatDivider("-", width) + "\n";

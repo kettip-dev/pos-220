@@ -173,6 +173,12 @@ export const getNavGroups = (t, options = {}) => {
         features: [PLAN_FEATURES.CUSTOMERS],
       },
       {
+        text: t("navbar.customer_dues", "Customer Dues"),
+        path: "/dashboard/customer-dues",
+        scopes: [SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.MANAGE_CUSTOMERS, SCOPES.POS],
+        features: [PLAN_FEATURES.CUSTOMERS],
+      },
+      {
         text: t("navbar.customer_groups", "Customer Groups"),
         path: "/dashboard/customer-groups",
         scopes: [SCOPES.CUSTOMERS, SCOPES.VIEW_CUSTOMERS, SCOPES.MANAGE_CUSTOMERS],

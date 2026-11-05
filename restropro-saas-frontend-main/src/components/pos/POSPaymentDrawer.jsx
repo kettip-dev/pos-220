@@ -20,11 +20,14 @@ import {
   IconArrowsSplit2,
   IconPlus,
   IconTrash,
+  IconClockDollar,
+  IconAlertTriangle,
 } from '@tabler/icons-react';
 import { PAYMENT_ICONS } from '../../config/payment_icons';
 import { clsx } from 'clsx';
 import { iconStroke } from '../../config/config';
 import { useCustomerLoyalty, useLoyaltySettings } from '../../controllers/loyalty.controller';
+import { useCustomerCredit } from '../../controllers/customer_credit.controller';
 
 export default function POSPaymentDrawer({
   isOpen,
@@ -57,6 +60,9 @@ export default function POSPaymentDrawer({
   diningOption = 'dinein',
   tableTitle = '',
   onOpenSplitBill,
+  // Pay Later: put the unpaid balance on the customer's account. Off where a
+  // bill is settled per seat (split bill), which has its own ledger.
+  allowPayLater = true,
 }) {
   const { t } = useTranslation();
 
@@ -355,22 +361,82 @@ export default function POSPaymentDrawer({
     setReferenceCode('');
   };
 
+  // ── Pay Later (customer account) ──
+  const [isPayLaterOpen, setIsPayLaterOpen] = useState(false);
+  const [payLaterDueDays, setPayLaterDueDays] = useState(null);
+  const [payLaterNote, setPayLaterNote] = useState('');
+  const { data: customerCredit } = useCustomerCredit(isOpen && allowPayLater ? custPhone : null);
+  const creditOutstanding = Number(customerCredit?.outstanding || 0);
+  const creditLimit = customerCredit?.credit_limit ?? null;
+  const creditAvailable = creditLimit === null ? null : Math.max(0, Number(creditLimit) - creditOutstanding);
+  const exceedsCreditLimit = creditLimit !== null && remainingDue > (creditAvailable ?? 0) + 0.004;
+  const canPayLater = allowPayLater && !!custPhone && remainingDue > 0.004 && !isProcessing;
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsPayLaterOpen(false);
+      setPayLaterDueDays(null);
+      setPayLaterNote('');
+    }
+  }, [isOpen]);
+
+  const payLaterDueDate = (() => {
+    if (!payLaterDueDays) return null;
+    const d = new Date();
+    d.setDate(d.getDate() + payLaterDueDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+
+  const handleConfirmPayLater = () => {
+    if (!canPayLater || !onPayAndComplete) return;
+    onPayAndComplete({
+      // Only part-payments already taken are sent; the rest is owed.
+      payments: paidLines,
+      payLater: {
+        dueDate: payLaterDueDate,
+        note: payLaterNote.trim() || undefined,
+      },
+      payLaterBalance: remainingDue,
+      payLaterPaidNow: Number(paidTotal.toFixed(2)),
+      payLaterDueDate,
+      tenderedUSD: 0,
+      tenderedKHR: 0,
+      totalReceivedKHR: 0,
+      totalReceivedUSD: 0,
+      changeTotalKHR: 0,
+      changeTotalUSD: 0,
+      changeBreakdownUSD: 0,
+      changeBreakdownKHR: 0,
+      changeMode: changeAdviceMode,
+      exchangeRate: currentRate,
+      isBaseKHR,
+      loyaltyPointsRedeemed: pointsToRedeem,
+      loyaltyDiscountAmount: Number(loyaltyDiscountAmount.toFixed(2)),
+      loyaltyPointsEarned: projectedPointsEarned,
+    });
+  };
+
   // Keyboard Shortcuts (Esc to close, F4 to finalize)
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        if (isPayLaterOpen) {
+          setIsPayLaterOpen(false);
+          return;
+        }
         onClose();
       } else if (e.key === 'F4') {
         e.preventDefault();
+        if (isPayLaterOpen) return;
         handleFinalizePayment();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleFinalizePayment, onClose]);
+  }, [isOpen, handleFinalizePayment, onClose, isPayLaterOpen]);
 
 
   if (!isOpen) return null;
@@ -1007,6 +1073,25 @@ export default function POSPaymentDrawer({
                 {t('pos.add_part_payment', 'Part pay')} {currency}{partialValue.toFixed(2)}
               </button>
             )}
+            {allowPayLater && (
+              <button
+                type="button"
+                onClick={() => canPayLater && setIsPayLaterOpen(true)}
+                disabled={!canPayLater}
+                title={custPhone
+                  ? t('pos.pay_later_hint', 'Customer pays later: the balance goes on their account')
+                  : t('pos.pay_later_needs_customer', 'Attach a customer to the bill to use Pay Later')}
+                className={clsx(
+                  "h-14 px-4 rounded-xl text-sm font-semibold border flex items-center gap-2 transition-all duration-150 active:scale-95 touch-manipulation",
+                  canPayLater
+                    ? "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 cursor-pointer"
+                    : "text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                )}
+              >
+                <IconClockDollar size={18} stroke={iconStroke} />
+                {t('pos.pay_later', 'Pay Later')}
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -1035,6 +1120,162 @@ export default function POSPaymentDrawer({
               </span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {isPayLaterOpen && (
+        <PayLaterPanel
+          t={t}
+          customer={customer}
+          currency={currency}
+          balance={remainingDue}
+          paidNow={paidTotal}
+          outstanding={creditOutstanding}
+          creditLimit={creditLimit}
+          available={creditAvailable}
+          exceedsLimit={exceedsCreditLimit}
+          dueDays={payLaterDueDays}
+          onDueDays={setPayLaterDueDays}
+          dueDate={payLaterDueDate}
+          note={payLaterNote}
+          onNote={setPayLaterNote}
+          isProcessing={isProcessing}
+          onCancel={() => setIsPayLaterOpen(false)}
+          onConfirm={handleConfirmPayLater}
+        />
+      )}
+    </div>
+  );
+}
+
+function PayLaterPanel({ t, customer, currency, balance, paidNow, outstanding, creditLimit, available, exceedsLimit, dueDays, onDueDays, dueDate, note, onNote, isProcessing, onCancel, onConfirm }) {
+  const money = (v) => `${currency}${Number(v || 0).toFixed(2)}`;
+  const dueOptions = [
+    { days: null, label: t('pos.pay_later_no_due', 'No due date') },
+    { days: 7, label: t('pos.pay_later_7d', '7 days') },
+    { days: 15, label: t('pos.pay_later_15d', '15 days') },
+    { days: 30, label: t('pos.pay_later_30d', '30 days') },
+  ];
+  return (
+    <div className="fixed inset-0 z-[60] bg-slate-900/50 dark:bg-black/70 flex items-center justify-center p-4" onClick={onCancel}>
+      <div
+        className="w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <IconClockDollar size={22} stroke={iconStroke} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{t('pos.pay_later', 'Pay Later')}</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              {customer?.name}{customer?.phone ? ` • ${customer.phone}` : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-[42px] h-[42px] rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center active:scale-95 cursor-pointer"
+          >
+            <IconX size={20} stroke={iconStroke} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+          <div className="rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              {t('pos.pay_later_put_on_account', 'Goes on account')}
+            </p>
+            <p className="text-3xl font-bold tabular-nums text-amber-700 dark:text-amber-300 mt-1">{money(balance)}</p>
+            {paidNow > 0 && (
+              <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-1">
+                {t('pos.pay_later_paid_now', 'Paid now')}: {money(paidNow)}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2">
+              <p className="text-[11px] font-semibold uppercase text-slate-500">{t('pos.pay_later_owes_now', 'Owes now')}</p>
+              <p className="text-sm font-bold tabular-nums text-slate-900 dark:text-white">{money(outstanding)}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2">
+              <p className="text-[11px] font-semibold uppercase text-slate-500">{t('pos.pay_later_after', 'After this')}</p>
+              <p className="text-sm font-bold tabular-nums text-slate-900 dark:text-white">{money(outstanding + balance)}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2">
+              <p className="text-[11px] font-semibold uppercase text-slate-500">{t('pos.pay_later_limit', 'Limit')}</p>
+              <p className="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
+                {creditLimit === null ? t('pos.pay_later_no_limit', 'None') : money(creditLimit)}
+              </p>
+            </div>
+          </div>
+
+          {exceedsLimit && (
+            <div className="flex items-start gap-2 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
+              <IconAlertTriangle size={18} className="shrink-0 mt-0.5" />
+              <span>
+                {Number(creditLimit) <= 0
+                  ? t('pos.pay_later_not_allowed', 'This customer is not allowed to pay later.')
+                  : t('pos.pay_later_over_limit', 'Over the credit limit. Available: {{amount}}. Take part of it now, or raise the limit in Customer Dues.', { amount: money(available) })}
+              </span>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('pos.pay_later_due', 'Due')}</p>
+            <div className="grid grid-cols-4 gap-2">
+              {dueOptions.map((o) => (
+                <button
+                  key={String(o.days)}
+                  type="button"
+                  onClick={() => onDueDays(o.days)}
+                  className={clsx(
+                    "min-h-[42px] px-2 rounded-xl border text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer",
+                    dueDays === o.days
+                      ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/25"
+                      : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {dueDate && <p className="text-xs text-slate-500">{t('pos.pay_later_due_on', 'Due on')} {dueDate}</p>}
+          </div>
+
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => onNote(e.target.value)}
+            maxLength={255}
+            placeholder={t('pos.pay_later_note', 'Note (optional), e.g. pays on Friday')}
+            className="w-full h-[42px] text-sm px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+        </div>
+
+        <div className="shrink-0 px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-14 px-5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 active:scale-95 cursor-pointer"
+          >
+            {t('pos.back', 'Back')}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isProcessing || exceedsLimit}
+            className={clsx(
+              "flex-1 h-14 px-4 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98]",
+              isProcessing || exceedsLimit ? "bg-slate-300 dark:bg-slate-700 cursor-not-allowed" : "bg-amber-500 hover:bg-amber-600 cursor-pointer shadow-lg shadow-amber-500/20"
+            )}
+          >
+            <IconReceipt size={20} stroke={iconStroke} />
+            {isProcessing
+              ? t('pos.please_wait', 'Processing...')
+              : t('pos.pay_later_confirm', 'Put {{amount}} on account & print', { amount: money(balance) })}
+          </button>
         </div>
       </div>
     </div>

@@ -522,12 +522,15 @@ const cashBucketsForLine = (session, { amountDue, tender }) => {
   };
 };
 
+exports.cashBucketsForLine = cashBucketsForLine;
+
 const getPaymentTypesMapTx = async (conn, tenantId, ids) => {
   const unique = [...new Set(ids.filter((id) => id !== null && id !== undefined && id !== "").map(Number))];
   if (!unique.length) return new Map();
   const [rows] = await conn.query(`SELECT id, title, is_cash FROM payment_types WHERE tenant_id = ? AND id IN (?)`, [tenantId, unique]);
   return new Map(rows.map((r) => [Number(r.id), r]));
 };
+exports.getPaymentTypesMapTx = getPaymentTypesMapTx;
 
 /**
  * Normalise a request's tender lines against the server-verified total.
@@ -618,7 +621,7 @@ exports.recordReversalTx = async (conn, { tenantId, session, source, invoiceId, 
   } else {
     const [original] = await conn.query(
       `SELECT payment_type_id, SUM(amount) AS amount FROM register_payments
-       WHERE tenant_id = ? AND invoice_id = ? AND source = 'SALE'
+       WHERE tenant_id = ? AND invoice_id = ? AND source IN ('SALE', 'DUE_PAYMENT')
        GROUP BY payment_type_id`,
       [tenantId, invoiceId]
     );
@@ -690,7 +693,9 @@ const computeSessionSummaryTx = async (conn, tenantId, session) => {
             COALESCE(SUM(promotion_discount_total), 0) AS promotion_discount_total,
             COALESCE(SUM(customer_group_discount_total), 0) AS customer_group_discount_total,
             COALESCE(SUM(loyalty_discount_amount), 0) AS loyalty_discount_total,
-            COALESCE(SUM(CASE WHEN discount_total > 0 THEN 1 ELSE 0 END), 0) AS discounted_invoices
+            COALESCE(SUM(CASE WHEN discount_total > 0 THEN 1 ELSE 0 END), 0) AS discounted_invoices,
+            COALESCE(SUM(credit_amount), 0) AS pay_later_total,
+            COALESCE(SUM(CASE WHEN credit_amount > 0 THEN 1 ELSE 0 END), 0) AS pay_later_count
      FROM invoices WHERE tenant_id = ? AND register_session_id = ? AND status <> 'VOID'`,
     [tenantId, sid]
   );
@@ -698,6 +703,7 @@ const computeSessionSummaryTx = async (conn, tenantId, session) => {
   const sales = ledger.filter((r) => r.source === "SALE" || r.source === "SUB_INVOICE");
   const voids = ledger.filter((r) => r.source === "VOID");
   const refunds = ledger.filter((r) => r.source === "REFUND");
+  const dueCollections = ledger.filter((r) => r.source === "DUE_PAYMENT");
   const sum = (rows, key) => round2(rows.reduce((acc, r) => acc + Number(r[key] || 0), 0));
   const countDistinct = (rows) => new Set(rows.map((r) => (r.invoice_id ? `i${r.invoice_id}` : `s${r.sub_invoice_id}`))).size;
 
@@ -793,6 +799,9 @@ const computeSessionSummaryTx = async (conn, tenantId, session) => {
       net_sales: round2(grossSales + voidTotal + refundTotal),
       tips_total: sum(sales, "tip_amount"),
       average_bill: countDistinct(sales) ? round2(grossSales / countDistinct(sales)) : 0,
+      // Pay Later: money collected here for bills from earlier (not today's sales).
+      due_collections_total: sum(dueCollections, "amount"),
+      due_collections_count: dueCollections.length,
     },
     invoices: Object.fromEntries(Object.entries(invoiceTotals[0] || {}).map(([k, v]) => [k, round2(v)])),
     payments: [...byType.values()].sort((a, b) => b.net - a.net),
@@ -1181,7 +1190,7 @@ exports.refundInvoiceDB = async (tenantId, invoiceId, { session, refundType, amo
     await conn.beginTransaction();
 
     const [invoiceRows] = await conn.query(
-      `SELECT id, status, total, refunded_total, payment_type_id FROM invoices WHERE id = ? AND tenant_id = ? FOR UPDATE`,
+      `SELECT id, status, total, refunded_total, balance_due, payment_type_id FROM invoices WHERE id = ? AND tenant_id = ? FOR UPDATE`,
       [invoiceId, tenantId]
     );
     const invoice = invoiceRows[0];
@@ -1261,18 +1270,34 @@ exports.refundInvoiceDB = async (tenantId, invoiceId, { session, refundType, amo
       ]
     );
 
+    // Pay Later: a refund on a bill that is still owed first cancels what is
+    // owed (a credit note); only the rest is paid out of the drawer.
+    const balanceDue = round2(invoice.balance_due || 0);
+    const fromBalance = round2(Math.min(refundAmount, balanceDue));
+    const cashOut = round2(refundAmount - fromBalance);
+
     await exports.recordReversalTx(conn, {
       tenantId,
       session,
       source: "REFUND",
       invoiceId,
       refundId: result.insertId,
-      amount: refundAmount,
+      amount: cashOut,
       paymentTypeId: type ? type.id : null,
       createdBy: username,
     });
 
     await conn.query(`UPDATE invoices SET refunded_total = refunded_total + ? WHERE id = ? AND tenant_id = ?`, [refundAmount, invoiceId, tenantId]);
+    if (fromBalance > 0) {
+      const newBalance = round2(balanceDue - fromBalance);
+      await conn.query(
+        `UPDATE invoices
+         SET balance_due = ?, payment_status = CASE WHEN ? <= 0 THEN 'paid' ELSE payment_status END,
+             paid_off_at = CASE WHEN ? <= 0 THEN NOW() ELSE paid_off_at END
+         WHERE id = ? AND tenant_id = ?`,
+        [newBalance, newBalance, newBalance, invoiceId, tenantId]
+      );
+    }
 
     await conn.query(
       `INSERT INTO invoice_audit_log

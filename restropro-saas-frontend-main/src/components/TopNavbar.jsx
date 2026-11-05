@@ -30,6 +30,7 @@ import {
   IconCalendar,
   IconUserCheck,
   IconUsers,
+  IconClockDollar,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
@@ -141,6 +142,13 @@ export default function TopNavbar() {
           path: "/dashboard/customers",
           icon: <IconFriends size={17} stroke={iconStroke} className="text-teal-500" />,
           scopes: [SCOPES.CUSTOMERS],
+          features: [PLAN_FEATURES.CUSTOMERS],
+        },
+        {
+          label: t("navbar.customer_dues", "Customer Dues"),
+          path: "/dashboard/customer-dues",
+          icon: <IconClockDollar size={17} stroke={iconStroke} className="text-amber-500" />,
+          scopes: [SCOPES.CUSTOMERS, SCOPES.POS],
           features: [PLAN_FEATURES.CUSTOMERS],
         },
         {

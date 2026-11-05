@@ -117,6 +117,9 @@ export default function TablePayModal({
     );
   }
 
+  // A customer attached to the table's order enables loyalty and Pay Later.
+  const tableCustomerPhone = table?.customer_phone || summaryData?.orders?.[0]?.customer_id || null;
+  const tableCustomerName = table?.customer_name || summaryData?.orders?.[0]?.customer_name || "";
   const totalPayable  = Number(summaryData?.total            || table?.order_total || 0);
   const subtotal      = Number(summaryData?.subtotal         || table?.order_total || 0);
   const taxTotal      = Number(summaryData?.taxTotal         || 0);
@@ -131,7 +134,8 @@ export default function TablePayModal({
 
   // Final settle handler called by POSPaymentDrawer's onPayAndComplete
   const handlePayAndComplete = async (tenderData) => {
-    if (!selectedPaymentType) {
+    const isPayLater = Boolean(tenderData?.payLater);
+    if (!selectedPaymentType && !isPayLater) {
       toast.error(t("orders.select_payment_method", "Please select a payment method"));
       return;
     }
@@ -149,7 +153,16 @@ export default function TablePayModal({
         selectedPaymentType,
         null, // discountType
         0,    // discountValue
-        0     // discountTotal
+        0,    // discountTotal
+        null, // appliedPromotions
+        0,    // promotionDiscountTotal
+        tenderData?.loyaltyPointsRedeemed || 0,
+        tableCustomerPhone,
+        null,
+        null,
+        0,
+        isPayLater ? tenderData?.payments || [] : null,
+        isPayLater ? tenderData.payLater : null
       );
 
       if (res?.status === 200) {
@@ -189,6 +202,15 @@ export default function TablePayModal({
             changeDue: Math.max(0, (parseFloat(tenderedAmount) || 0) - totalPayable),
             invoiceNo: res?.data?.invoiceNo || res?.data?.invoiceId,
             orderIds: orderIds.join(", "),
+            ...(isPayLater
+              ? {
+                  customer: { name: tableCustomerName || "Customer", phone: tableCustomerPhone },
+                  paymentMethod: t("pos.pay_later", "Pay Later"),
+                  paymentStatus: "unpaid",
+                  billingTag: `PAY LATER - DUE ${currency}${Number(tenderData?.payLaterBalance || 0).toFixed(2)}`,
+                  dualTenderInfo: tenderData,
+                }
+              : {}),
           });
         } catch (printErr) {
           console.warn("Print receipt failed:", printErr);
@@ -240,6 +262,9 @@ export default function TablePayModal({
       onTenderedAmountChange={setTenderedAmount}
       onPayAndComplete={handlePayAndComplete}
       isProcessing={isSubmitting}
+      customer={tableCustomerPhone ? { phone: tableCustomerPhone, name: tableCustomerName } : null}
+      customerType={tableCustomerPhone ? "CUSTOMER" : "WALKIN"}
+      tableTitle={table?.table_title || ""}
     />
   );
 }

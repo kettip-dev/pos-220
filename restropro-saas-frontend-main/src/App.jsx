@@ -10,6 +10,7 @@ import OrdersPage from "./views/OrdersPage";
 import KitchenPage from "./views/KitchenPage";
 import ReservationPage from "./views/ReservationPage";
 import CustomersPage from "./views/CustomersPage";
+import CustomerDuesPage from "./views/CustomerDuesPage";
 import CustomerInsightsPage from "./views/CustomerInsightsPage";
 import InvoicesPage from "./views/InvoicesPage";
 import InvoiceAuditLogsPage from "./views/InvoiceAuditLogsPage";
@@ -243,6 +244,21 @@ export default function App() {
                   ]}
                 >
                   <CustomersPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="customer-dues"
+              element={
+                <ScopeProtectedRoute
+                  scopes={[
+                    SCOPES.CUSTOMERS,
+                    SCOPES.VIEW_CUSTOMERS,
+                    SCOPES.MANAGE_CUSTOMERS,
+                    SCOPES.POS,
+                  ]}
+                >
+                  <CustomerDuesPage />
                 </ScopeProtectedRoute>
               }
             />

@@ -2091,7 +2091,8 @@ export default function POSPage() {
   };
 
   const btnPayAndSendToKitchen = async (tenderData = null) => {
-    if(!state.selectedPaymentType) {
+    const isPayLater = Boolean(tenderData?.payLater);
+    if(!state.selectedPaymentType && !isPayLater) {
       return toast.error(t('orders.select_payment_method'));
     }
     try {
@@ -2114,7 +2115,8 @@ export default function POSPage() {
         customer?.customer_group_id || null,
         customer?.customer_group_name || null,
         summary.customerGroupDiscountTotal || 0,
-        tenderData?.payments || null
+        tenderData?.payments || null,
+        tenderData?.payLater || null
       );
       toast.dismiss();
       setIsSubmittingPayment(false);
@@ -2143,6 +2145,11 @@ export default function POSPage() {
         if(paymentType) {
           paymentMethodText = paymentType.title;
         }
+        if (isPayLater) {
+          paymentMethodText = Number(tenderData?.payLaterPaidNow) > 0
+            ? `${t('pos.pay_later', 'Pay Later')} (+ ${paymentMethodText || ''})`
+            : t('pos.pay_later', 'Pay Later');
+        }
 
         const receiptPayload = {
           cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
@@ -2162,9 +2169,9 @@ export default function POSPage() {
           orderId: data.orderId,
           tableName: currentSelectedTable?.table_title || activeTableContext?.tableTitle || selectedTableTitle || undefined,
           paymentMethod: paymentMethodText,
-          paymentStatus: "paid",
-          billingMode: "prepaid",
-          billingTag: "PAID (PREPAID)",
+          paymentStatus: isPayLater ? (Number(tenderData?.payLaterPaidNow) > 0 ? "partial" : "unpaid") : "paid",
+          billingMode: isPayLater ? "pay_later" : "prepaid",
+          billingTag: isPayLater ? `PAY LATER - DUE ${currency}${Number(tenderData?.payLaterBalance || 0).toFixed(2)}` : "PAID (PREPAID)",
           dualTenderInfo: tenderData || null,
           loyaltyPointsRedeemed: tenderData?.loyaltyPointsRedeemed || 0,
           loyaltyDiscountAmount: tenderData?.loyaltyDiscountAmount || 0,
@@ -2219,15 +2226,18 @@ export default function POSPage() {
         const defaultRate = customExchangeRate || storeSettings?.exchange_rate_usd_to_khr || storeSettings?.exchangeRateUsdToKhr || 4100;
         const isKHR = currency === '៛' || String(currency).toLowerCase() === 'khr';
 
+        // Pay Later: nothing (or only the deposit) was received, so don't assume exact cash.
+        const receivedFallback = isPayLater ? 0 : state.payableTotal;
         setCompletedPaymentInfo({
           orderId: data.orderId,
           tokenNo: data.tokenNo,
           paymentMethod: paymentMethodText,
           payableTotal: state.payableTotal,
-          tenderedUSD: tenderData?.tenderedUSD || (isKHR ? 0 : state.payableTotal),
-          tenderedKHR: tenderData?.tenderedKHR || (isKHR ? state.payableTotal : 0),
-          totalReceivedUSD: tenderData?.totalReceivedUSD || (isKHR ? state.payableTotal / defaultRate : state.payableTotal),
-          totalReceivedKHR: tenderData?.totalReceivedKHR || (isKHR ? state.payableTotal : state.payableTotal * defaultRate),
+          payLaterBalance: isPayLater ? Number(tenderData?.payLaterBalance || 0) : 0,
+          tenderedUSD: tenderData?.tenderedUSD || (isKHR ? 0 : receivedFallback),
+          tenderedKHR: tenderData?.tenderedKHR || (isKHR ? receivedFallback : 0),
+          totalReceivedUSD: tenderData?.totalReceivedUSD || (isKHR ? receivedFallback / defaultRate : receivedFallback),
+          totalReceivedKHR: tenderData?.totalReceivedKHR || (isKHR ? receivedFallback : receivedFallback * defaultRate),
           changeTotalUSD: tenderData?.changeTotalUSD || 0,
           changeTotalKHR: tenderData?.changeTotalKHR || 0,
           changeBreakdownUSD: tenderData?.changeBreakdownUSD || 0,

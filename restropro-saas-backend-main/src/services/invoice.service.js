@@ -423,7 +423,7 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session 
     await conn.beginTransaction();
 
     const [invoiceRows] = await conn.query(
-      `SELECT id, status, total, refunded_total, register_session_id FROM invoices WHERE id = ? AND tenant_id = ? FOR UPDATE`,
+      `SELECT id, status, total, refunded_total, balance_due, written_off_amount, register_session_id FROM invoices WHERE id = ? AND tenant_id = ? FOR UPDATE`,
       [invoiceId, tenantId]
     );
     const invoice = invoiceRows[0];
@@ -448,8 +448,15 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session 
     }
     const payoutSession = session || (originalSession?.status === "OPEN" ? originalSession : null);
 
+    // Pay Later: only money actually collected goes back; whatever was still
+    // owed (or written off) simply stops being owed.
+    const collectedNet = Math.max(
+      0,
+      Number(invoice.total || 0) - Number(invoice.refunded_total || 0) - Number(invoice.balance_due || 0) - Number(invoice.written_off_amount || 0)
+    );
+
     await conn.query(
-      `UPDATE invoices SET status = 'VOID', voided_at = NOW(), voided_by = ?, void_reason = ? WHERE id = ? AND tenant_id = ?`,
+      `UPDATE invoices SET status = 'VOID', voided_at = NOW(), voided_by = ?, void_reason = ?, balance_due = 0 WHERE id = ? AND tenant_id = ?`,
       [username, reason, invoiceId, tenantId]
     );
 
@@ -465,7 +472,7 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session 
       session: payoutSession,
       source: "VOID",
       invoiceId: Number(invoiceId),
-      amount: Number(invoice.total || 0) - Number(invoice.refunded_total || 0),
+      amount: collectedNet,
       createdBy: username,
     });
     if (payoutSession) {
@@ -474,7 +481,7 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session 
         registerId: payoutSession.register_id,
         sessionId: payoutSession.id,
         action: "VOID",
-        details: { invoiceId: Number(invoiceId), amount: Number(invoice.total || 0) - Number(invoice.refunded_total || 0), reason },
+        details: { invoiceId: Number(invoiceId), amount: collectedNet, reason },
         performedBy: username,
       });
     }

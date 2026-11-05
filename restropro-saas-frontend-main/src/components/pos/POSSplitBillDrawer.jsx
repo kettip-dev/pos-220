@@ -777,6 +777,7 @@ export default function POSSplitBillDrawer({
           tenderedAmount={tenderedAmount}
           onTenderedAmountChange={setTenderedAmount}
           onPayAndComplete={handleSettleCheck}
+          allowPayLater={false}
           isProcessing={loading}
           tableTitle={`${order?.table_title ? order.table_title + ' • ' : ''}${selectedSubForPayment.seat_label} (${selectedSubForPayment.sub_invoice_number})`}
           cartItems={(selectedSubForPayment.items || []).map((it) => ({

@@ -3,6 +3,7 @@ const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { rotateTablePinsByOrderIdsDB } = require("./settings.service");
 const { processLoyaltyOnCheckoutTx } = require("./loyalty.service");
 const { normalisePaymentLines, recordPaymentsTx, writeAuditTx } = require("./register.service");
+const { prepareCreditSaleTx, markInvoiceOnAccountTx } = require("./customer_credit.service");
 
 exports.getOrdersDB = async (tenantId) => {
   const conn = await getMySqlPromiseConnection();
@@ -599,11 +600,19 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
 
     const finalPayableTotal = Math.max(0, Number((verifiedTotal - loyaltyDiscount).toFixed(2)));
 
-    const paymentLines = normalisePaymentLines(register?.payments, selectedPaymentType, finalPayableTotal);
+    // Pay Later: tender lines are only a deposit; the rest goes on the customer's account.
+    const credit = register?.payLater
+      ? await prepareCreditSaleTx(conn, { tenantId, customerPhone, payments: register?.payments, total: finalPayableTotal, payLater: register.payLater })
+      : null;
+    const paymentLines = credit
+      ? credit.paymentLines
+      : normalisePaymentLines(register?.payments, selectedPaymentType, finalPayableTotal);
     // Legacy single-type reports read invoices.payment_type_id: use the line that paid the most.
     const primaryPaymentType = paymentLines.length > 1
       ? [...paymentLines].sort((a, b) => b.amount - a.amount)[0].paymentTypeId
-      : selectedPaymentType;
+      : credit
+        ? paymentLines[0]?.paymentTypeId || null
+        : selectedPaymentType;
 
     const cleanAppliedPromos = appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0
       ? JSON.stringify(appliedPromotions)
@@ -650,6 +659,10 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       lines: paymentLines,
       createdBy: username,
     });
+
+    if (credit) {
+      await markInvoiceOnAccountTx(conn, { tenantId, invoiceId, credit, username });
+    }
 
     await conn.query("INSERT INTO invoice_sequences ( sequence_no, tenant_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no);", [invoiceId, tenantId]);
 
