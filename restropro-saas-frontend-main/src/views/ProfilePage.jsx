@@ -55,7 +55,6 @@ export default function ProfilePage() {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   // Photo state
-  const [selectedFile, setSelectedFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
@@ -120,9 +119,23 @@ export default function ProfilePage() {
     }
   };
 
-  // Handle photo file selection
-  const handleFileChange = (e) => {
+  // Release the local preview blob when it is replaced or the page unmounts
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
+  const openFilePicker = () => {
+    if (isUploadingPhoto) return;
+    fileInputRef.current?.click();
+  };
+
+  // Validate the picked image and upload it straight away (one tap, like Toast/Square)
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
+    // Reset so picking the same file again still fires onChange
+    e.target.value = "";
     if (!file) return;
 
     if (!file.type.match(/^image\/(png|jpeg|jpg|webp)$/i)) {
@@ -135,30 +148,24 @@ export default function ProfilePage() {
       return;
     }
 
-    setSelectedFile(file);
-    const objectUrl = URL.createObjectURL(file);
-    setPhotoPreview(objectUrl);
+    setPhotoPreview(URL.createObjectURL(file));
+    await handlePhotoUpload(file);
   };
 
-  // Handle uploading selected photo
-  const handlePhotoUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Please select an image file first");
-      return;
-    }
+  // Upload the picked photo
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
 
     try {
       setIsUploadingPhoto(true);
       toast.loading(t("toast.please_wait"));
 
-      const res = await uploadProfilePhoto(selectedFile);
+      const res = await uploadProfilePhoto(file);
       toast.dismiss();
 
       if (res.status === 200) {
         toast.success(t("profile.photo_uploaded"));
-        setSelectedFile(null);
-        setPhotoPreview(null);
-        mutate();
+        await mutate();
       }
     } catch (error) {
       toast.dismiss();
@@ -166,6 +173,7 @@ export default function ProfilePage() {
       const message = error?.response?.data?.message || t("toast.something_went_wrong");
       toast.error(message);
     } finally {
+      setPhotoPreview(null);
       setIsUploadingPhoto(false);
     }
   };
@@ -184,7 +192,6 @@ export default function ProfilePage() {
 
       if (res.status === 200) {
         toast.success(t("profile.photo_removed"));
-        setSelectedFile(null);
         setPhotoPreview(null);
         mutate();
       }
@@ -281,10 +288,9 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => {
                     setActiveTab("photo");
-                    if (fileInputRef.current) {
-                      fileInputRef.current.click();
-                    }
+                    openFilePicker();
                   }}
+                  disabled={isUploadingPhoto}
                   className="absolute bottom-0 right-0 p-1.5 rounded-full bg-restro-green text-white shadow-md hover:bg-green-700 active:scale-95 transition-transform"
                   title={t("profile.upload_new_photo")}
                 >
@@ -466,37 +472,22 @@ export default function ProfilePage() {
                   </p>
                 </div>
 
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="min-h-[42px] px-4 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-200 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+                    onClick={openFilePicker}
+                    disabled={isUploadingPhoto}
+                    className="min-h-[42px] px-4 rounded-xl bg-restro-green text-white text-xs font-semibold hover:bg-green-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-2xs"
                   >
                     <IconUpload size={16} stroke={iconStroke} />
-                    <span>Choose File</span>
+                    <span>
+                      {isUploadingPhoto
+                        ? t("profile.uploading", "Uploading...")
+                        : t("profile.choose_photo", "Choose Photo")}
+                    </span>
                   </button>
 
-                  {selectedFile && (
-                    <button
-                      type="button"
-                      onClick={handlePhotoUpload}
-                      disabled={isUploadingPhoto}
-                      className="min-h-[42px] px-4 rounded-xl bg-restro-green text-white text-xs font-semibold hover:bg-green-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-2xs"
-                    >
-                      <IconCheck size={16} stroke={iconStroke} />
-                      <span>{isUploadingPhoto ? t("profile.saving") : t("profile.save_changes")}</span>
-                    </button>
-                  )}
-
-                  {currentUser?.photo && (
+                  {currentUser?.photo && !isUploadingPhoto && (
                     <button
                       type="button"
                       onClick={handlePhotoRemove}
@@ -508,12 +499,6 @@ export default function ProfilePage() {
                     </button>
                   )}
                 </div>
-
-                {selectedFile && (
-                  <p className="text-xs text-green-600 font-medium truncate max-w-xs">
-                    Ready to upload: {selectedFile.name}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -685,6 +670,14 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+      {/* Always mounted so the avatar camera button works from any tab */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/png,image/jpeg,image/jpg,image/webp"
+        onChange={handleFileChange}
+        className="hidden"
+      />
       <ConfirmDialog />
     </Page>
   );

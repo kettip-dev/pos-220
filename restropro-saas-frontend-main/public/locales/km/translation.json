@@ -974,7 +974,7 @@
     "tab_account": "ព័ត៌មានការងារ & គម្រោង",
     "upload_new_photo": "ផ្ទុករូបថតថ្មី",
     "remove_photo": "លុបរូបថត",
-    "photo_specs": "គាំទ្រ JPG, PNG, WEBP ទំហំអតិបរមា 5MB",
+    "photo_specs": "គាំទ្រ JPG, PNG, WEBP ទំហំអតិបរមា 5MB។ ផ្ទុកឡើងភ្លាមៗពេលជ្រើសរើស",
     "change_password": "ផ្លាស់ប្តូរពាក្យសម្ងាត់",
     "current_password": "ពាក្យសម្ងាត់បច្ចុប្បន្ន",
     "new_password": "ពាក្យសម្ងាត់ថ្មី",
@@ -990,7 +990,9 @@
     "permissions": "សិទ្ធិ & ការអនុញ្ញាត",
     "all_permissions": "សិទ្ធិពេញលេញ (អ្នកគ្រប់គ្រង)",
     "remove_photo_title": "លុបរូបថត",
-    "confirm_remove_photo": "តើអ្នកប្រាកដថាចង់លុបរូបថតប្រវត្តិរូបរបស់អ្នកទេ?"
+    "confirm_remove_photo": "តើអ្នកប្រាកដថាចង់លុបរូបថតប្រវត្តិរូបរបស់អ្នកទេ?",
+    "choose_photo": "ជ្រើសរើសរូបថត",
+    "uploading": "កំពុងផ្ទុកឡើង..."
   },
   "print_token": {
     "token_no": "លេខតូខឹន:"
