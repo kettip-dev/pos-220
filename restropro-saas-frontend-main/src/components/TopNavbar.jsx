@@ -260,6 +260,13 @@ export default function TopNavbar() {
           features: [PLAN_FEATURES.SETTINGS],
         },
         {
+          label: t("navbar.menu_languages", "Menu Languages"),
+          path: "/dashboard/settings/menu-languages",
+          icon: <IconSettings2 size={17} stroke={iconStroke} className="text-slate-500" />,
+          scopes: [SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.SETTINGS],
+        },
+        {
           label: t("navbar.categories", "Menu Categories"),
           path: "/dashboard/settings/menu-items/categories",
           icon: <IconSettings2 size={17} stroke={iconStroke} className="text-slate-500" />,

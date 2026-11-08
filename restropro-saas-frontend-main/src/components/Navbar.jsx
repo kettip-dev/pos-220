@@ -281,6 +281,12 @@ export const getNavGroups = (t, options = {}) => {
         features: [PLAN_FEATURES.SETTINGS],
       },
       {
+        text: t("navbar.menu_languages", "Menu Languages"),
+        path: "/dashboard/settings/menu-languages",
+        scopes: [SCOPES.SETTINGS],
+        features: [PLAN_FEATURES.SETTINGS],
+      },
+      {
         text: t("navbar.categories", "Menu Categories"),
         path: "/dashboard/settings/menu-items/categories",
         scopes: [SCOPES.SETTINGS],

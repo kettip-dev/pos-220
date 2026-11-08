@@ -211,6 +211,14 @@ export default function AppBar() {
       features: [PLAN_FEATURES.SETTINGS],
     },
     {
+      title: t("appbar.menu_languages", "Menu Languages"),
+      description: "",
+      icon: <IconBook stroke={iconStroke} />,
+      link: "/dashboard/settings/menu-languages",
+      scopes: [SCOPES.SETTINGS],
+      features: [PLAN_FEATURES.SETTINGS],
+    },
+    {
       title: t("appbar.tax_setup"),
       description: "",
       icon: <IconReceiptTax stroke={iconStroke} />,
