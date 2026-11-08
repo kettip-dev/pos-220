@@ -389,6 +389,12 @@ export function getQBOAppCategories(t, options = {}) {
           features: [PLAN_FEATURES.SETTINGS],
         },
         {
+          label: t("navbar.menu_languages", "Menu Languages"),
+          path: "/dashboard/settings/menu-languages",
+          scopes: [SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.SETTINGS],
+        },
+        {
           label: t("navbar.categories", "Categories Setup"),
           path: "/dashboard/settings/menu-items/categories",
           scopes: [SCOPES.SETTINGS],

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import PrivateRoute from "./helpers/PrivateRoute";
 import LoginPage from "./views/LoginPage";
@@ -492,6 +492,7 @@ export default function App() {
                 element={<RequiresSingleBusiness><CategoriesPage /></RequiresSingleBusiness>}
               />
               <Route path="menu-languages" element={<RequiresSingleBusiness><MenuLanguageSettingsPage /></RequiresSingleBusiness>} />
+              <Route path="menu-language" element={<Navigate to="/dashboard/settings/menu-languages" replace />} />
               <Route path="tax-setup" element={<RequiresSingleBusiness><TaxSetupPage /></RequiresSingleBusiness>} />
               <Route path="payment-types" element={<RequiresSingleBusiness><PaymentTypesPage /></RequiresSingleBusiness>} />
               <Route path="registers" element={<RequiresSingleBusiness><RegistersSettingsPage /></RequiresSingleBusiness>} />
