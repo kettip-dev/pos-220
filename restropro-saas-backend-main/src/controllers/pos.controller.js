@@ -55,7 +55,7 @@ async function precheckAvailability(tenantId, cart) {
 /** Known business-rule errors (sold out, bad approval) go back to the POS as-is. */
 function knownErrorResponse(res, error) {
   if (error?.code === "ITEM_SOLD_OUT") return soldOutResponse(res, error);
-  if (error?.statusCode && error?.code && String(error.code).startsWith("LINE_ADJUST")) {
+  if (error?.statusCode && error?.code && (String(error.code).startsWith("LINE_ADJUST") || error.code === "COMBO_INVALID")) {
     return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
   }
   return null;
@@ -93,6 +93,12 @@ exports.getPOSInitData = async (req, res) => {
       getAllRecipeItemsDB(tenantId)
     ]);
 
+    const { getComboGroupsDB } = require("../services/combo.service");
+    const comboGroups = await getComboGroupsDB(tenantId).catch((e) => {
+      console.error("[pos] combo groups unavailable:", e.message);
+      return {};
+    });
+
     const formattedMenuItems = menuItems.map((item) => {
       const itemAddons = addons.filter((addon) => addon.item_id == item.id && addon.is_enabled !== 0);
       const itemVariants = variants.filter(
@@ -106,7 +112,8 @@ exports.getPOSInitData = async (req, res) => {
         ...item,
         addons: [...itemAddons],
         variants: [...itemVariants],
-        recipeItems: [...itemRecipeItems]
+        recipeItems: [...itemRecipeItems],
+        ...(Number(item.is_combo) === 1 ? { combo_groups: comboGroups[item.id] || [] } : {})
       };
     });
 
@@ -735,5 +742,44 @@ exports.fireOrderItems = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+// ─── Combos / set meals ───────────────────────────────────
+
+function comboErrorResponse(req, res, error) {
+  if (error?.statusCode && error?.code === "COMBO_INVALID") {
+    return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
+  }
+  console.error(error);
+  return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+}
+
+exports.getCombos = async (req, res) => {
+  try {
+    const { getCombosDB } = require("../services/combo.service");
+    return res.status(200).json(await getCombosDB(req.user.tenant_id));
+  } catch (error) {
+    return comboErrorResponse(req, res, error);
+  }
+};
+
+exports.saveCombo = async (req, res) => {
+  try {
+    const { saveComboDB } = require("../services/combo.service");
+    const id = await saveComboDB(req.user.tenant_id, req.params.id ? Number(req.params.id) : null, req.body || {});
+    return res.status(200).json({ success: true, id });
+  } catch (error) {
+    return comboErrorResponse(req, res, error);
+  }
+};
+
+exports.deleteCombo = async (req, res) => {
+  try {
+    const { deleteComboDB } = require("../services/combo.service");
+    await deleteComboDB(req.user.tenant_id, Number(req.params.id));
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    return comboErrorResponse(req, res, error);
   }
 };

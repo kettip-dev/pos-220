@@ -430,8 +430,10 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
         miv.title as variant_title,
         -- Comped / discounted lines are priced from the stored line price
         -- (which already includes add-ons); see orders.controller.
-        CASE WHEN oi.adjust_type IN ('comp','discount') OR oi.custom_title IS NOT NULL THEN NULL ELSE miv.price END as variant_price,
-        CASE WHEN oi.adjust_type IN ('comp','discount') OR oi.custom_title IS NOT NULL THEN oi.price ELSE mi.price END AS price,
+        CASE WHEN oi.adjust_type IN ('comp','discount') OR oi.custom_title IS NOT NULL OR oi.is_combo_parent = 1 OR oi.combo_parent_id IS NOT NULL THEN NULL ELSE miv.price END as variant_price,
+        CASE WHEN oi.adjust_type IN ('comp','discount') OR oi.custom_title IS NOT NULL OR oi.is_combo_parent = 1 OR oi.combo_parent_id IS NOT NULL THEN oi.price ELSE mi.price END AS price,
+        oi.is_combo_parent,
+        oi.combo_parent_id,
         oi.custom_title,
         oi.original_price,
         oi.adjust_type,

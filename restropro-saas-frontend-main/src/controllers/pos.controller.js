@@ -134,3 +134,16 @@ export async function getLineAdjustments(from, to) {
 export async function fireOrderItems(orderId, course = null, itemIds = null) {
   return ApiClient.post(`/pos/orders/${orderId}/fire`, { course, itemIds });
 }
+
+// ─── Combos / set meals ───────────────────────────────────
+export async function getCombos() {
+  return ApiClient.get(`/pos/combos`);
+}
+
+export async function saveCombo(id, payload) {
+  return id ? ApiClient.put(`/pos/combos/${id}`, payload) : ApiClient.post(`/pos/combos`, payload);
+}
+
+export async function deleteCombo(id) {
+  return ApiClient.delete(`/pos/combos/${id}`);
+}

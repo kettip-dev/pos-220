@@ -76,7 +76,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
         LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
         
-      WHERE oi.order_id IN (?)
+      WHERE oi.order_id IN (?) AND oi.is_combo_parent = 0
       `;
       const [kitchenOrdersItemsResult] = await conn.query(sql2, [orderIds]);
       kitchenOrdersItems = kitchenOrdersItemsResult;

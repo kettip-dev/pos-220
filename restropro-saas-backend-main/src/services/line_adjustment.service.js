@@ -182,7 +182,12 @@ exports.adjustSentItemDB = async (tenantId, orderItemId, input) => {
     }
 
     const lineQty = Number(item.quantity) || 1;
-    const qty = Math.min(lineQty, Math.max(1, parseInt(quantity, 10) || lineQty));
+    let qty = Math.min(lineQty, Math.max(1, parseInt(quantity, 10) || lineQty));
+    // A combo is voided as a whole (with its components); comps/discounts apply to its price line.
+    if (Number(item.is_combo_parent) === 1 && action === "void") qty = lineQty;
+    if (item.combo_parent_id && action !== "restore") {
+      throw adjustError("This item is part of a combo. Adjust the combo line instead.");
+    }
     const currentPrice = Number(item.price) || 0;
     const basePrice = item.original_price !== null && item.original_price !== undefined ? Number(item.original_price) : currentPrice;
 
@@ -205,6 +210,14 @@ exports.adjustSentItemDB = async (tenantId, orderItemId, input) => {
     let amount = 0;
     if (action === "void") {
       amount = currentPrice * qty;
+      if (Number(item.is_combo_parent) === 1) {
+        await conn.query(
+          `UPDATE order_items
+           SET status = 'cancelled', adjust_type = 'void', adjust_reason = ?, adjusted_by = ?, adjust_approved_by = ?, adjusted_at = NOW()
+           WHERE combo_parent_id = ? AND tenant_id = ? AND status <> 'cancelled'`,
+          [input.reasonCode, username, approvedBy, item.id, tenantId]
+        );
+      }
       await conn.query(
         `UPDATE order_items
          SET status = 'cancelled', adjust_type = 'void', adjust_reason = ?, adjust_note = ?,

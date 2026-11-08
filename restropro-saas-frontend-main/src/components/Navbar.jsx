@@ -299,6 +299,12 @@ export const getNavGroups = (t, options = {}) => {
         features: [PLAN_FEATURES.SETTINGS],
       },
       {
+        text: t("navbar.combos", "Combos"),
+        path: "/dashboard/settings/menu-items/combos",
+        scopes: [SCOPES.SETTINGS],
+        features: [PLAN_FEATURES.SETTINGS],
+      },
+      {
         text: t("navbar.tax_setup", "Tax Setup"),
         path: "/dashboard/settings/tax-setup",
         scopes: [SCOPES.SETTINGS],

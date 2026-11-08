@@ -34,6 +34,7 @@ import POSSplitBillDrawer from '../components/pos/POSSplitBillDrawer';
 import POSSoldOutDrawer from '../components/pos/POSSoldOutDrawer';
 import POSLineAdjustDrawer, { reasonLabel } from '../components/pos/POSLineAdjustDrawer';
 import POSOpenItemModal from '../components/pos/POSOpenItemModal';
+import POSComboDrawer from '../components/pos/POSComboDrawer';
 import { useKitchenStations } from '../controllers/kitchen_stations.controller';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { 
@@ -78,6 +79,7 @@ export default function POSPage() {
   const [holdLaterCourses, setHoldLaterCourses] = useState(true);
   const [seatPickerIndex, setSeatPickerIndex] = useState(null);
   const [isOpenItemOpen, setIsOpenItemOpen] = useState(false);
+  const [comboItem, setComboItem] = useState(null);
   const { data: kitchenStationsList = [] } = useKitchenStations();
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
@@ -306,6 +308,10 @@ export default function POSPage() {
         .join(',');
     };
     if (getNormalizedAddons(itemA) !== getNormalizedAddons(itemB)) return false;
+
+    // 3a. Combos: same choices only
+    const comboKey = (it) => (it.combo?.options || []).map(Number).sort((a, b) => a - b).join(',');
+    if (comboKey(itemA) !== comboKey(itemB)) return false;
 
     // 3b. Open items: different name or price = different line
     if ((itemA.custom_title || null) !== (itemB.custom_title || null)) return false;
@@ -1083,6 +1089,11 @@ export default function POSPage() {
   function addItemToCart(item) {
     const quantityToAdd = Number(item.quantity) || 1;
     if (isBlockedBySoldOut(item, quantityToAdd)) return;
+    // A combo tile opens the combo builder first.
+    if (Number(item.is_combo) === 1 && !item.combo) {
+      setComboItem(item);
+      return;
+    }
     const modifiedItem = {
       ...item,
       quantity: quantityToAdd,
@@ -2398,9 +2409,26 @@ export default function POSPage() {
 
   // Kitchen ticket for the lines fired now (held courses print when fired).
   const printKitchenTicket = (payload) => {
-    const firedLines = (payload?.cartItems || []).filter((l) => !l.hold);
+    // Combos print as their components, each routed to its own station.
+    const expanded = (payload?.cartItems || []).flatMap((l) =>
+      l.combo?.components?.length
+        ? l.combo.components.map((c) => ({
+            id: c.menu_item_id,
+            title: c.title,
+            variant: c.variant_title ? { title: c.variant_title } : null,
+            quantity: l.quantity,
+            notes: l.notes,
+            course: l.course,
+            seat: l.seat,
+            hold: l.hold,
+            kitchen_station_id: c.kitchen_station_id,
+            kitchen_station_name: c.kitchen_station_name,
+          }))
+        : [l]
+    );
+    const firedLines = expanded.filter((l) => !l.hold);
     if (firedLines.length === 0) return;
-    const heldCount = (payload?.cartItems || []).length - firedLines.length;
+    const heldCount = expanded.length - firedLines.length;
     triggerPrintToken({
       ...payload,
       cartItems: firedLines,
@@ -3303,6 +3331,17 @@ export default function POSPage() {
                             </div>
                           )}
 
+                          {/* Combo components */}
+                          {cartItem.combo?.components?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {cartItem.combo.components.map((c, cIdx) => (
+                                <span key={cIdx} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
+                                  {c.title}{c.extra_price > 0 ? ` +${currency}${Number(c.extra_price).toFixed(2)}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
                           {/* Comp / discount badge */}
                           {cartItem.adjust?.type && (
                             <div className="mt-1 flex items-center gap-1">
@@ -3956,6 +3995,14 @@ export default function POSPage() {
           adjustType: cartItems[adjustLineIndex].adjust?.type,
         } : null}
         onApplied={handleCartLineAdjusted}
+      />
+
+      <POSComboDrawer
+        isOpen={Boolean(comboItem)}
+        combo={comboItem}
+        onClose={() => setComboItem(null)}
+        currency={currency}
+        onAdd={(line) => addItemToCart(line)}
       />
 
       <POSOpenItemModal

@@ -32,6 +32,9 @@ const {
   adjustOrderItem,
   getLineAdjustments,
   fireOrderItems,
+  getCombos,
+  saveCombo,
+  deleteCombo,
 } = require("../controllers/pos.controller");
 const {
   getPrintAgents,
@@ -325,5 +328,12 @@ router.post(
   authorize([SCOPES.POS, SCOPES.ORDERS, SCOPES.WAITER]),
   fireOrderItems
 );
+
+// ─── Combos / set meals ───────────────────────────────────
+
+router.get("/combos", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS, SCOPES.POS]), getCombos);
+router.post("/combos", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), saveCombo);
+router.put("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), saveCombo);
+router.delete("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), deleteCombo);
 
 module.exports = router;

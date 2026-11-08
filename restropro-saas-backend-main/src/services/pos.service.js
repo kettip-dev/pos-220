@@ -44,9 +44,17 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     const orderId = orderResult.insertId;
 
+    // Combos: resolve each combo line's chosen components (validated server-side).
+    const { resolveComboSelectionsTx } = require("./combo.service");
+    const comboSelections = await resolveComboSelectionsTx(conn, tenantId, cartItems);
+    const comboComponentLines = [];
+    comboSelections.forEach((components, idx) => {
+      components.forEach((c) => comboComponentLines.push({ id: c.menuItemId, quantity: Number(cartItems[idx].quantity) || 1 }));
+    });
+
     // Sold-out / portion-count guard. Locks the menu rows so two terminals
     // cannot both sell the last portion.
-    const availabilityChanges = await consumeMenuItemStockTx(conn, tenantId, cartItems);
+    const availabilityChanges = await consumeMenuItemStockTx(conn, tenantId, [...cartItems, ...comboComponentLines]);
 
     // Increment promotion redemptions if applied
     if (appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0) {
@@ -78,13 +86,15 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     const sqlOrderItems = `
     INSERT INTO order_items
-    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at, custom_title)
+    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at, custom_title, is_combo_parent)
     VALUES ?
     `;
 
     await conn.query(sqlOrderItems, [
-      cartItems.map((item) => {
-        const stationId = item.kitchen_station_id || item.effective_kitchen_station_id || itemStationMap.get(item.id) || null;
+      cartItems.map((item, idx) => {
+        const isComboParent = comboSelections.has(idx);
+        // A combo's parent line carries the price only; its components go to the kitchen.
+        const stationId = isComboParent ? null : (item.kitchen_station_id || item.effective_kitchen_station_id || itemStationMap.get(item.id) || null);
         // Held courses wait for "Fire"; without a kitchen workflow everything is fired.
         const course = Number(item.course) > 0 ? Math.min(Number(item.course), 9) : null;
         const seat = Number(item.seat) > 0 ? Math.min(Number(item.seat), 99) : null;
@@ -103,25 +113,72 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
                 : null),
           tenantId,
           stationId ? Number(stationId) : null,
-          itemStatus,
+          isComboParent ? 'completed' : itemStatus,
           course,
           seat,
           held ? 'held' : 'fired',
           held ? null : new Date(),
           // Open item: the name typed at the POS (only accepted on the tenant's open-item row)
-          openItemIds.has(Number(item.id)) ? String(item.custom_title || item.title || 'Open item').slice(0, 255) : null
+          openItemIds.has(Number(item.id)) ? String(item.custom_title || item.title || 'Open item').slice(0, 255) : null,
+          isComboParent ? 1 : 0
         ];
       })
     ]);
 
-    // step 5: comp / discount approvals on cart lines (audit-linked, single use)
-    if (cartItems.some((ci) => ci?.adjust?.type)) {
-      const { applyCartAdjustmentsTx } = require("./line_adjustment.service");
+    // Row ids of the cart lines just inserted, in cart order.
+    let insertedIds = [];
+    if (cartItems.some((ci) => ci?.adjust?.type) || comboSelections.size > 0) {
       const [insertedRows] = await conn.query(
         `SELECT id FROM order_items WHERE order_id = ? AND tenant_id = ? ORDER BY id ASC`,
         [orderId, tenantId]
       );
-      await applyCartAdjustmentsTx(conn, tenantId, orderId, cartItems, insertedRows.map((r) => r.id), username);
+      insertedIds = insertedRows.map((r) => r.id);
+    }
+
+    // step 5: comp / discount approvals on cart lines (audit-linked, single use)
+    if (cartItems.some((ci) => ci?.adjust?.type)) {
+      const { applyCartAdjustmentsTx } = require("./line_adjustment.service");
+      await applyCartAdjustmentsTx(conn, tenantId, orderId, cartItems, insertedIds, username);
+    }
+
+    // step 5b: combo components (price 0, own station, same course/seat/hold as the combo)
+    const comboRecipeLines = [];
+    if (comboSelections.size > 0) {
+      const componentRows = [];
+      comboSelections.forEach((components, idx) => {
+        const parent = cartItems[idx];
+        const course = Number(parent.course) > 0 ? Math.min(Number(parent.course), 9) : null;
+        const seat = Number(parent.seat) > 0 ? Math.min(Number(parent.seat), 99) : null;
+        const held = Boolean(parent.hold) && orderStatus !== 'completed';
+        components.forEach((c) => {
+          componentRows.push([
+            orderId, c.menuItemId, c.variantId || null, 0, Number(parent.quantity) || 1, parent.notes || null, null,
+            tenantId, c.stationId ? Number(c.stationId) : null, itemStatus, course, seat,
+            held ? 'held' : 'fired', held ? null : new Date(), insertedIds[idx],
+          ]);
+          comboRecipeLines.push({ id: c.menuItemId, variant_id: c.variantId || null, quantity: Number(parent.quantity) || 1 });
+        });
+      });
+      await conn.query(
+        `INSERT INTO order_items
+         (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at, combo_parent_id)
+         VALUES ?`,
+        [componentRows]
+      );
+
+      // Components deduct their own recipes (looked up here, not trusted from the client).
+      const compIds = [...new Set(comboRecipeLines.map((l) => l.id))];
+      const [compRecipes] = await conn.query(
+        `SELECT mir.menu_item_id, mir.variant_id, mir.addon_id, mir.inventory_item_id, mir.quantity AS recipe_quantity,
+                ii.title AS ingredient_title, ii.unit
+         FROM menu_item_recipes mir
+         LEFT JOIN inventory_items ii ON ii.id = mir.inventory_item_id
+         WHERE mir.tenant_id = ? AND mir.menu_item_id IN (?) AND (mir.addon_id IS NULL OR mir.addon_id = 0)`,
+        [tenantId, compIds]
+      );
+      comboRecipeLines.forEach((l) => {
+        l.recipeItems = compRecipes.filter((r) => Number(r.menu_item_id) === Number(l.id));
+      });
     }
 
     // step 6: Save updated token no. to table token_sequences
@@ -130,7 +187,7 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
      // Track Recipe/Inventory Item Usuage
      const inventoryUsage = {};
 
-     cartItems.forEach(item => {
+     [...cartItems, ...comboRecipeLines].forEach(item => {
        (item.recipeItems || []).forEach(recipe => {
          const { inventory_item_id, recipe_quantity, ingredient_title, unit, variant_id, addon_id } = recipe;
 

@@ -88,6 +88,35 @@ exports.ensurePosFeaturesSchema = async (pool) => {
     // 4. Open items (custom name + price, sold through one hidden menu row per tenant)
     await addColumnIfMissing(conn, "order_items", "custom_title", "VARCHAR(255) NULL DEFAULT NULL");
     await addColumnIfMissing(conn, "menu_items", "is_open_item", "TINYINT(1) NOT NULL DEFAULT 0");
+
+    // 5. Combos / set meals: a combo is a menu item with choice groups
+    await addColumnIfMissing(conn, "menu_items", "is_combo", "TINYINT(1) NOT NULL DEFAULT 0");
+    await addColumnIfMissing(conn, "order_items", "is_combo_parent", "TINYINT(1) NOT NULL DEFAULT 0");
+    await addColumnIfMissing(conn, "order_items", "combo_parent_id", "INT NULL DEFAULT NULL");
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS menu_combo_groups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        combo_item_id INT NOT NULL,
+        title VARCHAR(120) NOT NULL,
+        min_select INT NOT NULL DEFAULT 1,
+        max_select INT NOT NULL DEFAULT 1,
+        sort_order INT NOT NULL DEFAULT 0,
+        INDEX idx_mcg_combo (tenant_id, combo_item_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS menu_combo_options (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        group_id INT NOT NULL,
+        menu_item_id INT NOT NULL,
+        variant_id INT NULL,
+        extra_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+        sort_order INT NOT NULL DEFAULT 0,
+        INDEX idx_mco_group (tenant_id, group_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
   } finally {
     conn.release();
   }
