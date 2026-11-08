@@ -783,3 +783,27 @@ exports.deleteCombo = async (req, res) => {
     return comboErrorResponse(req, res, error);
   }
 };
+
+// ─── Selling aids: pairings & repeat last order ───────────
+
+exports.getUpsellPairs = async (req, res) => {
+  try {
+    const { getUpsellPairsDB } = require("../services/pos_insights.service");
+    return res.status(200).json({ pairs: await getUpsellPairsDB(req.user.tenant_id) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+exports.getCustomerLastOrder = async (req, res) => {
+  try {
+    const phone = String(req.params.phone || "").trim();
+    if (!phone) return res.status(400).json({ success: false, message: req.__("please_provide_required_details") });
+    const { getCustomerLastOrderDB } = require("../services/pos_insights.service");
+    return res.status(200).json(await getCustomerLastOrderDB(req.user.tenant_id, phone));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};

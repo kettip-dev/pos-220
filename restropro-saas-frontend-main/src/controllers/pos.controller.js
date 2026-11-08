@@ -147,3 +147,12 @@ export async function saveCombo(id, payload) {
 export async function deleteCombo(id) {
   return ApiClient.delete(`/pos/combos/${id}`);
 }
+
+// ─── Selling aids ─────────────────────────────────────────
+export async function getUpsellPairs() {
+  return ApiClient.get(`/pos/upsell-pairs`);
+}
+
+export async function getCustomerLastOrder(phone) {
+  return ApiClient.get(`/pos/customers/${encodeURIComponent(phone)}/last-order`);
+}

@@ -35,6 +35,8 @@ const {
   getCombos,
   saveCombo,
   deleteCombo,
+  getUpsellPairs,
+  getCustomerLastOrder,
 } = require("../controllers/pos.controller");
 const {
   getPrintAgents,
@@ -335,5 +337,10 @@ router.get("/combos", isLoggedIn, isAuthenticated, isSubscriptionActive, authori
 router.post("/combos", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), saveCombo);
 router.put("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), saveCombo);
 router.delete("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), deleteCombo);
+
+// ─── Selling aids ─────────────────────────────────────────
+
+router.get("/upsell-pairs", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getUpsellPairs);
+router.get("/customers/:phone/last-order", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getCustomerLastOrder);
 
 module.exports = router;

@@ -2,9 +2,9 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus, IconHistory, IconBulb } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
-import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
+import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts, getUpsellPairs, getCustomerLastOrder } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
 import { PAYMENT_ICONS } from "../config/payment_icons";
 import { toast } from "react-hot-toast";
@@ -80,6 +80,9 @@ export default function POSPage() {
   const [seatPickerIndex, setSeatPickerIndex] = useState(null);
   const [isOpenItemOpen, setIsOpenItemOpen] = useState(false);
   const [comboItem, setComboItem] = useState(null);
+  const [upsellPairs, setUpsellPairs] = useState({});
+  const [dismissedSuggestions, setDismissedSuggestions] = useState([]);
+  const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
   const { data: kitchenStationsList = [] } = useKitchenStations();
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
@@ -398,8 +401,27 @@ export default function POSPage() {
     if (!cartItems || cartItems.length === 0) {
       setActiveCourse(1);
       setSeatPickerIndex(null);
+      setDismissedSuggestions([]);
     }
   }, [cartItems?.length]);
+
+  // Up to two items often ordered with what is on the ticket.
+  const pairSuggestions = React.useMemo(() => {
+    if (!cartItems || cartItems.length === 0) return [];
+    const inCart = new Set(cartItems.map((c) => String(c.id)));
+    const score = new Map();
+    cartItems.forEach((c) => {
+      (upsellPairs[c.id] || []).forEach((p) => {
+        if (inCart.has(String(p.id)) || dismissedSuggestions.includes(String(p.id))) return;
+        score.set(String(p.id), (score.get(String(p.id)) || 0) + Number(p.count || 1));
+      });
+    });
+    return [...score.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => (menuItems || []).find((m) => String(m.id) === id))
+      .filter((m) => m && m.is_enabled && Number(m.is_sold_out) !== 1 && Number(m.is_combo) !== 1)
+      .slice(0, 2);
+  }, [cartItems, upsellPairs, dismissedSuggestions, menuItems]);
 
   const soldOutCount = React.useMemo(
     () => (menuItems || []).filter((m) => m.is_enabled && Number(m.is_sold_out) === 1).length,
@@ -437,6 +459,8 @@ export default function POSPage() {
   useEffect(()=>{
     _initPOS();
     _initSocket();
+    // "Often ordered together" pairs (cached server-side for an hour).
+    getUpsellPairs().then((res) => setUpsellPairs(res?.data?.pairs || {})).catch(() => {});
   },[]);
 
   useEffect(() => {
@@ -2384,6 +2408,61 @@ export default function POSPage() {
     return list.map((l) => ({ ...l, hold: (Number(l.course) || 1) > firstCourse }));
   };
 
+  // Repeat the attached customer's last order at today's prices.
+  const handleRepeatLastOrder = async () => {
+    const phone = state.customer?.phone;
+    if (!phone || isRepeatingOrder) return;
+    try {
+      setIsRepeatingOrder(true);
+      const res = await getCustomerLastOrder(phone);
+      const items = res?.data?.items || [];
+      if (items.length === 0) {
+        toast(t('pos_ops.no_previous_order', 'No previous order for this customer'));
+        return;
+      }
+      let skipped = 0;
+      const lines = [];
+      items.forEach((it) => {
+        if (it.custom_title && state.openItemId) {
+          lines.push({ id: state.openItemId, title: it.custom_title, custom_title: it.custom_title, price: Number(it.price) || 0, quantity: Number(it.quantity) || 1, notes: it.notes || null, recipeItems: [], addons: [], variants: [], course: activeCourse });
+          return;
+        }
+        const menu = (state.menuItems || []).find((m) => String(m.id) === String(it.item_id));
+        if (!menu || !menu.is_enabled || Number(menu.is_sold_out) === 1 || Number(it.is_combo_parent) === 1) {
+          skipped += 1;
+          return;
+        }
+        const variant = it.variant_id ? (menu.variants || []).find((v) => String(v.id) === String(it.variant_id)) : null;
+        const addons = (menu.addons || []).filter((a) => (it.addons || []).map(String).includes(String(a.id)));
+        const price = Number(variant ? variant.price : menu.price) + addons.reduce((sum, a) => sum + Number(a.price || 0), 0);
+        lines.push({
+          ...menu,
+          price,
+          quantity: Number(it.quantity) || 1,
+          notes: it.notes || null,
+          variant_id: variant ? variant.id : null,
+          variant: variant || null,
+          addons_ids: addons.map((a) => String(a.id)),
+          addons,
+          course: activeCourse,
+        });
+      });
+      if (lines.length > 0) {
+        setState((prev) => ({ ...prev, cartItems: [...(prev.cartItems || []), ...lines] }));
+        playTapSound();
+      }
+      toast.success(
+        skipped > 0
+          ? t('pos_ops.repeat_added_skipped', 'Added {{count}} items · {{skipped}} not available', { count: lines.length, skipped })
+          : t('pos_ops.repeat_added', 'Added {{count}} items from the last order', { count: lines.length })
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || t('pos.something_went_wrong', 'Something went wrong'));
+    } finally {
+      setIsRepeatingOrder(false);
+    }
+  };
+
   // Open item: custom name + price on the tenant's hidden open-item row.
   const handleAddOpenItem = ({ title, price, quantity, stationId, notes }) => {
     if (!state.openItemId) {
@@ -3204,6 +3283,21 @@ export default function POSPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {customer.phone && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRepeatLastOrder();
+                    }}
+                    disabled={isRepeatingOrder}
+                    title={t('pos_ops.repeat_last_order', 'Repeat last order')}
+                    className="min-h-[32px] px-2 rounded-lg bg-white/80 dark:bg-slate-900/70 border border-[#00A699]/30 text-[#00A699] text-[10px] font-black flex items-center gap-1 active:scale-95 transition cursor-pointer disabled:opacity-50"
+                  >
+                    <IconHistory size={13} stroke={2.4} />
+                    <span className="hidden sm:inline">{t('pos_ops.repeat_last', 'Repeat last')}</span>
+                  </button>
+                )}
                 <span className="text-[10px] font-bold text-[#00A699] hover:underline hidden sm:inline">
                   {t('pos.change', 'Profile')}
                 </span>
@@ -3603,6 +3697,37 @@ export default function POSPage() {
 
           {/* Persistent Live Financial Calculation Tray & Actions */}
           <div className="flex-shrink-0 w-full p-3.5 border-t border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8]/70 dark:bg-slate-800/50 space-y-2.5">
+            {/* Often ordered together */}
+            {pairSuggestions.length > 0 && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <IconBulb size={15} className="text-amber-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 shrink-0">{t('pos_ops.often_with', 'Often with')}</span>
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0">
+                  {pairSuggestions.map((m) => (
+                    <span key={m.id} className="flex items-center shrink-0 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => (m.variants?.length || m.addons?.length ? btnOpenVariantAndAddonModal(m.id) : addItemToCart(m))}
+                        className="min-h-[36px] pl-2.5 pr-1.5 text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1 active:scale-95 cursor-pointer"
+                      >
+                        <IconPlus size={13} stroke={2.6} className="text-[#2CA01C]" />
+                        <span className="truncate max-w-[120px]">{displayName(m)}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">{currency}{Number(m.price).toFixed(2)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedSuggestions((prev) => [...prev, String(m.id)])}
+                        aria-label={t('pos_ops.dismiss', 'Dismiss')}
+                        className="min-h-[36px] px-1.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Quick Upsell Encouragement Pill */}
             {(() => {
               const rawSub = liveCartSummary.rawSubtotal || liveCartSummary.itemsTotal || 0;
