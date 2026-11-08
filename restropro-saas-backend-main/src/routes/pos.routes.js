@@ -37,6 +37,9 @@ const {
   deleteCombo,
   getUpsellPairs,
   getCustomerLastOrder,
+  getGiftCards,
+  lookupGiftCard,
+  issueGiftCard,
 } = require("../controllers/pos.controller");
 const {
   getPrintAgents,
@@ -342,5 +345,11 @@ router.delete("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, 
 
 router.get("/upsell-pairs", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getUpsellPairs);
 router.get("/customers/:phone/last-order", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getCustomerLastOrder);
+
+// ─── Gift cards ───────────────────────────────────────────
+
+router.get("/gift-cards", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS, SCOPES.REPORTS]), getGiftCards);
+router.get("/gift-cards/:code", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), lookupGiftCard);
+router.post("/gift-cards", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), attachRegisterSession, issueGiftCard);
 
 module.exports = router;

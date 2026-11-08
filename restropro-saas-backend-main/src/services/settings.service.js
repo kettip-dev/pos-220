@@ -456,13 +456,13 @@ exports.getPaymentTypesDB = async (activeOnly=false, tenantId) => {
 
     try {
         let sql = `
-        SELECT id, title, is_active, icon, is_cash FROM payment_types
+        SELECT id, title, is_active, icon, is_cash, is_gift_card FROM payment_types
         WHERE tenant_id = ?;
         `;
 
         if(activeOnly) {
             sql = `
-            SELECT id, title, is_active, icon, is_cash FROM payment_types
+            SELECT id, title, is_active, icon, is_cash, is_gift_card FROM payment_types
             WHERE is_active = 1 AND tenant_id = ?;
             `
         }

@@ -117,6 +117,54 @@ exports.ensurePosFeaturesSchema = async (pool) => {
         INDEX idx_mco_group (tenant_id, group_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    // 7. Gift cards / stored-value vouchers
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS gift_cards (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        code VARCHAR(32) NOT NULL,
+        initial_balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+        balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+        status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+        customer_phone VARCHAR(32) NULL,
+        note VARCHAR(255) NULL,
+        expires_at DATE NULL,
+        issued_by VARCHAR(100) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_gift_card_code (tenant_id, code),
+        INDEX idx_gift_card_customer (tenant_id, customer_phone)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS gift_card_transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tenant_id INT NOT NULL,
+        gift_card_id INT NOT NULL,
+        type VARCHAR(12) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        balance_after DECIMAL(12,2) NOT NULL,
+        invoice_id INT NULL,
+        register_session_id INT NULL,
+        note VARCHAR(255) NULL,
+        created_by VARCHAR(100) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_gct_card (tenant_id, gift_card_id),
+        INDEX idx_gct_invoice (tenant_id, invoice_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await addColumnIfMissing(conn, "payment_types", "is_gift_card", "TINYINT(1) NOT NULL DEFAULT 0");
+    // Selling / reloading a card puts money in the drawer without being a sale.
+    const [sourceRows] = await conn.query(
+      `SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'register_payments' AND COLUMN_NAME = 'source'`
+    );
+    const sourceType = sourceRows[0]?.COLUMN_TYPE || "";
+    if (sourceType.startsWith("enum(") && !sourceType.includes("'GIFT_CARD'")) {
+      const values = sourceType.slice(5, -1);
+      await conn.query(`ALTER TABLE register_payments MODIFY COLUMN source ENUM(${values}, 'GIFT_CARD') NOT NULL`);
+      console.log("[Migration] Added GIFT_CARD to register_payments.source");
+    }
   } finally {
     conn.release();
   }

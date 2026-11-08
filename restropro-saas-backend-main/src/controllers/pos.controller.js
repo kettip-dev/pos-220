@@ -55,7 +55,7 @@ async function precheckAvailability(tenantId, cart) {
 /** Known business-rule errors (sold out, bad approval) go back to the POS as-is. */
 function knownErrorResponse(res, error) {
   if (error?.code === "ITEM_SOLD_OUT") return soldOutResponse(res, error);
-  if (error?.statusCode && error?.code && (String(error.code).startsWith("LINE_ADJUST") || error.code === "COMBO_INVALID")) {
+  if (error?.statusCode && error?.code && (String(error.code).startsWith("LINE_ADJUST") || error.code === "COMBO_INVALID" || String(error.code).startsWith("GIFT_CARD"))) {
     return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
   }
   return null;
@@ -805,5 +805,58 @@ exports.getCustomerLastOrder = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+// ─── Gift cards ───────────────────────────────────────────
+
+function giftCardErrorResponse(req, res, error) {
+  if (error?.statusCode && String(error?.code || "").startsWith("GIFT_CARD")) {
+    return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
+  }
+  if (error?.isRegisterError) {
+    return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
+  }
+  console.error(error);
+  return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+}
+
+exports.getGiftCards = async (req, res) => {
+  try {
+    const { getGiftCardsDB } = require("../services/gift_card.service");
+    return res.status(200).json(await getGiftCardsDB(req.user.tenant_id, { search: req.query.search }));
+  } catch (error) {
+    return giftCardErrorResponse(req, res, error);
+  }
+};
+
+exports.lookupGiftCard = async (req, res) => {
+  try {
+    const { lookupGiftCardDB } = require("../services/gift_card.service");
+    return res.status(200).json(await lookupGiftCardDB(req.user.tenant_id, req.params.code));
+  } catch (error) {
+    return giftCardErrorResponse(req, res, error);
+  }
+};
+
+exports.issueGiftCard = async (req, res) => {
+  try {
+    const { issueOrReloadGiftCardDB } = require("../services/gift_card.service");
+    const { code, amount, paymentTypeId, customerPhone, expiresAt, note } = req.body || {};
+    const card = await issueOrReloadGiftCardDB(req.user.tenant_id, {
+      code,
+      amount,
+      paymentTypeId,
+      customerPhone,
+      expiresAt,
+      note,
+      session: req.registerSession || null,
+      username: req.user.username,
+    });
+    const io = req.app.get("io");
+    if (io) io.to(String(req.user.tenant_id)).emit("register_update", { action: "gift_card", cardId: card.id });
+    return res.status(200).json({ success: true, card });
+  } catch (error) {
+    return giftCardErrorResponse(req, res, error);
   }
 };

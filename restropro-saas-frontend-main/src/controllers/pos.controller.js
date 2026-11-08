@@ -156,3 +156,16 @@ export async function getUpsellPairs() {
 export async function getCustomerLastOrder(phone) {
   return ApiClient.get(`/pos/customers/${encodeURIComponent(phone)}/last-order`);
 }
+
+// ─── Gift cards ───────────────────────────────────────────
+export async function getGiftCards(search = "") {
+  return ApiClient.get(`/pos/gift-cards`, { params: { search } });
+}
+
+export async function lookupGiftCard(code) {
+  return ApiClient.get(`/pos/gift-cards/${encodeURIComponent(String(code || "").trim())}`);
+}
+
+export async function issueGiftCard(payload) {
+  return ApiClient.post(`/pos/gift-cards`, payload);
+}

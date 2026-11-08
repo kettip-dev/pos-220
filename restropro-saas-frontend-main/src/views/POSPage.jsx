@@ -35,6 +35,7 @@ import POSSoldOutDrawer from '../components/pos/POSSoldOutDrawer';
 import POSLineAdjustDrawer, { reasonLabel } from '../components/pos/POSLineAdjustDrawer';
 import POSOpenItemModal from '../components/pos/POSOpenItemModal';
 import POSComboDrawer from '../components/pos/POSComboDrawer';
+import POSGiftCardDrawer from '../components/pos/POSGiftCardDrawer';
 import { useKitchenStations } from '../controllers/kitchen_stations.controller';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { 
@@ -83,6 +84,7 @@ export default function POSPage() {
   const [upsellPairs, setUpsellPairs] = useState({});
   const [dismissedSuggestions, setDismissedSuggestions] = useState([]);
   const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
+  const [isGiftCardOpen, setIsGiftCardOpen] = useState(false);
   const { data: kitchenStationsList = [] } = useKitchenStations();
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
@@ -3016,6 +3018,15 @@ export default function POSPage() {
             <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
               <button
                 type="button"
+                onClick={() => setIsGiftCardOpen(true)}
+                title={t('pos_ops.gift_cards', 'Gift cards')}
+                aria-label={t('pos_ops.gift_cards', 'Gift cards')}
+                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+              >
+                <IconGift size={18} stroke={iconStroke} />
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsOpenItemOpen(true)}
                 title={t('pos_ops.open_item', 'Open item')}
                 aria-label={t('pos_ops.open_item', 'Open item')}
@@ -4120,6 +4131,19 @@ export default function POSPage() {
           adjustType: cartItems[adjustLineIndex].adjust?.type,
         } : null}
         onApplied={handleCartLineAdjusted}
+      />
+
+      <POSGiftCardDrawer
+        isOpen={isGiftCardOpen}
+        onClose={() => setIsGiftCardOpen(false)}
+        paymentTypes={paymentTypes}
+        customer={customerType === 'CUSTOMER' ? customer : null}
+        currency={currency}
+        onIssued={() => {
+          // The first card creates the "Gift Card" tender: reload payment methods.
+          if (!(paymentTypes || []).some((p) => Number(p.is_gift_card) === 1)) _initPOS();
+          mutateRegisterStatus();
+        }}
       />
 
       <POSComboDrawer

@@ -460,6 +460,10 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session 
       [username, reason, invoiceId, tenantId]
     );
 
+    // Money taken from gift cards goes back on the cards.
+    const { restoreGiftCardsForInvoiceTx } = require("./gift_card.service");
+    await restoreGiftCardsForInvoiceTx(conn, { tenantId, invoiceId: Number(invoiceId), username });
+
     await conn.query(
       `INSERT INTO invoice_audit_log
        (tenant_id, invoice_id, invoice_number, action, performed_by, reason, previous_status, new_status)

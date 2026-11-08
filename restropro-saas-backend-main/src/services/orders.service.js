@@ -663,6 +663,10 @@ exports.createInvoiceDB = async (subtotal, taxTotal, serviceChargeTotal, total, 
       register?.session?.id || null,
     ]);
 
+    // Gift card tenders: check and deduct the card balance in this transaction.
+    const { redeemGiftCardLinesTx } = require("./gift_card.service");
+    await redeemGiftCardLinesTx(conn, { tenantId, invoiceId, lines: paymentLines, session: register?.session || null, username });
+
     await recordPaymentsTx(conn, {
       tenantId,
       session: register?.session || null,
