@@ -1634,7 +1634,8 @@
     "change_language": "Change Language",
     "select_language": "Select Language",
     "dark_mode": "Dark Mode",
-    "light_mode": "Light Mode"
+    "light_mode": "Light Mode",
+    "menu_languages": "Menu Languages"
   },
   "toast": {
     "please_wait": "Please wait...",
@@ -1751,7 +1752,8 @@
     "clock_short": "Clock",
     "user_guide": "User Guide",
     "customer_dues": "Customer Dues",
-    "addons": "Add-ons"
+    "addons": "Add-ons",
+    "menu_languages": "Menu Languages"
   },
   "pos_menu": {
     "not_found_title": "Bummer!",
@@ -1946,7 +1948,9 @@
     "flush_cache": "Clear Cache & Reload",
     "flushing_cache": "Clearing...",
     "flush_cache_confirm": "Clear browser cache and reload the app now?",
-    "desc_flush_cache": "Not seeing the latest update? Clear the browser cache to download the newest version. You stay signed in."
+    "desc_flush_cache": "Not seeing the latest update? Clear the browser cache to download the newest version. You stay signed in.",
+    "menu_languages": "Menu Languages",
+    "desc_menu_languages": "Translate item, category, variant and add-on names, and choose the language shown on screen, receipts and kitchen tickets."
   },
   "reservation": {
     "view_notes": "View Notes",
@@ -5242,5 +5246,51 @@
       "clock": "Clock & Date",
       "salesGoal": "Daily Sales Goal"
     }
+  },
+  "menu_language": {
+    "title": "Menu Languages",
+    "subtitle": "Give categories, items, variants and add-ons names in more than one language, and choose which name shows on screen and on printed tickets.",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Menu language settings saved.",
+    "save_failed": "Could not save settings.",
+    "loading": "Please wait...",
+    "load_failed": "Failed to load menu language settings.",
+    "enable_title": "Multi-language menu",
+    "enable_desc": "When on, menu editors show a translation field for every language below.",
+    "enable_aria": "Enable multi-language menu",
+    "languages_title": "Languages",
+    "languages_desc": "The default language is the name you already type for each item. Add the extra languages you want to translate into.",
+    "default_language_name": "Default language name",
+    "default_language": "Default",
+    "add_language_placeholder": "Add a language…",
+    "add": "Add",
+    "custom_code": "Code",
+    "custom_name": "Other language name",
+    "name_for": "Name for {{code}}",
+    "remove_named": "Remove {{name}}",
+    "err_code": "Use a 2–3 letter language code, e.g. km, zh, th.",
+    "err_name": "Enter a name for the language.",
+    "err_duplicate": "That language is already added.",
+    "err_max": "You can add up to 10 languages.",
+    "err_need_one": "Add at least one language before turning this on.",
+    "which_name_title": "Which name to show",
+    "which_name_desc": "If an item has no translation for the chosen language, its default name is used.",
+    "screen_title": "On screen",
+    "screen_desc": "POS menu, cart, item options and the kitchen display.",
+    "receipt_title": "Customer receipt",
+    "receipt_desc": "Printed bills and receipts.",
+    "kitchen_title": "Kitchen ticket",
+    "kitchen_desc": "Kitchen order tickets (KOT) for every station.",
+    "device_override": "Let staff pick a different language on their own device",
+    "device_override_aria": "Allow per-device language",
+    "preview": "Preview",
+    "rawbt_note": "Non-Latin scripts (Khmer, Chinese, Thai…) print correctly with the Direct Network (LAN/TCP) and Browser print modes. The RawBT text mode can only print Latin characters.",
+    "translations": "Translations",
+    "name_in": "Name in {{language}}",
+    "description_in": "Description in {{language}}",
+    "store_default": "Store default ({{mode}})",
+    "device_select_aria": "Menu language on this device",
+    "current_language": "Menu language: {{mode}}"
   }
 }
