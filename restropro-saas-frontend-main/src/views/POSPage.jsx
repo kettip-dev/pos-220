@@ -550,6 +550,48 @@ export default function POSPage() {
     navigate(location.pathname, { replace: true, state: restState });
   }, [location.state, state.isLoading]);
 
+  // Barcode scanner (keyboard wedge): fast keystrokes ending in Enter while no
+  // field has focus. Adds the matching menu item to the ticket.
+  const scanBufferRef = useRef({ chars: '', last: 0 });
+  const scanHandlerRef = useRef(null);
+  scanHandlerRef.current = (code) => {
+    const clean = String(code || '').trim();
+    const match = (state.menuItems || []).find((m) => m.barcode && String(m.barcode) === clean && m.is_enabled);
+    if (!match) {
+      toast.error(t('pos_ops.barcode_not_found', 'No item with barcode {{code}}', { code: clean }), { id: 'barcode-miss' });
+      return;
+    }
+    if (match.variants?.length || match.addons?.length) {
+      btnOpenVariantAndAddonModal(match.id);
+    } else {
+      addItemToCart(match);
+    }
+  };
+  useEffect(() => {
+    const onScanKey = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || document.activeElement?.isContentEditable) return;
+      const now = Date.now();
+      const buf = scanBufferRef.current;
+      if (now - buf.last > 80) buf.chars = '';
+      buf.last = now;
+      if (e.key === 'Enter') {
+        if (buf.chars.length >= 4) {
+          e.preventDefault();
+          e.stopPropagation();
+          const code = buf.chars;
+          buf.chars = '';
+          scanHandlerRef.current?.(code);
+        }
+        buf.chars = '';
+        return;
+      }
+      if (e.key.length === 1) buf.chars += e.key;
+    };
+    window.addEventListener('keydown', onScanKey, true);
+    return () => window.removeEventListener('keydown', onScanKey, true);
+  }, []);
+
   // Global Keyboard Shortcuts for High-Speed Cashier Operations
   useEffect(() => {
     const handleKeyDown = (e) => {

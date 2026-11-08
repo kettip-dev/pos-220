@@ -164,7 +164,7 @@ exports.getAllMenuItemsDB = async (tenantId) => {
             SELECT
             i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
             category as category_id, c.title AS category_title, image, i.is_enabled,
-            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo,
+            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo, i.barcode,
             i.translations, c.translations AS category_translations,
             i.kitchen_station_id,
             ks.name AS kitchen_station_name,
@@ -203,7 +203,7 @@ exports.getMenuItemDB = async (id, tenantId) => {
             SELECT
             i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
             category as category_id, c.title AS category_title, image, i.is_enabled,
-            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset,
+            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo, i.barcode,
             i.translations, c.translations AS category_translations,
             i.kitchen_station_id,
             ks.name AS kitchen_station_name,
@@ -745,6 +745,30 @@ exports.deleteRecipeItemDB = async (itemId, recipeItemId, variant, addon, tenant
     } catch (error) {
         console.error(error);
         throw error;
+    } finally {
+        conn.release();
+    }
+};
+
+
+/** Set (or clear) a menu item's barcode; unique per tenant. */
+exports.setMenuItemBarcodeDB = async (id, barcode, tenantId) => {
+    const clean = barcode === null || barcode === undefined ? "" : String(barcode).trim().slice(0, 64);
+    const conn = await getMySqlPromiseConnection();
+    try {
+        if (clean) {
+            const [[taken]] = await conn.query(
+                `SELECT id, title FROM menu_items WHERE tenant_id = ? AND barcode = ? AND id <> ? LIMIT 1`,
+                [tenantId, clean, id]
+            );
+            if (taken) {
+                const err = new Error(`Barcode already used by "${taken.title}"`);
+                err.statusCode = 409;
+                throw err;
+            }
+        }
+        await conn.query(`UPDATE menu_items SET barcode = ? WHERE id = ? AND tenant_id = ?`, [clean || null, id, tenantId]);
+        await invalidateTenantCatalog(tenantId);
     } finally {
         conn.release();
     }

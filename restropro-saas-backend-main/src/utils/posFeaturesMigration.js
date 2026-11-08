@@ -176,6 +176,16 @@ exports.ensurePosFeaturesSchema = async (pool) => {
       await conn.query(`ALTER TABLE orders ADD UNIQUE INDEX uq_orders_client_order (tenant_id, client_order_id)`);
       console.log("[Migration] Added uq_orders_client_order");
     }
+
+    // 9. Barcodes for scanning packaged / retail items at the POS
+    await addColumnIfMissing(conn, "menu_items", "barcode", "VARCHAR(64) NULL DEFAULT NULL");
+    const [bidx] = await conn.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'menu_items' AND INDEX_NAME = 'idx_menu_items_barcode' LIMIT 1`
+    );
+    if (bidx.length === 0) {
+      await conn.query(`ALTER TABLE menu_items ADD INDEX idx_menu_items_barcode (tenant_id, barcode)`);
+    }
   } finally {
     conn.release();
   }

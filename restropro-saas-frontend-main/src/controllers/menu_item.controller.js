@@ -283,3 +283,7 @@ export async function bulkImportMenuItems(items) {
   }
 }
 
+
+export async function setMenuItemBarcode(id, barcode) {
+  return ApiClient.patch(`/menu-items/update/${id}/barcode`, { barcode });
+}

@@ -16,6 +16,7 @@ import {
   removeMenuItemPhoto,
   selectMenuItemImageSuggestion,
   updateMenuItem,
+  setMenuItemBarcode,
   updateMenuItemRecipeItem,
   updateMenuItemVariant,
   uploadMenuItemPhoto,
@@ -83,6 +84,7 @@ export default function MenuItemViewPage() {
   const translationsEnabled = useTranslationsEnabled();
   const [formPrice, setFormPrice] = useState("");
   const [formNetPrice, setFormNetPrice] = useState("");
+  const [formBarcode, setFormBarcode] = useState("");
   const [formCategoryId, setFormCategoryId] = useState("");
   const [formTaxId, setFormTaxId] = useState("");
   const [formKitchenStationId, setFormKitchenStationId] = useState("");
@@ -173,6 +175,7 @@ export default function MenuItemViewPage() {
             : ""
         );
         setFormCategoryId(item.category_id ? String(item.category_id) : "");
+        setFormBarcode(item.barcode || "");
         setFormTaxId(item.tax_id ? String(item.tax_id) : "");
         setFormKitchenStationId(
           item.kitchen_station_id ? String(item.kitchen_station_id) : ""
@@ -247,6 +250,10 @@ export default function MenuItemViewPage() {
       );
 
       if (res.status === 200) {
+        // Barcode is saved separately (unique per business).
+        if ((formBarcode || "").trim() !== (state.menuItem?.barcode || "")) {
+          await setMenuItemBarcode(id, formBarcode.trim() || null);
+        }
         await _init(itemId);
         toast.dismiss();
         toast.success(res.data.message);
@@ -1117,6 +1124,30 @@ export default function MenuItemViewPage() {
                     placeholder="0.00"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="barcode"
+                  className="text-xs font-bold uppercase tracking-wide mb-1.5 block text-gray-500"
+                >
+                  {t("pos_ops.barcode", "Barcode (optional)")}
+                </label>
+                <input
+                  id="barcode"
+                  value={formBarcode}
+                  onChange={(e) => setFormBarcode(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Scanners end with Enter: keep it from submitting anything.
+                    if (e.key === "Enter") e.preventDefault();
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  name="barcode"
+                  maxLength={64}
+                  className="min-h-[44px] text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray font-mono"
+                  placeholder={t("pos_ops.barcode_ph", "Scan or type the code on the package")}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

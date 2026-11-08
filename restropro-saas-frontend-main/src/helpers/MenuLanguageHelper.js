@@ -370,6 +370,7 @@ export function matchesMenuSearch(entity, query) {
   const q = String(query || "").trim().toLowerCase();
   if (!q) return true;
   if (String(entity?.title || "").toLowerCase().includes(q)) return true;
+  if (entity?.barcode && String(entity.barcode).toLowerCase() === q) return true;
   const tr = parseTranslations(entity?.translations);
   return !!tr && Object.values(tr).some((v) => String((typeof v === "string" ? v : v?.title) || "").toLowerCase().includes(q));
 }
