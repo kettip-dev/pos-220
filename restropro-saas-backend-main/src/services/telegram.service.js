@@ -207,7 +207,7 @@ exports.sendOrderTelegramNotification = async (tenantId, orderId) => {
       const [itemsRows] = await conn.query(
         `SELECT 
           oi.id, oi.item_id, oi.variant_id, oi.price, oi.quantity, oi.notes, oi.addons,
-          mi.title AS item_title,
+          COALESCE(oi.custom_title, mi.title) AS item_title,
           mv.title AS variant_title
         FROM order_items oi
         LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id

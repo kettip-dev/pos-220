@@ -76,6 +76,21 @@ export default function RegisterReportView({ summary }) {
           {Number(summary.invoices?.tax_total) > 0 && <Row label={t("registers.report.tax_collected", "Tax collected")} value={fp(summary.invoices.tax_total)} />}
         </Card>
 
+        {(Number(summary.line_adjustments?.comp_count) > 0 || Number(summary.line_adjustments?.discount_count) > 0 || Number(summary.line_adjustments?.void_count) > 0) && (
+          <Card title={t("pos_ops.report_adjustments", "Comps, discounts & item voids")}>
+            <Row label={t("pos_ops.report_comps", "Comps ({{count}})", { count: summary.line_adjustments.comp_count || 0 })} value={fp(summary.line_adjustments.comp_total)} />
+            <Row label={t("pos_ops.report_discounts", "Line discounts ({{count}})", { count: summary.line_adjustments.discount_count || 0 })} value={fp(summary.line_adjustments.discount_total)} />
+            <Row label={t("pos_ops.report_item_voids", "Item voids ({{count}})", { count: summary.line_adjustments.void_count || 0 })} value={fp(summary.line_adjustments.void_total)} tone={summary.line_adjustments.void_total ? "bad" : null} />
+          </Card>
+        )}
+
+        {(Number(summary.gift_cards?.sold_count) > 0 || Number(summary.gift_cards?.redeemed_count) > 0) && (
+          <Card title={t("pos_ops.gift_cards", "Gift cards")}>
+            <Row label={t("pos_ops.report_gc_sold", "Sold / topped up ({{count}})", { count: summary.gift_cards.sold_count || 0 })} value={fp(summary.gift_cards.sold_total)} />
+            <Row label={t("pos_ops.report_gc_redeemed", "Redeemed ({{count}})", { count: summary.gift_cards.redeemed_count || 0 })} value={fp(summary.gift_cards.redeemed_total)} />
+          </Card>
+        )}
+
         <Card title={t("registers.report.payments", "Payments")}>
           {(summary.payments || []).length === 0 && <Row label={t("registers.report.no_payments", "No payments yet")} value="—" />}
           {(summary.payments || []).map((pay) => (

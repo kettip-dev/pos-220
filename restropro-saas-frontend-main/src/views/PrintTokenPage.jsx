@@ -34,6 +34,11 @@ export default function PrintTokenPage() {
       <h2 className="text-center font-bold text-xl mt-4 pb-2 border-b border-dashed">
         *** {receiptDetails?.stationName ? `KOT - ${receiptDetails.stationName.toUpperCase()}` : "KOT"} ***
       </h2>
+      {receiptDetails?.ticketBanner && (
+        <p className="mt-2 py-1 text-center font-black text-2xl tracking-widest bg-black text-white">
+          {String(receiptDetails.ticketBanner).toUpperCase()}
+        </p>
+      )}
 
       {header && <div className=''>
         <p className='my-2 text-center'>{header}</p>
@@ -65,6 +70,7 @@ export default function PrintTokenPage() {
           <p className="font-bold">
             {title} {variant && <span>- {variant.title}</span>}
             {station && <span className="font-normal text-xs uppercase ml-1">[{station}]</span>}
+            {(cartItem.seat || cartItem.seat_no) && <span className="ml-1">[S{cartItem.seat || cartItem.seat_no}]</span>}
           </p>
           {addons_ids?.length > 0 && <p className='text-xs'>Addons:
           {addons_ids.map((addonId, index)=>{

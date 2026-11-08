@@ -35,7 +35,10 @@ import MoveTableModal from "../components/tables/MoveTableModal";
 import MoveItemModal from "../components/tables/MoveItemModal";
 import POSSplitBillDrawer from "../components/pos/POSSplitBillDrawer";
 import MergeTableModal from "../components/tables/MergeTableModal";
-import { triggerPrintReceipt } from "../helpers/ReceiptHelper";
+import { triggerPrintReceipt, triggerPrintToken } from "../helpers/ReceiptHelper";
+import POSLineAdjustDrawer from "../components/pos/POSLineAdjustDrawer";
+import { fireOrderItems } from "../controllers/pos.controller";
+import { CURRENCIES } from "../config/currencies.config";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
 import BindoActionDrawer from "../components/tables/BindoActionDrawer";
@@ -617,36 +620,77 @@ export default function TablesPage() {
   };
 
   // Item Void / Cancellation Handler
-  const handleVoidOrderItem = async (item) => {
-    const itemName = item.item_title || item.title || "Item";
-    const isConfirmed = await confirm({
-      title: t("orders.void_item", "Void / Cancel item"),
-      description: t("orders.confirm_void_item", {
-        name: itemName,
-        defaultValue: 'Are you sure you want to void / remove "{{name}}" from this order?',
-      }),
-      confirmText: t("orders.yes_void", "Yes, Void"),
-    });
-    if (!isConfirmed) return;
+  // Void / comp / discount a line already sent to the kitchen (reason + manager approval).
+  const [adjustTarget, setAdjustTarget] = useState(null);
+  const currencySymbol = CURRENCIES.find((c) => c.cc === storeSettings?.currency)?.symbol || currency;
 
-    try {
-      toast.loading(t("common.processing", "Voiding item..."));
-      const res = await updateKitchenOrderItemStatus(item.id, "cancelled");
-      toast.dismiss();
-      if (res?.status === 200) {
-        toast.success(t("orders.item_voided_successfully", { name: itemName, defaultValue: "Voided {{name}}" }));
-        await mutate();
-        if (selectedTable?.active_order_id) {
-          const updatedSummary = await getCompleteOrderPaymentSummary(getTableOrderIds(selectedTable));
-          if (updatedSummary?.data) {
-            setActiveOrderSummary(updatedSummary.data);
-          }
-        }
+  const handleVoidOrderItem = (item) => {
+    setAdjustTarget(item);
+  };
+
+  const refreshActiveSummary = async () => {
+    await mutate();
+    if (selectedTable?.active_order_id) {
+      const updatedSummary = await getCompleteOrderPaymentSummary(getTableOrderIds(selectedTable));
+      if (updatedSummary?.data) {
+        setActiveOrderSummary(updatedSummary.data);
       }
+    }
+  };
+
+  // Hold & fire: send a held course to the kitchen and print its ticket.
+  const handleFireCourse = async (orderId, course) => {
+    try {
+      const res = await fireOrderItems(orderId, course);
+      const fired = res?.data?.fired || [];
+      if (fired.length === 0) {
+        toast(t("pos_ops.nothing_on_hold", "Nothing on hold"));
+      } else {
+        toast.success(t("pos_ops.course_fired", "Course {{course}} sent to the kitchen", { course: course || "" }));
+        const order = res.data.order || {};
+        triggerPrintToken({
+          tokenNo: order.token_no,
+          orderId: order.id,
+          tableId: order.table_id,
+          tableName: order.table_title,
+          deliveryType: order.delivery_type,
+          ticketBanner: course ? `FIRE COURSE ${course}` : "FIRE",
+          cartItems: fired,
+          printSettings: printSettingsData,
+          storeSettings,
+        }).catch(() => {});
+      }
+      await refreshActiveSummary();
     } catch (err) {
-      toast.dismiss();
       console.error(err);
-      toast.error(err?.response?.data?.message || t("common.error", "Failed to void item"));
+      toast.error(err?.response?.data?.message || t("common.error", "Something went wrong"));
+    }
+  };
+
+  const handleOrderItemAdjusted = async (result) => {
+    const itemName = adjustTarget?.item_title || adjustTarget?.title || "Item";
+    if (result?.action === "void") {
+      toast.success(t("orders.item_voided_successfully", { name: itemName, defaultValue: "Voided {{name}}" }));
+      // Tell the station to stop making it.
+      if (result.ticket && result.itemStatus !== "completed" && result.itemStatus !== "delivered") {
+        const ticket = result.ticket;
+        triggerPrintToken({
+          ...ticket,
+          ticketBanner: "VOID",
+          cartItems: [{ ...ticket.item, addons: adjustTarget?.addons || [] }],
+          printSettings: printSettingsData,
+          storeSettings,
+        }).catch(() => {});
+      }
+    } else if (result?.action === "restore") {
+      toast.success(t("pos_ops.back_to_full_price", "Back to full price"));
+    } else {
+      toast.success(result?.action === "comp" ? t("pos_ops.line_comped", "Item comped") : t("pos_ops.line_discounted", "Discount applied"));
+    }
+    try {
+      await refreshActiveSummary();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -958,6 +1002,7 @@ export default function TablesPage() {
                 onPayTable={handlePayTable}
                 onOpenCustomerModal={handleOpenCustomerModal}
                 onVoidItem={handleVoidOrderItem}
+                onFireCourse={handleFireCourse}
                 activeOrderSummary={activeOrderSummary}
                 isLoadingOrderSummary={isLoadingOrderSummary}
                 onEditTable={(table) => {
@@ -994,6 +1039,7 @@ export default function TablesPage() {
             onPayTable={handlePayTable}
             onOpenCustomerModal={handleOpenCustomerModal}
             onVoidItem={handleVoidOrderItem}
+                onFireCourse={handleFireCourse}
             activeOrderSummary={activeOrderSummary}
             isLoadingOrderSummary={isLoadingOrderSummary}
             onEditTable={(table) => {
@@ -1228,6 +1274,24 @@ export default function TablesPage() {
       )}
 
       {/* In-app confirmation dialog (replaces native window.confirm) */}
+      <POSLineAdjustDrawer
+        isOpen={Boolean(adjustTarget)}
+        onClose={() => setAdjustTarget(null)}
+        mode="sent"
+        currency={currencySymbol}
+        line={adjustTarget ? {
+          key: `sent-${adjustTarget.id}`,
+          orderItemId: adjustTarget.id,
+          itemId: adjustTarget.item_id,
+          title: adjustTarget.item_title || adjustTarget.title,
+          quantity: adjustTarget.quantity,
+          unitPrice: Number(adjustTarget.variant_price || adjustTarget.price || 0) +
+            (Array.isArray(adjustTarget.addons) ? adjustTarget.addons.reduce((acc, a) => acc + Number(a?.price || 0), 0) : 0),
+          originalPrice: adjustTarget.original_price ?? undefined,
+          adjustType: adjustTarget.adjust_type,
+        } : null}
+        onApplied={handleOrderItemAdjusted}
+      />
       <ConfirmDialog />
     </Page>
   );

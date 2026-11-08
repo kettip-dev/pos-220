@@ -19,6 +19,8 @@ import {
   formatDuration,
   getOrderTitle,
   isAddedLater,
+  itemOverTarget,
+  allDayKey,
   isItemDone,
 } from "./kdsUtils";
 
@@ -90,6 +92,8 @@ export default function KdsTicketCard({
   onUndoItem,
   onStartAll,
   onBump,
+  highlightKey = null,
+  nowMs = null,
 }) {
   const { t } = useTranslation();
   const { displayOrderItem } = useMenuLanguage();
@@ -193,6 +197,8 @@ export default function KdsTicketCard({
           const view = displayOrderItem(item);
           const addonsText = Array.isArray(view.addons) && view.addons.length > 0 ? view.addons.map((a) => a.title).filter(Boolean).join(", ") : null;
           const addedLater = isAddedLater(order, item);
+          const overSec = itemOverTarget(item, nowMs || Date.now());
+          const isFocused = Boolean(highlightKey) && allDayKey(item) === highlightKey;
 
           return (
             <li key={item.id}>
@@ -209,6 +215,7 @@ export default function KdsTicketCard({
                   S.row,
                   !done && "hover:bg-[var(--kds-chip-hover)] active:bg-[var(--kds-soft)]",
                   item.status === "preparing" && "bg-amber-400/[0.05]",
+                  isFocused && "ring-2 ring-inset ring-amber-400 bg-amber-400/[0.12]",
                   done ? "cursor-default" : "cursor-pointer"
                 )}
                 title={
@@ -263,8 +270,30 @@ export default function KdsTicketCard({
                     </span>
                   )}
 
-                  {(isExpo && item.station_name) || addedLater ? (
+                  {(isExpo && item.station_name) || addedLater || item.seat_no || Number(item.course) > 1 || overSec !== null ? (
                     <span className="mt-1 flex flex-wrap gap-1">
+                      {overSec !== null && (
+                        <span
+                          className={clsx(
+                            "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black border",
+                            overSec > 0 ? "bg-rose-500/20 text-rose-300 border-rose-500/40" : "bg-[var(--kds-soft)] text-[color:var(--kds-muted)] border-[color:var(--kds-line)]"
+                          )}
+                        >
+                          {overSec > 0
+                            ? t("pos_ops.over_target", "+{{time}} over", { time: formatDuration(overSec) })
+                            : t("pos_ops.target_left", "{{time}} left", { time: formatDuration(-overSec) })}
+                        </span>
+                      )}
+                      {item.seat_no ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          S{item.seat_no}
+                        </span>
+                      ) : null}
+                      {Number(item.course) > 1 ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                          C{item.course}
+                        </span>
+                      ) : null}
                       {isExpo && item.station_name && (
                         <span
                           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border"
@@ -309,6 +338,30 @@ export default function KdsTicketCard({
           );
         })}
       </ul>
+
+      {/* ── Courses still on hold for this ticket ── */}
+      {Array.isArray(order.heldItems) && order.heldItems.length > 0 && (
+        <div className="px-3.5 py-2 border-t border-dashed border-[color:var(--kds-line)] flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--kds-faint)] mr-0.5">
+            {t("pos_ops.on_hold", "On hold")}
+          </span>
+          {Object.entries(
+            order.heldItems.reduce((acc, i) => {
+              const key = `C${i.course || "?"}`;
+              acc[key] = (acc[key] || 0) + Number(i.quantity || 1);
+              return acc;
+            }, {})
+          ).map(([course, qty]) => (
+            <span
+              key={course}
+              className="inline-flex items-center gap-1 h-6 px-2 rounded-md text-[11px] font-bold border bg-sky-500/10 border-sky-500/30 text-sky-300"
+            >
+              {course}
+              <span className="tabular-nums opacity-80">· {qty}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ── Other stations on this ticket ── */}
       {Object.keys(companionGroups).length > 0 && (

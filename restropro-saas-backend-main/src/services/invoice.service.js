@@ -273,7 +273,7 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
           oi.id,
           oi.order_id,
           oi.item_id,
-          mi.title AS item_title,
+          COALESCE(oi.custom_title, mi.title) AS item_title,
           oi.variant_id,
           miv.title as variant_title,
           miv.price as variant_price,
@@ -459,6 +459,10 @@ exports.voidInvoiceDB = async (invoiceId, tenantId, reason, username, { session 
       `UPDATE invoices SET status = 'VOID', voided_at = NOW(), voided_by = ?, void_reason = ?, balance_due = 0 WHERE id = ? AND tenant_id = ?`,
       [username, reason, invoiceId, tenantId]
     );
+
+    // Money taken from gift cards goes back on the cards.
+    const { restoreGiftCardsForInvoiceTx } = require("./gift_card.service");
+    await restoreGiftCardsForInvoiceTx(conn, { tenantId, invoiceId: Number(invoiceId), username });
 
     await conn.query(
       `INSERT INTO invoice_audit_log

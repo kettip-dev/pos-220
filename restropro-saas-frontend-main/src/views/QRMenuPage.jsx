@@ -861,12 +861,19 @@ export default function QRMenuPage() {
                     const { addons = [], variants = [], id, image, price, title, description } = item;
                     const hasVariantOrAddon = variants.length > 0 || addons.length > 0;
                     const simpleQty = !hasVariantOrAddon ? getSimpleItemQuantityInCart(id) : 0;
+                    const isSoldOut = Number(item.is_sold_out) === 1;
+                    const soldOutBadge = (
+                      <span className="inline-flex items-center min-h-[36px] px-3 rounded-full bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wide">
+                        {t("qr_menu.sold_out", "Sold out")}
+                      </span>
+                    );
 
                     return (
                       <article
                         key={id}
-                        onClick={() => openItemModal(item)}
-                        className="py-4 flex gap-4 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 md:p-4 md:border md:last:border md:rounded-2xl md:hover:border-emerald-500/40 md:hover:shadow-sm transition cursor-pointer"
+                        onClick={() => { if (!isSoldOut) openItemModal(item); }}
+                        aria-disabled={isSoldOut || undefined}
+                        className={`${isSoldOut ? 'opacity-60 cursor-not-allowed ' : ''}py-4 flex gap-4 border-b border-slate-100 dark:border-zinc-800/80 last:border-b-0 md:p-4 md:border md:last:border md:rounded-2xl md:hover:border-emerald-500/40 md:hover:shadow-sm transition cursor-pointer`}
                       >
                         <div className="flex-1 min-w-0 flex flex-col">
                           <h3 className="font-bold text-[15px] sm:text-base leading-snug text-slate-900 dark:text-white line-clamp-2">
@@ -890,7 +897,7 @@ export default function QRMenuPage() {
                           </div>
                           {!image && (
                             <div className="mt-3 self-end">
-                              {renderAddControl(item, hasVariantOrAddon, simpleQty)}
+                              {isSoldOut ? soldOutBadge : renderAddControl(item, hasVariantOrAddon, simpleQty)}
                             </div>
                           )}
                         </div>
@@ -900,11 +907,11 @@ export default function QRMenuPage() {
                             <img
                               src={getImageURL(image)}
                               alt={title}
-                              className="w-full h-full object-cover rounded-2xl bg-slate-100 dark:bg-zinc-800"
+                              className={`w-full h-full object-cover rounded-2xl bg-slate-100 dark:bg-zinc-800${isSoldOut ? ' grayscale' : ''}`}
                               loading="lazy"
                             />
                             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2">
-                              {renderAddControl(item, hasVariantOrAddon, simpleQty)}
+                              {isSoldOut ? soldOutBadge : renderAddControl(item, hasVariantOrAddon, simpleQty)}
                             </div>
                           </div>
                         )}

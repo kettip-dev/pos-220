@@ -26,6 +26,7 @@ const { ensureAddonAvailabilitySchema } = require("../utils/addonAvailabilityMig
 const { ensureAddonLibrarySchema } = require("../utils/addonLibraryMigration");
 const { ensureDesktopLoginSchema } = require("../utils/desktopLoginMigration");
 const { ensureMenuLanguageSchema } = require("../utils/menuLanguageMigration");
+const { ensurePosFeaturesSchema } = require("../utils/posFeaturesMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -150,6 +151,11 @@ splitBillSchemaReady
   .then(() => ensureCustomerCreditSchema(pool))
   .catch((err) => {
     console.error("[Migration] Error ensuring customer credit schema:", err);
+  })
+  // POS features extend register/invoice tables, so they run last.
+  .then(() => ensurePosFeaturesSchema(pool))
+  .catch((err) => {
+    console.error("[Migration] Error ensuring POS features schema:", err);
   });
 
 exports.getMySqlPromiseConnection = async () => {

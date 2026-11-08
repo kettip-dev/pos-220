@@ -363,6 +363,12 @@ export function buildKotEscPos(kotDetails) {
   out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
   out += stationName ? `*** KOT - ${stationName.toUpperCase()} ***\n` : "*** KITCHEN TICKET ***\n";
   out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
+  if (kotDetails.ticketBanner) {
+    // GS B n: reverse (white on black) printing for the action banner.
+    out += "\x1DB\x01" + ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
+    out += ` ${String(kotDetails.ticketBanner).toUpperCase()} \n`;
+    out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL + "\x1DB\x00";
+  }
 
   // 2. High-Visibility Token & Table Header
   out += formatDivider("=", width) + "\n";
@@ -404,7 +410,8 @@ export function buildKotEscPos(kotDetails) {
     const variantTitle = item.variant?.title ? ` - ${item.variant.title}` : "";
     const station = item.kitchen_station_name || item.effective_kitchen_station_name;
     const stationTag = station ? ` [${station}]` : "";
-    const itemHeader = `${qty}x  ${title}${variantTitle}${stationTag}`;
+    const seatTag = item.seat || item.seat_no ? ` [S${item.seat || item.seat_no}]` : "";
+    const itemHeader = `${qty}x  ${title}${variantTitle}${stationTag}${seatTag}`;
 
     out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_HEIGHT;
     out += `${itemHeader}\n`;

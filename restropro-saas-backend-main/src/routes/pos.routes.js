@@ -25,6 +25,21 @@ const {
   testPrintToPrinter,
   getPosPrintFormat,
   updatePosPrintFormat,
+  updateMenuAvailability,
+  resetMenuAvailability,
+  getLineAdjustmentReasons,
+  authorizeLineAdjustment,
+  adjustOrderItem,
+  getLineAdjustments,
+  fireOrderItems,
+  getCombos,
+  saveCombo,
+  deleteCombo,
+  getUpsellPairs,
+  getCustomerLastOrder,
+  getGiftCards,
+  lookupGiftCard,
+  issueGiftCard,
 } = require("../controllers/pos.controller");
 const {
   getPrintAgents,
@@ -249,5 +264,92 @@ router.put(
   authorize([SCOPES.POS]),
   updatePosPrintFormat
 );
+
+// ─── Menu availability (86 board) ─────────────────────────
+
+router.patch(
+  "/menu-availability/:id",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  updateMenuAvailability
+);
+
+router.post(
+  "/menu-availability/reset",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  resetMenuAvailability
+);
+
+// ─── Line comp / void / discount ──────────────────────────
+
+router.get(
+  "/line-adjustments/reasons",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.ORDERS]),
+  getLineAdjustmentReasons
+);
+
+router.post(
+  "/line-adjustments/authorize",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS]),
+  authorizeLineAdjustment
+);
+
+router.post(
+  "/order-items/:id/adjust",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.ORDERS]),
+  adjustOrderItem
+);
+
+router.get(
+  "/line-adjustments",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.REPORTS, SCOPES.VIEW_INVOICE_AUDIT_LOG]),
+  getLineAdjustments
+);
+
+// ─── Hold & fire courses ──────────────────────────────────
+
+router.post(
+  "/orders/:id/fire",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.ORDERS, SCOPES.WAITER]),
+  fireOrderItems
+);
+
+// ─── Combos / set meals ───────────────────────────────────
+
+router.get("/combos", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS, SCOPES.POS]), getCombos);
+router.post("/combos", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), saveCombo);
+router.put("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), saveCombo);
+router.delete("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.SETTINGS]), deleteCombo);
+
+// ─── Selling aids ─────────────────────────────────────────
+
+router.get("/upsell-pairs", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getUpsellPairs);
+router.get("/customers/:phone/last-order", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getCustomerLastOrder);
+
+// ─── Gift cards ───────────────────────────────────────────
+
+router.get("/gift-cards", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS, SCOPES.REPORTS]), getGiftCards);
+router.get("/gift-cards/:code", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), lookupGiftCard);
+router.post("/gift-cards", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), attachRegisterSession, issueGiftCard);
 
 module.exports = router;

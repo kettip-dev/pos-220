@@ -774,6 +774,41 @@ const computeSessionSummaryTx = async (conn, tenantId, session) => {
   const voidTotal = sum(voids, "amount");
   const refundTotal = sum(refunds, "amount");
 
+  // Gift cards sold/topped up into this drawer, and redeemed against its bills.
+  const giftCardSales = ledger.filter((r) => r.source === "GIFT_CARD");
+  let giftRedeemed = 0;
+  let giftRedeemCount = 0;
+  try {
+    const [[g]] = await conn.query(
+      `SELECT COALESCE(SUM(-amount), 0) AS redeemed, COUNT(*) AS cnt FROM gift_card_transactions
+       WHERE tenant_id = ? AND register_session_id = ? AND type = 'REDEEM'`,
+      [tenantId, sid]
+    );
+    giftRedeemed = round2(g?.redeemed || 0);
+    giftRedeemCount = Number(g?.cnt || 0);
+  } catch {
+    // Table missing on an old database: leave the section empty.
+  }
+
+  // Line comps / discounts / voids made while this session was open.
+  let lineAdjustments = { comp_total: 0, comp_count: 0, discount_total: 0, discount_count: 0, void_total: 0, void_count: 0 };
+  try {
+    const [rows] = await conn.query(
+      `SELECT action, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS cnt FROM pos_line_adjustments
+       WHERE tenant_id = ? AND created_at >= ? AND created_at <= COALESCE(?, NOW())
+         AND (order_id IS NOT NULL OR sent_to_kitchen = 1)
+       GROUP BY action`,
+      [tenantId, session.opened_at, session.closed_at || null]
+    );
+    for (const r of rows) {
+      if (!["comp", "discount", "void"].includes(r.action)) continue;
+      lineAdjustments[`${r.action}_total`] = round2(r.total);
+      lineAdjustments[`${r.action}_count`] = Number(r.cnt || 0);
+    }
+  } catch {
+    // Table missing on an old database.
+  }
+
   return {
     session_id: sid,
     register_id: session.register_id,
@@ -833,6 +868,13 @@ const computeSessionSummaryTx = async (conn, tenantId, session) => {
     tips_by_server: [...tipsByServer.values()],
     hourly: [...hourly.values()].sort((a, b) => a.hour - b.hour),
     by_cashier: [...byCashier.values()],
+    gift_cards: {
+      sold_total: sum(giftCardSales, "amount"),
+      sold_count: giftCardSales.length,
+      redeemed_total: giftRedeemed,
+      redeemed_count: giftRedeemCount,
+    },
+    line_adjustments: lineAdjustments,
   };
 };
 
@@ -1136,6 +1178,13 @@ exports.closeBusinessDayDB = async (tenantId, { username, carryOverOpenOrders = 
     );
     await writeAuditTx(conn, { tenantId, action: "DAY_CLOSE", details: { businessDate, ...totals }, performedBy: username });
     await conn.commit();
+    // New business day: items 86'd for the shift come back automatically.
+    try {
+      const { resetSoldOutDB } = require("./menu_availability.service");
+      summary.sold_out_reset = await resetSoldOutDB(tenantId, "auto");
+    } catch (e) {
+      console.error("[register.service] sold-out reset after day close failed:", e.message);
+    }
     return summary;
   } catch (error) {
     await conn.rollback();
@@ -1209,7 +1258,7 @@ exports.refundInvoiceDB = async (tenantId, invoiceId, { session, refundType, amo
       refundAmount = round2(amount);
     } else if (refundType === "ITEMS") {
       const [orderItems] = await conn.query(
-        `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(mi.title, 'Item') AS title
+        `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(oi.custom_title, mi.title, 'Item') AS title
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id AND o.tenant_id = oi.tenant_id
          LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id
@@ -1352,7 +1401,7 @@ exports.getRefundableItemsDB = async (tenantId, invoiceId) => {
     const [invoiceRows] = await conn.query(`SELECT id, total, refunded_total, status FROM invoices WHERE id = ? AND tenant_id = ?`, [invoiceId, tenantId]);
     if (!invoiceRows.length) throw registerError("INVOICE_NOT_FOUND", "Invoice not found");
     const [orderItems] = await conn.query(
-      `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(mi.title, 'Item') AS title, v.title AS variant_title
+      `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(oi.custom_title, mi.title, 'Item') AS title, v.title AS variant_title
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id AND o.tenant_id = oi.tenant_id
        LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id

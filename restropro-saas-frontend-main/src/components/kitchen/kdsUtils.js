@@ -73,7 +73,20 @@ export const DEFAULT_KDS_SETTINGS = {
   lateMinutes: 10,
   textSize: "md", // sm | md | lg
   sortOrder: "oldest", // oldest | newest
+  showAllDay: true, // "all day" counts of what is still to cook
 };
+
+/** Seconds an item has been cooking against its own target (null = no target). */
+export const itemOverTarget = (item, nowMs) => {
+  const target = Number(item?.prep_minutes);
+  if (!target || !["created", "preparing"].includes(item?.status)) return null;
+  const startMs = toMs(item.fired_at) || toMs(item.date);
+  if (!startMs) return null;
+  return Math.floor((nowMs - startMs) / 1000) - target * 60;
+};
+
+/** Key used to group the same dish across tickets for the all-day bar. */
+export const allDayKey = (item) => `${item?.item_title || ""}|${item?.variant_title || ""}`;
 
 export const loadKdsSettings = () => {
   try {

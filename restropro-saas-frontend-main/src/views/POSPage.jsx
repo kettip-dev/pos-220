@@ -2,9 +2,9 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus, IconHistory, IconBulb, IconCloudOff, IconCloudUpload } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
-import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
+import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts, getUpsellPairs, getCustomerLastOrder } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
 import { PAYMENT_ICONS } from "../config/payment_icons";
 import { toast } from "react-hot-toast";
@@ -31,6 +31,14 @@ import POSQROrdersDrawer from '../components/pos/POSQROrdersDrawer';
 import POSPaymentSuccessModal from '../components/pos/POSPaymentSuccessModal';
 import POSPromotionDrawer from '../components/pos/POSPromotionDrawer';
 import POSSplitBillDrawer from '../components/pos/POSSplitBillDrawer';
+import POSSoldOutDrawer from '../components/pos/POSSoldOutDrawer';
+import POSLineAdjustDrawer, { reasonLabel } from '../components/pos/POSLineAdjustDrawer';
+import POSOpenItemModal from '../components/pos/POSOpenItemModal';
+import POSComboDrawer from '../components/pos/POSComboDrawer';
+import POSGiftCardDrawer from '../components/pos/POSGiftCardDrawer';
+import POSOfflineQueueDrawer from '../components/pos/POSOfflineQueueDrawer';
+import { newClientOrderId, isNetworkError, enqueueOrder, getQueue, subscribeQueue, flushQueue, removeFromQueue, retryQueued, saveInitCache, loadInitCache } from '../helpers/OfflineOrderQueue';
+import { useKitchenStations } from '../controllers/kitchen_stations.controller';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { 
   evaluateCartPromotions, 
@@ -67,6 +75,24 @@ export default function POSPage() {
   const [isQrOrdersDrawerOpen, setIsQrOrdersDrawerOpen] = useState(false);
   const [isPromotionDrawerOpen, setIsPromotionDrawerOpen] = useState(false);
   const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
+  const [soldOutDrawer, setSoldOutDrawer] = useState({ open: false, itemId: null });
+  const [adjustLineIndex, setAdjustLineIndex] = useState(null);
+  // Hold & fire: new lines join the active course; later courses wait for "Fire".
+  const [activeCourse, setActiveCourse] = useState(1);
+  const [holdLaterCourses, setHoldLaterCourses] = useState(true);
+  const [seatPickerIndex, setSeatPickerIndex] = useState(null);
+  const [isOpenItemOpen, setIsOpenItemOpen] = useState(false);
+  const [comboItem, setComboItem] = useState(null);
+  const [upsellPairs, setUpsellPairs] = useState({});
+  const [dismissedSuggestions, setDismissedSuggestions] = useState([]);
+  const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
+  const [isGiftCardOpen, setIsGiftCardOpen] = useState(false);
+  // Offline: orders kept on this device until the server is reachable again.
+  const [offlineQueue, setOfflineQueue] = useState(() => getQueue(getUserDetailsInLocalStorage()?.tenant_id));
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false));
+  const [isSyncingQueue, setIsSyncingQueue] = useState(false);
+  const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
+  const { data: kitchenStationsList = [] } = useKitchenStations();
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
   // Cash register session for this device
@@ -83,6 +109,35 @@ export default function POSPage() {
     socket.on("register_update", handleRegisterUpdate);
     return () => socket.off("register_update", handleRegisterUpdate);
   }, [socket, mutateRegisterStatus]);
+
+  // 86 board: merge availability changes pushed by any terminal / QR order.
+  const applyAvailabilityChanges = (items) => {
+    if (!items) {
+      setState((prev) => ({
+        ...prev,
+        menuItems: (prev.menuItems || []).map((m) => ({ ...m, is_sold_out: 0, stock_limit: null })),
+      }));
+      return;
+    }
+    const byId = new Map(items.map((i) => [String(i.id), i]));
+    setState((prev) => ({
+      ...prev,
+      menuItems: (prev.menuItems || []).map((m) => {
+        const change = byId.get(String(m.id));
+        return change ? { ...m, ...change } : m;
+      }),
+    }));
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleAvailability = (payload) => {
+      if (payload?.reset) applyAvailabilityChanges(null);
+      else if (Array.isArray(payload?.items)) applyAvailabilityChanges(payload.items);
+    };
+    socket.on("menu_availability_update", handleAvailability);
+    return () => socket.off("menu_availability_update", handleAvailability);
+  }, [socket]);
 
   // Ask once per visit to open a register when payments require one.
   useEffect(() => {
@@ -266,7 +321,22 @@ export default function POSPage() {
     };
     if (getNormalizedAddons(itemA) !== getNormalizedAddons(itemB)) return false;
 
-    // 4. Notes: items with different custom notes should stay on separate lines
+    // 3a. Combos: same choices only
+    const comboKey = (it) => (it.combo?.options || []).map(Number).sort((a, b) => a - b).join(',');
+    if (comboKey(itemA) !== comboKey(itemB)) return false;
+
+    // 3b. Open items: different name or price = different line
+    if ((itemA.custom_title || null) !== (itemB.custom_title || null)) return false;
+    if (itemA.custom_title && Number(itemA.price) !== Number(itemB.price)) return false;
+
+    // 4. Different course or seat = different line
+    if (Number(itemA.course || 1) !== Number(itemB.course || 1)) return false;
+    if (Number(itemA.seat || 0) !== Number(itemB.seat || 0)) return false;
+
+    // 4b. Comped / discounted lines carry a single-use approval: never merge them
+    if (itemA.adjust?.type || itemB.adjust?.type) return false;
+
+    // 5. Notes: items with different custom notes should stay on separate lines
     const noteA = (itemA.notes || '').trim();
     const noteB = (itemB.notes || '').trim();
     if (noteA !== noteB) return false;
@@ -335,6 +405,38 @@ export default function POSPage() {
     return counts;
   }, [menuItems]);
 
+  // A fresh ticket starts at course 1.
+  useEffect(() => {
+    if (!cartItems || cartItems.length === 0) {
+      setActiveCourse(1);
+      setSeatPickerIndex(null);
+      setDismissedSuggestions([]);
+    }
+  }, [cartItems?.length]);
+
+  // Up to two items often ordered with what is on the ticket.
+  const pairSuggestions = React.useMemo(() => {
+    if (!cartItems || cartItems.length === 0) return [];
+    const inCart = new Set(cartItems.map((c) => String(c.id)));
+    const score = new Map();
+    cartItems.forEach((c) => {
+      (upsellPairs[c.id] || []).forEach((p) => {
+        if (inCart.has(String(p.id)) || dismissedSuggestions.includes(String(p.id))) return;
+        score.set(String(p.id), (score.get(String(p.id)) || 0) + Number(p.count || 1));
+      });
+    });
+    return [...score.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => (menuItems || []).find((m) => String(m.id) === id))
+      .filter((m) => m && m.is_enabled && Number(m.is_sold_out) !== 1 && Number(m.is_combo) !== 1)
+      .slice(0, 2);
+  }, [cartItems, upsellPairs, dismissedSuggestions, menuItems]);
+
+  const soldOutCount = React.useMemo(
+    () => (menuItems || []).filter((m) => m.is_enabled && Number(m.is_sold_out) === 1).length,
+    [menuItems]
+  );
+
   const handleMinusItemByMenuId = (menuItemId) => {
     const index = cartItems.findIndex(c => c.id === menuItemId && !c.variant && (!c.addons || c.addons.length === 0));
     if (index !== -1) {
@@ -366,7 +468,54 @@ export default function POSPage() {
   useEffect(()=>{
     _initPOS();
     _initSocket();
+    // "Often ordered together" pairs (cached server-side for an hour).
+    getUpsellPairs().then((res) => setUpsellPairs(res?.data?.pairs || {})).catch(() => {});
   },[]);
+
+  // Offline queue: track connection, mirror the queue, send when back online.
+  const syncOfflineQueue = async () => {
+    const tenantId = getUserDetailsInLocalStorage()?.tenant_id;
+    if (!getQueue(tenantId).some((e) => e.status === 'pending')) return;
+    setIsSyncingQueue(true);
+    try {
+      const { sent, failed } = await flushQueue(
+        { order: createOrder, order_invoice: createOrderAndInvoice },
+        { tenantId }
+      );
+      if (sent > 0) {
+        toast.success(t('pos_ops.offline_sent', '{{count}} offline order(s) sent', { count: sent }));
+        _initPOS();
+      }
+      if (failed > 0) {
+        toast.error(t('pos_ops.offline_failed', '{{count}} offline order(s) need attention', { count: failed }));
+        setIsQueueDrawerOpen(true);
+      }
+    } finally {
+      setIsSyncingQueue(false);
+    }
+  };
+
+  useEffect(() => {
+    const tenantId = getUserDetailsInLocalStorage()?.tenant_id;
+    const unsubscribe = subscribeQueue(() => setOfflineQueue(getQueue(tenantId)));
+    const goOnline = () => {
+      setIsOnline(true);
+      syncOfflineQueue();
+    };
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    syncOfflineQueue();
+    const timer = setInterval(() => {
+      if (navigator.onLine !== false) syncOfflineQueue();
+    }, 30000);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (location.state?.selectedTableId && tableRef.current && state.storeTables?.length > 0) {
@@ -400,6 +549,48 @@ export default function POSPage() {
     const { attachCustomer: _attached, ...restState } = location.state;
     navigate(location.pathname, { replace: true, state: restState });
   }, [location.state, state.isLoading]);
+
+  // Barcode scanner (keyboard wedge): fast keystrokes ending in Enter while no
+  // field has focus. Adds the matching menu item to the ticket.
+  const scanBufferRef = useRef({ chars: '', last: 0 });
+  const scanHandlerRef = useRef(null);
+  scanHandlerRef.current = (code) => {
+    const clean = String(code || '').trim();
+    const match = (state.menuItems || []).find((m) => m.barcode && String(m.barcode) === clean && m.is_enabled);
+    if (!match) {
+      toast.error(t('pos_ops.barcode_not_found', 'No item with barcode {{code}}', { code: clean }), { id: 'barcode-miss' });
+      return;
+    }
+    if (match.variants?.length || match.addons?.length) {
+      btnOpenVariantAndAddonModal(match.id);
+    } else {
+      addItemToCart(match);
+    }
+  };
+  useEffect(() => {
+    const onScanKey = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || document.activeElement?.isContentEditable) return;
+      const now = Date.now();
+      const buf = scanBufferRef.current;
+      if (now - buf.last > 80) buf.chars = '';
+      buf.last = now;
+      if (e.key === 'Enter') {
+        if (buf.chars.length >= 4) {
+          e.preventDefault();
+          e.stopPropagation();
+          const code = buf.chars;
+          buf.chars = '';
+          scanHandlerRef.current?.(code);
+        }
+        buf.chars = '';
+        return;
+      }
+      if (e.key.length === 1) buf.chars += e.key;
+    };
+    window.addEventListener('keydown', onScanKey, true);
+    return () => window.removeEventListener('keydown', onScanKey, true);
+  }, []);
 
   // Global Keyboard Shortcuts for High-Speed Cashier Operations
   useEffect(() => {
@@ -798,7 +989,18 @@ export default function POSPage() {
 
   async function _initPOS() {
     try {
-      const res = await initPOS();
+      let res;
+      try {
+        res = await initPOS();
+        if (res?.status == 200) saveInitCache(res.data);
+      } catch (initError) {
+        // Offline reload: start from the last menu this device saw.
+        const cached = isNetworkError(initError) ? loadInitCache() : null;
+        if (!cached) throw initError;
+        res = { status: 200, data: cached };
+        setIsOnline(false);
+        toast(t('pos_ops.offline_menu', 'Offline: showing the last saved menu'), { id: 'pos-offline-menu' });
+      }
       let totalQROrders = 0;
 
       if(res.status == 200) {
@@ -832,6 +1034,7 @@ export default function POSPage() {
           storeSettings: data.storeSettings,
           storeTables: data.storeTables,
           serviceCharge:data.serviceCharge,
+          openItemId: data.openItemId || null,
           currency: currency?.symbol || "",
           qrOrdersCount: totalQROrders || 0,
           isLoading: false,
@@ -991,12 +1194,42 @@ export default function POSPage() {
     return true;
   }
 
+  /**
+   * Sold-out / portions-left guard. `extraQty` is how many more of this menu
+   * item would be on the ticket after the action. Returns true when blocked.
+   */
+  function isBlockedBySoldOut(itemOrId, extraQty = 1, { silent = false } = {}) {
+    const id = typeof itemOrId === 'object' ? itemOrId?.id : itemOrId;
+    const live = (state.menuItems || []).find((m) => String(m.id) === String(id));
+    if (!live) return false;
+    const label = live.title;
+    if (Number(live.is_sold_out) === 1) {
+      if (!silent) toast.error(t('pos_ops.item_sold_out', '{{name}} is sold out', { name: label }));
+      return true;
+    }
+    if (live.stock_limit !== null && live.stock_limit !== undefined) {
+      const inCart = (state.cartItems || []).reduce((acc, c) => (String(c.id) === String(id) ? acc + (Number(c.quantity) || 0) : acc), 0);
+      if (inCart + extraQty > Number(live.stock_limit)) {
+        if (!silent) toast.error(t('pos_ops.only_n_left', 'Only {{count}} {{name}} left', { count: live.stock_limit, name: label }));
+        return true;
+      }
+    }
+    return false;
+  }
+
   function addItemToCart(item) {
     const quantityToAdd = Number(item.quantity) || 1;
+    if (isBlockedBySoldOut(item, quantityToAdd)) return;
+    // A combo tile opens the combo builder first.
+    if (Number(item.is_combo) === 1 && !item.combo) {
+      setComboItem(item);
+      return;
+    }
     const modifiedItem = {
       ...item,
       quantity: quantityToAdd,
-      notes: item.notes || null
+      notes: item.notes || null,
+      course: item.course ?? activeCourse,
     };
 
     if (!canPrepareMenuItem(item, quantityToAdd)) {
@@ -1059,6 +1292,7 @@ export default function POSPage() {
   function addCartItemQuantity(index, currentQuantity) {
     const newQuantity = currentQuantity + 1;
     const newCartItems = cartItems;
+    if (isBlockedBySoldOut(newCartItems[index], 1)) return;
 
     if (!canPrepareMenuItem(newCartItems[index], newQuantity, newCartItems[index].variant_id, newCartItems[index].addons_ids)) {
       toast.error(t('inventory.insufficient_stock_message_pos'));
@@ -1188,6 +1422,7 @@ export default function POSPage() {
   const btnOpenVariantAndAddonModal = (menuItemId) => {
     const selectedItem = menuItems.find((item) => String(item.id) === String(menuItemId));
     if (!selectedItem) return;
+    if (isBlockedBySoldOut(selectedItem, 1)) return;
 
     setActiveCustomizingItem(selectedItem);
     setIsModifierDrawerOpen(true);
@@ -1208,8 +1443,10 @@ export default function POSPage() {
     }
   };
 
-  const handleAddConfiguredItemToCart = (configuredItem) => {
+  const handleAddConfiguredItemToCart = (incomingItem) => {
+    const configuredItem = { ...incomingItem, course: incomingItem.course ?? activeCourse };
     const quantityToAdd = Number(configuredItem.quantity) || 1;
+    if (isBlockedBySoldOut(configuredItem, quantityToAdd)) return;
 
     // If 'Add to Same Line' is enabled, check if identical configured item is already in cart
     if (isAddSameLine && state.cartItems && state.cartItems.length > 0) {
@@ -2111,8 +2348,10 @@ export default function POSPage() {
       setIsSubmittingPayment(true);
       const summary = calculateOrderSummary();
       const loyaltyPointsRedeemed = tenderData?.loyaltyPointsRedeemed || 0;
-      const res = await createOrderAndInvoice(
-        cartItems, deliveryType, customerType, customer, tableId,
+      const sendCart = buildSendCart(cartItems, deliveryType);
+      const clientOrderId = newClientOrderId();
+      const invoiceArgs = [
+        sendCart, deliveryType, customerType, customer, tableId,
         summary.itemsTotal, summary.taxTotal, summary.serviceChargeTotal, summary.payableTotal,
         state.selectedQrOrderItem, state.selectedPaymentType,
         state.discountType, state.discountValue, summary.discountAmount,
@@ -2122,8 +2361,33 @@ export default function POSPage() {
         customer?.customer_group_name || null,
         summary.customerGroupDiscountTotal || 0,
         tenderData?.payments || null,
-        tenderData?.payLater || null
-      );
+        tenderData?.payLater || null,
+        clientOrderId,
+      ];
+      let res;
+      try {
+        res = await createOrderAndInvoice(...invoiceArgs);
+      } catch (payError) {
+        if (!isNetworkError(payError)) throw payError;
+        // Gift cards, pay later and loyalty points need the server to check balances.
+        const needsServer = isPayLater || loyaltyPointsRedeemed > 0 || (tenderData?.payments || []).some((l) => l.giftCardCode);
+        if (needsServer) {
+          toast.dismiss();
+          setIsSubmittingPayment(false);
+          toast.error(t('pos_ops.offline_needs_server', 'No connection: gift cards, pay later and points need the server. Use cash or try again.'));
+          return;
+        }
+        const localToken = enqueueOrder({
+          clientOrderId,
+          kind: 'order_invoice',
+          args: invoiceArgs,
+          tenantId: user?.tenant_id,
+          summary: { items: sendCart.length, total: summary.payableTotal, table: currentSelectedTable?.table_title || null },
+        });
+        setIsOnline(false);
+        toast(t('pos_ops.saved_offline', 'Offline: order {{token}} saved on this device and will be sent automatically', { token: localToken }), { icon: '⚠️', duration: 6000 });
+        res = { status: 200, data: { tokenNo: localToken, orderId: null, invoiceId: null, offline: true, message: t('pos_ops.paid_offline', 'Paid · saved offline') } };
+      }
       toast.dismiss();
       setIsSubmittingPayment(false);
       if(res.status == 200) {
@@ -2158,7 +2422,7 @@ export default function POSPage() {
         }
 
         const receiptPayload = {
-          cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
+          cartItems: sendCart, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
           itemsTotal: summary.itemsTotal,
           discountType: state.discountType,
           discountValue: state.discountValue,
@@ -2225,7 +2489,7 @@ export default function POSPage() {
           triggerPrintReceipt(receiptPayload);
           // "Pay & Send to Kitchen": the kitchen needs its ticket too.
           if (isKitchenEnabled) {
-            triggerPrintToken(receiptPayload);
+            printKitchenTicket(receiptPayload);
           }
         }
 
@@ -2268,11 +2532,173 @@ export default function POSPage() {
     }
   };
 
+  // Hold & fire: mark lines of later courses as held when sending a dine-in ticket.
+  const buildSendCart = (lines, deliveryType) => {
+    const list = lines || [];
+    const isDineIn = (deliveryType || 'dinein') === 'dinein';
+    if (!isDineIn || !holdLaterCourses || !isKitchenEnabled) return list.map((l) => ({ ...l, hold: false }));
+    const firstCourse = Math.min(...list.map((l) => Number(l.course) || 1));
+    return list.map((l) => ({ ...l, hold: (Number(l.course) || 1) > firstCourse }));
+  };
+
+  // Repeat the attached customer's last order at today's prices.
+  const handleRepeatLastOrder = async () => {
+    const phone = state.customer?.phone;
+    if (!phone || isRepeatingOrder) return;
+    try {
+      setIsRepeatingOrder(true);
+      const res = await getCustomerLastOrder(phone);
+      const items = res?.data?.items || [];
+      if (items.length === 0) {
+        toast(t('pos_ops.no_previous_order', 'No previous order for this customer'));
+        return;
+      }
+      let skipped = 0;
+      const lines = [];
+      items.forEach((it) => {
+        if (it.custom_title && state.openItemId) {
+          lines.push({ id: state.openItemId, title: it.custom_title, custom_title: it.custom_title, price: Number(it.price) || 0, quantity: Number(it.quantity) || 1, notes: it.notes || null, recipeItems: [], addons: [], variants: [], course: activeCourse });
+          return;
+        }
+        const menu = (state.menuItems || []).find((m) => String(m.id) === String(it.item_id));
+        if (!menu || !menu.is_enabled || Number(menu.is_sold_out) === 1 || Number(it.is_combo_parent) === 1) {
+          skipped += 1;
+          return;
+        }
+        const variant = it.variant_id ? (menu.variants || []).find((v) => String(v.id) === String(it.variant_id)) : null;
+        const addons = (menu.addons || []).filter((a) => (it.addons || []).map(String).includes(String(a.id)));
+        const price = Number(variant ? variant.price : menu.price) + addons.reduce((sum, a) => sum + Number(a.price || 0), 0);
+        lines.push({
+          ...menu,
+          price,
+          quantity: Number(it.quantity) || 1,
+          notes: it.notes || null,
+          variant_id: variant ? variant.id : null,
+          variant: variant || null,
+          addons_ids: addons.map((a) => String(a.id)),
+          addons,
+          course: activeCourse,
+        });
+      });
+      if (lines.length > 0) {
+        setState((prev) => ({ ...prev, cartItems: [...(prev.cartItems || []), ...lines] }));
+        playTapSound();
+      }
+      toast.success(
+        skipped > 0
+          ? t('pos_ops.repeat_added_skipped', 'Added {{count}} items · {{skipped}} not available', { count: lines.length, skipped })
+          : t('pos_ops.repeat_added', 'Added {{count}} items from the last order', { count: lines.length })
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || t('pos.something_went_wrong', 'Something went wrong'));
+    } finally {
+      setIsRepeatingOrder(false);
+    }
+  };
+
+  // Open item: custom name + price on the tenant's hidden open-item row.
+  const handleAddOpenItem = ({ title, price, quantity, stationId, notes }) => {
+    if (!state.openItemId) {
+      toast.error(t('pos_ops.open_item_unavailable', 'Open items are not available right now'));
+      return;
+    }
+    const station = (kitchenStationsList || []).find((s) => String(s.id) === String(stationId));
+    addItemToCart({
+      id: state.openItemId,
+      title,
+      custom_title: title,
+      price,
+      quantity,
+      notes,
+      kitchen_station_id: stationId || null,
+      kitchen_station_name: station?.name || null,
+      is_open_item: true,
+      recipeItems: [],
+      addons: [],
+      variants: [],
+    });
+  };
+
+  // Kitchen ticket for the lines fired now (held courses print when fired).
+  const printKitchenTicket = (payload) => {
+    // Combos print as their components, each routed to its own station.
+    const expanded = (payload?.cartItems || []).flatMap((l) =>
+      l.combo?.components?.length
+        ? l.combo.components.map((c) => ({
+            id: c.menu_item_id,
+            title: c.title,
+            variant: c.variant_title ? { title: c.variant_title } : null,
+            quantity: l.quantity,
+            notes: l.notes,
+            course: l.course,
+            seat: l.seat,
+            hold: l.hold,
+            kitchen_station_id: c.kitchen_station_id,
+            kitchen_station_name: c.kitchen_station_name,
+          }))
+        : [l]
+    );
+    const firedLines = expanded.filter((l) => !l.hold);
+    if (firedLines.length === 0) return;
+    const heldCount = expanded.length - firedLines.length;
+    triggerPrintToken({
+      ...payload,
+      cartItems: firedLines,
+      ...(heldCount > 0 ? { ticketBanner: `COURSE ${Math.min(...firedLines.map((l) => Number(l.course) || 1))}` } : {}),
+    });
+  };
+
+  const cycleLineCourse = (index) => {
+    setState((prev) => {
+      const next = [...(prev.cartItems || [])];
+      if (!next[index]) return prev;
+      const current = Number(next[index].course) || 1;
+      next[index] = { ...next[index], course: current >= 4 ? 1 : current + 1 };
+      return { ...prev, cartItems: next };
+    });
+    playTapSound();
+  };
+
+  const setLineSeat = (index, seat) => {
+    setState((prev) => {
+      const next = [...(prev.cartItems || [])];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], seat: seat || null };
+      return { ...prev, cartItems: next };
+    });
+    setSeatPickerIndex(null);
+    playTapSound();
+  };
+
+  // Comp / discount on an unsent cart line (approval token travels with the line)
+  const handleCartLineAdjusted = (result) => {
+    if (adjustLineIndex === null) return;
+    setState((prev) => {
+      const next = [...(prev.cartItems || [])];
+      const line = next[adjustLineIndex];
+      if (!line) return prev;
+      if (result.action === 'restore') {
+        next[adjustLineIndex] = { ...line, price: Number(line.adjust?.original_price ?? line.price) };
+        delete next[adjustLineIndex].adjust;
+      } else {
+        next[adjustLineIndex] = { ...line, price: result.unitPrice, adjust: result.adjust };
+      }
+      return { ...prev, cartItems: next };
+    });
+    if (result.action === 'comp') toast.success(t('pos_ops.line_comped', 'Item comped'));
+    else if (result.action === 'discount') toast.success(t('pos_ops.line_discounted', 'Discount applied'));
+  };
+
   // Duplicate Cart Item (Speed action)
   const handleDuplicateCartItem = (index) => {
     const itemToDuplicate = cartItems[index];
     if (!itemToDuplicate) return;
     const newItem = { ...itemToDuplicate };
+    // The approval is single use: the copy goes back to full price.
+    if (newItem.adjust) {
+      newItem.price = Number(newItem.adjust.original_price ?? newItem.price);
+      delete newItem.adjust;
+    }
     setState(prev => ({
       ...prev,
       cartItems: [...prev.cartItems, newItem]
@@ -2323,13 +2749,33 @@ export default function POSPage() {
       const customer = state.customer;
 
       const summary = calculateOrderSummary();
-      const res = await createOrder(
-        cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem,
+      const sendCart = buildSendCart(cartItems, deliveryType);
+      const clientOrderId = newClientOrderId();
+      const orderArgs = [
+        sendCart, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem,
         summary.appliedPromotions, summary.promotionDiscountTotal,
         customer?.customer_group_id || null,
         customer?.customer_group_name || null,
-        summary.customerGroupDiscountTotal || 0
-      );
+        summary.customerGroupDiscountTotal || 0,
+        clientOrderId,
+      ];
+      let res;
+      try {
+        res = await createOrder(...orderArgs);
+      } catch (sendError) {
+        if (!isNetworkError(sendError)) throw sendError;
+        // No connection: keep the order on this device and let the kitchen start.
+        const localToken = enqueueOrder({
+          clientOrderId,
+          kind: 'order',
+          args: orderArgs,
+          tenantId: user?.tenant_id,
+          summary: { items: sendCart.length, total: summary.payableTotal, table: currentSelectedTable?.table_title || null },
+        });
+        setIsOnline(false);
+        toast(t('pos_ops.saved_offline', 'Offline: order {{token}} saved on this device and will be sent automatically', { token: localToken }), { icon: '⚠️', duration: 6000 });
+        res = { status: 200, data: { tokenNo: localToken, orderId: null, offline: true } };
+      }
 
       if (res.status === 200) {
         const data = res.data;
@@ -2348,7 +2794,7 @@ export default function POSPage() {
         let paymentMethodText = paymentType ? paymentType.title : (t('orders.unpaid', 'Unpaid') || 'Pay Later');
 
         const receiptPayload = {
-          cartItems,
+          cartItems: sendCart,
           deliveryType,
           customerType,
           customer,
@@ -2416,7 +2862,7 @@ export default function POSPage() {
         // without a kitchen workflow, print the guest check instead.
         if (is_enable_print) {
           if (isKitchenEnabled) {
-            triggerPrintToken(receiptPayload);
+            printKitchenTicket(receiptPayload);
           } else {
             triggerPrintReceipt(receiptPayload);
           }
@@ -2441,7 +2887,7 @@ export default function POSPage() {
                   type="button"
                   onClick={() => {
                     toast.dismiss(tObj.id);
-                    triggerPrintToken(receiptPayload);
+                    printKitchenTicket(receiptPayload);
                   }}
                   className="px-2 py-1 bg-white dark:bg-zinc-800 text-restro-green text-[11px] font-extrabold rounded-md border border-restro-green/40 hover:bg-restro-green hover:text-white transition active:scale-95 shadow-2xs cursor-pointer"
                 >
@@ -2720,6 +3166,54 @@ export default function POSPage() {
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
             <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+              {(!isOnline || offlineQueue.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setIsQueueDrawerOpen(true)}
+                  title={t('pos_ops.offline_orders', 'Offline orders')}
+                  className={clsx(
+                    "min-h-[42px] px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-black transition active:scale-95 cursor-pointer",
+                    offlineQueue.some((e) => e.status === 'failed')
+                      ? "bg-rose-50 text-rose-700 border-rose-300"
+                      : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                  )}
+                >
+                  {isOnline ? <IconCloudUpload size={16} /> : <IconCloudOff size={16} />}
+                  {offlineQueue.length > 0 ? offlineQueue.length : t('pos_ops.offline', 'Offline')}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsGiftCardOpen(true)}
+                title={t('pos_ops.gift_cards', 'Gift cards')}
+                aria-label={t('pos_ops.gift_cards', 'Gift cards')}
+                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+              >
+                <IconGift size={18} stroke={iconStroke} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOpenItemOpen(true)}
+                title={t('pos_ops.open_item', 'Open item')}
+                aria-label={t('pos_ops.open_item', 'Open item')}
+                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+              >
+                <IconPencilPlus size={18} stroke={iconStroke} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSoldOutDrawer({ open: true, itemId: null })}
+                title={t('pos_ops.sold_out_board', '86 board')}
+                aria-label={t('pos_ops.sold_out_board', '86 board')}
+                className="relative min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+              >
+                <IconBan size={18} stroke={iconStroke} />
+                {soldOutCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
+                    {soldOutCount}
+                  </span>
+                )}
+              </button>
               <MenuLanguageSwitcher />
               <button
                 type="button"
@@ -2758,6 +3252,7 @@ export default function POSPage() {
                 onMinusItem={handleMinusItemByMenuId}
                 cartItems={cartItems}
                 onItemHover={handleItemHover}
+                onItemLongPress={(itemId) => setSoldOutDrawer({ open: true, itemId })}
                 onScroll={handleMenuScroll}
               />
             ) : (
@@ -2772,6 +3267,7 @@ export default function POSPage() {
                 onMinusItem={handleMinusItemByMenuId}
                 cartItems={cartItems}
                 onItemHover={handleItemHover}
+                onItemLongPress={(itemId) => setSoldOutDrawer({ open: true, itemId })}
                 onScroll={handleMenuScroll}
               />
             )}
@@ -2964,6 +3460,21 @@ export default function POSPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {customer.phone && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRepeatLastOrder();
+                    }}
+                    disabled={isRepeatingOrder}
+                    title={t('pos_ops.repeat_last_order', 'Repeat last order')}
+                    className="min-h-[32px] px-2 rounded-lg bg-white/80 dark:bg-slate-900/70 border border-[#00A699]/30 text-[#00A699] text-[10px] font-black flex items-center gap-1 active:scale-95 transition cursor-pointer disabled:opacity-50"
+                  >
+                    <IconHistory size={13} stroke={2.4} />
+                    <span className="hidden sm:inline">{t('pos_ops.repeat_last', 'Repeat last')}</span>
+                  </button>
+                )}
                 <span className="text-[10px] font-bold text-[#00A699] hover:underline hidden sm:inline">
                   {t('pos.change', 'Profile')}
                 </span>
@@ -2997,6 +3508,40 @@ export default function POSPage() {
               </span>
             </button>
           ) : null}
+
+          {/* Course bar (dine-in): new items join the active course; later courses are held */}
+          {selectedDiningOption === "dinein" && isKitchenEnabled && (
+            <div className="shrink-0 px-3 py-1.5 border-b border-[#E3E5E8] dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 shrink-0 mr-0.5">
+                {t('pos_ops.course', 'Course')}
+              </span>
+              {[1, 2, 3, 4].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setActiveCourse(c)}
+                  aria-pressed={activeCourse === c}
+                  className={clsx(
+                    "min-h-[36px] min-w-[42px] px-2 rounded-lg text-xs font-black border transition active:scale-95 cursor-pointer shrink-0",
+                    activeCourse === c
+                      ? "bg-[#0D233A] text-white border-[#0D233A]"
+                      : "bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-slate-300 border-[#E3E5E8] dark:border-slate-700"
+                  )}
+                >
+                  C{c}
+                </button>
+              ))}
+              <label className="ml-auto flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 dark:text-slate-300 shrink-0 cursor-pointer min-h-[36px]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-[#2CA01C]"
+                  checked={holdLaterCourses}
+                  onChange={(e) => setHoldLaterCourses(e.target.checked)}
+                />
+                {t('pos_ops.hold_later_courses', 'Hold later courses')}
+              </label>
+            </div>
+          )}
 
           {/* Cart Items List Area */}
           <div onScroll={handleCartScroll} className='flex-1 flex flex-col gap-2 overflow-y-auto px-3 py-2.5 scrollbar-thin'>
@@ -3057,6 +3602,37 @@ export default function POSPage() {
                             </div>
                           )}
 
+                          {/* Combo components */}
+                          {cartItem.combo?.components?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {cartItem.combo.components.map((c, cIdx) => (
+                                <span key={cIdx} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
+                                  {c.title}{c.extra_price > 0 ? ` +${currency}${Number(c.extra_price).toFixed(2)}` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Comp / discount badge */}
+                          {cartItem.adjust?.type && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <span className={clsx(
+                                "text-[10px] font-black px-1.5 py-0.5 rounded border flex items-center gap-1 uppercase",
+                                cartItem.adjust.type === 'comp'
+                                  ? "bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-800"
+                                  : "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                              )}>
+                                {cartItem.adjust.type === 'comp' ? <IconGift size={11} /> : <IconDiscount2 size={11} />}
+                                {cartItem.adjust.type === 'comp'
+                                  ? t('pos_ops.comp', 'Comp')
+                                  : cartItem.adjust.discount_type === 'percent'
+                                    ? `-${cartItem.adjust.discount_value}%`
+                                    : `-${currency}${Number(cartItem.adjust.discount_value || 0).toFixed(2)}`}
+                                <span className="font-semibold normal-case opacity-80">· {reasonLabel(t, cartItem.adjust.reason_code)}</span>
+                              </span>
+                            </div>
+                          )}
+
                           {/* Existing notes indicator */}
                           {notes && !isEditingThisNote && (
                             <div 
@@ -3087,7 +3663,10 @@ export default function POSPage() {
                           ) : (
                             <>
                               <p className="font-black text-gray-900 dark:text-white text-sm font-mono">{currency}{itemTotal.toFixed(2)}</p>
-                              <p className="text-[10px] text-gray-400 font-mono">{currency}{Number(price).toFixed(2)} ea</p>
+                              <p className="text-[10px] text-gray-400 font-mono">
+                                {cartItem.adjust?.type && <span className="line-through mr-1">{currency}{Number(cartItem.adjust.original_price || 0).toFixed(2)}</span>}
+                                {currency}{Number(price).toFixed(2)} ea
+                              </p>
                             </>
                           )}
                         </div>
@@ -3163,6 +3742,38 @@ export default function POSPage() {
                           >
                             <IconPlus size={20} stroke={2.5} />
                           </button>
+                          {selectedDiningOption === "dinein" && (
+                            <>
+                              {isKitchenEnabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => cycleLineCourse(i)}
+                                  title={t('pos_ops.change_course', 'Change course')}
+                                  className={clsx(
+                                    "ml-1 min-w-[34px] min-h-[32px] px-1.5 rounded-lg text-[11px] font-black border transition active:scale-90 cursor-pointer touch-manipulation",
+                                    (Number(cartItem.course) || 1) > 1
+                                      ? "bg-sky-500/15 border-sky-500/40 text-sky-700 dark:text-sky-300"
+                                      : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500"
+                                  )}
+                                >
+                                  C{Number(cartItem.course) || 1}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setSeatPickerIndex(seatPickerIndex === i ? null : i)}
+                                title={t('pos_ops.seat', 'Seat')}
+                                className={clsx(
+                                  "ml-1 min-w-[34px] min-h-[32px] px-1.5 rounded-lg text-[11px] font-black border transition active:scale-90 cursor-pointer touch-manipulation",
+                                  cartItem.seat
+                                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                                    : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500"
+                                )}
+                              >
+                                {cartItem.seat ? `S${cartItem.seat}` : 'S–'}
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         {/* Note toggle, Duplicate, and Delete actions */}
@@ -3189,6 +3800,22 @@ export default function POSPage() {
                             <IconNote size={15} stroke={iconStroke} />
                           </button>
 
+                          {/* Comp / Discount Button */}
+                          <button
+                            type="button"
+                            onClick={() => setAdjustLineIndex(i)}
+                            title={t('pos_ops.comp_or_discount', 'Comp or discount')}
+                            aria-label={t('pos_ops.comp_or_discount', 'Comp or discount')}
+                            className={clsx(
+                              "min-w-[34px] min-h-[34px] rounded-lg transition text-xs flex items-center justify-center border cursor-pointer touch-manipulation active:scale-90",
+                              cartItem.adjust?.type
+                                ? "bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-300"
+                                : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500 hover:text-gray-800"
+                            )}
+                          >
+                            <IconGift size={15} stroke={iconStroke} />
+                          </button>
+
                           {/* Duplicate Item Button */}
                           <button
                             type="button"
@@ -3210,6 +3837,34 @@ export default function POSPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Seat picker */}
+                      {seatPickerIndex === i && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {Array.from({ length: Math.max(4, Math.min(20, Number(guestCount) || 1)) }, (_, k) => k + 1).map((seatNo) => (
+                            <button
+                              key={seatNo}
+                              type="button"
+                              onClick={() => setLineSeat(i, seatNo)}
+                              className={clsx(
+                                "min-w-[42px] min-h-[42px] rounded-xl text-sm font-black border active:scale-95 transition cursor-pointer",
+                                Number(cartItem.seat) === seatNo
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-700 dark:text-slate-200"
+                              )}
+                            >
+                              {seatNo}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setLineSeat(i, null)}
+                            className="min-h-[42px] px-3 rounded-xl text-xs font-bold border border-[#E3E5E8] dark:border-slate-700 text-gray-500 active:scale-95 cursor-pointer"
+                          >
+                            {t('pos_ops.no_seat', 'Shared')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -3219,6 +3874,37 @@ export default function POSPage() {
 
           {/* Persistent Live Financial Calculation Tray & Actions */}
           <div className="flex-shrink-0 w-full p-3.5 border-t border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8]/70 dark:bg-slate-800/50 space-y-2.5">
+            {/* Often ordered together */}
+            {pairSuggestions.length > 0 && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <IconBulb size={15} className="text-amber-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 shrink-0">{t('pos_ops.often_with', 'Often with')}</span>
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0">
+                  {pairSuggestions.map((m) => (
+                    <span key={m.id} className="flex items-center shrink-0 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => (m.variants?.length || m.addons?.length ? btnOpenVariantAndAddonModal(m.id) : addItemToCart(m))}
+                        className="min-h-[36px] pl-2.5 pr-1.5 text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1 active:scale-95 cursor-pointer"
+                      >
+                        <IconPlus size={13} stroke={2.6} className="text-[#2CA01C]" />
+                        <span className="truncate max-w-[120px]">{displayName(m)}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">{currency}{Number(m.price).toFixed(2)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedSuggestions((prev) => [...prev, String(m.id)])}
+                        aria-label={t('pos_ops.dismiss', 'Dismiss')}
+                        className="min-h-[36px] px-1.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Quick Upsell Encouragement Pill */}
             {(() => {
               const rawSub = liveCartSummary.rawSubtotal || liveCartSummary.itemsTotal || 0;
@@ -3596,6 +4282,75 @@ export default function POSPage() {
       />
 
       {/* Advanced Bill Splitting Drawer */}
+      <POSLineAdjustDrawer
+        isOpen={adjustLineIndex !== null && Boolean(cartItems?.[adjustLineIndex])}
+        onClose={() => setAdjustLineIndex(null)}
+        mode="cart"
+        currency={currency}
+        line={adjustLineIndex !== null && cartItems?.[adjustLineIndex] ? {
+          key: `cart-${adjustLineIndex}-${cartItems[adjustLineIndex].id}`,
+          itemId: cartItems[adjustLineIndex].id,
+          title: cartItems[adjustLineIndex].title,
+          quantity: cartItems[adjustLineIndex].quantity,
+          unitPrice: cartItems[adjustLineIndex].price,
+          originalPrice: cartItems[adjustLineIndex].adjust?.original_price,
+          adjustType: cartItems[adjustLineIndex].adjust?.type,
+        } : null}
+        onApplied={handleCartLineAdjusted}
+      />
+
+      <POSOfflineQueueDrawer
+        isOpen={isQueueDrawerOpen}
+        onClose={() => setIsQueueDrawerOpen(false)}
+        queue={offlineQueue}
+        isOnline={isOnline}
+        isSyncing={isSyncingQueue}
+        onSyncNow={syncOfflineQueue}
+        onRetry={(id) => {
+          retryQueued(id);
+          syncOfflineQueue();
+        }}
+        onDiscard={(id) => removeFromQueue(id)}
+        currency={currency}
+      />
+
+      <POSGiftCardDrawer
+        isOpen={isGiftCardOpen}
+        onClose={() => setIsGiftCardOpen(false)}
+        paymentTypes={paymentTypes}
+        customer={customerType === 'CUSTOMER' ? customer : null}
+        currency={currency}
+        onIssued={() => {
+          // The first card creates the "Gift Card" tender: reload payment methods.
+          if (!(paymentTypes || []).some((p) => Number(p.is_gift_card) === 1)) _initPOS();
+          mutateRegisterStatus();
+        }}
+      />
+
+      <POSComboDrawer
+        isOpen={Boolean(comboItem)}
+        combo={comboItem}
+        onClose={() => setComboItem(null)}
+        currency={currency}
+        onAdd={(line) => addItemToCart(line)}
+      />
+
+      <POSOpenItemModal
+        isOpen={isOpenItemOpen}
+        onClose={() => setIsOpenItemOpen(false)}
+        onAdd={handleAddOpenItem}
+        stations={(kitchenStationsList || []).filter((s) => s.is_enabled !== 0 && s.is_enabled !== false)}
+        currency={currency}
+      />
+
+      <POSSoldOutDrawer
+        isOpen={soldOutDrawer.open}
+        focusItemId={soldOutDrawer.itemId}
+        onClose={() => setSoldOutDrawer({ open: false, itemId: null })}
+        menuItems={menuItems}
+        onItemsChanged={applyAvailabilityChanges}
+      />
+
       <POSSplitBillDrawer
         isOpen={isSplitDrawerOpen}
         onClose={() => {

@@ -464,6 +464,7 @@ const CHARTS = {
     return [
       <BarChart key="items" title="Most Cancelled Items" subtitle="By lost sales" rows={sumBy(cancelled.rows, "item", "lost_sales")} labelKey="label" series={VALUE("Lost Sales", "money")} currency={currency} horizontal limit={10} />,
       <DonutChart key="voided-by" title="Voids by Staff" rows={sumBy(voided.rows, "voided_by", "total")} valueType="money" currency={currency} />,
+      <DonutChart key="adjust-reasons" title="Comps & Discounts by Reason" rows={sumBy(getTable(data, 2).rows.filter((r) => r.action !== "void"), "reason", "amount")} valueType="money" currency={currency} />,
     ];
   },
   "average-order-value": ({ data, currency }) => {

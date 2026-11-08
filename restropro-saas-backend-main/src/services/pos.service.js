@@ -2,8 +2,9 @@ const { getMySqlPromiseConnection } = require("../config/mysql.db")
 const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
+const { consumeMenuItemStockTx } = require("./menu_availability.service");
 
-exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created') => {
+exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created', clientOrderId = null) => {
   const conn = await getMySqlPromiseConnection();
 
   try {
@@ -37,11 +38,23 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     const groupDiscount = Number(customerGroupDiscountTotal || 0);
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created']
+      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status, client_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created', clientOrderId ? String(clientOrderId).slice(0, 64) : null]
     );
 
     const orderId = orderResult.insertId;
+
+    // Combos: resolve each combo line's chosen components (validated server-side).
+    const { resolveComboSelectionsTx } = require("./combo.service");
+    const comboSelections = await resolveComboSelectionsTx(conn, tenantId, cartItems);
+    const comboComponentLines = [];
+    comboSelections.forEach((components, idx) => {
+      components.forEach((c) => comboComponentLines.push({ id: c.menuItemId, quantity: Number(cartItems[idx].quantity) || 1 }));
+    });
+
+    // Sold-out / portion-count guard. Locks the menu rows so two terminals
+    // cannot both sell the last portion.
+    const availabilityChanges = await consumeMenuItemStockTx(conn, tenantId, [...cartItems, ...comboComponentLines]);
 
     // Increment promotion redemptions if applied
     if (appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0) {
@@ -55,15 +68,17 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     // step 4: save data to order_items with station resolution
     const itemIds = [...new Set(cartItems.map(i => i.id).filter(Boolean))];
     const itemStationMap = new Map();
+    const openItemIds = new Set();
     if (itemIds.length > 0) {
       const [stationRows] = await conn.query(`
-        SELECT mi.id, mi.kitchen_station_id, c.kitchen_station_id AS cat_station_id
+        SELECT mi.id, mi.kitchen_station_id, c.kitchen_station_id AS cat_station_id, mi.is_open_item
         FROM menu_items mi
         LEFT JOIN categories c ON mi.category = c.id
         WHERE mi.id IN (?) AND mi.tenant_id = ?
       `, [itemIds, tenantId]);
       stationRows.forEach(r => {
         itemStationMap.set(r.id, r.kitchen_station_id || r.cat_station_id || null);
+        if (Number(r.is_open_item) === 1) openItemIds.add(Number(r.id));
       });
     }
 
@@ -71,13 +86,19 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     const sqlOrderItems = `
     INSERT INTO order_items
-    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status)
+    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at, custom_title, is_combo_parent)
     VALUES ?
     `;
 
     await conn.query(sqlOrderItems, [
-      cartItems.map((item) => {
-        const stationId = item.kitchen_station_id || item.effective_kitchen_station_id || itemStationMap.get(item.id) || null;
+      cartItems.map((item, idx) => {
+        const isComboParent = comboSelections.has(idx);
+        // A combo's parent line carries the price only; its components go to the kitchen.
+        const stationId = isComboParent ? null : (item.kitchen_station_id || item.effective_kitchen_station_id || itemStationMap.get(item.id) || null);
+        // Held courses wait for "Fire"; without a kitchen workflow everything is fired.
+        const course = Number(item.course) > 0 ? Math.min(Number(item.course), 9) : null;
+        const seat = Number(item.seat) > 0 ? Math.min(Number(item.seat), 99) : null;
+        const held = Boolean(item.hold) && orderStatus !== 'completed';
         return [
           orderId,
           item.id,
@@ -92,10 +113,73 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
                 : null),
           tenantId,
           stationId ? Number(stationId) : null,
-          itemStatus
+          isComboParent ? 'completed' : itemStatus,
+          course,
+          seat,
+          held ? 'held' : 'fired',
+          held ? null : new Date(),
+          // Open item: the name typed at the POS (only accepted on the tenant's open-item row)
+          openItemIds.has(Number(item.id)) ? String(item.custom_title || item.title || 'Open item').slice(0, 255) : null,
+          isComboParent ? 1 : 0
         ];
       })
     ]);
+
+    // Row ids of the cart lines just inserted, in cart order.
+    let insertedIds = [];
+    if (cartItems.some((ci) => ci?.adjust?.type) || comboSelections.size > 0) {
+      const [insertedRows] = await conn.query(
+        `SELECT id FROM order_items WHERE order_id = ? AND tenant_id = ? ORDER BY id ASC`,
+        [orderId, tenantId]
+      );
+      insertedIds = insertedRows.map((r) => r.id);
+    }
+
+    // step 5: comp / discount approvals on cart lines (audit-linked, single use)
+    if (cartItems.some((ci) => ci?.adjust?.type)) {
+      const { applyCartAdjustmentsTx } = require("./line_adjustment.service");
+      await applyCartAdjustmentsTx(conn, tenantId, orderId, cartItems, insertedIds, username);
+    }
+
+    // step 5b: combo components (price 0, own station, same course/seat/hold as the combo)
+    const comboRecipeLines = [];
+    if (comboSelections.size > 0) {
+      const componentRows = [];
+      comboSelections.forEach((components, idx) => {
+        const parent = cartItems[idx];
+        const course = Number(parent.course) > 0 ? Math.min(Number(parent.course), 9) : null;
+        const seat = Number(parent.seat) > 0 ? Math.min(Number(parent.seat), 99) : null;
+        const held = Boolean(parent.hold) && orderStatus !== 'completed';
+        components.forEach((c) => {
+          componentRows.push([
+            orderId, c.menuItemId, c.variantId || null, 0, Number(parent.quantity) || 1, parent.notes || null, null,
+            tenantId, c.stationId ? Number(c.stationId) : null, itemStatus, course, seat,
+            held ? 'held' : 'fired', held ? null : new Date(), insertedIds[idx],
+          ]);
+          comboRecipeLines.push({ id: c.menuItemId, variant_id: c.variantId || null, quantity: Number(parent.quantity) || 1 });
+        });
+      });
+      await conn.query(
+        `INSERT INTO order_items
+         (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at, combo_parent_id)
+         VALUES ?`,
+        [componentRows]
+      );
+
+      // Components deduct their own recipes (looked up here, not trusted from the client).
+      const compIds = [...new Set(comboRecipeLines.map((l) => l.id))];
+      const [compRecipes] = await conn.query(
+        `SELECT mir.menu_item_id, mir.variant_id, mir.addon_id, mir.inventory_item_id, mir.quantity AS recipe_quantity,
+                ii.title AS ingredient_title, ii.unit
+         FROM menu_item_recipes mir
+         LEFT JOIN inventory_items ii ON ii.id = mir.inventory_item_id
+         WHERE mir.tenant_id = ? AND mir.menu_item_id IN (?) AND (mir.addon_id IS NULL OR mir.addon_id = 0)`,
+        [tenantId, compIds]
+      );
+      comboRecipeLines.forEach((l) => {
+        l.recipeItems = compRecipes.filter((r) => Number(r.menu_item_id) === Number(l.id));
+      });
+    }
 
     // step 6: Save updated token no. to table token_sequences
     await conn.query("INSERT INTO token_sequences ( sequence_no, last_updated, tenant_id) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no), last_updated = VALUES(last_updated) ;", [tokenNo, tenantId]);
@@ -103,7 +187,7 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
      // Track Recipe/Inventory Item Usuage
      const inventoryUsage = {};
 
-     cartItems.forEach(item => {
+     [...cartItems, ...comboRecipeLines].forEach(item => {
        (item.recipeItems || []).forEach(recipe => {
          const { inventory_item_id, recipe_quantity, ingredient_title, unit, variant_id, addon_id } = recipe;
 
@@ -232,9 +316,15 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
       console.error(`[pos.service] Telegram order notify failed for order #${orderId}:`, err.message);
     });
 
+    if (availabilityChanges.length > 0) {
+      const { invalidateTenantCatalog } = require("../utils/cache.util");
+      await invalidateTenantCatalog(tenantId).catch(() => {});
+    }
+
     return {
       tokenNo,
-      orderId
+      orderId,
+      availabilityChanges
     }
   } catch (error) {
     console.error(error);
@@ -602,6 +692,7 @@ exports.approveQROrderDB = async (tenantId, qrOrderId, username = "Staff") => {
     orderId: created.orderId,
     tokenNo: created.tokenNo,
     tableId: qrOrder.table_id || null,
+    availabilityChanges: created.availabilityChanges || [],
   };
 };
 
@@ -623,5 +714,127 @@ exports.cancelAllQROrdersDB = async (tenantId, status) => {
       throw error;
   } finally {
       conn.release();
+  }
+};
+
+
+/**
+ * Fire held courses on an order. With `course`, only that course; otherwise
+ * every held line. Fired lines get a fresh `date` so KDS timers start now.
+ * Returns the fired lines (for the "FIRE" kitchen ticket).
+ */
+exports.fireHeldItemsDB = async (tenantId, orderId, { course = null, itemIds = null } = {}) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+    const params = [orderId, tenantId];
+    let where = `oi.order_id = ? AND oi.tenant_id = ? AND oi.fire_status = 'held' AND oi.status <> 'cancelled'`;
+    if (course) {
+      where += ` AND oi.course = ?`;
+      params.push(Number(course));
+    }
+    if (Array.isArray(itemIds) && itemIds.length > 0) {
+      where += ` AND oi.id IN (?)`;
+      params.push(itemIds.map(Number));
+    }
+
+    const [rows] = await conn.query(
+      `SELECT oi.id, oi.item_id, oi.variant_id, oi.quantity, oi.notes, oi.addons, oi.course, oi.seat_no,
+              oi.kitchen_station_id, COALESCE(oi.custom_title, mi.title) AS item_title, miv.title AS variant_title, ks.name AS station_name
+       FROM order_items oi
+       LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id
+       LEFT JOIN menu_item_variants miv ON miv.id = oi.variant_id AND miv.item_id = oi.item_id
+       LEFT JOIN kitchen_stations ks ON ks.id = oi.kitchen_station_id AND ks.tenant_id = oi.tenant_id
+       WHERE ${where}
+       FOR UPDATE`,
+      params
+    );
+    if (rows.length === 0) {
+      await conn.rollback();
+      return { fired: [], order: null };
+    }
+
+    await conn.query(
+      `UPDATE order_items SET fire_status = 'fired', fired_at = NOW(), date = NOW() WHERE id IN (?) AND tenant_id = ?`,
+      [rows.map((r) => r.id), tenantId]
+    );
+
+    const [[order]] = await conn.query(
+      `SELECT o.id, o.token_no, o.table_id, o.delivery_type, st.table_title
+       FROM orders o LEFT JOIN store_tables st ON st.id = o.table_id AND st.tenant_id = o.tenant_id
+       WHERE o.id = ? AND o.tenant_id = ?`,
+      [orderId, tenantId]
+    );
+    const [[remaining]] = await conn.query(
+      `SELECT COUNT(*) AS held FROM order_items WHERE order_id = ? AND tenant_id = ? AND fire_status = 'held' AND status <> 'cancelled'`,
+      [orderId, tenantId]
+    );
+    await conn.commit();
+
+    const fired = rows.map((r) => {
+      let addonIds = [];
+      try {
+        addonIds = r.addons ? JSON.parse(r.addons) : [];
+      } catch {
+        addonIds = [];
+      }
+      return {
+        id: r.item_id,
+        order_item_id: r.id,
+        title: r.item_title,
+        variant: r.variant_title ? { title: r.variant_title } : null,
+        quantity: r.quantity,
+        notes: r.notes,
+        addons_ids: addonIds,
+        course: r.course,
+        seat: r.seat_no,
+        kitchen_station_id: r.kitchen_station_id,
+        kitchen_station_name: r.station_name,
+      };
+    });
+
+    return { fired, order, stillHeld: Number(remaining?.held || 0) };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+
+/** The tenant's hidden "Open item" menu row (created on first use). */
+exports.getOrCreateOpenItemDB = async (tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [[existing]] = await conn.query(
+      `SELECT id FROM menu_items WHERE tenant_id = ? AND is_open_item = 1 ORDER BY id LIMIT 1`,
+      [tenantId]
+    );
+    if (existing) return existing.id;
+    const [res] = await conn.query(
+      `INSERT INTO menu_items (title, price, net_price, tax_id, category, tenant_id, is_enabled, is_open_item)
+       VALUES ('Open item', 0, 0, NULL, NULL, ?, 0, 1)`,
+      [tenantId]
+    );
+    return res.insertId;
+  } finally {
+    conn.release();
+  }
+};
+
+
+/** Offline POS: an order already created from this terminal-side id. */
+exports.findOrderByClientIdDB = async (tenantId, clientOrderId) => {
+  if (!clientOrderId) return null;
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [[row]] = await conn.query(
+      `SELECT id AS orderId, token_no AS tokenNo, invoice_id AS invoiceId FROM orders WHERE tenant_id = ? AND client_order_id = ? LIMIT 1`,
+      [tenantId, String(clientOrderId).slice(0, 64)]
+    );
+    return row || null;
+  } finally {
+    conn.release();
   }
 };

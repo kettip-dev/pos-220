@@ -64,7 +64,8 @@ exports.getQRMenuInit = async (req, res) => {
       }
     }
 
-    const formattedMenuItems = menuItems.map((item) => {
+    // Combos need the POS combo builder; they are not offered on the QR menu yet.
+    const formattedMenuItems = menuItems.filter((item) => Number(item.is_combo) !== 1).map((item) => {
       const itemAddons = addons.filter((addon) => addon.item_id == item.id && addon.is_enabled !== 0);
       const itemVariants = variants.filter((variant) => variant.item_id == item.id);
       const itemRecipeItems = recipeItems.filter((recipeItem) => recipeItem.menu_item_id == item.id);
@@ -227,6 +228,9 @@ exports.placeOrderViaQrMenu = async (req, res) => {
       tokenNo = approved.tokenNo;
 
       if (io) {
+        if (approved.availabilityChanges?.length) {
+          io.to(String(tenantId)).emit("menu_availability_update", { items: approved.availabilityChanges });
+        }
         io.to(String(tenantId)).emit("new_order", approved.tokenNo);
         io.to(String(tenantId)).emit("order_update", {
           orderId: approved.orderId,

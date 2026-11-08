@@ -407,6 +407,12 @@ export function getQBOAppCategories(t, options = {}) {
           features: [PLAN_FEATURES.SETTINGS],
         },
         {
+          label: t("navbar.combos", "Combos"),
+          path: "/dashboard/settings/menu-items/combos",
+          scopes: [SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.SETTINGS],
+        },
+        {
           label: t("navbar.promotions", "Promotions & Discounts"),
           path: "/dashboard/promotions",
           scopes: [SCOPES.SETTINGS],

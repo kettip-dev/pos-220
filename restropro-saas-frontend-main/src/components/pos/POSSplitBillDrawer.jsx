@@ -131,6 +131,33 @@ export default function POSSplitBillDrawer({
     });
   }, [orderItems, itemChecks]);
 
+  // Seats entered on the POS: one sub-check per seat in a single tap.
+  const seatNumbers = useMemo(
+    () => [...new Set(orderItems.map((it) => Number(it.seat_no)).filter((n) => n > 0))].sort((a, b) => a - b),
+    [orderItems]
+  );
+
+  const handleSplitBySeat = () => {
+    if (seatNumbers.length === 0) return;
+    setSplitMode('by_items');
+    setItemChecks(
+      seatNumbers.map((seat, idx) => ({
+        id: idx + 1,
+        label: `${t('pos_ops.seat', 'Seat')} ${seat}`,
+        items: orderItems
+          .filter((it) => Number(it.seat_no) === seat)
+          .map((it) => ({
+            order_item_id: it.id,
+            item_title: it.item_title || it.title || 'Item',
+            variant_title: it.variant_title || null,
+            price: Number(it.price || 0),
+            quantity: Number(it.quantity || 1),
+          })),
+      }))
+    );
+    setActiveCheckIndex(0);
+  };
+
   // Handler: Assign 1 unit of item to active check
   const handleAssignItem = (item) => {
     if (item.remainingQty <= 0) return;
@@ -555,6 +582,17 @@ export default function POSSplitBillDrawer({
                   {t('split_bill.split_evenly', 'Split Evenly')}
                 </button>
               </div>
+
+              {seatNumbers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSplitBySeat}
+                  className="w-full min-h-[42px] rounded-xl border-2 border-dashed border-primary/40 text-primary text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+                >
+                  <IconUsers size={18} stroke={iconStroke} />
+                  {t('pos_ops.split_by_seat', 'Split by seat ({{count}} seats)', { count: seatNumbers.length })}
+                </button>
+              )}
 
               {splitMode === 'evenly' ? (
                 /* Even Split Configuration */

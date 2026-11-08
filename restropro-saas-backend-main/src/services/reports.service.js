@@ -539,12 +539,15 @@ const getVoidsCancellationsReport = async (conn, type, from, to, tenantIds, curr
       oi.id AS order_item_id,
       oi.order_id,
       oi.date,
-      COALESCE(mi.title, 'Deleted item') AS item,
+      COALESCE(oi.custom_title, mi.title, 'Deleted item') AS item,
       COALESCE(oi.quantity, 0) AS quantity,
       COALESCE(oi.price, 0) AS price,
       COALESCE(oi.price * oi.quantity, 0) AS lost_sales,
       oi.status,
-      oi.notes
+      oi.notes,
+      oi.adjust_reason AS reason,
+      oi.adjusted_by,
+      oi.adjust_approved_by AS approved_by
     FROM order_items oi
     LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id
     WHERE oi.tenant_id IN (?) AND oi.status = 'cancelled' AND ${filter}
@@ -574,6 +577,31 @@ const getVoidsCancellationsReport = async (conn, type, from, to, tenantIds, curr
     ORDER BY i.voided_at DESC
   `, [tenantIds, ...invoiceFilter.params]);
 
+  // Line comps / discounts / voids recorded from the POS with a reason.
+  const adjFilter = getFilterCondition("a.created_at", type, from, to);
+  const adjustments = await query(conn, `
+    SELECT
+      a.tenant_id AS business_tenant_id,
+      a.created_at,
+      a.order_id,
+      a.action,
+      COALESCE(a.item_title, 'Item') AS item,
+      a.quantity,
+      a.amount,
+      REPLACE(a.reason_code, '_', ' ') AS reason,
+      a.note,
+      a.performed_by,
+      a.approved_by,
+      IF(a.sent_to_kitchen = 1, 'After send', 'Before send') AS stage
+    FROM pos_line_adjustments a
+    WHERE a.tenant_id IN (?) AND ${adjFilter.filter}
+      AND (a.order_id IS NOT NULL OR a.sent_to_kitchen = 1)
+    ORDER BY a.created_at DESC
+  `, [tenantIds, ...adjFilter.params]).catch(() => []);
+  const sumAction = (action) => adjustments
+    .filter((r) => r.action === action)
+    .reduce((sum, r) => sum + money(r.amount), 0);
+
   return makeReport({
     reportId: "voids-cancellations",
     currency,
@@ -587,6 +615,8 @@ const getVoidsCancellationsReport = async (conn, type, from, to, tenantIds, curr
       { label: "Lost Sales", value: rows.reduce((sum, row) => sum + money(row.lost_sales), 0), type: "money" },
       { label: "Voided Invoices", value: voidedInvoices.length, type: "number" },
       { label: "Voided Amount", value: voidedInvoices.reduce((sum, row) => sum + money(row.total), 0), type: "money" },
+      { label: "Comped Value", value: sumAction("comp"), type: "money" },
+      { label: "Line Discounts", value: sumAction("discount"), type: "money" },
     ],
     tables: [{
       title: "Cancelled Items",
@@ -597,6 +627,8 @@ const getVoidsCancellationsReport = async (conn, type, from, to, tenantIds, curr
         { key: "quantity", label: "Qty", type: "number" },
         { key: "price", label: "Price", type: "money" },
         { key: "lost_sales", label: "Lost Sales", type: "money" },
+        { key: "reason", label: "Reason" },
+        { key: "approved_by", label: "Approved By" },
         { key: "notes", label: "Notes" },
       ],
       rows,
@@ -610,6 +642,22 @@ const getVoidsCancellationsReport = async (conn, type, from, to, tenantIds, curr
         { key: "void_reason", label: "Reason" },
       ],
       rows: voidedInvoices,
+    }, {
+      title: "Comps, Discounts & Voids",
+      columns: [
+        { key: "created_at", label: "Date", type: "datetime" },
+        { key: "order_id", label: "Order" },
+        { key: "action", label: "Action" },
+        { key: "item", label: "Item" },
+        { key: "quantity", label: "Qty", type: "number" },
+        { key: "amount", label: "Value", type: "money" },
+        { key: "reason", label: "Reason" },
+        { key: "stage", label: "When" },
+        { key: "performed_by", label: "By" },
+        { key: "approved_by", label: "Approved By" },
+        { key: "note", label: "Note" },
+      ],
+      rows: adjustments,
     }],
   });
 };

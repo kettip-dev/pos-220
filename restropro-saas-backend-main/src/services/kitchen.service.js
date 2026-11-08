@@ -52,7 +52,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.id,
         oi.order_id,
         oi.item_id,
-        mi.title AS item_title,
+        COALESCE(oi.custom_title, mi.title) AS item_title,
         oi.variant_id,
         miv.title as variant_title,
         oi.quantity,
@@ -62,6 +62,11 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.notes,
         oi.started_at,
         oi.completed_at,
+        oi.course,
+        oi.seat_no,
+        oi.fire_status,
+        oi.fired_at,
+        mi.prep_minutes,
         oi.kitchen_station_id,
         ks.name AS station_name,
         ks.color AS station_color,
@@ -72,7 +77,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
         LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
         
-      WHERE oi.order_id IN (?)
+      WHERE oi.order_id IN (?) AND oi.is_combo_parent = 0
       `;
       const [kitchenOrdersItemsResult] = await conn.query(sql2, [orderIds]);
       kitchenOrdersItems = kitchenOrdersItemsResult;
@@ -198,7 +203,7 @@ exports.bulkUpdateOrderItemStatusDB = async (tenantId, orderItemIds, status) => 
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
     SET oi.status = ?${statusTimestampSql(status)}
-    WHERE oi.id IN (?) AND o.tenant_id = ?;
+    WHERE oi.id IN (?) AND o.tenant_id = ? AND oi.fire_status <> 'held';
     `;
 
     const [result] = await conn.query(sql, [status, orderItemIds, tenantId]);
@@ -219,7 +224,7 @@ exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatus
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
     SET oi.status = ?${statusTimestampSql(status)}
-    WHERE oi.order_id = ? AND o.tenant_id = ?
+    WHERE oi.order_id = ? AND o.tenant_id = ? AND oi.fire_status <> 'held'
     `;
 
     if (Array.isArray(fromStatuses) && fromStatuses.length > 0) {

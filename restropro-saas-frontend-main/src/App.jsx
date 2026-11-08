@@ -40,6 +40,7 @@ import ContactSupport from "./views/SettingsViews/ContactSupportPage";
 import UserGuidePage from "./views/UserGuidePage";
 import CategoriesPage from "./views/SettingsViews/CategoriesPage";
 import AddonsLibraryPage from "./views/SettingsViews/AddonsLibraryPage";
+import CombosSettingsPage from "./views/SettingsViews/CombosSettingsPage";
 import MenuLanguageSettingsPage from "./views/SettingsViews/MenuLanguageSettingsPage";
 import MenuItemViewPage from "./views/SettingsViews/MenuItemViewPage";
 import { NavbarContext } from "./contexts/NavbarContext";
@@ -487,6 +488,7 @@ export default function App() {
               <Route path="menu-items" element={<RequiresSingleBusiness><MenuItemsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="menu-items/:id" element={<RequiresSingleBusiness><MenuItemViewPage /></RequiresSingleBusiness>} />
               <Route path="menu-items/addons" element={<RequiresSingleBusiness><AddonsLibraryPage /></RequiresSingleBusiness>} />
+              <Route path="menu-items/combos" element={<RequiresSingleBusiness><CombosSettingsPage /></RequiresSingleBusiness>} />
               <Route
                 path="menu-items/categories"
                 element={<RequiresSingleBusiness><CategoriesPage /></RequiresSingleBusiness>}

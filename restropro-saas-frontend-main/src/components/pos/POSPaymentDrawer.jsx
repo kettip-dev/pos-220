@@ -28,6 +28,7 @@ import { clsx } from 'clsx';
 import { iconStroke } from '../../config/config';
 import { useCustomerLoyalty, useLoyaltySettings } from '../../controllers/loyalty.controller';
 import { useCustomerCredit } from '../../controllers/customer_credit.controller';
+import { lookupGiftCard } from '../../controllers/pos.controller';
 
 export default function POSPaymentDrawer({
   isOpen,
@@ -73,6 +74,9 @@ export default function POSPaymentDrawer({
 
   // Optional card / QR transaction reference note
   const [referenceCode, setReferenceCode] = useState('');
+  // Gift card tender: the card number travels as giftCardCode on the line.
+  const [giftCardInfo, setGiftCardInfo] = useState(null);
+  const [isCheckingGiftCard, setIsCheckingGiftCard] = useState(false);
 
   useEffect(() => {
     if (exchangeRateUsdToKhr) {
@@ -147,6 +151,7 @@ export default function POSPaymentDrawer({
   // Payment method classification
   const paymentList = Array.isArray(paymentTypes) ? paymentTypes : [];
   const selectedPaymentObj = paymentList.find(pt => pt.id === selectedPaymentType);
+  const isGiftCard = Number(selectedPaymentObj?.is_gift_card) === 1;
   const selectedPaymentTitle = (selectedPaymentObj?.title || '').toLowerCase();
   // The explicit "counts as cash" flag decides; the title match covers servers that predate it.
   const isCash = selectedPaymentObj && selectedPaymentObj.is_cash !== undefined && selectedPaymentObj.is_cash !== null
@@ -287,6 +292,7 @@ export default function POSPaymentDrawer({
       paymentTypeId: selectedPaymentType,
       amount: remainingDue,
       reference: referenceCode.trim() || undefined,
+      ...(isGiftCard ? { giftCardCode: referenceCode.trim() } : {}),
       ...(isCash && (numUSD > 0 || numKHR > 0)
         ? { tender: { tenderedUSD: numUSD, tenderedKHR: numKHR, ...changeOut } }
         : {}),
@@ -333,6 +339,7 @@ export default function POSPaymentDrawer({
     remainingDue,
     selectedPaymentType,
     isCash,
+    isGiftCard,
     changeOut.changeUSD,
     changeOut.changeKHR,
   ]);
@@ -352,6 +359,7 @@ export default function POSPaymentDrawer({
         paymentTypeTitle: selectedPaymentObj?.title,
         amount,
         reference: referenceCode.trim() || undefined,
+        ...(isGiftCard ? { giftCardCode: referenceCode.trim() } : {}),
         ...(isCash ? { tender: { tenderedUSD: numUSD, tenderedKHR: numKHR, changeUSD: 0, changeKHR: 0 } } : {}),
       },
     ]);
@@ -359,6 +367,27 @@ export default function POSPaymentDrawer({
     setTenderedKHR('');
     setPartialAmount('');
     setReferenceCode('');
+    setGiftCardInfo(null);
+  };
+
+  const handleCheckGiftCard = async () => {
+    const code = referenceCode.trim();
+    if (!code) return;
+    try {
+      setIsCheckingGiftCard(true);
+      const res = await lookupGiftCard(code);
+      const card = res.data;
+      setGiftCardInfo(card);
+      const balance = Number(card?.balance || 0);
+      // Card does not cover the bill: take what is on it and pay the rest another way.
+      if (card?.status === 'ACTIVE' && balance > 0 && balance < remainingDue - 0.004) {
+        setPartialAmount(String(balance));
+      }
+    } catch (error) {
+      setGiftCardInfo({ error: error?.response?.data?.message || t('pos_ops.gift_card_not_found', 'Gift card not found') });
+    } finally {
+      setIsCheckingGiftCard(false);
+    }
   };
 
   // ── Pay Later (customer account) ──
@@ -986,6 +1015,50 @@ export default function POSPaymentDrawer({
                   />
                 </div>
 
+                {isGiftCard ? (
+                  <div className="w-full max-w-sm text-left space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      {t('pos_ops.gift_card_number', 'Gift card number (scan or type)')}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={referenceCode}
+                        onChange={(e) => {
+                          setReferenceCode(e.target.value.toUpperCase());
+                          setGiftCardInfo(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCheckGiftCard();
+                          }
+                        }}
+                        placeholder="XXXX-XXXX-XXXX"
+                        className="flex-1 h-12 text-sm font-mono px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCheckGiftCard}
+                        disabled={!referenceCode.trim() || isCheckingGiftCard}
+                        className="h-12 px-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                      >
+                        {isCheckingGiftCard ? '…' : t('pos_ops.check_balance', 'Check')}
+                      </button>
+                    </div>
+                    {giftCardInfo?.error && <p className="text-xs font-semibold text-rose-600">{giftCardInfo.error}</p>}
+                    {giftCardInfo && !giftCardInfo.error && (
+                      <p className={clsx('text-xs font-semibold', giftCardInfo.status === 'ACTIVE' ? 'text-emerald-600' : 'text-rose-600')}>
+                        {giftCardInfo.status === 'ACTIVE'
+                          ? t('pos_ops.gift_card_balance', 'Balance {{amount}}', { amount: `${currency}${Number(giftCardInfo.balance || 0).toFixed(2)}` })
+                          : t('pos_ops.gift_card_inactive', 'This card is not active')}
+                        {giftCardInfo.customer_name ? ` · ${giftCardInfo.customer_name}` : ''}
+                      </p>
+                    )}
+                  </div>
+                ) : (
                 <div className="w-full max-w-sm text-left space-y-1.5">
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                     {t('pos.card_reference_optional', 'Card Auth / Ref Number (Optional)')}
@@ -998,6 +1071,7 @@ export default function POSPaymentDrawer({
                     className="w-full h-12 text-sm px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                   />
                 </div>
+                )}
               </div>
             )}
           </div>
