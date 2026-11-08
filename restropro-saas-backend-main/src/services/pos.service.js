@@ -4,7 +4,7 @@ const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
 const { consumeMenuItemStockTx } = require("./menu_availability.service");
 
-exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created') => {
+exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created', clientOrderId = null) => {
   const conn = await getMySqlPromiseConnection();
 
   try {
@@ -38,8 +38,8 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     const groupDiscount = Number(customerGroupDiscountTotal || 0);
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created']
+      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status, client_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created', clientOrderId ? String(clientOrderId).slice(0, 64) : null]
     );
 
     const orderId = orderResult.insertId;
@@ -818,6 +818,22 @@ exports.getOrCreateOpenItemDB = async (tenantId) => {
       [tenantId]
     );
     return res.insertId;
+  } finally {
+    conn.release();
+  }
+};
+
+
+/** Offline POS: an order already created from this terminal-side id. */
+exports.findOrderByClientIdDB = async (tenantId, clientOrderId) => {
+  if (!clientOrderId) return null;
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [[row]] = await conn.query(
+      `SELECT id AS orderId, token_no AS tokenNo, invoice_id AS invoiceId FROM orders WHERE tenant_id = ? AND client_order_id = ? LIMIT 1`,
+      [tenantId, String(clientOrderId).slice(0, 64)]
+    );
+    return row || null;
   } finally {
     conn.release();
   }

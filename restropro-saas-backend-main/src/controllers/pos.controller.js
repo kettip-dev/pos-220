@@ -146,7 +146,14 @@ exports.createOrder = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal, clientOrderId} = req.body;
+
+    // Offline retry of an order that already reached the server: answer with it.
+    const { findOrderByClientIdDB } = require("../services/pos.service");
+    const existing = await findOrderByClientIdDB(tenantId, clientOrderId);
+    if (existing) {
+      return res.status(200).json({ success: true, duplicate: true, message: req.__("order_created_token", { token: existing.tokenNo }), tokenNo: existing.tokenNo, orderId: existing.orderId });
+    }
 
     if(cart?.length == 0) {
       return res.status(400).json({
@@ -155,7 +162,7 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null);
     emitAvailability(req, tenantId, result.availabilityChanges);
 
     if(selectedQrOrderItem) {
@@ -216,7 +223,13 @@ exports.createOrderAndInvoice = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments, payLater} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments, payLater, clientOrderId} = req.body;
+
+    const { findOrderByClientIdDB } = require("../services/pos.service");
+    const existing = await findOrderByClientIdDB(tenantId, clientOrderId);
+    if (existing) {
+      return res.status(200).json({ success: true, duplicate: true, message: req.__("order_created_token", { token: existing.tokenNo }), tokenNo: existing.tokenNo, orderId: existing.orderId, invoiceId: existing.invoiceId });
+    }
 
     if(cart?.length == 0) {
       return res.status(400).json({
@@ -260,7 +273,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const isKitchenDisabled = storeSettings && (storeSettings.is_kitchen_enabled === 0 || storeSettings.is_kitchen_enabled === false);
     const targetOrderStatus = isKitchenDisabled ? 'completed' : 'created';
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null);
     const orderId = result.orderId;
     const tokenNo = result.tokenNo;
     emitAvailability(req, tenantId, result.availabilityChanges);

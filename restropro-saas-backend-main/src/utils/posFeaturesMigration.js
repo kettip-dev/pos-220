@@ -165,6 +165,17 @@ exports.ensurePosFeaturesSchema = async (pool) => {
       await conn.query(`ALTER TABLE register_payments MODIFY COLUMN source ENUM(${values}, 'GIFT_CARD') NOT NULL`);
       console.log("[Migration] Added GIFT_CARD to register_payments.source");
     }
+
+    // 8. Offline POS: the terminal's own order id makes retries idempotent
+    await addColumnIfMissing(conn, "orders", "client_order_id", "VARCHAR(64) NULL DEFAULT NULL");
+    const [idx] = await conn.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND INDEX_NAME = 'uq_orders_client_order' LIMIT 1`
+    );
+    if (idx.length === 0) {
+      await conn.query(`ALTER TABLE orders ADD UNIQUE INDEX uq_orders_client_order (tenant_id, client_order_id)`);
+      console.log("[Migration] Added uq_orders_client_order");
+    }
   } finally {
     conn.release();
   }

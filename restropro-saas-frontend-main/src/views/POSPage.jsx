@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus, IconHistory, IconBulb } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus, IconHistory, IconBulb, IconCloudOff, IconCloudUpload } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts, getUpsellPairs, getCustomerLastOrder } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
@@ -36,6 +36,8 @@ import POSLineAdjustDrawer, { reasonLabel } from '../components/pos/POSLineAdjus
 import POSOpenItemModal from '../components/pos/POSOpenItemModal';
 import POSComboDrawer from '../components/pos/POSComboDrawer';
 import POSGiftCardDrawer from '../components/pos/POSGiftCardDrawer';
+import POSOfflineQueueDrawer from '../components/pos/POSOfflineQueueDrawer';
+import { newClientOrderId, isNetworkError, enqueueOrder, getQueue, subscribeQueue, flushQueue, removeFromQueue, retryQueued, saveInitCache, loadInitCache } from '../helpers/OfflineOrderQueue';
 import { useKitchenStations } from '../controllers/kitchen_stations.controller';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { 
@@ -85,6 +87,11 @@ export default function POSPage() {
   const [dismissedSuggestions, setDismissedSuggestions] = useState([]);
   const [isRepeatingOrder, setIsRepeatingOrder] = useState(false);
   const [isGiftCardOpen, setIsGiftCardOpen] = useState(false);
+  // Offline: orders kept on this device until the server is reachable again.
+  const [offlineQueue, setOfflineQueue] = useState(() => getQueue(getUserDetailsInLocalStorage()?.tenant_id));
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false));
+  const [isSyncingQueue, setIsSyncingQueue] = useState(false);
+  const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
   const { data: kitchenStationsList = [] } = useKitchenStations();
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
@@ -464,6 +471,51 @@ export default function POSPage() {
     // "Often ordered together" pairs (cached server-side for an hour).
     getUpsellPairs().then((res) => setUpsellPairs(res?.data?.pairs || {})).catch(() => {});
   },[]);
+
+  // Offline queue: track connection, mirror the queue, send when back online.
+  const syncOfflineQueue = async () => {
+    const tenantId = getUserDetailsInLocalStorage()?.tenant_id;
+    if (!getQueue(tenantId).some((e) => e.status === 'pending')) return;
+    setIsSyncingQueue(true);
+    try {
+      const { sent, failed } = await flushQueue(
+        { order: createOrder, order_invoice: createOrderAndInvoice },
+        { tenantId }
+      );
+      if (sent > 0) {
+        toast.success(t('pos_ops.offline_sent', '{{count}} offline order(s) sent', { count: sent }));
+        _initPOS();
+      }
+      if (failed > 0) {
+        toast.error(t('pos_ops.offline_failed', '{{count}} offline order(s) need attention', { count: failed }));
+        setIsQueueDrawerOpen(true);
+      }
+    } finally {
+      setIsSyncingQueue(false);
+    }
+  };
+
+  useEffect(() => {
+    const tenantId = getUserDetailsInLocalStorage()?.tenant_id;
+    const unsubscribe = subscribeQueue(() => setOfflineQueue(getQueue(tenantId)));
+    const goOnline = () => {
+      setIsOnline(true);
+      syncOfflineQueue();
+    };
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    syncOfflineQueue();
+    const timer = setInterval(() => {
+      if (navigator.onLine !== false) syncOfflineQueue();
+    }, 30000);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (location.state?.selectedTableId && tableRef.current && state.storeTables?.length > 0) {
@@ -895,7 +947,18 @@ export default function POSPage() {
 
   async function _initPOS() {
     try {
-      const res = await initPOS();
+      let res;
+      try {
+        res = await initPOS();
+        if (res?.status == 200) saveInitCache(res.data);
+      } catch (initError) {
+        // Offline reload: start from the last menu this device saw.
+        const cached = isNetworkError(initError) ? loadInitCache() : null;
+        if (!cached) throw initError;
+        res = { status: 200, data: cached };
+        setIsOnline(false);
+        toast(t('pos_ops.offline_menu', 'Offline: showing the last saved menu'), { id: 'pos-offline-menu' });
+      }
       let totalQROrders = 0;
 
       if(res.status == 200) {
@@ -2244,7 +2307,8 @@ export default function POSPage() {
       const summary = calculateOrderSummary();
       const loyaltyPointsRedeemed = tenderData?.loyaltyPointsRedeemed || 0;
       const sendCart = buildSendCart(cartItems, deliveryType);
-      const res = await createOrderAndInvoice(
+      const clientOrderId = newClientOrderId();
+      const invoiceArgs = [
         sendCart, deliveryType, customerType, customer, tableId,
         summary.itemsTotal, summary.taxTotal, summary.serviceChargeTotal, summary.payableTotal,
         state.selectedQrOrderItem, state.selectedPaymentType,
@@ -2255,8 +2319,33 @@ export default function POSPage() {
         customer?.customer_group_name || null,
         summary.customerGroupDiscountTotal || 0,
         tenderData?.payments || null,
-        tenderData?.payLater || null
-      );
+        tenderData?.payLater || null,
+        clientOrderId,
+      ];
+      let res;
+      try {
+        res = await createOrderAndInvoice(...invoiceArgs);
+      } catch (payError) {
+        if (!isNetworkError(payError)) throw payError;
+        // Gift cards, pay later and loyalty points need the server to check balances.
+        const needsServer = isPayLater || loyaltyPointsRedeemed > 0 || (tenderData?.payments || []).some((l) => l.giftCardCode);
+        if (needsServer) {
+          toast.dismiss();
+          setIsSubmittingPayment(false);
+          toast.error(t('pos_ops.offline_needs_server', 'No connection: gift cards, pay later and points need the server. Use cash or try again.'));
+          return;
+        }
+        const localToken = enqueueOrder({
+          clientOrderId,
+          kind: 'order_invoice',
+          args: invoiceArgs,
+          tenantId: user?.tenant_id,
+          summary: { items: sendCart.length, total: summary.payableTotal, table: currentSelectedTable?.table_title || null },
+        });
+        setIsOnline(false);
+        toast(t('pos_ops.saved_offline', 'Offline: order {{token}} saved on this device and will be sent automatically', { token: localToken }), { icon: '⚠️', duration: 6000 });
+        res = { status: 200, data: { tokenNo: localToken, orderId: null, invoiceId: null, offline: true, message: t('pos_ops.paid_offline', 'Paid · saved offline') } };
+      }
       toast.dismiss();
       setIsSubmittingPayment(false);
       if(res.status == 200) {
@@ -2619,13 +2708,32 @@ export default function POSPage() {
 
       const summary = calculateOrderSummary();
       const sendCart = buildSendCart(cartItems, deliveryType);
-      const res = await createOrder(
+      const clientOrderId = newClientOrderId();
+      const orderArgs = [
         sendCart, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem,
         summary.appliedPromotions, summary.promotionDiscountTotal,
         customer?.customer_group_id || null,
         customer?.customer_group_name || null,
-        summary.customerGroupDiscountTotal || 0
-      );
+        summary.customerGroupDiscountTotal || 0,
+        clientOrderId,
+      ];
+      let res;
+      try {
+        res = await createOrder(...orderArgs);
+      } catch (sendError) {
+        if (!isNetworkError(sendError)) throw sendError;
+        // No connection: keep the order on this device and let the kitchen start.
+        const localToken = enqueueOrder({
+          clientOrderId,
+          kind: 'order',
+          args: orderArgs,
+          tenantId: user?.tenant_id,
+          summary: { items: sendCart.length, total: summary.payableTotal, table: currentSelectedTable?.table_title || null },
+        });
+        setIsOnline(false);
+        toast(t('pos_ops.saved_offline', 'Offline: order {{token}} saved on this device and will be sent automatically', { token: localToken }), { icon: '⚠️', duration: 6000 });
+        res = { status: 200, data: { tokenNo: localToken, orderId: null, offline: true } };
+      }
 
       if (res.status === 200) {
         const data = res.data;
@@ -3016,6 +3124,22 @@ export default function POSPage() {
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
             <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+              {(!isOnline || offlineQueue.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setIsQueueDrawerOpen(true)}
+                  title={t('pos_ops.offline_orders', 'Offline orders')}
+                  className={clsx(
+                    "min-h-[42px] px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-black transition active:scale-95 cursor-pointer",
+                    offlineQueue.some((e) => e.status === 'failed')
+                      ? "bg-rose-50 text-rose-700 border-rose-300"
+                      : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
+                  )}
+                >
+                  {isOnline ? <IconCloudUpload size={16} /> : <IconCloudOff size={16} />}
+                  {offlineQueue.length > 0 ? offlineQueue.length : t('pos_ops.offline', 'Offline')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsGiftCardOpen(true)}
@@ -4131,6 +4255,21 @@ export default function POSPage() {
           adjustType: cartItems[adjustLineIndex].adjust?.type,
         } : null}
         onApplied={handleCartLineAdjusted}
+      />
+
+      <POSOfflineQueueDrawer
+        isOpen={isQueueDrawerOpen}
+        onClose={() => setIsQueueDrawerOpen(false)}
+        queue={offlineQueue}
+        isOnline={isOnline}
+        isSyncing={isSyncingQueue}
+        onSyncNow={syncOfflineQueue}
+        onRetry={(id) => {
+          retryQueued(id);
+          syncOfflineQueue();
+        }}
+        onDiscard={(id) => removeFromQueue(id)}
+        currency={currency}
       />
 
       <POSGiftCardDrawer
