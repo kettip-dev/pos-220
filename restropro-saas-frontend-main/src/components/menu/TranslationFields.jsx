@@ -1,5 +1,6 @@
 import React from "react";
 import { IconLanguage } from "@tabler/icons-react";
+import { useTranslation } from "react-i18next";
 import { useMenuLanguageSettings } from "../../controllers/settings.controller";
 
 /**
@@ -18,6 +19,7 @@ export default function TranslationFields({
   className = "",
   primaryTitle = "",
 }) {
+  const { t } = useTranslation();
   const { data: settings } = useMenuLanguageSettings();
   const languages = settings?.is_enabled ? settings.languages || [] : [];
   if (languages.length === 0) return null;
@@ -36,7 +38,7 @@ export default function TranslationFields({
     <div className={`rounded-xl border border-dashed border-restro-border-green p-3 ${className}`}>
       <div className="flex items-center gap-1.5 text-xs font-semibold text-restro-text/70 mb-2">
         <IconLanguage size={16} stroke={1.75} />
-        Translations
+        {t("menu_language.translations", "Translations")}
       </div>
       <div className={compact ? "flex flex-col gap-2" : "grid grid-cols-1 gap-3"}>
         {languages.map((lang) => (
@@ -51,7 +53,7 @@ export default function TranslationFields({
                 lang={lang.code}
                 value={current[lang.code]?.title || ""}
                 onChange={(e) => update(lang.code, "title", e.target.value)}
-                placeholder={primaryTitle ? `${primaryTitle} (${lang.label})` : `Name in ${lang.label}`}
+                placeholder={primaryTitle ? `${primaryTitle} (${lang.label})` : t("menu_language.name_in", { language: lang.label })}
                 className={inputCls}
                 maxLength={255}
               />
@@ -61,7 +63,7 @@ export default function TranslationFields({
                 lang={lang.code}
                 value={current[lang.code]?.description || ""}
                 onChange={(e) => update(lang.code, "description", e.target.value)}
-                placeholder={`Description in ${lang.label}`}
+                placeholder={t("menu_language.description_in", { language: lang.label })}
                 rows={2}
                 className={`${inputCls} resize-none`}
                 maxLength={1000}
