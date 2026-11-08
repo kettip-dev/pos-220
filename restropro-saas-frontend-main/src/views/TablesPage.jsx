@@ -1252,7 +1252,7 @@ export default function TablesPage() {
           if (data?.isFullyCompleted) {
             setIsSplitDrawerOpen(false);
             setSplitDrawerOrder(null);
-            setSelectedTable(null);
+            setSelectedTableId(null);
           }
         }}
         onPrintSubReceipt={handlePrintSubReceipt}
