@@ -273,7 +273,7 @@ exports.getInvoiceOrdersDB = async (orderIds, scope) => {
           oi.id,
           oi.order_id,
           oi.item_id,
-          mi.title AS item_title,
+          COALESCE(oi.custom_title, mi.title) AS item_title,
           oi.variant_id,
           miv.title as variant_title,
           miv.price as variant_price,

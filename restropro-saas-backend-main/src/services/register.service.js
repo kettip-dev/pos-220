@@ -1216,7 +1216,7 @@ exports.refundInvoiceDB = async (tenantId, invoiceId, { session, refundType, amo
       refundAmount = round2(amount);
     } else if (refundType === "ITEMS") {
       const [orderItems] = await conn.query(
-        `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(mi.title, 'Item') AS title
+        `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(oi.custom_title, mi.title, 'Item') AS title
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id AND o.tenant_id = oi.tenant_id
          LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id
@@ -1359,7 +1359,7 @@ exports.getRefundableItemsDB = async (tenantId, invoiceId) => {
     const [invoiceRows] = await conn.query(`SELECT id, total, refunded_total, status FROM invoices WHERE id = ? AND tenant_id = ?`, [invoiceId, tenantId]);
     if (!invoiceRows.length) throw registerError("INVOICE_NOT_FOUND", "Invoice not found");
     const [orderItems] = await conn.query(
-      `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(mi.title, 'Item') AS title, v.title AS variant_title
+      `SELECT oi.id, oi.quantity, oi.price, oi.status, COALESCE(oi.custom_title, mi.title, 'Item') AS title, v.title AS variant_title
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id AND o.tenant_id = oi.tenant_id
        LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id

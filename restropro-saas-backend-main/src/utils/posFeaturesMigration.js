@@ -84,6 +84,10 @@ exports.ensurePosFeaturesSchema = async (pool) => {
     await addColumnIfMissing(conn, "order_items", "seat_no", "TINYINT NULL DEFAULT NULL");
     await addColumnIfMissing(conn, "order_items", "fire_status", "VARCHAR(8) NOT NULL DEFAULT 'fired'");
     await addColumnIfMissing(conn, "order_items", "fired_at", "DATETIME NULL DEFAULT NULL");
+
+    // 4. Open items (custom name + price, sold through one hidden menu row per tenant)
+    await addColumnIfMissing(conn, "order_items", "custom_title", "VARCHAR(255) NULL DEFAULT NULL");
+    await addColumnIfMissing(conn, "menu_items", "is_open_item", "TINYINT(1) NOT NULL DEFAULT 0");
   } finally {
     conn.release();
   }

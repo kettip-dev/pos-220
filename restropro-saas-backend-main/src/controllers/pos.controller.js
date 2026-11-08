@@ -80,6 +80,11 @@ exports.getPOSInitData = async (req, res) => {
       getSuperAdminImageStorageConfigDB(),
       getMenuLanguageSettingsDB(tenantId)
     ]);
+    const { getOrCreateOpenItemDB } = require("../services/pos.service");
+    const openItemId = await getOrCreateOpenItemDB(tenantId).catch((e) => {
+      console.error("[pos] open item row unavailable:", e.message);
+      return null;
+    });
 
     const [menuItems, addons, variants, recipeItems] = await Promise.all([
       getAllMenuItemsDB(tenantId),
@@ -116,6 +121,7 @@ exports.getPOSInitData = async (req, res) => {
       printerConfigs,
       printFormat,
       menuLanguage,
+      openItemId,
       imageStorageConfig: globalStorage && globalStorage.status === 1 && globalStorage.credentials
         ? { publicUrl: globalStorage.credentials.public_url || null }
         : { publicUrl: null }

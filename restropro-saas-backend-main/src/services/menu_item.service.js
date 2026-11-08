@@ -180,7 +180,7 @@ exports.getAllMenuItemsDB = async (tenantId) => {
             LEFT JOIN categories c ON i.category = c.id
             LEFT JOIN kitchen_stations ks ON i.kitchen_station_id = ks.id AND ks.tenant_id = i.tenant_id
             LEFT JOIN kitchen_stations cks ON c.kitchen_station_id = cks.id AND cks.tenant_id = i.tenant_id
-            WHERE i.tenant_id = ?;
+            WHERE i.tenant_id = ? AND i.is_open_item = 0;
             `;
 
             const [result] = await conn.query(sql, [tenantId]);

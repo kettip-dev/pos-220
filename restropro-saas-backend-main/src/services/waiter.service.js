@@ -40,7 +40,7 @@ exports.getPickupQueueDB = async (tenantId) => {
         oi.id,
         oi.order_id,
         oi.item_id,
-        mi.title AS item_title,
+        COALESCE(oi.custom_title, mi.title) AS item_title,
         mi.image AS item_image,
         oi.variant_id,
         miv.title AS variant_title,

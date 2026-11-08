@@ -1476,7 +1476,7 @@ exports.getTableLiveQrSessionDB = async (tenantId, tableId, qrOrderId = null) =>
       if (kitchenOrders.length > 0) {
         const kOrderIds = kitchenOrders.map((o) => o.id);
         const [kItems] = await conn.query(
-          `SELECT oi.id, oi.order_id, oi.item_id, mi.title AS item_title, mi.image, mi.tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type,
+          `SELECT oi.id, oi.order_id, oi.item_id, COALESCE(oi.custom_title, mi.title) AS item_title, mi.image, mi.tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type,
                   oi.variant_id, miv.title AS variant_title, oi.price, oi.quantity, oi.status, oi.date, oi.addons, oi.notes
            FROM order_items oi
            LEFT JOIN menu_items mi ON oi.item_id = mi.id

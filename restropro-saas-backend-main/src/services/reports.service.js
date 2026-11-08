@@ -539,7 +539,7 @@ const getVoidsCancellationsReport = async (conn, type, from, to, tenantIds, curr
       oi.id AS order_item_id,
       oi.order_id,
       oi.date,
-      COALESCE(mi.title, 'Deleted item') AS item,
+      COALESCE(oi.custom_title, mi.title, 'Deleted item') AS item,
       COALESCE(oi.quantity, 0) AS quantity,
       COALESCE(oi.price, 0) AS price,
       COALESCE(oi.price * oi.quantity, 0) AS lost_sales,

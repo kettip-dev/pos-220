@@ -52,7 +52,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.id,
         oi.order_id,
         oi.item_id,
-        mi.title AS item_title,
+        COALESCE(oi.custom_title, mi.title) AS item_title,
         oi.variant_id,
         miv.title as variant_title,
         oi.quantity,

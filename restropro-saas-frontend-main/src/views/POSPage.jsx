@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2 } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
@@ -33,6 +33,8 @@ import POSPromotionDrawer from '../components/pos/POSPromotionDrawer';
 import POSSplitBillDrawer from '../components/pos/POSSplitBillDrawer';
 import POSSoldOutDrawer from '../components/pos/POSSoldOutDrawer';
 import POSLineAdjustDrawer, { reasonLabel } from '../components/pos/POSLineAdjustDrawer';
+import POSOpenItemModal from '../components/pos/POSOpenItemModal';
+import { useKitchenStations } from '../controllers/kitchen_stations.controller';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { 
   evaluateCartPromotions, 
@@ -75,6 +77,8 @@ export default function POSPage() {
   const [activeCourse, setActiveCourse] = useState(1);
   const [holdLaterCourses, setHoldLaterCourses] = useState(true);
   const [seatPickerIndex, setSeatPickerIndex] = useState(null);
+  const [isOpenItemOpen, setIsOpenItemOpen] = useState(false);
+  const { data: kitchenStationsList = [] } = useKitchenStations();
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
   // Cash register session for this device
@@ -302,6 +306,10 @@ export default function POSPage() {
         .join(',');
     };
     if (getNormalizedAddons(itemA) !== getNormalizedAddons(itemB)) return false;
+
+    // 3b. Open items: different name or price = different line
+    if ((itemA.custom_title || null) !== (itemB.custom_title || null)) return false;
+    if (itemA.custom_title && Number(itemA.price) !== Number(itemB.price)) return false;
 
     // 4. Different course or seat = different line
     if (Number(itemA.course || 1) !== Number(itemB.course || 1)) return false;
@@ -889,6 +897,7 @@ export default function POSPage() {
           storeSettings: data.storeSettings,
           storeTables: data.storeTables,
           serviceCharge:data.serviceCharge,
+          openItemId: data.openItemId || null,
           currency: currency?.symbol || "",
           qrOrdersCount: totalQROrders || 0,
           isLoading: false,
@@ -2364,6 +2373,29 @@ export default function POSPage() {
     return list.map((l) => ({ ...l, hold: (Number(l.course) || 1) > firstCourse }));
   };
 
+  // Open item: custom name + price on the tenant's hidden open-item row.
+  const handleAddOpenItem = ({ title, price, quantity, stationId, notes }) => {
+    if (!state.openItemId) {
+      toast.error(t('pos_ops.open_item_unavailable', 'Open items are not available right now'));
+      return;
+    }
+    const station = (kitchenStationsList || []).find((s) => String(s.id) === String(stationId));
+    addItemToCart({
+      id: state.openItemId,
+      title,
+      custom_title: title,
+      price,
+      quantity,
+      notes,
+      kitchen_station_id: stationId || null,
+      kitchen_station_name: station?.name || null,
+      is_open_item: true,
+      recipeItems: [],
+      addons: [],
+      variants: [],
+    });
+  };
+
   // Kitchen ticket for the lines fired now (held courses print when fired).
   const printKitchenTicket = (payload) => {
     const firedLines = (payload?.cartItems || []).filter((l) => !l.hold);
@@ -2875,6 +2907,15 @@ export default function POSPage() {
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
             <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsOpenItemOpen(true)}
+                title={t('pos_ops.open_item', 'Open item')}
+                aria-label={t('pos_ops.open_item', 'Open item')}
+                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+              >
+                <IconPencilPlus size={18} stroke={iconStroke} />
+              </button>
               <button
                 type="button"
                 onClick={() => setSoldOutDrawer({ open: true, itemId: null })}
@@ -3915,6 +3956,14 @@ export default function POSPage() {
           adjustType: cartItems[adjustLineIndex].adjust?.type,
         } : null}
         onApplied={handleCartLineAdjusted}
+      />
+
+      <POSOpenItemModal
+        isOpen={isOpenItemOpen}
+        onClose={() => setIsOpenItemOpen(false)}
+        onAdd={handleAddOpenItem}
+        stations={(kitchenStationsList || []).filter((s) => s.is_enabled !== 0 && s.is_enabled !== false)}
+        currency={currency}
       />
 
       <POSSoldOutDrawer

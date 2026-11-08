@@ -49,7 +49,7 @@ exports.getOrderStatusDisplayDB = async (tenantId) => {
           oi.id,
           oi.order_id,
           oi.item_id,
-          mi.title AS item_title,
+          COALESCE(oi.custom_title, mi.title) AS item_title,
           oi.variant_id,
           miv.title AS variant_title,
           oi.quantity,

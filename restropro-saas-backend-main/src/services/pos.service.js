@@ -60,15 +60,17 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     // step 4: save data to order_items with station resolution
     const itemIds = [...new Set(cartItems.map(i => i.id).filter(Boolean))];
     const itemStationMap = new Map();
+    const openItemIds = new Set();
     if (itemIds.length > 0) {
       const [stationRows] = await conn.query(`
-        SELECT mi.id, mi.kitchen_station_id, c.kitchen_station_id AS cat_station_id
+        SELECT mi.id, mi.kitchen_station_id, c.kitchen_station_id AS cat_station_id, mi.is_open_item
         FROM menu_items mi
         LEFT JOIN categories c ON mi.category = c.id
         WHERE mi.id IN (?) AND mi.tenant_id = ?
       `, [itemIds, tenantId]);
       stationRows.forEach(r => {
         itemStationMap.set(r.id, r.kitchen_station_id || r.cat_station_id || null);
+        if (Number(r.is_open_item) === 1) openItemIds.add(Number(r.id));
       });
     }
 
@@ -76,7 +78,7 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     const sqlOrderItems = `
     INSERT INTO order_items
-    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at)
+    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at, custom_title)
     VALUES ?
     `;
 
@@ -105,7 +107,9 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
           course,
           seat,
           held ? 'held' : 'fired',
-          held ? null : new Date()
+          held ? null : new Date(),
+          // Open item: the name typed at the POS (only accepted on the tenant's open-item row)
+          openItemIds.has(Number(item.id)) ? String(item.custom_title || item.title || 'Open item').slice(0, 255) : null
         ];
       })
     ]);
@@ -679,7 +683,7 @@ exports.fireHeldItemsDB = async (tenantId, orderId, { course = null, itemIds = n
 
     const [rows] = await conn.query(
       `SELECT oi.id, oi.item_id, oi.variant_id, oi.quantity, oi.notes, oi.addons, oi.course, oi.seat_no,
-              oi.kitchen_station_id, mi.title AS item_title, miv.title AS variant_title, ks.name AS station_name
+              oi.kitchen_station_id, COALESCE(oi.custom_title, mi.title) AS item_title, miv.title AS variant_title, ks.name AS station_name
        FROM order_items oi
        LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id
        LEFT JOIN menu_item_variants miv ON miv.id = oi.variant_id AND miv.item_id = oi.item_id
@@ -736,6 +740,27 @@ exports.fireHeldItemsDB = async (tenantId, orderId, { course = null, itemIds = n
   } catch (error) {
     await conn.rollback();
     throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+
+/** The tenant's hidden "Open item" menu row (created on first use). */
+exports.getOrCreateOpenItemDB = async (tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const [[existing]] = await conn.query(
+      `SELECT id FROM menu_items WHERE tenant_id = ? AND is_open_item = 1 ORDER BY id LIMIT 1`,
+      [tenantId]
+    );
+    if (existing) return existing.id;
+    const [res] = await conn.query(
+      `INSERT INTO menu_items (title, price, net_price, tax_id, category, tenant_id, is_enabled, is_open_item)
+       VALUES ('Open item', 0, 0, NULL, NULL, ?, 0, 1)`,
+      [tenantId]
+    );
+    return res.insertId;
   } finally {
     conn.release();
   }
