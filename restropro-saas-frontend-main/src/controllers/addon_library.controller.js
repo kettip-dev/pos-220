@@ -11,11 +11,11 @@ export function useAddonLibrary() {
   return { data, error, isLoading, mutate, APIURL: ADDON_LIBRARY_URL };
 }
 
-export const createLibraryAddon = (title, price) =>
-  ApiClient.post(ADDON_LIBRARY_URL, { title, price });
+export const createLibraryAddon = (title, price, translations = undefined) =>
+  ApiClient.post(ADDON_LIBRARY_URL, { title, price, translations });
 
-export const updateLibraryAddon = (id, title, price) =>
-  ApiClient.put(`${ADDON_LIBRARY_URL}/${id}`, { title, price });
+export const updateLibraryAddon = (id, title, price, translations = undefined) =>
+  ApiClient.put(`${ADDON_LIBRARY_URL}/${id}`, { title, price, translations });
 
 export const setLibraryAddonEnabled = (id, isEnabled) =>
   ApiClient.patch(`${ADDON_LIBRARY_URL}/${id}/availability`, { isEnabled });

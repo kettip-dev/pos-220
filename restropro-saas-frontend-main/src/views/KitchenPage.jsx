@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useMenuLanguage, loadMenuLanguage } from "../helpers/MenuLanguageHelper";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
@@ -70,6 +71,12 @@ const writeLS = (key, value) => {
 
 export default function KitchenPage() {
   const { t } = useTranslation();
+  useMenuLanguage();
+
+  // Kitchen orders only carry item ids + default names; load the translation map.
+  useEffect(() => {
+    loadMenuLanguage();
+  }, []);
   const navigate = useNavigate();
   const { socket, isSocketConnected } = useContext(SocketContext);
   const { data: storeSettings, isLoading: isSettingsLoading } = useStoreSettings();

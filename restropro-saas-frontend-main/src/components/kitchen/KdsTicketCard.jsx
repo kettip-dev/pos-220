@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
+import { useMenuLanguage } from "../../helpers/MenuLanguageHelper";
 import {
   IconArmchair,
   IconBoxSeam,
@@ -91,6 +92,7 @@ export default function KdsTicketCard({
   onBump,
 }) {
   const { t } = useTranslation();
+  const { displayOrderItem } = useMenuLanguage();
   const S = SIZE[size] || SIZE.md;
   const liveItems = displayItems.filter((i) => i.status !== "cancelled");
   const doneCount = liveItems.filter(isItemDone).length;
@@ -188,7 +190,8 @@ export default function KdsTicketCard({
         {displayItems.map((item) => {
           const done = isItemDone(item);
           const voided = item.status === "cancelled";
-          const addonsText = Array.isArray(item.addons) && item.addons.length > 0 ? item.addons.map((a) => a.title).filter(Boolean).join(", ") : null;
+          const view = displayOrderItem(item);
+          const addonsText = Array.isArray(view.addons) && view.addons.length > 0 ? view.addons.map((a) => a.title).filter(Boolean).join(", ") : null;
           const addedLater = isAddedLater(order, item);
 
           return (
@@ -239,8 +242,8 @@ export default function KdsTicketCard({
                       voided && "decoration-rose-500/70"
                     )}
                   >
-                    {item.item_title}
-                    {item.variant_title && <span className={clsx("font-semibold", done ? "" : "text-[color:var(--kds-text-2)]")}> · {item.variant_title}</span>}
+                    {view.item_title}
+                    {view.variant_title && <span className={clsx("font-semibold", done ? "" : "text-[color:var(--kds-text-2)]")}> · {view.variant_title}</span>}
                   </span>
 
                   {addonsText && (

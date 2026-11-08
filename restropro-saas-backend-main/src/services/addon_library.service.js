@@ -13,7 +13,7 @@ exports.getLibraryAddonsDB = async (tenantId) => {
   const conn = await getMySqlPromiseConnection();
   try {
     const [addons] = await conn.query(
-      `SELECT al.id, al.title, al.price, al.is_enabled,
+      `SELECT al.id, al.title, al.price, al.is_enabled, al.translations,
               COUNT(mia.id) AS used_by_count
        FROM addon_library al
        LEFT JOIN menu_item_addons mia
@@ -71,12 +71,12 @@ exports.findLibraryAddonByTitleDB = async (tenantId, title, excludeId = null) =>
   }
 };
 
-exports.createLibraryAddonDB = async (tenantId, title, price) => {
+exports.createLibraryAddonDB = async (tenantId, title, price, translations = null) => {
   const conn = await getMySqlPromiseConnection();
   try {
     const [result] = await conn.query(
-      `INSERT INTO addon_library (tenant_id, title, price) VALUES (?, ?, ?)`,
-      [tenantId, title.trim(), Number(price || 0)]
+      `INSERT INTO addon_library (tenant_id, title, price, translations) VALUES (?, ?, ?, ?)`,
+      [tenantId, title.trim(), Number(price || 0), translations || null]
     );
     await invalidateTenantCatalog(tenantId);
     return result.insertId;
@@ -85,7 +85,7 @@ exports.createLibraryAddonDB = async (tenantId, title, price) => {
   }
 };
 
-exports.updateLibraryAddonDB = async (tenantId, id, title, price) => {
+exports.updateLibraryAddonDB = async (tenantId, id, title, price, translations = undefined) => {
   const conn = await getMySqlPromiseConnection();
   try {
     await conn.beginTransaction();
@@ -101,6 +101,16 @@ exports.updateLibraryAddonDB = async (tenantId, id, title, price) => {
       `UPDATE menu_item_addons SET title = ? WHERE library_addon_id = ? AND tenant_id = ?`,
       [title.trim(), id, tenantId]
     );
+    if (translations !== undefined) {
+      await conn.query(
+        `UPDATE addon_library SET translations = ? WHERE id = ? AND tenant_id = ?`,
+        [translations, id, tenantId]
+      );
+      await conn.query(
+        `UPDATE menu_item_addons SET translations = ? WHERE library_addon_id = ? AND tenant_id = ?`,
+        [translations, id, tenantId]
+      );
+    }
     await conn.query(
       `UPDATE menu_item_addons SET price = ?
        WHERE library_addon_id = ? AND tenant_id = ? AND has_custom_price = 0`,
@@ -223,7 +233,7 @@ exports.attachLibraryAddonToItemDB = async (tenantId, itemId, libraryAddonId) =>
       [itemId, tenantId]
     );
     const [[lib]] = await conn.query(
-      `SELECT id, title, price FROM addon_library WHERE id = ? AND tenant_id = ?`,
+      `SELECT id, title, price, translations FROM addon_library WHERE id = ? AND tenant_id = ?`,
       [libraryAddonId, tenantId]
     );
     if (!item || !lib) return null;
@@ -235,9 +245,10 @@ exports.attachLibraryAddonToItemDB = async (tenantId, itemId, libraryAddonId) =>
     if (existing) return existing.id;
 
     const [result] = await conn.query(
-      `INSERT INTO menu_item_addons (item_id, title, price, tenant_id, library_addon_id, has_custom_price)
-       VALUES (?, ?, ?, ?, ?, 0)`,
-      [itemId, lib.title, lib.price, tenantId, libraryAddonId]
+      `INSERT INTO menu_item_addons (item_id, title, price, tenant_id, library_addon_id, has_custom_price, translations)
+       VALUES (?, ?, ?, ?, ?, 0, ?)`,
+      [itemId, lib.title, lib.price, tenantId, libraryAddonId,
+       lib.translations ? (typeof lib.translations === "string" ? lib.translations : JSON.stringify(lib.translations)) : null]
     );
     await invalidateTenantCatalog(tenantId);
     return result.insertId;

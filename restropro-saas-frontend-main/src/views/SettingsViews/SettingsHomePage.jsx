@@ -15,6 +15,7 @@ import {
   IconAward,
   IconCashRegister,
   IconRefresh,
+  IconLanguage,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import Page from "../../components/Page";
@@ -145,6 +146,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/menu-items",
       category: t("settings.cat_menu_catalog", "Menu & Catalog"),
       icon: <IconBook stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "menu-languages",
+      title: t("settings.menu_languages", "Menu Languages"),
+      description: t(
+        "settings.desc_menu_languages",
+        "Translate item, category, variant and add-on names, and choose the language shown on screen, receipts and kitchen tickets."
+      ),
+      path: "/dashboard/settings/menu-languages",
+      category: t("settings.cat_menu_catalog", "Menu & Catalog"),
+      icon: <IconLanguage stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "tax-setup",

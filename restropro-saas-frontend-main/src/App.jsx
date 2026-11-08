@@ -40,6 +40,7 @@ import ContactSupport from "./views/SettingsViews/ContactSupportPage";
 import UserGuidePage from "./views/UserGuidePage";
 import CategoriesPage from "./views/SettingsViews/CategoriesPage";
 import AddonsLibraryPage from "./views/SettingsViews/AddonsLibraryPage";
+import MenuLanguageSettingsPage from "./views/SettingsViews/MenuLanguageSettingsPage";
 import MenuItemViewPage from "./views/SettingsViews/MenuItemViewPage";
 import { NavbarContext } from "./contexts/NavbarContext";
 import { getIsNavbarCollapsed } from "./helpers/NavbarSettings";
@@ -490,6 +491,7 @@ export default function App() {
                 path="menu-items/categories"
                 element={<RequiresSingleBusiness><CategoriesPage /></RequiresSingleBusiness>}
               />
+              <Route path="menu-languages" element={<RequiresSingleBusiness><MenuLanguageSettingsPage /></RequiresSingleBusiness>} />
               <Route path="tax-setup" element={<RequiresSingleBusiness><TaxSetupPage /></RequiresSingleBusiness>} />
               <Route path="payment-types" element={<RequiresSingleBusiness><PaymentTypesPage /></RequiresSingleBusiness>} />
               <Route path="registers" element={<RequiresSingleBusiness><RegistersSettingsPage /></RequiresSingleBusiness>} />

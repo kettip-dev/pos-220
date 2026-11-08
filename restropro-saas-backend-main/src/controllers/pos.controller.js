@@ -3,6 +3,7 @@ const {
   getCategoriesDB,
   getPaymentTypesDB,
   getPrintSettingDB,
+  getMenuLanguageSettingsDB,
   getStoreSettingDB,
   getStoreTablesDB,
   getServiceChargeDB,
@@ -25,7 +26,7 @@ exports.getPOSInitData = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
 
-    const [categories, paymentTypes, printSettings, storeSettings, storeTables, serviceCharge, printerConfigs, printFormat, globalStorage] = await Promise.all([
+    const [categories, paymentTypes, printSettings, storeSettings, storeTables, serviceCharge, printerConfigs, printFormat, globalStorage, menuLanguage] = await Promise.all([
       getCategoriesDB(tenantId),
       getPaymentTypesDB(true, tenantId),
       getPrintSettingDB(tenantId),
@@ -34,7 +35,8 @@ exports.getPOSInitData = async (req, res) => {
       getServiceChargeDB(tenantId),
       getPrinterConfigsDB(tenantId),
       getPosPrintFormatDB(tenantId),
-      getSuperAdminImageStorageConfigDB()
+      getSuperAdminImageStorageConfigDB(),
+      getMenuLanguageSettingsDB(tenantId)
     ]);
 
     const [menuItems, addons, variants, recipeItems] = await Promise.all([
@@ -71,6 +73,7 @@ exports.getPOSInitData = async (req, res) => {
       serviceCharge,
       printerConfigs,
       printFormat,
+      menuLanguage,
       imageStorageConfig: globalStorage && globalStorage.status === 1 && globalStorage.credentials
         ? { publicUrl: globalStorage.credentials.public_url || null }
         : { publicUrl: null }

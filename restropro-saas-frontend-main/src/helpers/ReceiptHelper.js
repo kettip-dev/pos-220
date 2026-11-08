@@ -2,6 +2,7 @@ import React from "react";
 import { buildReceiptEscPos, buildKotEscPos, sendToRawBT } from "./EscPosHelper";
 import { printReceiptDirectTcp, printKotDirectTcp } from "./CanvasReceiptHelper";
 import ApiClient from "./ApiClient";
+import { localizePrintDetails } from "./MenuLanguageHelper";
 import toast from "react-hot-toast";
 
 const RECEIPT_KEY = "RESTROPROSAAS__RECEIPT__PRINT";
@@ -158,7 +159,10 @@ function showPrintFailureToast({ id, title, message, onRetry, onBrowserPrint }) 
  *
  * @param {Object} options { batchId } – set only when retrying a previous attempt.
  */
-export async function triggerPrintReceipt(details, { batchId = newPrintBatchId() } = {}) {
+export async function triggerPrintReceipt(rawDetails, { batchId = newPrintBatchId() } = {}) {
+  // Menu names in the language chosen for receipts (Settings → Menu Languages).
+  // Retries pass the original payload, so names are never translated twice.
+  const details = await localizePrintDetails(rawDetails, "receipt").catch(() => rawDetails);
   setDetailsForReceiptPrint(details);
 
   const printSettings = details?.printSettings || {};
@@ -199,7 +203,7 @@ export async function triggerPrintReceipt(details, { batchId = newPrintBatchId()
         id: "tcp-print-fail",
         title: "Printer Connection Error",
         message: errMsg,
-        onRetry: () => triggerPrintReceipt(details, { batchId }),
+        onRetry: () => triggerPrintReceipt(rawDetails, { batchId }),
         onBrowserPrint: openBrowserReceiptPrint,
       });
       return { success: false, error: errMsg };
@@ -231,12 +235,14 @@ export async function triggerPrintReceipt(details, { batchId = newPrintBatchId()
  * @param {Object} options { batchId } – set only when retrying; stations that
  *   already printed are skipped.
  */
-export async function triggerPrintToken(details, { batchId = newPrintBatchId() } = {}) {
-  if (details?.storeSettings?.isKitchenEnabled === false || details?.storeSettings?.is_kitchen_enabled === 0) {
+export async function triggerPrintToken(rawDetails, { batchId = newPrintBatchId() } = {}) {
+  if (rawDetails?.storeSettings?.isKitchenEnabled === false || rawDetails?.storeSettings?.is_kitchen_enabled === 0) {
     // Kitchen workflow is disabled for this store: suppress Kitchen Order Tickets
     return;
   }
 
+  // Menu names in the language chosen for kitchen tickets (Settings → Menu Languages).
+  const details = await localizePrintDetails(rawDetails, "kitchen").catch(() => rawDetails);
   setDetailsForReceiptPrint(details);
 
   const printSettings = details?.printSettings || {};
@@ -244,7 +250,7 @@ export async function triggerPrintToken(details, { batchId = newPrintBatchId() }
 
   // ─── Mode 1: Direct Network LAN/TCP ─────────────────────────
   if (printMode === "direct_tcp") {
-    const retry = () => triggerPrintToken(details, { batchId });
+    const retry = () => triggerPrintToken(rawDetails, { batchId });
     try {
       const { printerConfigs, stations } = await getPrintersAndStations(details);
 

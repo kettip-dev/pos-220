@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { getImageURL } from '../../helpers/ImageHelper';
 import { clsx } from 'clsx';
+import { useMenuLanguage } from '../../helpers/MenuLanguageHelper';
 import { iconStroke } from '../../config/config';
 
 const PRESET_NOTES = [
@@ -35,6 +36,7 @@ export default function POSModifierDrawer({
   broadcastVariantSelection,
 }) {
   const { t } = useTranslation();
+  const { displayName } = useMenuLanguage();
 
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
@@ -203,7 +205,7 @@ export default function POSModifierDrawer({
             )}
             <div className="min-w-0">
               <h3 className="text-base sm:text-lg font-bold text-foreground truncate tracking-tight">
-                {item.title}
+                {displayName(item)}
               </h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-sm font-black text-restro-green tabular-nums">
@@ -211,7 +213,7 @@ export default function POSModifierDrawer({
                 </span>
                 {selectedVariant && (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 truncate">
-                    {selectedVariant.title}
+                    {displayName(selectedVariant)}
                   </span>
                 )}
                 {hasAddons && selectedAddons.length > 0 && (
@@ -287,7 +289,7 @@ export default function POSModifierDrawer({
                             "text-xs sm:text-sm font-semibold truncate",
                             isSelected ? "text-restro-green font-bold" : "text-zinc-800 dark:text-zinc-200"
                           )}>
-                            {v.title}
+                            {displayName(v)}
                           </span>
                         </div>
                         <span className={clsx(
@@ -425,8 +427,8 @@ export default function POSModifierDrawer({
                         <span className={clsx(
                           "text-sm leading-snug line-clamp-2 break-words",
                           isChecked ? "font-bold text-foreground" : "font-medium text-zinc-800 dark:text-zinc-200"
-                        )} title={addon.title}>
-                          {addon.title}
+                        )} title={displayName(addon)}>
+                          {displayName(addon)}
                         </span>
                         <span className={clsx(
                           "text-xs font-bold tabular-nums",

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import TranslationFields, { normalizeTranslations, useTranslationsEnabled } from "../../components/menu/TranslationFields";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -232,6 +233,11 @@ export default function AddonsLibraryPage() {
                       <p className={clsx("text-sm font-bold truncate", on ? "text-restro-text" : "text-gray-400")}>
                         {addon.title}
                       </p>
+                  {Object.values(normalizeTranslations(addon.translations)).some((tr) => tr?.title) && (
+                    <p className="text-xs text-restro-text/60 truncate">
+                      {Object.values(normalizeTranslations(addon.translations)).map((tr) => tr?.title).filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                       <p className="text-[11px] font-semibold text-gray-400 flex items-center gap-2 flex-wrap mt-0.5">
                         {!on && (
                           <span className="flex items-center gap-1">
@@ -328,6 +334,8 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
   const fail = (error) => toast.error(errMsg(error, t("addons.error_generic")));
   const [title, setTitle] = useState(addon.title);
   const [price, setPrice] = useState(String(Number(addon.price || 0)));
+  const [translations, setTranslations] = useState(() => normalizeTranslations(addon.translations));
+  const translationsEnabled = useTranslationsEnabled();
   const [saving, setSaving] = useState(false);
   const [ingredientId, setIngredientId] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -336,7 +344,11 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
   const inventory = inventoryData?.items || [];
   const selectedIngredient = inventory.find((i) => String(i.id) === String(ingredientId));
 
-  const dirty = title.trim() !== addon.title || Number(price || 0) !== Number(addon.price || 0);
+  const translationsDirty =
+    translationsEnabled &&
+    JSON.stringify(translations) !== JSON.stringify(normalizeTranslations(addon.translations));
+  const dirty =
+    title.trim() !== addon.title || Number(price || 0) !== Number(addon.price || 0) || translationsDirty;
 
   const saveDetails = async () => {
     const p = price === "" ? 0 : Number(price);
@@ -344,7 +356,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
     if (Number.isNaN(p) || p < 0) return toast.error(t("addons.invalid_price"));
     setSaving(true);
     try {
-      const res = await updateLibraryAddon(addon.id, title.trim(), p);
+      const res = await updateLibraryAddon(addon.id, title.trim(), p, translationsEnabled ? translations : undefined);
       await onChanged();
       toast.success(res.data?.message || t("addons.saved"));
     } catch (error) {
@@ -407,6 +419,7 @@ function EditAddonPanel({ addon, currency, priceLabel, onClose, onChanged }) {
               <label className="text-xs font-semibold text-gray-500">{t("addons.name")}</label>
               <input value={title} onChange={(e) => setTitle(e.target.value)} className={clsx(inputCls, "mt-1")} />
             </div>
+            <TranslationFields value={translations} onChange={setTranslations} primaryTitle={title} />
             <div>
               <label className="text-xs font-semibold text-gray-500">{t("addons.default_price", { currency })}</label>
               <div className="relative mt-1">

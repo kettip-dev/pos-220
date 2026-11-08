@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { CONFIG } = require("../config");
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
+const { formatLanguageSettings } = require("../utils/menuTranslations");
 const {
     getOrSetCache,
     invalidateTenantSettings,
@@ -1114,17 +1115,17 @@ exports.deleteStoreTableDB = async (id, tenantId) => {
     }
 };
 
-exports.addCategoryDB = async (title, tenantId, kitchenStationId = null) => {
+exports.addCategoryDB = async (title, tenantId, kitchenStationId = null, translations = null) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
         const sql = `
         INSERT INTO categories
-        (title, tenant_id, kitchen_station_id)
-        VALUES (?, ?, ?);
+        (title, tenant_id, kitchen_station_id, translations)
+        VALUES (?, ?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [title, tenantId, kitchenStationId ? Number(kitchenStationId) : null]);
+        const [result] = await conn.query(sql, [title, tenantId, kitchenStationId ? Number(kitchenStationId) : null, translations || null]);
         await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
@@ -1144,7 +1145,8 @@ exports.getCategoriesDB = async (tenantId) => {
             SELECT 
               c.id, 
               c.title, 
-              c.is_enabled, 
+              c.is_enabled,
+              c.translations,
               c.kitchen_station_id,
               ks.name AS kitchen_station_name,
               ks.color AS kitchen_station_color
@@ -1164,7 +1166,7 @@ exports.getCategoriesDB = async (tenantId) => {
     });
 };
 
-exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefined) => {
+exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefined, translations = undefined) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
@@ -1177,6 +1179,11 @@ exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefi
         if (kitchenStationId !== undefined) {
             sql += `, kitchen_station_id = ?`;
             params.push(kitchenStationId ? Number(kitchenStationId) : null);
+        }
+
+        if (translations !== undefined) {
+            sql += `, translations = ?`;
+            params.push(translations);
         }
 
         sql += ` WHERE id = ? AND tenant_id = ?;`;
@@ -1575,5 +1582,61 @@ exports.saveFeedbackDB = async (tenantId, invoiceId, customerId, phone, name, em
       throw error;
     } finally {
       conn.release();
+    }
+};
+
+
+exports.getMenuLanguageSettingsDB = async (tenantId) => {
+    const conn = await getMySqlPromiseConnection();
+    try {
+        const [rows] = await conn.query(
+            `SELECT is_enabled, primary_label, languages, display_mode, receipt_print_mode,
+                    kitchen_print_mode, allow_device_override
+             FROM menu_language_settings WHERE tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
+        return formatLanguageSettings(rows[0]);
+    } catch (error) {
+        // Table may not exist yet on a fresh boot; fall back to defaults.
+        if (error?.code === "ER_NO_SUCH_TABLE") return formatLanguageSettings(null);
+        console.error(error);
+        throw error;
+    } finally {
+        conn.release();
+    }
+};
+
+exports.setMenuLanguageSettingsDB = async (settings, tenantId) => {
+    const conn = await getMySqlPromiseConnection();
+    try {
+        await conn.query(
+            `INSERT INTO menu_language_settings
+             (tenant_id, is_enabled, primary_label, languages, display_mode, receipt_print_mode, kitchen_print_mode, allow_device_override)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               is_enabled = VALUES(is_enabled),
+               primary_label = VALUES(primary_label),
+               languages = VALUES(languages),
+               display_mode = VALUES(display_mode),
+               receipt_print_mode = VALUES(receipt_print_mode),
+               kitchen_print_mode = VALUES(kitchen_print_mode),
+               allow_device_override = VALUES(allow_device_override)`,
+            [
+                tenantId,
+                settings.is_enabled ? 1 : 0,
+                settings.primary_label,
+                JSON.stringify(settings.languages),
+                settings.display_mode,
+                settings.receipt_print_mode,
+                settings.kitchen_print_mode,
+                settings.allow_device_override ? 1 : 0,
+            ]
+        );
+        return formatLanguageSettings({ ...settings, languages: settings.languages });
+    } catch (error) {
+        console.error(error);
+        throw error;
+    } finally {
+        conn.release();
     }
 };

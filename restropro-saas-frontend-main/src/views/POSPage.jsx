@@ -22,6 +22,8 @@ import POSMenuItemCompactView from '../components/POSMenuItemCompactView';
 import TablePickerModal from '../components/tables/TablePickerModal';
 import POSOrderHeader from '../components/pos/POSOrderHeader';
 import POSModifierDrawer from '../components/pos/POSModifierDrawer';
+import MenuLanguageSwitcher from '../components/pos/MenuLanguageSwitcher';
+import { useMenuLanguage, setMenuLanguageSettings, registerMenuTranslations } from '../helpers/MenuLanguageHelper';
 import POSPaymentDrawer from '../components/pos/POSPaymentDrawer';
 import POSDraftsDrawer from '../components/pos/POSDraftsDrawer';
 import POSCustomerDrawer from '../components/pos/POSCustomerDrawer';
@@ -45,6 +47,7 @@ import OpenRegisterModal from '../components/register/OpenRegisterModal';
 
 export default function POSPage() {
   const { t } = useTranslation();
+  const { displayName, displayOrderItem } = useMenuLanguage();
   const outletCtx = useOutletContext() || {};
   const isNavCollapsed = outletCtx.isOperationalBarCollapsed || false;
   const onToggleNav = outletCtx.toggleOperationalBar || null;
@@ -815,6 +818,9 @@ export default function POSPage() {
         }
 
         const savedView = sessionStorage.getItem('view') || 'compact';
+
+        if (data?.menuLanguage) setMenuLanguageSettings(data.menuLanguage);
+        registerMenuTranslations({ menuItems: data.menuItems || [], categories: data.categories || [] });
 
         setState((prev) => ({
           ...prev,
@@ -2701,7 +2707,7 @@ export default function POSPage() {
                       });
                     }}
                   >
-                    <span>{category.title}</span>
+                    <span>{displayName(category)}</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                       isSelected ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700'
                     }`}>
@@ -2713,7 +2719,8 @@ export default function POSPage() {
             </div>
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
-            <div className="flex items-center shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+            <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+              <MenuLanguageSwitcher />
               <button
                 type="button"
                 className={clsx(
@@ -3006,7 +3013,8 @@ export default function POSPage() {
             ) : (
               <>
                 {cartItems.map((cartItem, i) => {
-                  const { id, quantity, notes, title, price, variant, addons } = cartItem;
+                  const { id, quantity, notes, price } = cartItem;
+                  const { title, variant, addons } = displayOrderItem(cartItem);
                   const itemTotal = price * quantity;
                   const itemDiscount = liveCartSummary.itemDiscounts?.[id] || 0;
                   const isEditingThisNote = editingNoteIndex === i;
@@ -3720,7 +3728,7 @@ export default function POSPage() {
             <select ref={categoryFilterDropdownRef} type="text" name="select_category" id='select_category' className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green' placeholder={t('pos.select_category')} >
               <option value="all">{t('pos.all')}</option>
               {
-                categories.filter((category) => category.is_enabled).map((category, index)=><option value={category.id} key={index}>{category.title}</option>)
+                categories.filter((category) => category.is_enabled).map((category, index)=><option value={category.id} key={index}>{displayName(category)}</option>)
               }
             </select>
           </div>

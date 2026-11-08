@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useMenuLanguage, displayParts, displayCategoryName, matchesMenuSearch } from "../helpers/MenuLanguageHelper";
 import { getImageURL } from '../helpers/ImageHelper';
 import { IconAlertTriangleFilled, IconMinus, IconSearch, IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -24,6 +25,7 @@ const POSMenuItemDetailedView = ({
   scrollTopRatio = null,
 }) => {
   const { t } = useTranslation();
+  useMenuLanguage();
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -48,7 +50,7 @@ const POSMenuItemDetailedView = ({
       if (!searchQuery) {
         return true;
       }
-      return menuItem.title.trim().toLowerCase().includes(searchQuery.trim().toLowerCase());
+      return matchesMenuSearch(menuItem, searchQuery);
     });
 
   return (
@@ -69,7 +71,10 @@ const POSMenuItemDetailedView = ({
           className="grid grid-cols-1 lg:grid-cols-2 auto-rows-max gap-3 w-full z-0 px-2 sm:px-4 pt-1 sm:pt-1.5 pb-24 md:pb-6 rounded-b-xl overflow-y-auto h-full content-start"
         >
           {filteredMenuItems.map((menuItem, i) => {
-            const { title, description, id, price, image, category_title, addons, variants } = menuItem;
+            const { id, price, image, addons, variants } = menuItem;
+            const { primary: title, secondary: secondaryTitle } = displayParts(menuItem);
+            const description = displayParts(menuItem, "description").primary;
+            const category_title = displayCategoryName(menuItem);
 
             const imageURL = image ? getImageURL(image) : null;
             const hasVariantOrAddon = variants?.length > 0 || addons?.length > 0;
@@ -179,6 +184,11 @@ const POSMenuItemDetailedView = ({
                     >
                       {title}
                     </p>
+                    {secondaryTitle && (
+                      <p className="line-clamp-1 text-xs font-medium leading-snug text-white/80 drop-shadow-sm">
+                        {secondaryTitle}
+                      </p>
+                    )}
                     {description ? (
                       <p className="mt-0.5 line-clamp-2 text-[11px] sm:text-xs leading-snug text-white/70">
                         {description}

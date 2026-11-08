@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useMenuLanguage } from "../../helpers/MenuLanguageHelper";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
 import { IconArrowBackUp, IconHistory, IconX, IconArmchair, IconBoxSeam, IconMotorbike } from "@tabler/icons-react";
@@ -16,6 +17,7 @@ const DiningIcon = ({ type }) => {
  */
 export default function KdsRecallDrawer({ open, onClose, entries, nowMs, scopeLabel, onRecall }) {
   const { t } = useTranslation();
+  const { displayOrderItem } = useMenuLanguage();
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
@@ -93,8 +95,8 @@ export default function KdsRecallDrawer({ open, onClose, entries, nowMs, scopeLa
                     <li key={it.id} className="flex items-center gap-2 text-[13px]">
                       <span className="w-6 text-right font-black text-[color:var(--kds-muted)] tabular-nums">{it.quantity}×</span>
                       <span className={clsx("flex-1 truncate", it.status === "cancelled" ? "text-rose-300 opacity-70 line-through" : "text-[color:var(--kds-text-2)]")}>
-                        {it.item_title}
-                        {it.variant_title ? ` · ${it.variant_title}` : ""}
+                        {displayOrderItem(it).item_title}
+                        {it.variant_title ? ` · ${displayOrderItem(it).variant_title}` : ""}
                       </span>
                       {it.station_name && (
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: it.station_color || "#64748b" }} title={it.station_name} />
