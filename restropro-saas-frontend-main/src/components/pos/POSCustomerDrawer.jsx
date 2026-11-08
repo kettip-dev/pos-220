@@ -146,6 +146,23 @@ export default function POSCustomerDrawer({
     return rawName;
   };
 
+  // 10.00 -> "10", 12.50 -> "12.5"
+  const trimNumber = (n) => String(Number(Number(n).toFixed(2)));
+
+  // +85512345678 -> +855 12 345 678; local 077550060 -> 077 550 060
+  const formatPhone = (phone) => {
+    const raw = String(phone || '').trim();
+    const digits = raw.replace(/\D/g, '');
+    if (raw.startsWith('+855') && digits.length >= 11) {
+      const rest = digits.slice(3);
+      return `+855 ${rest.slice(0, 2)} ${rest.slice(2, 5)} ${rest.slice(5)}`;
+    }
+    if (/^0\d{8,9}$/.test(digits)) {
+      return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+    }
+    return raw;
+  };
+
   const getInitials = (nameStr) => {
     if (!nameStr) return 'C';
     const parts = nameStr.trim().split(/\s+/);
@@ -716,104 +733,133 @@ export default function POSCustomerDrawer({
                 <div className="space-y-2">
                   {displayedCustomers.map((cust, index) => {
                     const cleanName = getCleanName(cust);
+                    // Customers saved with only a phone number: show the number once, as the title.
+                    const hasRealName = Boolean(cleanName) && cleanName.replace(/\s/g, '') !== String(cust.phone || '').replace(/\s/g, '');
+                    const title = hasRealName ? cleanName : formatPhone(cust.phone);
                     const isSelected =
                       customerType === 'CUSTOMER' &&
                       String(selectedCustomer?.phone) === String(cust.phone);
+                    const tier = String(cust.membership_tier || '').trim();
+                    const showTier = tier && tier.toLowerCase() !== 'standard';
+                    const points = Number(cust.points_balance || 0);
+                    const groupDiscount = Number(cust.group_discount_value || 0);
 
                     return (
                       <div
                         key={`${cust.phone}-${index}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelected}
                         onClick={() => {
                           handlePickCustomer(cust);
                           onClose();
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handlePickCustomer(cust);
+                            onClose();
+                          }
+                        }}
                         className={clsx(
-                          'group min-h-[60px] p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all active:scale-[0.99] cursor-pointer',
+                          'group min-h-[72px] pl-3 pr-2 py-3 rounded-2xl border flex items-center gap-3 transition-all active:scale-[0.99] cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[#00A699]/50',
                           isSelected
                             ? 'border-[#00A699] bg-[#00A699]/10 shadow-2xs'
                             : 'border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-[#00A699]/60 hover:bg-[#F4F5F8]/60 dark:hover:bg-slate-800/60'
                         )}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className={clsx(
-                              'w-11 h-11 rounded-xl font-extrabold text-sm flex items-center justify-center shrink-0 transition-colors',
-                              isSelected
-                                ? 'bg-[#00A699] text-white'
-                                : 'bg-[#F4F5F8] dark:bg-slate-800 text-[#0D233A] dark:text-slate-200 group-hover:bg-[#00A699]/15 group-hover:text-[#00A699]'
+                        {/* Avatar */}
+                        <div
+                          className={clsx(
+                            'w-12 h-12 rounded-full font-extrabold text-sm flex items-center justify-center shrink-0 transition-colors',
+                            isSelected
+                              ? 'bg-[#00A699] text-white'
+                              : 'bg-[#E6F6F5] dark:bg-slate-800 text-[#00796F] dark:text-slate-200'
+                          )}
+                        >
+                          {isSelected ? (
+                            <IconCheck size={20} stroke={3} />
+                          ) : hasRealName ? (
+                            getInitials(cleanName)
+                          ) : (
+                            <IconUser size={20} stroke={2} />
+                          )}
+                        </div>
+
+                        {/* Name, contact, badges */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-bold leading-tight text-gray-900 dark:text-white truncate" title={title}>
+                            {title}
+                          </p>
+
+                          <div className="mt-0.5 flex items-center gap-2 min-w-0 text-xs text-gray-500 dark:text-slate-400">
+                            {hasRealName && (
+                              <span className="inline-flex items-center gap-1 font-mono font-semibold text-gray-700 dark:text-slate-300 whitespace-nowrap shrink-0">
+                                <IconPhone size={12} stroke={2} className="text-[#00A699]" />
+                                {formatPhone(cust.phone)}
+                              </span>
                             )}
-                          >
-                            {getInitials(cleanName)}
+                            {cust.email && (
+                              <span className="truncate hidden sm:inline">
+                                {hasRealName && <span className="mx-1 text-gray-300 dark:text-slate-600">·</span>}
+                                {cust.email}
+                              </span>
+                            )}
+                            {!hasRealName && !cust.email && (
+                              <span className="italic">{t('pos.no_name_saved', 'No name saved')}</span>
+                            )}
                           </div>
 
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                {cleanName}
-                              </p>
-                              {cust.membership_tier && (
-                                <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-extrabold uppercase">
-                                  {cust.membership_tier}
-                                </span>
-                              )}
-                              {Number(cust.points_balance || 0) > 0 && (
-                                <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold font-mono">
-                                  {cust.points_balance} pts
-                                </span>
-                              )}
+                          {(showTier || points > 0 || cust.customer_group_name) && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                               {cust.customer_group_name && (
                                 <span
-                                  className="px-2 py-0.5 rounded-full text-white text-[10px] font-bold shadow-xs inline-flex items-center gap-1"
-                                  style={{ backgroundColor: cust.customer_group_color || "#6366f1" }}
+                                  className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] font-bold whitespace-nowrap border"
+                                  style={{
+                                    color: cust.customer_group_color || '#4f46e5',
+                                    borderColor: `${cust.customer_group_color || '#6366f1'}55`,
+                                    backgroundColor: `${cust.customer_group_color || '#6366f1'}14`,
+                                  }}
                                 >
+                                  <IconUsers size={12} stroke={2.2} />
                                   {cust.customer_group_name}
-                                  {cust.group_discount_value > 0 && (
-                                    <span>
-                                      • {cust.group_discount_type === "PERCENTAGE" ? `${cust.group_discount_value}%` : `$${cust.group_discount_value}`} Off
+                                  {groupDiscount > 0 && (
+                                    <span className="font-extrabold">
+                                      · -{cust.group_discount_type === 'PERCENTAGE'
+                                        ? `${trimNumber(groupDiscount)}%`
+                                        : `${currency}${trimNumber(groupDiscount)}`}
                                     </span>
                                   )}
                                 </span>
                               )}
-                            </div>
-
-                            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1 font-mono font-semibold text-gray-700 dark:text-slate-300">
-                                <IconPhone size={12} stroke={2} className="text-[#00A699]" />
-                                {cust.phone}
-                              </span>
-                              {cust.email && (
-                                <span className="truncate max-w-[160px] hidden sm:inline">
-                                  {cust.email}
+                              {points > 0 && (
+                                <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] font-bold whitespace-nowrap bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+                                  <IconCoin size={12} stroke={2.2} />
+                                  {points.toLocaleString()} {t('pos.pts', 'pts')}
+                                </span>
+                              )}
+                              {showTier && (
+                                <span className="inline-flex items-center h-6 px-2 rounded-full text-[11px] font-bold whitespace-nowrap bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25">
+                                  {tier}
                                 </span>
                               )}
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditForm(cust);
-                            }}
-                            className="w-9 h-9 rounded-xl border border-transparent hover:border-[#D4D7DC] dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-gray-400 hover:text-gray-700 dark:hover:text-white flex items-center justify-center transition active:scale-90 cursor-pointer"
-                            title={t('customers.edit', 'Edit Customer')}
-                          >
-                            <IconPencil size={15} stroke={iconStroke} />
-                          </button>
-
-                          {isSelected ? (
-                            <span className="px-2.5 py-1 rounded-xl bg-[#00A699] text-white text-xs font-bold flex items-center gap-1">
-                              <IconCheck size={14} stroke={3} />
-                              <span>{t('common.selected', 'Active')}</span>
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1.5 rounded-xl bg-[#F4F5F8] dark:bg-slate-800 group-hover:bg-[#0D233A] group-hover:text-white text-gray-700 dark:text-slate-200 text-xs font-bold transition-colors">
-                              {t('common.select', 'Select')}
-                            </span>
                           )}
                         </div>
+
+                        {/* Edit (the row itself selects) */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditForm(cust);
+                          }}
+                          className="w-[42px] h-[42px] rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-[#D4D7DC] dark:hover:border-slate-700 flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer"
+                          title={t('customers.edit', 'Edit Customer')}
+                          aria-label={t('customers.edit', 'Edit Customer')}
+                        >
+                          <IconPencil size={17} stroke={iconStroke} />
+                        </button>
                       </div>
                     );
                   })}
