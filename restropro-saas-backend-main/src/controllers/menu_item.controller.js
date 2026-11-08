@@ -1,5 +1,6 @@
 const { addMenuItemDB, updateMenuItemDB, deleteMenuItemDB, addMenuItemAddonDB, updateMenuItemAddonDB, deleteMenuItemAddonDB, changeMenuItemAddonAvailabilityDB, getMenuItemAddonsDB, getAllAddonsDB, addMenuItemVariantDB, updateMenuItemVariantDB, deleteMenuItemVariantDB, getMenuItemVariantsDB, getAllVariantsDB, getAllMenuItemsDB, getMenuItemDB, updateMenuItemImageDB, changeMenuItemVisibilityDB, getRecipeItemsDB, addRecipeItemDB, deleteRecipeItemDB, updateRecipeItemDB } = require("../services/menu_item.service");
 const { bingSearchImages } = require("../services/image_search.service");
+const { sanitizeTranslations } = require("../utils/menuTranslations");
 const { validateImageFile, getActiveStorageConfig, getStorageProvider, buildObjectKey, detectStorageType } = require("../utils/imageStorage");
 
 const path = require("path")
@@ -11,6 +12,7 @@ exports.addMenuItem = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
         const {title, description, price, netPrice, taxId, categoryId, kitchen_station_id} = req.body;
+        const translations = sanitizeTranslations(req.body.translations, { allowDescription: true });
 
         if(!(title && price)) {
             return res.status(400).json({
@@ -19,7 +21,7 @@ exports.addMenuItem = async (req, res) => {
             });
         }
 
-        const menuItemId = await addMenuItemDB(title, description, price, netPrice, taxId, categoryId, tenantId, kitchen_station_id);
+        const menuItemId = await addMenuItemDB(title, description, price, netPrice, taxId, categoryId, tenantId, kitchen_station_id, translations);
 
         return res.status(200).json({
             success: true,
@@ -40,6 +42,7 @@ exports.updateMenuItem = async (req, res) => {
         const tenantId = req.user.tenant_id;
         const id = req.params.id;
         const {title, description, price, netPrice, taxId, categoryId, kitchen_station_id} = req.body;
+        const translations = sanitizeTranslations(req.body.translations, { allowDescription: true });
 
         if(!(title && price)) {
             return res.status(400).json({
@@ -48,7 +51,7 @@ exports.updateMenuItem = async (req, res) => {
             });
         }
 
-        await updateMenuItemDB(id, title, description, price, netPrice, taxId, categoryId, tenantId, kitchen_station_id);
+        await updateMenuItemDB(id, title, description, price, netPrice, taxId, categoryId, tenantId, kitchen_station_id, translations);
 
         return res.status(200).json({
             success: true,
@@ -420,7 +423,7 @@ exports.addMenuItemAddon = async (req, res) => {
             });
         }
 
-        const menuItemAddonId = await addMenuItemAddonDB(itemId, title, price, tenantId);
+        const menuItemAddonId = await addMenuItemAddonDB(itemId, title, price, tenantId, sanitizeTranslations(req.body.translations));
 
         return res.status(200).json({
             success: true,
@@ -449,7 +452,7 @@ exports.updateMenuItemAddon = async (req, res) => {
             });
         }
 
-        await updateMenuItemAddonDB(itemId, addonId, title, price, tenantId);
+        await updateMenuItemAddonDB(itemId, addonId, title, price, tenantId, sanitizeTranslations(req.body.translations));
 
         return res.status(200).json({
             success: true,
@@ -570,7 +573,7 @@ exports.addMenuItemVariant = async (req, res) => {
             });
         }
 
-        const menuItemVariantId = await addMenuItemVariantDB(itemId, title, price, tenantId);
+        const menuItemVariantId = await addMenuItemVariantDB(itemId, title, price, tenantId, sanitizeTranslations(req.body.translations));
 
         return res.status(200).json({
             success: true,
@@ -599,7 +602,7 @@ exports.updateMenuItemVariant = async (req, res) => {
             });
         }
 
-        await updateMenuItemVariantDB(itemId, variantId, title, price, tenantId);
+        await updateMenuItemVariantDB(itemId, variantId, title, price, tenantId, sanitizeTranslations(req.body.translations));
 
         return res.status(200).json({
             success: true,

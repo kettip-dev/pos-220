@@ -35,7 +35,7 @@ export async function getMenuItem(id) {
   }
 }
 
-export async function addMenuItem(title, description, price, netPrice, categoryId, taxId, kitchen_station_id = null) {
+export async function addMenuItem(title, description, price, netPrice, categoryId, taxId, kitchen_station_id = null, translations = undefined) {
   try {
     const response = await ApiClient.post("/menu-items/add", {
       title,
@@ -45,6 +45,7 @@ export async function addMenuItem(title, description, price, netPrice, categoryI
       categoryId,
       taxId,
       kitchen_station_id: kitchen_station_id ? Number(kitchen_station_id) : null,
+      translations,
     });
     return response;
   } catch (error) {
@@ -52,7 +53,7 @@ export async function addMenuItem(title, description, price, netPrice, categoryI
   }
 }
 
-export async function updateMenuItem(id, title, description, price, netPrice, categoryId, taxId, kitchen_station_id = null) {
+export async function updateMenuItem(id, title, description, price, netPrice, categoryId, taxId, kitchen_station_id = null, translations = undefined) {
   try {
     const response = await ApiClient.post(`/menu-items/update/${id}`, {
       title,
@@ -62,6 +63,7 @@ export async function updateMenuItem(id, title, description, price, netPrice, ca
       categoryId,
       taxId,
       kitchen_station_id: kitchen_station_id ? Number(kitchen_station_id) : null,
+      translations,
     });
     return response;
   } catch (error) {
@@ -117,11 +119,12 @@ export async function deleteMenuItem(id) {
   }
 };
 
-export async function addMenuItemVariant(itemId, title, price) {
+export async function addMenuItemVariant(itemId, title, price, translations = undefined) {
   try {
     const response = await ApiClient.post(`/menu-items/variants/${itemId}/add`, {
       title,
-      price
+      price,
+      translations
     });
     return response;
   } catch (error) {
@@ -129,11 +132,12 @@ export async function addMenuItemVariant(itemId, title, price) {
   }
 }
 
-export async function updateMenuItemVariant(itemId, variantId, title, price) {
+export async function updateMenuItemVariant(itemId, variantId, title, price, translations = undefined) {
   try {
     const response = await ApiClient.post(`/menu-items/variants/${itemId}/update/${variantId}`, {
       title,
-      price
+      price,
+      translations
     });
     return response;
   } catch (error) {
@@ -150,11 +154,12 @@ export async function deleteMenuItemVariant(itemId, variantId) {
   }
 };
 
-export async function addMenuItemAddon(itemId, title, price) {
+export async function addMenuItemAddon(itemId, title, price, translations = undefined) {
   try {
     const response = await ApiClient.post(`/menu-items/addons/${itemId}/add`, {
       title,
-      price
+      price,
+      translations
     });
     return response;
   } catch (error) {
@@ -162,11 +167,12 @@ export async function addMenuItemAddon(itemId, title, price) {
   }
 }
 
-export async function updateMenuItemAddon(itemId, addonId, title, price) {
+export async function updateMenuItemAddon(itemId, addonId, title, price, translations = undefined) {
   try {
     const response = await ApiClient.post(`/menu-items/addons/${itemId}/update/${addonId}`, {
       title,
-      price
+      price,
+      translations
     });
     return response;
   } catch (error) {

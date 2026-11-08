@@ -28,6 +28,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
+import TranslationFields, { normalizeTranslations, useTranslationsEnabled } from "../../components/menu/TranslationFields";
 import {
   useCategories,
   useTaxes,
@@ -119,6 +120,8 @@ export default function MenuItemsSettingsPage() {
   // Controlled Drawer Form state
   const [formTitle, setFormTitle] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formTranslations, setFormTranslations] = useState({});
+  const translationsEnabled = useTranslationsEnabled();
   const [formPrice, setFormPrice] = useState("");
   const [formNetPrice, setFormNetPrice] = useState("");
   const [formCategoryId, setFormCategoryId] = useState("");
@@ -149,6 +152,7 @@ export default function MenuItemsSettingsPage() {
     setEditingItem(null);
     setFormTitle("");
     setFormDescription("");
+    setFormTranslations({});
     setFormPrice("");
     setFormNetPrice("");
     setFormCategoryId(
@@ -169,6 +173,7 @@ export default function MenuItemsSettingsPage() {
     setEditingItem(item);
     setFormTitle(item.title || "");
     setFormDescription(item.description || "");
+    setFormTranslations(normalizeTranslations(item.translations));
     setFormPrice(item.price !== null && item.price !== undefined ? String(item.price) : "");
     setFormNetPrice(
       item.net_price !== null && item.net_price !== undefined ? String(item.net_price) : ""
@@ -386,7 +391,8 @@ export default function MenuItemsSettingsPage() {
           netPrice,
           categoryId,
           taxId,
-          kitchenStationId
+          kitchenStationId,
+          translationsEnabled ? formTranslations : undefined
         );
         if (res.status !== 200) {
           throw new Error("Failed to update item");
@@ -403,7 +409,8 @@ export default function MenuItemsSettingsPage() {
           netPrice,
           categoryId,
           taxId,
-          kitchenStationId
+          kitchenStationId,
+          translationsEnabled ? formTranslations : undefined
         );
         if (res.status !== 200) {
           throw new Error("Failed to add item");
@@ -458,21 +465,22 @@ export default function MenuItemsSettingsPage() {
         item.net_price || null,
         item.category_id || null,
         item.tax_id || null,
-        item.kitchen_station_id || null
+        item.kitchen_station_id || null,
+        item.translations || undefined
       );
       if (res.status === 200 && res.data?.menuItemId) {
         const newId = res.data.menuItemId;
         if (Array.isArray(item.variants)) {
           for (const v of item.variants) {
             if (v?.title) {
-              await addMenuItemVariant(newId, v.title, v.price || 0);
+              await addMenuItemVariant(newId, v.title, v.price || 0, v.translations || undefined);
             }
           }
         }
         if (Array.isArray(item.addons)) {
           for (const a of item.addons) {
             if (a?.title) {
-              await addMenuItemAddon(newId, a.title, a.price || 0);
+              await addMenuItemAddon(newId, a.title, a.price || 0, a.translations || undefined);
             }
           }
         }
@@ -1800,6 +1808,13 @@ export default function MenuItemsSettingsPage() {
               maxLength={500}
             />
           </div>
+
+          <TranslationFields
+            value={formTranslations}
+            onChange={setFormTranslations}
+            fields={["title", "description"]}
+            primaryTitle={formTitle}
+          />
 
           {/* Price & Net Price */}
           <div className="grid grid-cols-2 gap-3">

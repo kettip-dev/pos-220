@@ -25,6 +25,7 @@ const { ensureCustomer360Schema } = require("../utils/customer360Migration");
 const { ensureAddonAvailabilitySchema } = require("../utils/addonAvailabilityMigration");
 const { ensureAddonLibrarySchema } = require("../utils/addonLibraryMigration");
 const { ensureDesktopLoginSchema } = require("../utils/desktopLoginMigration");
+const { ensureMenuLanguageSchema } = require("../utils/menuLanguageMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -133,6 +134,11 @@ ensureAddonAvailabilitySchema(pool)
   .then(() => ensureAddonLibrarySchema(pool))
   .catch((err) => {
     console.error("[Migration] Error ensuring addon library schema:", err);
+  })
+  // Menu translations add a column to addon_library, so they wait for it.
+  .then(() => ensureMenuLanguageSchema(pool))
+  .catch((err) => {
+    console.error("[Migration] Error ensuring menu language schema:", err);
   });
 
 // Pay-later extends register_payments.source and invoice_audit_log.action, so it waits for the register schema.

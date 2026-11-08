@@ -39,7 +39,9 @@ const {
   getCategories,
   updateCategory,
   deleteCategory,
-  changeCategoryVisibilty
+  changeCategoryVisibilty,
+  getMenuLanguageSettings,
+  setMenuLanguageSettings
 } = require("../controllers/settings.controller");
 
 const router = Router();
@@ -110,6 +112,24 @@ router.post(
   isSubscriptionActive,
   authorize([SCOPES.SETTINGS]),
   setPrintSettings
+);
+
+// Menu languages are read by every screen that shows or prints menu names
+// (POS, kitchen, orders), so reading only needs a signed-in user.
+router.get(
+  "/menu-language",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  getMenuLanguageSettings
+);
+router.post(
+  "/menu-language",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  setMenuLanguageSettings
 );
 
 router.get(

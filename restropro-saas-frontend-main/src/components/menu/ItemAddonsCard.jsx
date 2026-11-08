@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { normalizeTranslations } from "./TranslationFields";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -359,6 +360,11 @@ export default function ItemAddonsCard({ itemId, addons = [], onChanged, formatP
                   <p className={clsx("text-sm font-bold truncate", live ? "text-restro-text" : "text-gray-400")}>
                     {addon.title}
                   </p>
+                  {Object.values(normalizeTranslations(addon.translations)).some((tr) => tr?.title) && (
+                    <p className="text-xs text-restro-text/60 truncate">
+                      {Object.values(normalizeTranslations(addon.translations)).map((tr) => tr?.title).filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                   {!libOn ? (
                     <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
                       <IconEyeOff size={12} stroke={iconStroke} />

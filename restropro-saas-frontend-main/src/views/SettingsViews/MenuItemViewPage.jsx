@@ -53,6 +53,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import DeleteModal from "../../components/DeleteModal";
 import clsx from "clsx";
 import ItemAddonsCard, { ADDON_LIBRARY_PATH } from "../../components/menu/ItemAddonsCard";
+import TranslationFields, { normalizeTranslations, useTranslationsEnabled } from "../../components/menu/TranslationFields";
 
 export default function MenuItemViewPage() {
   const { t } = useTranslation();
@@ -77,6 +78,9 @@ export default function MenuItemViewPage() {
   // Controlled form state for reactive Live POS Preview & dirty tracking
   const [formTitle, setFormTitle] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formTranslations, setFormTranslations] = useState({});
+  const [variantUpdateTranslations, setVariantUpdateTranslations] = useState({});
+  const translationsEnabled = useTranslationsEnabled();
   const [formPrice, setFormPrice] = useState("");
   const [formNetPrice, setFormNetPrice] = useState("");
   const [formCategoryId, setFormCategoryId] = useState("");
@@ -159,6 +163,7 @@ export default function MenuItemViewPage() {
         const item = res.data?.formattedMenuItem || {};
         setFormTitle(item.title || "");
         setFormDescription(item.description || "");
+        setFormTranslations(normalizeTranslations(item.translations));
         setFormPrice(
           item.price !== null && item.price !== undefined ? String(item.price) : ""
         );
@@ -237,7 +242,8 @@ export default function MenuItemViewPage() {
         netPriceVal,
         categoryId,
         taxId,
-        kitchenStationId
+        kitchenStationId,
+        translationsEnabled ? formTranslations : undefined
       );
 
       if (res.status === 200) {
@@ -285,18 +291,19 @@ export default function MenuItemViewPage() {
         formNetPrice || null,
         formCategoryId || null,
         formTaxId || null,
-        formKitchenStationId || null
+        formKitchenStationId || null,
+        translationsEnabled ? formTranslations : undefined
       );
       if (res.status === 200 && res.data?.menuItemId) {
         const newId = res.data.menuItemId;
         for (const v of state.variants || []) {
           if (v?.title) {
-            await addMenuItemVariant(newId, v.title, v.price || 0);
+            await addMenuItemVariant(newId, v.title, v.price || 0, v.translations || undefined);
           }
         }
         for (const a of state.addons || []) {
           if (a?.title) {
-            await addMenuItemAddon(newId, a.title, a.price || 0);
+            await addMenuItemAddon(newId, a.title, a.price || 0, a.translations || undefined);
           }
         }
         toast.dismiss();
@@ -406,7 +413,8 @@ export default function MenuItemViewPage() {
     }
   }
 
-  const btnShowVariantUpdate = (variantId, vTitle, vPrice) => {
+  const btnShowVariantUpdate = (variantId, vTitle, vPrice, vTranslations = null) => {
+    setVariantUpdateTranslations(normalizeTranslations(vTranslations));
     variantIdRef.current.value = variantId;
     variantTitleUpdateRef.current.value = vTitle;
     variantPriceUpdateRef.current.value = vPrice;
@@ -433,7 +441,8 @@ export default function MenuItemViewPage() {
         id,
         variantId,
         variantTitle,
-        variantPrice
+        variantPrice,
+        translationsEnabled ? variantUpdateTranslations : undefined
       );
 
       if (res.status === 200) {
@@ -1061,6 +1070,13 @@ export default function MenuItemViewPage() {
                 />
               </div>
 
+              <TranslationFields
+                value={formTranslations}
+                onChange={setFormTranslations}
+                fields={["title", "description"]}
+                primaryTitle={formTitle}
+              />
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label
@@ -1250,6 +1266,11 @@ export default function MenuItemViewPage() {
                       <p className="text-sm font-bold text-restro-text">
                         {variant.title}
                       </p>
+                      {translationsEnabled && Object.values(normalizeTranslations(variant.translations)).some((tr) => tr?.title) && (
+                        <p className="text-xs text-restro-text/60">
+                          {Object.values(normalizeTranslations(variant.translations)).map((tr) => tr?.title).filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                       <p className="text-xs font-semibold text-restro-green">
                         {t("menu_item.price")}: {formatPrice(variant.price)}
                       </p>
@@ -1262,7 +1283,8 @@ export default function MenuItemViewPage() {
                           btnShowVariantUpdate(
                             variant.id,
                             variant.title,
-                            variant.price
+                            variant.price,
+                            variant.translations
                           )
                         }
                         className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
@@ -1502,6 +1524,10 @@ export default function MenuItemViewPage() {
               {t("menu_item.final_price_note")}
             </p>
           </div>
+          <TranslationFields
+            value={variantUpdateTranslations}
+            onChange={setVariantUpdateTranslations}
+          />
           <div className="modal-action">
             <form method="dialog">
               <button className="btn transition active:scale-95 hover:shadow-lg px-4 py-3 rounded-xl border border-restro-border-green bg-restro-card-bg hover:bg-restro-button-hover text-restro-text">

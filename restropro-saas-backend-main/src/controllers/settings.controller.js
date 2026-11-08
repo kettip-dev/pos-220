@@ -1,5 +1,6 @@
 const { nanoid } = require("nanoid");
-const { getStoreSettingDB, setStoreSettingDB, uploadStoreImageDB, deleteStoreImageDB, getPrintSettingDB, setPrintSettingDB, getTaxesDB, addTaxDB, updateTaxDB, deleteTaxDB, getTaxDB, addPaymentTypeDB, getPaymentTypesDB, updatePaymentTypeDB, deletePaymentTypeDB, togglePaymentTypeDB, addStoreTableDB, getStoreTablesDB, updateStoreTableDB, deleteStoreTableDB, addCategoryDB, getCategoriesDB, updateCategoryDB, deleteCategoryDB, getQRMenuCodeDB, updateQRMenuCodeDB, changeCategoryVisibiltyDB, updateServiceChargeDB, getServiceChargeDB, getStoreTablesWithLiveStatusDB, saveTableLayoutPositionsDB, uploadFloorPlanImageDB, deleteFloorPlanImageDB, rotateTablePinDB } = require("../services/settings.service");
+const { getStoreSettingDB, setStoreSettingDB, uploadStoreImageDB, deleteStoreImageDB, getPrintSettingDB, setPrintSettingDB, getTaxesDB, addTaxDB, updateTaxDB, deleteTaxDB, getTaxDB, addPaymentTypeDB, getPaymentTypesDB, updatePaymentTypeDB, deletePaymentTypeDB, togglePaymentTypeDB, addStoreTableDB, getStoreTablesDB, updateStoreTableDB, deleteStoreTableDB, addCategoryDB, getCategoriesDB, updateCategoryDB, deleteCategoryDB, getQRMenuCodeDB, updateQRMenuCodeDB, changeCategoryVisibiltyDB, updateServiceChargeDB, getServiceChargeDB, getStoreTablesWithLiveStatusDB, saveTableLayoutPositionsDB, uploadFloorPlanImageDB, deleteFloorPlanImageDB, rotateTablePinDB, getMenuLanguageSettingsDB, setMenuLanguageSettingsDB } = require("../services/settings.service");
+const { sanitizeTranslations, sanitizeLanguageSettings, parseMaybeJson } = require("../utils/menuTranslations");
 const { getSuperAdminImageStorageConfigDB } = require("../services/image_storage.service");
 const { validateImageFile, getActiveStorageConfig, getStorageProvider, buildObjectKey, detectStorageType } = require("../utils/imageStorage");
 const path = require("path");
@@ -859,7 +860,7 @@ exports.addCategory = async (req, res) => {
             });
         }
 
-        const id = await addCategoryDB(title, tenantId, kitchen_station_id);
+        const id = await addCategoryDB(title, tenantId, kitchen_station_id, sanitizeTranslations(req.body.translations));
         return res.status(200).json({
             success: true,
             message: req.__("category_added"),
@@ -901,7 +902,7 @@ exports.updateCategory = async (req, res) => {
             });
         }
 
-        await updateCategoryDB(id, title, tenantId, kitchen_station_id);
+        await updateCategoryDB(id, title, tenantId, kitchen_station_id, sanitizeTranslations(req.body.translations));
         return res.status(200).json({
             success: true,
             message: req.__("category_updated"),
@@ -962,3 +963,70 @@ exports.changeCategoryVisibilty = async (req, res) => {
  * Save or update image storage config for the current tenant.
  * Encrypts R2 credentials before storing.
  */
+
+
+exports.getMenuLanguageSettings = async (req, res) => {
+    try {
+        const tenantId = req.user.tenant_id;
+        const settings = await getMenuLanguageSettingsDB(tenantId);
+
+        // Screens other than the POS (orders, kitchen, invoices) only know item ids
+        // and default names, so they can ask for a compact id -> translations map.
+        if (req.query.include === "translations" && settings.is_enabled) {
+            const { getAllMenuItemsDB, getAllAddonsDB, getAllVariantsDB } = require("../services/menu_item.service");
+            const [items, addons, variants, categories] = await Promise.all([
+                getAllMenuItemsDB(tenantId),
+                getAllAddonsDB(tenantId),
+                getAllVariantsDB(tenantId),
+                getCategoriesDB(tenantId),
+            ]);
+            const toMap = (rows) => {
+                const map = {};
+                for (const r of rows || []) {
+                    const tr = parseMaybeJson(r.translations);
+                    if (tr && Object.keys(tr).length) map[r.id] = { title: r.title, translations: tr };
+                }
+                return map;
+            };
+            settings.translations = {
+                items: toMap(items),
+                addons: toMap(addons),
+                variants: toMap(variants),
+                categories: toMap(categories),
+            };
+        }
+
+        return res.status(200).json(settings);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: req.__("something_went_wrong_try_later")
+        });
+    }
+};
+
+exports.setMenuLanguageSettings = async (req, res) => {
+    try {
+        const tenantId = req.user.tenant_id;
+        const settings = sanitizeLanguageSettings(req.body);
+        if (settings.is_enabled && settings.languages.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Add at least one language to enable multi-language menu."
+            });
+        }
+        const saved = await setMenuLanguageSettingsDB(settings, tenantId);
+        return res.status(200).json({
+            success: true,
+            message: "Menu language settings saved.",
+            settings: saved
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: req.__("something_went_wrong_try_later")
+        });
+    }
+};

@@ -13,6 +13,7 @@ import {
   IconReceiptTax,
   IconUsers,
   IconBrandTelegram,
+  IconLanguage,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
@@ -52,6 +53,11 @@ export default function SettingsNavbar() {
       icon: <IconBook stroke={iconStroke} />,
       text: t("settings.menu_items"),
       path: "/dashboard/settings/menu-items",
+    },
+    {
+      icon: <IconLanguage stroke={iconStroke} />,
+      text: t("settings.menu_languages", "Menu Languages"),
+      path: "/dashboard/settings/menu-languages",
     },
     {
       icon: <IconReceiptTax stroke={iconStroke} />,

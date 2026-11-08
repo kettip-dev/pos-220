@@ -25,6 +25,7 @@ import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
+import TranslationFields, { normalizeTranslations, useTranslationsEnabled } from "../../components/menu/TranslationFields";
 
 // Consistent gradient palette keyed by index
 const CATEGORY_GRADIENTS = [
@@ -47,6 +48,9 @@ export default function CategoriesPage() {
   const [addStationId, setAddStationId] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editStationId, setEditStationId] = useState("");
+  const [addTranslations, setAddTranslations] = useState({});
+  const [editTranslations, setEditTranslations] = useState({});
+  const translationsEnabled = useTranslationsEnabled();
 
   const { APIURL, data: categories, error, isLoading } = useCategories();
   const { data: menuItems } = useMenuItems();
@@ -85,10 +89,11 @@ export default function CategoriesPage() {
     }
     const toastId = toast.loading(t("categories.please_wait"));
     try {
-      const res = await addCategory(title, addStationId || null);
+      const res = await addCategory(title, addStationId || null, translationsEnabled ? addTranslations : undefined);
       if (res.status === 200) {
         setAddTitle("");
         setAddStationId("");
+        setAddTranslations({});
         setIsAddOpen(false);
         await mutate(APIURL);
         toast.dismiss(toastId);
@@ -111,7 +116,7 @@ export default function CategoriesPage() {
     }
     const toastId = toast.loading(t("categories.please_wait"));
     try {
-      const res = await updateCategory(id, title, editStationId || null);
+      const res = await updateCategory(id, title, editStationId || null, translationsEnabled ? editTranslations : undefined);
       if (res.status === 200) {
         setEditCategory(null);
         setEditTitle("");
@@ -239,6 +244,11 @@ export default function CategoriesPage() {
                 <p className="font-semibold text-sm text-restro-text truncate" title={title}>
                   {title}
                 </p>
+                {translationsEnabled && Object.values(normalizeTranslations(cat.translations)).some((tr) => tr?.title) && (
+                  <p className="text-xs text-restro-text/60 truncate -mt-1.5">
+                    {Object.values(normalizeTranslations(cat.translations)).map((tr) => tr?.title).filter(Boolean).join(" · ")}
+                  </p>
+                )}
 
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {/* Item count badge */}
@@ -291,6 +301,7 @@ export default function CategoriesPage() {
                     setEditCategory(cat);
                     setEditTitle(title || "");
                     setEditStationId(kitchen_station_id ? String(kitchen_station_id) : "");
+                    setEditTranslations(normalizeTranslations(cat.translations));
                   }}
                   className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
                 >
@@ -316,7 +327,7 @@ export default function CategoriesPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setIsAddOpen(false)}
           />
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl border border-restro-border-green p-6 z-10">
+          <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl border border-restro-border-green p-6 z-10">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-restro-text">{t("categories.add_new_category")}</h3>
               <button
@@ -340,6 +351,12 @@ export default function CategoriesPage() {
                 placeholder={t("categories.enter_category_title")}
               />
             </div>
+            <TranslationFields
+              className="mb-4"
+              value={addTranslations}
+              onChange={setAddTranslations}
+              primaryTitle={addTitle}
+            />
             {isKitchenEnabled && (
               <div className="mb-4">
                 <label className="mb-1 block text-gray-500 text-sm font-medium">
@@ -387,7 +404,7 @@ export default function CategoriesPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setEditCategory(null)}
           />
-          <div className="relative w-full max-w-sm bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl border border-restro-border-green p-6 z-10">
+          <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl border border-restro-border-green p-6 z-10">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-restro-text">{t("categories.update_category")}</h3>
               <button
@@ -411,6 +428,12 @@ export default function CategoriesPage() {
                 placeholder={t("categories.enter_category_title")}
               />
             </div>
+            <TranslationFields
+              className="mb-4"
+              value={editTranslations}
+              onChange={setEditTranslations}
+              primaryTitle={editTitle}
+            />
             {isKitchenEnabled && (
               <div className="mb-4">
                 <label className="mb-1 block text-gray-500 text-sm font-medium">

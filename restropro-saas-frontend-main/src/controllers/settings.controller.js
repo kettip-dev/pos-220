@@ -311,11 +311,12 @@ export function useCategories() {
   };
 }
 
-export async function addCategory(title, kitchen_station_id = null) {
+export async function addCategory(title, kitchen_station_id = null, translations = undefined) {
   try {
     const response = await ApiClient.post("/settings/categories/add", {
       title,
       kitchen_station_id: kitchen_station_id ? Number(kitchen_station_id) : null,
+      translations,
     })
     return response;
   } catch (error) {
@@ -332,11 +333,12 @@ export async function deleteCategory(id) {
   }
 };
 
-export async function updateCategory(id, title, kitchen_station_id = null) {
+export async function updateCategory(id, title, kitchen_station_id = null, translations = undefined) {
   try {
     const response = await ApiClient.post(`/settings/categories/${id}/update`, {
       title,
       kitchen_station_id: kitchen_station_id ? Number(kitchen_station_id) : null,
+      translations,
     })
     return response;
   } catch (error) {
@@ -379,3 +381,16 @@ export async function removeDevice(deviceId) {
 
 // ── Image Storage Config ─────────────────────────────────────────────────────
 
+
+
+export const MENU_LANGUAGE_URL = "/settings/menu-language";
+
+/** Multi-language menu settings (enabled languages + display / print modes). */
+export function useMenuLanguageSettings() {
+  const { data, error, isLoading, mutate } = useSWR(MENU_LANGUAGE_URL, fetcher);
+  return { data, error, isLoading, mutate, APIURL: MENU_LANGUAGE_URL };
+}
+
+export async function saveMenuLanguageSettings(settings) {
+  return ApiClient.post(MENU_LANGUAGE_URL, settings);
+}

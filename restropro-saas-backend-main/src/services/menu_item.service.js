@@ -2,15 +2,35 @@ const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { getOrSetCache, invalidateTenantCatalog } = require("../utils/cache.util");
 const { linkUnlinkedAddons } = require("../utils/addonLibraryMigration");
 
-exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = null) => {
+/**
+ * Add-on names live in the shared library, so translations set on an item's
+ * add-on are written to its library entry and every item that uses it.
+ */
+async function syncAddonTranslationsToLibrary(conn, addonId, translations, tenantId) {
+    const [[row]] = await conn.query(
+        `SELECT library_addon_id FROM menu_item_addons WHERE id = ? AND tenant_id = ?`,
+        [addonId, tenantId]
+    );
+    if (!row?.library_addon_id) return;
+    await conn.query(
+        `UPDATE addon_library SET translations = ? WHERE id = ? AND tenant_id = ?`,
+        [translations, row.library_addon_id, tenantId]
+    );
+    await conn.query(
+        `UPDATE menu_item_addons SET translations = ? WHERE library_addon_id = ? AND tenant_id = ?`,
+        [translations, row.library_addon_id, tenantId]
+    );
+}
+
+exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = null, translations = null) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
         const sql = `
         INSERT INTO menu_items
-        (title, description, price, net_price, tax_id, category, tenant_id, kitchen_station_id)
+        (title, description, price, net_price, tax_id, category, tenant_id, kitchen_station_id, translations)
         VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?);
+        (?, ?, ?, ?, ?, ?, ?, ?, ?);
         `;
 
         const [result] = await conn.query(sql, [
@@ -21,7 +41,8 @@ exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categ
           taxId, 
           categoryId, 
           tenantId,
-          kitchenStationId ? Number(kitchenStationId) : null
+          kitchenStationId ? Number(kitchenStationId) : null,
+          translations || null
         ]);
 
         await invalidateTenantCatalog(tenantId);
@@ -34,7 +55,7 @@ exports.addMenuItemDB = async (title, description, price, netPrice, taxId, categ
     }
 }
 
-exports.updateMenuItemDB = async (id, title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = undefined) => {
+exports.updateMenuItemDB = async (id, title, description, price, netPrice, taxId, categoryId, tenantId, kitchenStationId = undefined, translations = undefined) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
@@ -47,6 +68,11 @@ exports.updateMenuItemDB = async (id, title, description, price, netPrice, taxId
         if (kitchenStationId !== undefined) {
             sql += `, kitchen_station_id = ?`;
             params.push(kitchenStationId ? Number(kitchenStationId) : null);
+        }
+
+        if (translations !== undefined) {
+            sql += `, translations = ?`;
+            params.push(translations);
         }
 
         sql += ` WHERE id = ? AND tenant_id = ?;`;
@@ -138,6 +164,7 @@ exports.getAllMenuItemsDB = async (tenantId) => {
             SELECT
             i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
             category as category_id, c.title AS category_title, image, i.is_enabled,
+            i.translations, c.translations AS category_translations,
             i.kitchen_station_id,
             ks.name AS kitchen_station_name,
             ks.color AS kitchen_station_color,
@@ -175,6 +202,7 @@ exports.getMenuItemDB = async (id, tenantId) => {
             SELECT
             i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
             category as category_id, c.title AS category_title, image, i.is_enabled,
+            i.translations, c.translations AS category_translations,
             i.kitchen_station_id,
             ks.name AS kitchen_station_name,
             ks.color AS kitchen_station_color,
@@ -209,19 +237,20 @@ exports.getMenuItemDB = async (id, tenantId) => {
  * @param {number} price Additonal Price for addon, Put 0 / null to make addon as free option
  * @returns {Promise<number>}
  *  */
-exports.addMenuItemAddonDB = async (itemId, title, price, tenantId) => {
+exports.addMenuItemAddonDB = async (itemId, title, price, tenantId, translations = null) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
         const sql = `
         INSERT INTO menu_item_addons
-        (item_id, title, price, tenant_id)
+        (item_id, title, price, tenant_id, translations)
         VALUES
-        (?, ?, ?, ?);
+        (?, ?, ?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [itemId, title, price, tenantId]);
+        const [result] = await conn.query(sql, [itemId, title, price, tenantId, translations || null]);
         await linkUnlinkedAddons(conn, tenantId);
+        if (translations) await syncAddonTranslationsToLibrary(conn, result.insertId, translations, tenantId);
         await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
@@ -239,7 +268,7 @@ exports.addMenuItemAddonDB = async (itemId, title, price, tenantId) => {
  * @param {number} price Additonal Price for addon, Put 0 / null to make addon as free option
  * @returns {Promise<void>}
  *  */
-exports.updateMenuItemAddonDB = async (itemId, addonId, title, price, tenantId) => {
+exports.updateMenuItemAddonDB = async (itemId, addonId, title, price, tenantId, translations = undefined) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
@@ -251,6 +280,13 @@ exports.updateMenuItemAddonDB = async (itemId, addonId, title, price, tenantId) 
         `;
 
         await conn.query(sql, [title, price, addonId, itemId, tenantId]);
+        if (translations !== undefined) {
+            await conn.query(
+                `UPDATE menu_item_addons SET translations = ? WHERE id = ? AND item_id = ? AND tenant_id = ?`,
+                [translations, addonId, itemId, tenantId]
+            );
+            await syncAddonTranslationsToLibrary(conn, addonId, translations, tenantId);
+        }
         await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
@@ -325,6 +361,7 @@ exports.getMenuItemAddonsDB = async (itemId, tenantId) => {
 
             const sql = `
             SELECT mia.id, mia.item_id, mia.title, mia.price,
+              COALESCE(al.translations, mia.translations) AS translations,
               mia.library_addon_id, mia.has_custom_price, al.price AS library_price,
               mia.is_enabled AS item_enabled, COALESCE(al.is_enabled, 1) AS library_enabled,
               IF(mia.is_enabled = 1 AND COALESCE(al.is_enabled, 1) = 1, 1, 0) AS is_enabled
@@ -353,6 +390,7 @@ exports.getAllAddonsDB = async (tenantId) => {
 
             const sql = `
             SELECT mia.id, mia.item_id, mia.title, mia.price,
+              COALESCE(al.translations, mia.translations) AS translations,
               mia.library_addon_id, mia.has_custom_price, al.price AS library_price,
               mia.is_enabled AS item_enabled, COALESCE(al.is_enabled, 1) AS library_enabled,
               IF(mia.is_enabled = 1 AND COALESCE(al.is_enabled, 1) = 1, 1, 0) AS is_enabled
@@ -380,18 +418,18 @@ exports.getAllAddonsDB = async (tenantId) => {
  * @param {number} price Additonal Price for Variant, Put 0 / null to make Variant as free option
  * @returns {Promise<number>}
  *  */
-exports.addMenuItemVariantDB = async (itemId, title, price, tenantId) => {
+exports.addMenuItemVariantDB = async (itemId, title, price, tenantId, translations = null) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
         const sql = `
         INSERT INTO menu_item_variants
-        (item_id, title, price, tenant_id)
+        (item_id, title, price, tenant_id, translations)
         VALUES
-        (?, ?, ?, ?);
+        (?, ?, ?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [itemId, title, price, tenantId]);
+        const [result] = await conn.query(sql, [itemId, title, price, tenantId, translations || null]);
         await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
@@ -402,18 +440,21 @@ exports.addMenuItemVariantDB = async (itemId, title, price, tenantId) => {
     }
 };
 
-exports.updateMenuItemVariantDB = async (itemId, variantId, title, price, tenantId) => {
+exports.updateMenuItemVariantDB = async (itemId, variantId, title, price, tenantId, translations = undefined) => {
     const conn = await getMySqlPromiseConnection();
     try {
 
         const sql = `
         UPDATE menu_item_variants
         SET
-        title = ?, price = ?
+        title = ?, price = ?${translations !== undefined ? ", translations = ?" : ""}
         WHERE item_id = ? AND id = ? AND tenant_id = ?
         `;
 
-        await conn.query(sql, [title, price, itemId, variantId, tenantId]);
+        const params = translations !== undefined
+            ? [title, price, translations, itemId, variantId, tenantId]
+            : [title, price, itemId, variantId, tenantId];
+        await conn.query(sql, params);
         await invalidateTenantCatalog(tenantId);
         return;
     } catch (error) {
@@ -450,7 +491,7 @@ exports.getMenuItemVariantsDB = async (itemId, tenantId) => {
         try {
 
             const sql = `
-            SELECT id, item_id, title, price FROM menu_item_variants
+            SELECT id, item_id, title, price, translations FROM menu_item_variants
             WHERE item_id = ? AND tenant_id = ?;
             `;
 
@@ -471,7 +512,7 @@ exports.getAllVariantsDB = async (tenantId) => {
         try {
 
             const sql = `
-            SELECT id, item_id, title, price FROM menu_item_variants
+            SELECT id, item_id, title, price, translations FROM menu_item_variants
             WHERE tenant_id = ?;
             `;
 

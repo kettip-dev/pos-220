@@ -10,6 +10,7 @@ const {
   attachLibraryAddonToItemDB,
   setItemAddonPriceDB,
 } = require("../services/addon_library.service");
+const { sanitizeTranslations } = require("../utils/menuTranslations");
 
 const serverError = (req, res, error) => {
   console.error(error);
@@ -53,7 +54,7 @@ exports.createLibraryAddon = async (req, res) => {
       });
     }
 
-    const id = await createLibraryAddonDB(tenantId, title, price);
+    const id = await createLibraryAddonDB(tenantId, title, price, sanitizeTranslations(req.body?.translations));
     return res.status(200).json({ success: true, message: req.__("addon_library_created"), id });
   } catch (error) {
     return serverError(req, res, error);
@@ -74,7 +75,7 @@ exports.updateLibraryAddon = async (req, res) => {
       return res.status(409).json({ success: false, message: req.__("addon_library_name_taken", { name: title }) });
     }
 
-    const affected = await updateLibraryAddonDB(tenantId, id, title, price);
+    const affected = await updateLibraryAddonDB(tenantId, id, title, price, sanitizeTranslations(req.body?.translations));
     if (!affected) return res.status(404).json({ success: false, message: req.__("addon_library_not_found") });
 
     return res.status(200).json({ success: true, message: req.__("addon_library_updated") });
