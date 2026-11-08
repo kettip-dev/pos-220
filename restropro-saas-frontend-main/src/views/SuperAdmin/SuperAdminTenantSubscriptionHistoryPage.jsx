@@ -5,6 +5,7 @@ import { useSuperAdminTenantSubscriptionHistory } from '../../controllers/supera
 import { IconCheck, IconCreditCard, IconX } from '@tabler/icons-react';
 import { iconStroke, subscriptionPrice } from '../../config/config';
 import { useTranslation } from "react-i18next";
+import toast from "react-hot-toast";
 import { useTheme } from '../../contexts/ThemeContext';
 import { getSubscriptionHistory } from '../../controllers/plans.controller';
 

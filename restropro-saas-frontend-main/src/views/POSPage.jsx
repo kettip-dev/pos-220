@@ -46,6 +46,7 @@ import {
   combineCartDiscounts 
 } from '../helpers/promotionEvaluator';
 import { clsx } from "clsx";
+import { mutate } from "swr";
 import { useTheme } from '../contexts/ThemeContext';
 import ManagerPinModal from '../components/common/ManagerPinModal';
 import { checkMyShiftEligibility } from '../controllers/shift_roster.controller';
@@ -4362,7 +4363,13 @@ export default function POSPage() {
         paymentTypes={paymentTypes}
         onPaymentComplete={(settleResult) => {
           if (settleResult?.isFullyCompleted) {
-            clearCart();
+            setState((prev) => ({
+              ...prev,
+              cartItems: [],
+              selectedQrOrderItem: null,
+              discountValue: 0,
+              discountAmount: 0,
+            }));
             setIsSplitDrawerOpen(false);
             setSplitBillOrder(null);
           }
@@ -4378,8 +4385,8 @@ export default function POSPage() {
           playTapSound();
         }}
         paymentInfo={completedPaymentInfo}
-        onPrintReceipt={(payload) => triggerPrintReceipt(payload || detailsForReceiptPrint)}
-        onPrintToken={(payload) => triggerPrintToken(payload || detailsForReceiptPrint)}
+        onPrintReceipt={(payload) => triggerPrintReceipt(payload || getDetailsForReceiptPrint())}
+        onPrintToken={(payload) => triggerPrintToken(payload || getDetailsForReceiptPrint())}
       />
 
       {/* Slide-Over Drafts Drawer */}
