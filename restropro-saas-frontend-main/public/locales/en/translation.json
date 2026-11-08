@@ -5291,6 +5291,13 @@
     "description_in": "Description in {{language}}",
     "store_default": "Store default ({{mode}})",
     "device_select_aria": "Menu language on this device",
-    "current_language": "Menu language: {{mode}}"
+    "current_language": "Menu language: {{mode}}",
+    "unsaved": "Unsaved changes",
+    "off_hint": "Turn this on to use the languages below. You can set them up first and save.",
+    "default_badge": "Default",
+    "other_language": "Other language",
+    "cancel": "Cancel",
+    "device_override_desc": "Adds a language button to the POS. Printing always follows the settings above.",
+    "back": "Back to settings"
   }
 }
