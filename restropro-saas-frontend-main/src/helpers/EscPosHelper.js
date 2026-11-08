@@ -410,7 +410,8 @@ export function buildKotEscPos(kotDetails) {
     const variantTitle = item.variant?.title ? ` - ${item.variant.title}` : "";
     const station = item.kitchen_station_name || item.effective_kitchen_station_name;
     const stationTag = station ? ` [${station}]` : "";
-    const itemHeader = `${qty}x  ${title}${variantTitle}${stationTag}`;
+    const seatTag = item.seat || item.seat_no ? ` [S${item.seat || item.seat_no}]` : "";
+    const itemHeader = `${qty}x  ${title}${variantTitle}${stationTag}${seatTag}`;
 
     out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_HEIGHT;
     out += `${itemHeader}\n`;

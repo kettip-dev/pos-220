@@ -62,6 +62,10 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.notes,
         oi.started_at,
         oi.completed_at,
+        oi.course,
+        oi.seat_no,
+        oi.fire_status,
+        oi.fired_at,
         oi.kitchen_station_id,
         ks.name AS station_name,
         ks.color AS station_color,
@@ -198,7 +202,7 @@ exports.bulkUpdateOrderItemStatusDB = async (tenantId, orderItemIds, status) => 
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
     SET oi.status = ?${statusTimestampSql(status)}
-    WHERE oi.id IN (?) AND o.tenant_id = ?;
+    WHERE oi.id IN (?) AND o.tenant_id = ? AND oi.fire_status <> 'held';
     `;
 
     const [result] = await conn.query(sql, [status, orderItemIds, tenantId]);
@@ -219,7 +223,7 @@ exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatus
     UPDATE order_items oi
     JOIN orders o ON o.id = oi.order_id
     SET oi.status = ?${statusTimestampSql(status)}
-    WHERE oi.order_id = ? AND o.tenant_id = ?
+    WHERE oi.order_id = ? AND o.tenant_id = ? AND oi.fire_status <> 'held'
     `;
 
     if (Array.isArray(fromStatuses) && fromStatuses.length > 0) {

@@ -78,6 +78,12 @@ exports.ensurePosFeaturesSchema = async (pool) => {
         INDEX idx_pla_order (tenant_id, order_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    // 3. Courses (hold & fire) and seat numbers
+    await addColumnIfMissing(conn, "order_items", "course", "TINYINT NULL DEFAULT NULL");
+    await addColumnIfMissing(conn, "order_items", "seat_no", "TINYINT NULL DEFAULT NULL");
+    await addColumnIfMissing(conn, "order_items", "fire_status", "VARCHAR(8) NOT NULL DEFAULT 'fired'");
+    await addColumnIfMissing(conn, "order_items", "fired_at", "DATETIME NULL DEFAULT NULL");
   } finally {
     conn.release();
   }

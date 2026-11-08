@@ -71,6 +71,10 @@ export default function POSPage() {
   const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
   const [soldOutDrawer, setSoldOutDrawer] = useState({ open: false, itemId: null });
   const [adjustLineIndex, setAdjustLineIndex] = useState(null);
+  // Hold & fire: new lines join the active course; later courses wait for "Fire".
+  const [activeCourse, setActiveCourse] = useState(1);
+  const [holdLaterCourses, setHoldLaterCourses] = useState(true);
+  const [seatPickerIndex, setSeatPickerIndex] = useState(null);
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
   // Cash register session for this device
@@ -299,7 +303,11 @@ export default function POSPage() {
     };
     if (getNormalizedAddons(itemA) !== getNormalizedAddons(itemB)) return false;
 
-    // 4. Comped / discounted lines carry a single-use approval: never merge them
+    // 4. Different course or seat = different line
+    if (Number(itemA.course || 1) !== Number(itemB.course || 1)) return false;
+    if (Number(itemA.seat || 0) !== Number(itemB.seat || 0)) return false;
+
+    // 4b. Comped / discounted lines carry a single-use approval: never merge them
     if (itemA.adjust?.type || itemB.adjust?.type) return false;
 
     // 5. Notes: items with different custom notes should stay on separate lines
@@ -370,6 +378,14 @@ export default function POSPage() {
     });
     return counts;
   }, [menuItems]);
+
+  // A fresh ticket starts at course 1.
+  useEffect(() => {
+    if (!cartItems || cartItems.length === 0) {
+      setActiveCourse(1);
+      setSeatPickerIndex(null);
+    }
+  }, [cartItems?.length]);
 
   const soldOutCount = React.useMemo(
     () => (menuItems || []).filter((m) => m.is_enabled && Number(m.is_sold_out) === 1).length,
@@ -1061,7 +1077,8 @@ export default function POSPage() {
     const modifiedItem = {
       ...item,
       quantity: quantityToAdd,
-      notes: item.notes || null
+      notes: item.notes || null,
+      course: item.course ?? activeCourse,
     };
 
     if (!canPrepareMenuItem(item, quantityToAdd)) {
@@ -1275,7 +1292,8 @@ export default function POSPage() {
     }
   };
 
-  const handleAddConfiguredItemToCart = (configuredItem) => {
+  const handleAddConfiguredItemToCart = (incomingItem) => {
+    const configuredItem = { ...incomingItem, course: incomingItem.course ?? activeCourse };
     const quantityToAdd = Number(configuredItem.quantity) || 1;
     if (isBlockedBySoldOut(configuredItem, quantityToAdd)) return;
 
@@ -2179,8 +2197,9 @@ export default function POSPage() {
       setIsSubmittingPayment(true);
       const summary = calculateOrderSummary();
       const loyaltyPointsRedeemed = tenderData?.loyaltyPointsRedeemed || 0;
+      const sendCart = buildSendCart(cartItems, deliveryType);
       const res = await createOrderAndInvoice(
-        cartItems, deliveryType, customerType, customer, tableId,
+        sendCart, deliveryType, customerType, customer, tableId,
         summary.itemsTotal, summary.taxTotal, summary.serviceChargeTotal, summary.payableTotal,
         state.selectedQrOrderItem, state.selectedPaymentType,
         state.discountType, state.discountValue, summary.discountAmount,
@@ -2226,7 +2245,7 @@ export default function POSPage() {
         }
 
         const receiptPayload = {
-          cartItems, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
+          cartItems: sendCart, deliveryType, customerType, customer, tableId, currency, storeSettings, printSettings,
           itemsTotal: summary.itemsTotal,
           discountType: state.discountType,
           discountValue: state.discountValue,
@@ -2293,7 +2312,7 @@ export default function POSPage() {
           triggerPrintReceipt(receiptPayload);
           // "Pay & Send to Kitchen": the kitchen needs its ticket too.
           if (isKitchenEnabled) {
-            triggerPrintToken(receiptPayload);
+            printKitchenTicket(receiptPayload);
           }
         }
 
@@ -2334,6 +2353,49 @@ export default function POSPage() {
         setIsOpenRegisterModalOpen(true);
       }
     }
+  };
+
+  // Hold & fire: mark lines of later courses as held when sending a dine-in ticket.
+  const buildSendCart = (lines, deliveryType) => {
+    const list = lines || [];
+    const isDineIn = (deliveryType || 'dinein') === 'dinein';
+    if (!isDineIn || !holdLaterCourses || !isKitchenEnabled) return list.map((l) => ({ ...l, hold: false }));
+    const firstCourse = Math.min(...list.map((l) => Number(l.course) || 1));
+    return list.map((l) => ({ ...l, hold: (Number(l.course) || 1) > firstCourse }));
+  };
+
+  // Kitchen ticket for the lines fired now (held courses print when fired).
+  const printKitchenTicket = (payload) => {
+    const firedLines = (payload?.cartItems || []).filter((l) => !l.hold);
+    if (firedLines.length === 0) return;
+    const heldCount = (payload?.cartItems || []).length - firedLines.length;
+    triggerPrintToken({
+      ...payload,
+      cartItems: firedLines,
+      ...(heldCount > 0 ? { ticketBanner: `COURSE ${Math.min(...firedLines.map((l) => Number(l.course) || 1))}` } : {}),
+    });
+  };
+
+  const cycleLineCourse = (index) => {
+    setState((prev) => {
+      const next = [...(prev.cartItems || [])];
+      if (!next[index]) return prev;
+      const current = Number(next[index].course) || 1;
+      next[index] = { ...next[index], course: current >= 4 ? 1 : current + 1 };
+      return { ...prev, cartItems: next };
+    });
+    playTapSound();
+  };
+
+  const setLineSeat = (index, seat) => {
+    setState((prev) => {
+      const next = [...(prev.cartItems || [])];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], seat: seat || null };
+      return { ...prev, cartItems: next };
+    });
+    setSeatPickerIndex(null);
+    playTapSound();
   };
 
   // Comp / discount on an unsent cart line (approval token travels with the line)
@@ -2415,8 +2477,9 @@ export default function POSPage() {
       const customer = state.customer;
 
       const summary = calculateOrderSummary();
+      const sendCart = buildSendCart(cartItems, deliveryType);
       const res = await createOrder(
-        cartItems, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem,
+        sendCart, deliveryType, customerType, customer, tableId, state.selectedQrOrderItem,
         summary.appliedPromotions, summary.promotionDiscountTotal,
         customer?.customer_group_id || null,
         customer?.customer_group_name || null,
@@ -2440,7 +2503,7 @@ export default function POSPage() {
         let paymentMethodText = paymentType ? paymentType.title : (t('orders.unpaid', 'Unpaid') || 'Pay Later');
 
         const receiptPayload = {
-          cartItems,
+          cartItems: sendCart,
           deliveryType,
           customerType,
           customer,
@@ -2508,7 +2571,7 @@ export default function POSPage() {
         // without a kitchen workflow, print the guest check instead.
         if (is_enable_print) {
           if (isKitchenEnabled) {
-            triggerPrintToken(receiptPayload);
+            printKitchenTicket(receiptPayload);
           } else {
             triggerPrintReceipt(receiptPayload);
           }
@@ -2533,7 +2596,7 @@ export default function POSPage() {
                   type="button"
                   onClick={() => {
                     toast.dismiss(tObj.id);
-                    triggerPrintToken(receiptPayload);
+                    printKitchenTicket(receiptPayload);
                   }}
                   className="px-2 py-1 bg-white dark:bg-zinc-800 text-restro-green text-[11px] font-extrabold rounded-md border border-restro-green/40 hover:bg-restro-green hover:text-white transition active:scale-95 shadow-2xs cursor-pointer"
                 >
@@ -3106,6 +3169,40 @@ export default function POSPage() {
             </button>
           ) : null}
 
+          {/* Course bar (dine-in): new items join the active course; later courses are held */}
+          {selectedDiningOption === "dinein" && isKitchenEnabled && (
+            <div className="shrink-0 px-3 py-1.5 border-b border-[#E3E5E8] dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 shrink-0 mr-0.5">
+                {t('pos_ops.course', 'Course')}
+              </span>
+              {[1, 2, 3, 4].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setActiveCourse(c)}
+                  aria-pressed={activeCourse === c}
+                  className={clsx(
+                    "min-h-[36px] min-w-[42px] px-2 rounded-lg text-xs font-black border transition active:scale-95 cursor-pointer shrink-0",
+                    activeCourse === c
+                      ? "bg-[#0D233A] text-white border-[#0D233A]"
+                      : "bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-slate-300 border-[#E3E5E8] dark:border-slate-700"
+                  )}
+                >
+                  C{c}
+                </button>
+              ))}
+              <label className="ml-auto flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 dark:text-slate-300 shrink-0 cursor-pointer min-h-[36px]">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-[#2CA01C]"
+                  checked={holdLaterCourses}
+                  onChange={(e) => setHoldLaterCourses(e.target.checked)}
+                />
+                {t('pos_ops.hold_later_courses', 'Hold later courses')}
+              </label>
+            </div>
+          )}
+
           {/* Cart Items List Area */}
           <div onScroll={handleCartScroll} className='flex-1 flex flex-col gap-2 overflow-y-auto px-3 py-2.5 scrollbar-thin'>
             {cartItems?.length === 0 ? (
@@ -3294,6 +3391,38 @@ export default function POSPage() {
                           >
                             <IconPlus size={20} stroke={2.5} />
                           </button>
+                          {selectedDiningOption === "dinein" && (
+                            <>
+                              {isKitchenEnabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => cycleLineCourse(i)}
+                                  title={t('pos_ops.change_course', 'Change course')}
+                                  className={clsx(
+                                    "ml-1 min-w-[34px] min-h-[32px] px-1.5 rounded-lg text-[11px] font-black border transition active:scale-90 cursor-pointer touch-manipulation",
+                                    (Number(cartItem.course) || 1) > 1
+                                      ? "bg-sky-500/15 border-sky-500/40 text-sky-700 dark:text-sky-300"
+                                      : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500"
+                                  )}
+                                >
+                                  C{Number(cartItem.course) || 1}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setSeatPickerIndex(seatPickerIndex === i ? null : i)}
+                                title={t('pos_ops.seat', 'Seat')}
+                                className={clsx(
+                                  "ml-1 min-w-[34px] min-h-[32px] px-1.5 rounded-lg text-[11px] font-black border transition active:scale-90 cursor-pointer touch-manipulation",
+                                  cartItem.seat
+                                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                                    : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500"
+                                )}
+                              >
+                                {cartItem.seat ? `S${cartItem.seat}` : 'S–'}
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         {/* Note toggle, Duplicate, and Delete actions */}
@@ -3357,6 +3486,34 @@ export default function POSPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Seat picker */}
+                      {seatPickerIndex === i && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {Array.from({ length: Math.max(4, Math.min(20, Number(guestCount) || 1)) }, (_, k) => k + 1).map((seatNo) => (
+                            <button
+                              key={seatNo}
+                              type="button"
+                              onClick={() => setLineSeat(i, seatNo)}
+                              className={clsx(
+                                "min-w-[42px] min-h-[42px] rounded-xl text-sm font-black border active:scale-95 transition cursor-pointer",
+                                Number(cartItem.seat) === seatNo
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-700 dark:text-slate-200"
+                              )}
+                            >
+                              {seatNo}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setLineSeat(i, null)}
+                            className="min-h-[42px] px-3 rounded-xl text-xs font-bold border border-[#E3E5E8] dark:border-slate-700 text-gray-500 active:scale-95 cursor-pointer"
+                          >
+                            {t('pos_ops.no_seat', 'Shared')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -76,13 +76,17 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
 
     const sqlOrderItems = `
     INSERT INTO order_items
-    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status)
+    (order_id, item_id, variant_id, price, quantity, notes, addons, tenant_id, kitchen_station_id, status, course, seat_no, fire_status, fired_at)
     VALUES ?
     `;
 
     await conn.query(sqlOrderItems, [
       cartItems.map((item) => {
         const stationId = item.kitchen_station_id || item.effective_kitchen_station_id || itemStationMap.get(item.id) || null;
+        // Held courses wait for "Fire"; without a kitchen workflow everything is fired.
+        const course = Number(item.course) > 0 ? Math.min(Number(item.course), 9) : null;
+        const seat = Number(item.seat) > 0 ? Math.min(Number(item.seat), 99) : null;
+        const held = Boolean(item.hold) && orderStatus !== 'completed';
         return [
           orderId,
           item.id,
@@ -97,7 +101,11 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
                 : null),
           tenantId,
           stationId ? Number(stationId) : null,
-          itemStatus
+          itemStatus,
+          course,
+          seat,
+          held ? 'held' : 'fired',
+          held ? null : new Date()
         ];
       })
     ]);
@@ -645,5 +653,90 @@ exports.cancelAllQROrdersDB = async (tenantId, status) => {
       throw error;
   } finally {
       conn.release();
+  }
+};
+
+
+/**
+ * Fire held courses on an order. With `course`, only that course; otherwise
+ * every held line. Fired lines get a fresh `date` so KDS timers start now.
+ * Returns the fired lines (for the "FIRE" kitchen ticket).
+ */
+exports.fireHeldItemsDB = async (tenantId, orderId, { course = null, itemIds = null } = {}) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+    const params = [orderId, tenantId];
+    let where = `oi.order_id = ? AND oi.tenant_id = ? AND oi.fire_status = 'held' AND oi.status <> 'cancelled'`;
+    if (course) {
+      where += ` AND oi.course = ?`;
+      params.push(Number(course));
+    }
+    if (Array.isArray(itemIds) && itemIds.length > 0) {
+      where += ` AND oi.id IN (?)`;
+      params.push(itemIds.map(Number));
+    }
+
+    const [rows] = await conn.query(
+      `SELECT oi.id, oi.item_id, oi.variant_id, oi.quantity, oi.notes, oi.addons, oi.course, oi.seat_no,
+              oi.kitchen_station_id, mi.title AS item_title, miv.title AS variant_title, ks.name AS station_name
+       FROM order_items oi
+       LEFT JOIN menu_items mi ON mi.id = oi.item_id AND mi.tenant_id = oi.tenant_id
+       LEFT JOIN menu_item_variants miv ON miv.id = oi.variant_id AND miv.item_id = oi.item_id
+       LEFT JOIN kitchen_stations ks ON ks.id = oi.kitchen_station_id AND ks.tenant_id = oi.tenant_id
+       WHERE ${where}
+       FOR UPDATE`,
+      params
+    );
+    if (rows.length === 0) {
+      await conn.rollback();
+      return { fired: [], order: null };
+    }
+
+    await conn.query(
+      `UPDATE order_items SET fire_status = 'fired', fired_at = NOW(), date = NOW() WHERE id IN (?) AND tenant_id = ?`,
+      [rows.map((r) => r.id), tenantId]
+    );
+
+    const [[order]] = await conn.query(
+      `SELECT o.id, o.token_no, o.table_id, o.delivery_type, st.table_title
+       FROM orders o LEFT JOIN store_tables st ON st.id = o.table_id AND st.tenant_id = o.tenant_id
+       WHERE o.id = ? AND o.tenant_id = ?`,
+      [orderId, tenantId]
+    );
+    const [[remaining]] = await conn.query(
+      `SELECT COUNT(*) AS held FROM order_items WHERE order_id = ? AND tenant_id = ? AND fire_status = 'held' AND status <> 'cancelled'`,
+      [orderId, tenantId]
+    );
+    await conn.commit();
+
+    const fired = rows.map((r) => {
+      let addonIds = [];
+      try {
+        addonIds = r.addons ? JSON.parse(r.addons) : [];
+      } catch {
+        addonIds = [];
+      }
+      return {
+        id: r.item_id,
+        order_item_id: r.id,
+        title: r.item_title,
+        variant: r.variant_title ? { title: r.variant_title } : null,
+        quantity: r.quantity,
+        notes: r.notes,
+        addons_ids: addonIds,
+        course: r.course,
+        seat: r.seat_no,
+        kitchen_station_id: r.kitchen_station_id,
+        kitchen_station_name: r.station_name,
+      };
+    });
+
+    return { fired, order, stillHeld: Number(remaining?.held || 0) };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
   }
 };

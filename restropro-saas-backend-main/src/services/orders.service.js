@@ -437,6 +437,9 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
         oi.adjust_reason,
         oi.adjust_discount_type,
         oi.adjust_discount_value,
+        oi.course,
+        oi.seat_no,
+        oi.fire_status,
         mi.tax_id,
         t.title as tax_title,
         t.rate as tax_rate,
@@ -865,8 +868,9 @@ exports.moveOrderItemsDB = async (sourceOrderId, destinationTableId, itemsToMove
           [moveQty, itemId, tenantId]
         );
         await conn.query(
-          `INSERT INTO order_items (order_id, item_id, variant_id, price, quantity, status, date, notes, addons, tenant_id, kitchen_station_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO order_items (order_id, item_id, variant_id, price, quantity, status, date, notes, addons, tenant_id, kitchen_station_id,
+             course, seat_no, fire_status, fired_at, original_price, adjust_type, adjust_reason, adjust_note, adjust_discount_type, adjust_discount_value, adjusted_by, adjust_approved_by, adjusted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             destinationOrderId,
             currentItem.item_id,
@@ -879,6 +883,19 @@ exports.moveOrderItemsDB = async (sourceOrderId, destinationTableId, itemsToMove
             currentItem.addons,
             tenantId,
             currentItem.kitchen_station_id,
+            currentItem.course ?? null,
+            currentItem.seat_no ?? null,
+            currentItem.fire_status || "fired",
+            currentItem.fired_at || null,
+            currentItem.original_price ?? null,
+            currentItem.adjust_type || null,
+            currentItem.adjust_reason || null,
+            currentItem.adjust_note || null,
+            currentItem.adjust_discount_type || null,
+            currentItem.adjust_discount_value ?? null,
+            currentItem.adjusted_by || null,
+            currentItem.adjust_approved_by || null,
+            currentItem.adjusted_at || null,
           ]
         );
       }
@@ -975,8 +992,9 @@ exports.splitCheckByItemsDB = async (sourceOrderId, itemsToSplit = [], tenantId,
           [splitQty, itemId, tenantId]
         );
         await conn.query(
-          `INSERT INTO order_items (order_id, item_id, variant_id, price, quantity, status, date, notes, addons, tenant_id, kitchen_station_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO order_items (order_id, item_id, variant_id, price, quantity, status, date, notes, addons, tenant_id, kitchen_station_id,
+             course, seat_no, fire_status, fired_at, original_price, adjust_type, adjust_reason, adjust_note, adjust_discount_type, adjust_discount_value, adjusted_by, adjust_approved_by, adjusted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             splitOrderId,
             currentItem.item_id,
@@ -989,6 +1007,19 @@ exports.splitCheckByItemsDB = async (sourceOrderId, itemsToSplit = [], tenantId,
             currentItem.addons,
             tenantId,
             currentItem.kitchen_station_id,
+            currentItem.course ?? null,
+            currentItem.seat_no ?? null,
+            currentItem.fire_status || "fired",
+            currentItem.fired_at || null,
+            currentItem.original_price ?? null,
+            currentItem.adjust_type || null,
+            currentItem.adjust_reason || null,
+            currentItem.adjust_note || null,
+            currentItem.adjust_discount_type || null,
+            currentItem.adjust_discount_value ?? null,
+            currentItem.adjusted_by || null,
+            currentItem.adjust_approved_by || null,
+            currentItem.adjusted_at || null,
           ]
         );
       }

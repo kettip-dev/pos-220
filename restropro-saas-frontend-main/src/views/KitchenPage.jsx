@@ -148,7 +148,17 @@ export default function KitchenPage() {
       if (!silent) setIsRefreshing(true);
       try {
         const res = await getKitchenOrders();
-        if (res.status === 200) setOrders(Array.isArray(res.data) ? res.data : []);
+        if (res.status === 200) {
+          // Held courses are not cooked yet: keep them off the line, show a hint instead.
+          const list = (Array.isArray(res.data) ? res.data : [])
+            .map((o) => {
+              const items = Array.isArray(o.items) ? o.items : [];
+              const heldItems = items.filter((i) => i.fire_status === "held" && i.status !== "cancelled");
+              return heldItems.length ? { ...o, items: items.filter((i) => i.fire_status !== "held"), heldItems } : o;
+            })
+            .filter((o) => !Array.isArray(o.items) || o.items.length > 0);
+          setOrders(list);
+        }
       } catch (error) {
         console.error(error);
         if (!silent) toast.error(tRef.current("kitchen.error_loading_orders", "Error loading kitchen orders"));

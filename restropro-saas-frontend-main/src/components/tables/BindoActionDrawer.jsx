@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   IconX,
+  IconFlame,
   IconArrowsExchange,
   IconLink,
   IconUnlink,
@@ -48,6 +49,7 @@ export default function BindoActionDrawer({
   onPayTable = () => {},
   onOpenCustomerModal = () => {},
   onVoidItem = () => {},
+  onFireCourse = null,
   activeOrderSummary = null,
   isLoadingOrderSummary = false,
   onEditTable = () => {},
@@ -152,6 +154,35 @@ export default function BindoActionDrawer({
   if (!isOpen) return null;
 
   const orderItemsList = (activeOrderSummary?.orders || []).flatMap((ord) => ord.items || []);
+
+  // Hold & fire: one button per held course on each order of this table.
+  const heldCourses = Object.values(
+    orderItemsList
+      .filter((i) => i.fire_status === "held")
+      .reduce((acc, i) => {
+        const key = `${i.order_id}-${i.course || 0}`;
+        if (!acc[key]) acc[key] = { orderId: i.order_id, course: i.course || null, qty: 0 };
+        acc[key].qty += Number(i.quantity || 1);
+        return acc;
+      }, {})
+  ).sort((a, b) => (a.course || 0) - (b.course || 0));
+
+  const fireBar = onFireCourse && heldCourses.length > 0 ? (
+    <div className="flex flex-wrap gap-1.5 px-2.5 pt-2">
+      {heldCourses.map((hc) => (
+        <button
+          key={`${hc.orderId}-${hc.course}`}
+          type="button"
+          onClick={() => onFireCourse(hc.orderId, hc.course)}
+          className="min-h-[42px] px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-black flex items-center gap-1.5 active:scale-95 transition cursor-pointer shadow-sm"
+        >
+          <IconFlame size={16} />
+          {t("pos_ops.fire_course", "Fire course {{course}}", { course: hc.course || "" })}
+          <span className="px-1.5 rounded-md bg-white/25 tabular-nums">{hc.qty}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
   const isSplitInProgress =
     (selectedTable?.active_split_status || selectedTable?.split_status) === "split_in_progress" ||
     activeOrderSummary?.kitchenOrders?.[0]?.split_status === "split_in_progress";
@@ -543,6 +574,8 @@ export default function BindoActionDrawer({
                     </div>
                   )}
 
+                  {fireBar}
+
                   {/* Scrollable Order Items List - Fills full vertical height */}
                   <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-1.5">
                     {isLoadingOrderSummary ? (
@@ -569,6 +602,13 @@ export default function BindoActionDrawer({
                                 <span className="font-extrabold text-slate-900 dark:text-white text-xs">
                                   {item.quantity}x {itemName}
                                 </span>
+                                {item.fire_status === "held" && (
+                                  <span className="text-[9px] px-1.5 rounded bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 font-black shrink-0 uppercase">
+                                    {t("pos_ops.hold", "Hold")} C{item.course || "?"}
+                                  </span>
+                                )}{item.seat_no ? (
+                                  <span className="text-[9px] px-1.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-black shrink-0">S{item.seat_no}</span>
+                                ) : null}
                                 {item.adjust_type && (
                                   <span className="text-[9px] px-1.5 rounded bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-black shrink-0 uppercase">
                                     {item.adjust_type === "comp" ? t("pos_ops.comp", "Comp") : t("pos_ops.discount", "Discount")}
@@ -775,6 +815,7 @@ export default function BindoActionDrawer({
                       </div>
                     ) : orderItemsList.length > 0 ? (
                       <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 text-xs">
+                        {fireBar}
                         {orderItemsList.map((item, idx) => {
                           const itemName = item.item_title || item.title || t("common.item", "Item");
                           const addonsSum = Array.isArray(item.addons)
@@ -793,6 +834,13 @@ export default function BindoActionDrawer({
                                   <span className="font-bold text-slate-800 dark:text-slate-100 truncate">
                                     {item.quantity}x {itemName}
                                   </span>
+                                  {item.fire_status === "held" && (
+                                    <span className="text-[9px] px-1.5 rounded bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 font-black shrink-0 uppercase">
+                                      {t("pos_ops.hold", "Hold")} C{item.course || "?"}
+                                    </span>
+                                  )}{item.seat_no ? (
+                                    <span className="text-[9px] px-1.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-black shrink-0">S{item.seat_no}</span>
+                                  ) : null}
                                   {item.adjust_type && (
                                     <span className="text-[9px] px-1.5 rounded bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-black shrink-0 uppercase">
                                       {item.adjust_type === "comp" ? t("pos_ops.comp", "Comp") : t("pos_ops.discount", "Discount")}

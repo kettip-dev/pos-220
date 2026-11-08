@@ -675,7 +675,8 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
       ctx.textAlign = "left";
       ctx.font = `bold ${paperSize === 58 ? 20 : 26}px ${FONT_FAMILY}`;
 
-      const titleLines = wrapTextLines(ctx, `${qty}x  ${itemTitle}`, contentWidth);
+      const seatTag = item.seat || item.seat_no ? `  [S${item.seat || item.seat_no}]` : "";
+      const titleLines = wrapTextLines(ctx, `${qty}x  ${itemTitle}${seatTag}`, contentWidth);
       titleLines.forEach((tl, idx) => {
         ctx.fillText(tl, padding, y);
         y += paperSize === 58 ? 24 : 30;

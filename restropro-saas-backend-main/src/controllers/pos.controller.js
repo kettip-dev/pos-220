@@ -704,3 +704,30 @@ exports.getLineAdjustments = async (req, res) => {
     return lineAdjustError(req, res, error);
   }
 };
+
+// ─── Hold & fire courses ──────────────────────────────────
+
+exports.fireOrderItems = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const orderId = Number(req.params.id);
+    const { course, itemIds } = req.body || {};
+    const { fireHeldItemsDB } = require("../services/pos.service");
+    const result = await fireHeldItemsDB(tenantId, orderId, { course: course ? Number(course) : null, itemIds });
+    if (result.fired.length === 0) {
+      return res.status(200).json({ success: true, fired: [], message: "Nothing on hold" });
+    }
+
+    const io = req.app.get("io");
+    if (io) {
+      const room = String(tenantId);
+      io.to(room).emit("new_order", result.order?.token_no);
+      io.to(room).emit("order_update", { source: "pos", orderId, action: "fired", course: course || null });
+      io.to(room).emit("table_status_update", { action: "course_fired", orderId, tableId: result.order?.table_id || null });
+    }
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};

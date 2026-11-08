@@ -37,6 +37,7 @@ import POSSplitBillDrawer from "../components/pos/POSSplitBillDrawer";
 import MergeTableModal from "../components/tables/MergeTableModal";
 import { triggerPrintReceipt, triggerPrintToken } from "../helpers/ReceiptHelper";
 import POSLineAdjustDrawer from "../components/pos/POSLineAdjustDrawer";
+import { fireOrderItems } from "../controllers/pos.controller";
 import { CURRENCIES } from "../config/currencies.config";
 import BindoTopBar from "../components/tables/BindoTopBar";
 import BindoBottomBar from "../components/tables/BindoBottomBar";
@@ -637,6 +638,35 @@ export default function TablesPage() {
     }
   };
 
+  // Hold & fire: send a held course to the kitchen and print its ticket.
+  const handleFireCourse = async (orderId, course) => {
+    try {
+      const res = await fireOrderItems(orderId, course);
+      const fired = res?.data?.fired || [];
+      if (fired.length === 0) {
+        toast(t("pos_ops.nothing_on_hold", "Nothing on hold"));
+      } else {
+        toast.success(t("pos_ops.course_fired", "Course {{course}} sent to the kitchen", { course: course || "" }));
+        const order = res.data.order || {};
+        triggerPrintToken({
+          tokenNo: order.token_no,
+          orderId: order.id,
+          tableId: order.table_id,
+          tableName: order.table_title,
+          deliveryType: order.delivery_type,
+          ticketBanner: course ? `FIRE COURSE ${course}` : "FIRE",
+          cartItems: fired,
+          printSettings: printSettingsData,
+          storeSettings,
+        }).catch(() => {});
+      }
+      await refreshActiveSummary();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || t("common.error", "Something went wrong"));
+    }
+  };
+
   const handleOrderItemAdjusted = async (result) => {
     const itemName = adjustTarget?.item_title || adjustTarget?.title || "Item";
     if (result?.action === "void") {
@@ -972,6 +1002,7 @@ export default function TablesPage() {
                 onPayTable={handlePayTable}
                 onOpenCustomerModal={handleOpenCustomerModal}
                 onVoidItem={handleVoidOrderItem}
+                onFireCourse={handleFireCourse}
                 activeOrderSummary={activeOrderSummary}
                 isLoadingOrderSummary={isLoadingOrderSummary}
                 onEditTable={(table) => {
@@ -1008,6 +1039,7 @@ export default function TablesPage() {
             onPayTable={handlePayTable}
             onOpenCustomerModal={handleOpenCustomerModal}
             onVoidItem={handleVoidOrderItem}
+                onFireCourse={handleFireCourse}
             activeOrderSummary={activeOrderSummary}
             isLoadingOrderSummary={isLoadingOrderSummary}
             onEditTable={(table) => {

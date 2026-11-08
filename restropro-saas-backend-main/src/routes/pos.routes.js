@@ -31,6 +31,7 @@ const {
   authorizeLineAdjustment,
   adjustOrderItem,
   getLineAdjustments,
+  fireOrderItems,
 } = require("../controllers/pos.controller");
 const {
   getPrintAgents,
@@ -312,6 +313,17 @@ router.get(
   isSubscriptionActive,
   authorize([SCOPES.REPORTS, SCOPES.VIEW_INVOICE_AUDIT_LOG]),
   getLineAdjustments
+);
+
+// ─── Hold & fire courses ──────────────────────────────────
+
+router.post(
+  "/orders/:id/fire",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.ORDERS, SCOPES.WAITER]),
+  fireOrderItems
 );
 
 module.exports = router;

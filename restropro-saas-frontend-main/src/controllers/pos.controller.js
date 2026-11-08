@@ -129,3 +129,8 @@ export async function adjustOrderItem(orderItemId, payload) {
 export async function getLineAdjustments(from, to) {
   return ApiClient.get(`/pos/line-adjustments`, { params: { from, to } });
 }
+
+// ─── Hold & fire courses ──────────────────────────────────
+export async function fireOrderItems(orderId, course = null, itemIds = null) {
+  return ApiClient.post(`/pos/orders/${orderId}/fire`, { course, itemIds });
+}

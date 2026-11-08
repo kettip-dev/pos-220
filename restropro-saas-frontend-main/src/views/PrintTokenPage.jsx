@@ -70,6 +70,7 @@ export default function PrintTokenPage() {
           <p className="font-bold">
             {title} {variant && <span>- {variant.title}</span>}
             {station && <span className="font-normal text-xs uppercase ml-1">[{station}]</span>}
+            {(cartItem.seat || cartItem.seat_no) && <span className="ml-1">[S{cartItem.seat || cartItem.seat_no}]</span>}
           </p>
           {addons_ids?.length > 0 && <p className='text-xs'>Addons:
           {addons_ids.map((addonId, index)=>{
