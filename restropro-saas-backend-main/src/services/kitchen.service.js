@@ -66,6 +66,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.seat_no,
         oi.fire_status,
         oi.fired_at,
+        mi.prep_minutes,
         oi.kitchen_station_id,
         ks.name AS station_name,
         ks.color AS station_color,

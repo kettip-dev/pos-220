@@ -49,6 +49,7 @@ import {
   loadKdsSettings,
   saveKdsSettings,
   toMs,
+  allDayKey,
 } from "../components/kitchen/kdsUtils";
 
 const GRID_MIN_WIDTH = { sm: 280, md: 330, lg: 400 };
@@ -405,6 +406,27 @@ export default function KitchenPage() {
       .sort((a, b) => (b.bumpedAtMs || 0) - (a.bumpedAtMs || 0));
   }, [orders, selectedStationId]);
 
+  // All-day: how many of each dish are still to cook across the tickets on screen.
+  const [allDayFocus, setAllDayFocus] = useState(null);
+  const allDay = useMemo(() => {
+    const map = new Map();
+    tickets.forEach((tk) =>
+      tk.displayItems
+        .filter((i) => i.status === "created" || i.status === "preparing")
+        .forEach((i) => {
+          const key = allDayKey(i);
+          const entry = map.get(key) || { key, title: i.item_title, variant: i.variant_title, qty: 0, tickets: 0 };
+          entry.qty += Number(i.quantity || 1);
+          entry.tickets += 1;
+          map.set(key, entry);
+        })
+    );
+    return [...map.values()].sort((a, b) => b.qty - a.qty);
+  }, [tickets]);
+  useEffect(() => {
+    if (allDayFocus && !allDay.some((a) => a.key === allDayFocus)) setAllDayFocus(null);
+  }, [allDay, allDayFocus]);
+
   const stats = useMemo(() => {
     const newCount = tickets.filter((tk) => tk.displayItems.filter(isItemActive).every((i) => i.status === "created")).length;
     const cookingCount = tickets.filter((tk) => tk.displayItems.some((i) => i.status === "preparing")).length;
@@ -716,6 +738,35 @@ export default function KitchenPage() {
         </div>
       </div>
 
+      {/* ── All-day counts ── */}
+      {settings.showAllDay !== false && allDay.length > 0 && (
+        <div className="shrink-0 px-4 sm:px-5 pt-3 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[color:var(--kds-faint)] shrink-0">
+            {t("pos_ops.all_day", "All day")}
+          </span>
+          {allDay.slice(0, 24).map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => setAllDayFocus((k) => (k === a.key ? null : a.key))}
+              aria-pressed={allDayFocus === a.key}
+              className={clsx(
+                "shrink-0 min-h-[42px] px-3 rounded-xl border text-sm font-bold flex items-center gap-2 transition active:scale-95",
+                allDayFocus === a.key
+                  ? "bg-amber-400 text-slate-950 border-amber-400"
+                  : "bg-[var(--kds-chip)] border-[color:var(--kds-line)] text-[color:var(--kds-text)] hover:bg-[var(--kds-chip-hover)]"
+              )}
+            >
+              <span className="tabular-nums font-black">{a.qty}×</span>
+              <span className="truncate max-w-[180px]">
+                {a.title}
+                {a.variant ? ` · ${a.variant}` : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Ticket rail ── */}
       <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-4 sm:px-5 py-4" onClick={() => setSelectedTicketId(null)}>
         {isLoading ? (
@@ -790,6 +841,8 @@ export default function KitchenPage() {
                 }}
                 onAdvanceItem={advanceItem}
                 onUndoItem={undoItem}
+                highlightKey={allDayFocus}
+                nowMs={now}
                 onStartAll={() => startAll(tk.order)}
                 onBump={() => bumpTicket(tk.order)}
               />

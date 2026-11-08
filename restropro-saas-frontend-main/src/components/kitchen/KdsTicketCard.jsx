@@ -19,6 +19,8 @@ import {
   formatDuration,
   getOrderTitle,
   isAddedLater,
+  itemOverTarget,
+  allDayKey,
   isItemDone,
 } from "./kdsUtils";
 
@@ -90,6 +92,8 @@ export default function KdsTicketCard({
   onUndoItem,
   onStartAll,
   onBump,
+  highlightKey = null,
+  nowMs = null,
 }) {
   const { t } = useTranslation();
   const { displayOrderItem } = useMenuLanguage();
@@ -193,6 +197,8 @@ export default function KdsTicketCard({
           const view = displayOrderItem(item);
           const addonsText = Array.isArray(view.addons) && view.addons.length > 0 ? view.addons.map((a) => a.title).filter(Boolean).join(", ") : null;
           const addedLater = isAddedLater(order, item);
+          const overSec = itemOverTarget(item, nowMs || Date.now());
+          const isFocused = Boolean(highlightKey) && allDayKey(item) === highlightKey;
 
           return (
             <li key={item.id}>
@@ -209,6 +215,7 @@ export default function KdsTicketCard({
                   S.row,
                   !done && "hover:bg-[var(--kds-chip-hover)] active:bg-[var(--kds-soft)]",
                   item.status === "preparing" && "bg-amber-400/[0.05]",
+                  isFocused && "ring-2 ring-inset ring-amber-400 bg-amber-400/[0.12]",
                   done ? "cursor-default" : "cursor-pointer"
                 )}
                 title={
@@ -263,8 +270,20 @@ export default function KdsTicketCard({
                     </span>
                   )}
 
-                  {(isExpo && item.station_name) || addedLater || item.seat_no || Number(item.course) > 1 ? (
+                  {(isExpo && item.station_name) || addedLater || item.seat_no || Number(item.course) > 1 || overSec !== null ? (
                     <span className="mt-1 flex flex-wrap gap-1">
+                      {overSec !== null && (
+                        <span
+                          className={clsx(
+                            "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black border",
+                            overSec > 0 ? "bg-rose-500/20 text-rose-300 border-rose-500/40" : "bg-[var(--kds-soft)] text-[color:var(--kds-muted)] border-[color:var(--kds-line)]"
+                          )}
+                        >
+                          {overSec > 0
+                            ? t("pos_ops.over_target", "+{{time}} over", { time: formatDuration(overSec) })
+                            : t("pos_ops.target_left", "{{time}} left", { time: formatDuration(-overSec) })}
+                        </span>
+                      )}
                       {item.seat_no ? (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                           S{item.seat_no}

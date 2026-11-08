@@ -1,4 +1,4 @@
-const { setMenuItemBarcodeDB } = require("../services/menu_item.service");
+const { setMenuItemBarcodeDB, setMenuItemPrepMinutesDB } = require("../services/menu_item.service");
 const { addMenuItemDB, updateMenuItemDB, deleteMenuItemDB, addMenuItemAddonDB, updateMenuItemAddonDB, deleteMenuItemAddonDB, changeMenuItemAddonAvailabilityDB, getMenuItemAddonsDB, getAllAddonsDB, addMenuItemVariantDB, updateMenuItemVariantDB, deleteMenuItemVariantDB, getMenuItemVariantsDB, getAllVariantsDB, getAllMenuItemsDB, getMenuItemDB, updateMenuItemImageDB, changeMenuItemVisibilityDB, getRecipeItemsDB, addRecipeItemDB, deleteRecipeItemDB, updateRecipeItemDB } = require("../services/menu_item.service");
 const { bingSearchImages } = require("../services/image_search.service");
 const { sanitizeTranslations } = require("../utils/menuTranslations");
@@ -816,6 +816,17 @@ exports.setMenuItemBarcode = async (req, res) => {
         return res.status(200).json({ success: true });
     } catch (error) {
         if (error.statusCode === 409) return res.status(409).json({ success: false, message: error.message });
+        console.error(error);
+        return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+    }
+};
+
+
+exports.setMenuItemPrepMinutes = async (req, res) => {
+    try {
+        await setMenuItemPrepMinutesDB(Number(req.params.id), req.body?.prepMinutes, req.user.tenant_id);
+        return res.status(200).json({ success: true });
+    } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
     }

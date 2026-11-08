@@ -186,6 +186,9 @@ exports.ensurePosFeaturesSchema = async (pool) => {
     if (bidx.length === 0) {
       await conn.query(`ALTER TABLE menu_items ADD INDEX idx_menu_items_barcode (tenant_id, barcode)`);
     }
+
+    // 10. KDS: target prep time per item (minutes); NULL = use the screen's thresholds
+    await addColumnIfMissing(conn, "menu_items", "prep_minutes", "SMALLINT NULL DEFAULT NULL");
   } finally {
     conn.release();
   }

@@ -17,6 +17,7 @@ import {
   selectMenuItemImageSuggestion,
   updateMenuItem,
   setMenuItemBarcode,
+  setMenuItemPrepMinutes,
   updateMenuItemRecipeItem,
   updateMenuItemVariant,
   uploadMenuItemPhoto,
@@ -85,6 +86,7 @@ export default function MenuItemViewPage() {
   const [formPrice, setFormPrice] = useState("");
   const [formNetPrice, setFormNetPrice] = useState("");
   const [formBarcode, setFormBarcode] = useState("");
+  const [formPrepMinutes, setFormPrepMinutes] = useState("");
   const [formCategoryId, setFormCategoryId] = useState("");
   const [formTaxId, setFormTaxId] = useState("");
   const [formKitchenStationId, setFormKitchenStationId] = useState("");
@@ -176,6 +178,7 @@ export default function MenuItemViewPage() {
         );
         setFormCategoryId(item.category_id ? String(item.category_id) : "");
         setFormBarcode(item.barcode || "");
+        setFormPrepMinutes(item.prep_minutes ? String(item.prep_minutes) : "");
         setFormTaxId(item.tax_id ? String(item.tax_id) : "");
         setFormKitchenStationId(
           item.kitchen_station_id ? String(item.kitchen_station_id) : ""
@@ -253,6 +256,9 @@ export default function MenuItemViewPage() {
         // Barcode is saved separately (unique per business).
         if ((formBarcode || "").trim() !== (state.menuItem?.barcode || "")) {
           await setMenuItemBarcode(id, formBarcode.trim() || null);
+        }
+        if (String(formPrepMinutes || "") !== String(state.menuItem?.prep_minutes || "")) {
+          await setMenuItemPrepMinutes(id, formPrepMinutes === "" ? null : Number(formPrepMinutes));
         }
         await _init(itemId);
         toast.dismiss();
@@ -1124,6 +1130,26 @@ export default function MenuItemViewPage() {
                     placeholder="0.00"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="prep_minutes"
+                  className="text-xs font-bold uppercase tracking-wide mb-1.5 block text-gray-500"
+                >
+                  {t("pos_ops.prep_minutes", "Target prep time on the kitchen screen (minutes, optional)")}
+                </label>
+                <input
+                  id="prep_minutes"
+                  value={formPrepMinutes}
+                  onChange={(e) => setFormPrepMinutes(e.target.value)}
+                  type="number"
+                  min="1"
+                  max="240"
+                  inputMode="numeric"
+                  className="min-h-[44px] text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray"
+                  placeholder={t("pos_ops.prep_minutes_ph", "e.g. 12")}
+                />
               </div>
 
               <div>

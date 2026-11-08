@@ -145,6 +145,17 @@ export default function KdsSettingsPopover({ open, onClose, settings, onChange, 
           />
         </div>
         <div>
+          <p className="text-xs font-semibold text-[color:var(--kds-muted)] mb-1.5">{t("pos_ops.all_day_bar", "All-day counts")}</p>
+          <Segmented
+            value={settings.showAllDay === false ? "off" : "on"}
+            onChange={(v) => set({ showAllDay: v === "on" })}
+            options={[
+              { id: "on", label: t("pos_ops.show", "Show") },
+              { id: "off", label: t("pos_ops.hide", "Hide") },
+            ]}
+          />
+        </div>
+        <div>
           <p className="text-xs font-semibold text-[color:var(--kds-muted)] mb-1.5">{t("kitchen.kds.ticket_order", "Ticket order")}</p>
           <Segmented
             value={settings.sortOrder}
