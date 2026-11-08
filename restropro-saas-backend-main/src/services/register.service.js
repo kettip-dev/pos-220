@@ -1136,6 +1136,13 @@ exports.closeBusinessDayDB = async (tenantId, { username, carryOverOpenOrders = 
     );
     await writeAuditTx(conn, { tenantId, action: "DAY_CLOSE", details: { businessDate, ...totals }, performedBy: username });
     await conn.commit();
+    // New business day: items 86'd for the shift come back automatically.
+    try {
+      const { resetSoldOutDB } = require("./menu_availability.service");
+      summary.sold_out_reset = await resetSoldOutDB(tenantId, "auto");
+    } catch (e) {
+      console.error("[register.service] sold-out reset after day close failed:", e.message);
+    }
     return summary;
   } catch (error) {
     await conn.rollback();

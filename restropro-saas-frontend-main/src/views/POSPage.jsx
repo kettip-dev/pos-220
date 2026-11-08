@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2 } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
 import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
@@ -31,6 +31,8 @@ import POSQROrdersDrawer from '../components/pos/POSQROrdersDrawer';
 import POSPaymentSuccessModal from '../components/pos/POSPaymentSuccessModal';
 import POSPromotionDrawer from '../components/pos/POSPromotionDrawer';
 import POSSplitBillDrawer from '../components/pos/POSSplitBillDrawer';
+import POSSoldOutDrawer from '../components/pos/POSSoldOutDrawer';
+import POSLineAdjustDrawer, { reasonLabel } from '../components/pos/POSLineAdjustDrawer';
 import { useActivePromotions } from '../controllers/promotions.controller';
 import { 
   evaluateCartPromotions, 
@@ -67,6 +69,8 @@ export default function POSPage() {
   const [isQrOrdersDrawerOpen, setIsQrOrdersDrawerOpen] = useState(false);
   const [isPromotionDrawerOpen, setIsPromotionDrawerOpen] = useState(false);
   const [isSplitDrawerOpen, setIsSplitDrawerOpen] = useState(false);
+  const [soldOutDrawer, setSoldOutDrawer] = useState({ open: false, itemId: null });
+  const [adjustLineIndex, setAdjustLineIndex] = useState(null);
   const [splitBillOrder, setSplitBillOrder] = useState(null);
 
   // Cash register session for this device
@@ -83,6 +87,35 @@ export default function POSPage() {
     socket.on("register_update", handleRegisterUpdate);
     return () => socket.off("register_update", handleRegisterUpdate);
   }, [socket, mutateRegisterStatus]);
+
+  // 86 board: merge availability changes pushed by any terminal / QR order.
+  const applyAvailabilityChanges = (items) => {
+    if (!items) {
+      setState((prev) => ({
+        ...prev,
+        menuItems: (prev.menuItems || []).map((m) => ({ ...m, is_sold_out: 0, stock_limit: null })),
+      }));
+      return;
+    }
+    const byId = new Map(items.map((i) => [String(i.id), i]));
+    setState((prev) => ({
+      ...prev,
+      menuItems: (prev.menuItems || []).map((m) => {
+        const change = byId.get(String(m.id));
+        return change ? { ...m, ...change } : m;
+      }),
+    }));
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleAvailability = (payload) => {
+      if (payload?.reset) applyAvailabilityChanges(null);
+      else if (Array.isArray(payload?.items)) applyAvailabilityChanges(payload.items);
+    };
+    socket.on("menu_availability_update", handleAvailability);
+    return () => socket.off("menu_availability_update", handleAvailability);
+  }, [socket]);
 
   // Ask once per visit to open a register when payments require one.
   useEffect(() => {
@@ -266,7 +299,10 @@ export default function POSPage() {
     };
     if (getNormalizedAddons(itemA) !== getNormalizedAddons(itemB)) return false;
 
-    // 4. Notes: items with different custom notes should stay on separate lines
+    // 4. Comped / discounted lines carry a single-use approval: never merge them
+    if (itemA.adjust?.type || itemB.adjust?.type) return false;
+
+    // 5. Notes: items with different custom notes should stay on separate lines
     const noteA = (itemA.notes || '').trim();
     const noteB = (itemB.notes || '').trim();
     if (noteA !== noteB) return false;
@@ -334,6 +370,11 @@ export default function POSPage() {
     });
     return counts;
   }, [menuItems]);
+
+  const soldOutCount = React.useMemo(
+    () => (menuItems || []).filter((m) => m.is_enabled && Number(m.is_sold_out) === 1).length,
+    [menuItems]
+  );
 
   const handleMinusItemByMenuId = (menuItemId) => {
     const index = cartItems.findIndex(c => c.id === menuItemId && !c.variant && (!c.addons || c.addons.length === 0));
@@ -991,8 +1032,32 @@ export default function POSPage() {
     return true;
   }
 
+  /**
+   * Sold-out / portions-left guard. `extraQty` is how many more of this menu
+   * item would be on the ticket after the action. Returns true when blocked.
+   */
+  function isBlockedBySoldOut(itemOrId, extraQty = 1, { silent = false } = {}) {
+    const id = typeof itemOrId === 'object' ? itemOrId?.id : itemOrId;
+    const live = (state.menuItems || []).find((m) => String(m.id) === String(id));
+    if (!live) return false;
+    const label = live.title;
+    if (Number(live.is_sold_out) === 1) {
+      if (!silent) toast.error(t('pos_ops.item_sold_out', '{{name}} is sold out', { name: label }));
+      return true;
+    }
+    if (live.stock_limit !== null && live.stock_limit !== undefined) {
+      const inCart = (state.cartItems || []).reduce((acc, c) => (String(c.id) === String(id) ? acc + (Number(c.quantity) || 0) : acc), 0);
+      if (inCart + extraQty > Number(live.stock_limit)) {
+        if (!silent) toast.error(t('pos_ops.only_n_left', 'Only {{count}} {{name}} left', { count: live.stock_limit, name: label }));
+        return true;
+      }
+    }
+    return false;
+  }
+
   function addItemToCart(item) {
     const quantityToAdd = Number(item.quantity) || 1;
+    if (isBlockedBySoldOut(item, quantityToAdd)) return;
     const modifiedItem = {
       ...item,
       quantity: quantityToAdd,
@@ -1059,6 +1124,7 @@ export default function POSPage() {
   function addCartItemQuantity(index, currentQuantity) {
     const newQuantity = currentQuantity + 1;
     const newCartItems = cartItems;
+    if (isBlockedBySoldOut(newCartItems[index], 1)) return;
 
     if (!canPrepareMenuItem(newCartItems[index], newQuantity, newCartItems[index].variant_id, newCartItems[index].addons_ids)) {
       toast.error(t('inventory.insufficient_stock_message_pos'));
@@ -1188,6 +1254,7 @@ export default function POSPage() {
   const btnOpenVariantAndAddonModal = (menuItemId) => {
     const selectedItem = menuItems.find((item) => String(item.id) === String(menuItemId));
     if (!selectedItem) return;
+    if (isBlockedBySoldOut(selectedItem, 1)) return;
 
     setActiveCustomizingItem(selectedItem);
     setIsModifierDrawerOpen(true);
@@ -1210,6 +1277,7 @@ export default function POSPage() {
 
   const handleAddConfiguredItemToCart = (configuredItem) => {
     const quantityToAdd = Number(configuredItem.quantity) || 1;
+    if (isBlockedBySoldOut(configuredItem, quantityToAdd)) return;
 
     // If 'Add to Same Line' is enabled, check if identical configured item is already in cart
     if (isAddSameLine && state.cartItems && state.cartItems.length > 0) {
@@ -2268,11 +2336,35 @@ export default function POSPage() {
     }
   };
 
+  // Comp / discount on an unsent cart line (approval token travels with the line)
+  const handleCartLineAdjusted = (result) => {
+    if (adjustLineIndex === null) return;
+    setState((prev) => {
+      const next = [...(prev.cartItems || [])];
+      const line = next[adjustLineIndex];
+      if (!line) return prev;
+      if (result.action === 'restore') {
+        next[adjustLineIndex] = { ...line, price: Number(line.adjust?.original_price ?? line.price) };
+        delete next[adjustLineIndex].adjust;
+      } else {
+        next[adjustLineIndex] = { ...line, price: result.unitPrice, adjust: result.adjust };
+      }
+      return { ...prev, cartItems: next };
+    });
+    if (result.action === 'comp') toast.success(t('pos_ops.line_comped', 'Item comped'));
+    else if (result.action === 'discount') toast.success(t('pos_ops.line_discounted', 'Discount applied'));
+  };
+
   // Duplicate Cart Item (Speed action)
   const handleDuplicateCartItem = (index) => {
     const itemToDuplicate = cartItems[index];
     if (!itemToDuplicate) return;
     const newItem = { ...itemToDuplicate };
+    // The approval is single use: the copy goes back to full price.
+    if (newItem.adjust) {
+      newItem.price = Number(newItem.adjust.original_price ?? newItem.price);
+      delete newItem.adjust;
+    }
     setState(prev => ({
       ...prev,
       cartItems: [...prev.cartItems, newItem]
@@ -2720,6 +2812,20 @@ export default function POSPage() {
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
             <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSoldOutDrawer({ open: true, itemId: null })}
+                title={t('pos_ops.sold_out_board', '86 board')}
+                aria-label={t('pos_ops.sold_out_board', '86 board')}
+                className="relative min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+              >
+                <IconBan size={18} stroke={iconStroke} />
+                {soldOutCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
+                    {soldOutCount}
+                  </span>
+                )}
+              </button>
               <MenuLanguageSwitcher />
               <button
                 type="button"
@@ -2758,6 +2864,7 @@ export default function POSPage() {
                 onMinusItem={handleMinusItemByMenuId}
                 cartItems={cartItems}
                 onItemHover={handleItemHover}
+                onItemLongPress={(itemId) => setSoldOutDrawer({ open: true, itemId })}
                 onScroll={handleMenuScroll}
               />
             ) : (
@@ -2772,6 +2879,7 @@ export default function POSPage() {
                 onMinusItem={handleMinusItemByMenuId}
                 cartItems={cartItems}
                 onItemHover={handleItemHover}
+                onItemLongPress={(itemId) => setSoldOutDrawer({ open: true, itemId })}
                 onScroll={handleMenuScroll}
               />
             )}
@@ -3057,6 +3165,26 @@ export default function POSPage() {
                             </div>
                           )}
 
+                          {/* Comp / discount badge */}
+                          {cartItem.adjust?.type && (
+                            <div className="mt-1 flex items-center gap-1">
+                              <span className={clsx(
+                                "text-[10px] font-black px-1.5 py-0.5 rounded border flex items-center gap-1 uppercase",
+                                cartItem.adjust.type === 'comp'
+                                  ? "bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-800"
+                                  : "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                              )}>
+                                {cartItem.adjust.type === 'comp' ? <IconGift size={11} /> : <IconDiscount2 size={11} />}
+                                {cartItem.adjust.type === 'comp'
+                                  ? t('pos_ops.comp', 'Comp')
+                                  : cartItem.adjust.discount_type === 'percent'
+                                    ? `-${cartItem.adjust.discount_value}%`
+                                    : `-${currency}${Number(cartItem.adjust.discount_value || 0).toFixed(2)}`}
+                                <span className="font-semibold normal-case opacity-80">· {reasonLabel(t, cartItem.adjust.reason_code)}</span>
+                              </span>
+                            </div>
+                          )}
+
                           {/* Existing notes indicator */}
                           {notes && !isEditingThisNote && (
                             <div 
@@ -3087,7 +3215,10 @@ export default function POSPage() {
                           ) : (
                             <>
                               <p className="font-black text-gray-900 dark:text-white text-sm font-mono">{currency}{itemTotal.toFixed(2)}</p>
-                              <p className="text-[10px] text-gray-400 font-mono">{currency}{Number(price).toFixed(2)} ea</p>
+                              <p className="text-[10px] text-gray-400 font-mono">
+                                {cartItem.adjust?.type && <span className="line-through mr-1">{currency}{Number(cartItem.adjust.original_price || 0).toFixed(2)}</span>}
+                                {currency}{Number(price).toFixed(2)} ea
+                              </p>
                             </>
                           )}
                         </div>
@@ -3187,6 +3318,22 @@ export default function POSPage() {
                             )}
                           >
                             <IconNote size={15} stroke={iconStroke} />
+                          </button>
+
+                          {/* Comp / Discount Button */}
+                          <button
+                            type="button"
+                            onClick={() => setAdjustLineIndex(i)}
+                            title={t('pos_ops.comp_or_discount', 'Comp or discount')}
+                            aria-label={t('pos_ops.comp_or_discount', 'Comp or discount')}
+                            className={clsx(
+                              "min-w-[34px] min-h-[34px] rounded-lg transition text-xs flex items-center justify-center border cursor-pointer touch-manipulation active:scale-90",
+                              cartItem.adjust?.type
+                                ? "bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-300"
+                                : "bg-[#F4F5F8] dark:bg-slate-800 border-[#E3E5E8] dark:border-slate-700 text-gray-500 hover:text-gray-800"
+                            )}
+                          >
+                            <IconGift size={15} stroke={iconStroke} />
                           </button>
 
                           {/* Duplicate Item Button */}
@@ -3596,6 +3743,31 @@ export default function POSPage() {
       />
 
       {/* Advanced Bill Splitting Drawer */}
+      <POSLineAdjustDrawer
+        isOpen={adjustLineIndex !== null && Boolean(cartItems?.[adjustLineIndex])}
+        onClose={() => setAdjustLineIndex(null)}
+        mode="cart"
+        currency={currency}
+        line={adjustLineIndex !== null && cartItems?.[adjustLineIndex] ? {
+          key: `cart-${adjustLineIndex}-${cartItems[adjustLineIndex].id}`,
+          itemId: cartItems[adjustLineIndex].id,
+          title: cartItems[adjustLineIndex].title,
+          quantity: cartItems[adjustLineIndex].quantity,
+          unitPrice: cartItems[adjustLineIndex].price,
+          originalPrice: cartItems[adjustLineIndex].adjust?.original_price,
+          adjustType: cartItems[adjustLineIndex].adjust?.type,
+        } : null}
+        onApplied={handleCartLineAdjusted}
+      />
+
+      <POSSoldOutDrawer
+        isOpen={soldOutDrawer.open}
+        focusItemId={soldOutDrawer.itemId}
+        onClose={() => setSoldOutDrawer({ open: false, itemId: null })}
+        menuItems={menuItems}
+        onItemsChanged={applyAvailabilityChanges}
+      />
+
       <POSSplitBillDrawer
         isOpen={isSplitDrawerOpen}
         onClose={() => {

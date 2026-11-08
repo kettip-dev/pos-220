@@ -363,6 +363,12 @@ export function buildKotEscPos(kotDetails) {
   out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
   out += stationName ? `*** KOT - ${stationName.toUpperCase()} ***\n` : "*** KITCHEN TICKET ***\n";
   out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
+  if (kotDetails.ticketBanner) {
+    // GS B n: reverse (white on black) printing for the action banner.
+    out += "\x1DB\x01" + ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
+    out += ` ${String(kotDetails.ticketBanner).toUpperCase()} \n`;
+    out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL + "\x1DB\x00";
+  }
 
   // 2. High-Visibility Token & Table Header
   out += formatDivider("=", width) + "\n";

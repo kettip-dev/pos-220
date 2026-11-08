@@ -227,6 +227,9 @@ exports.placeOrderViaQrMenu = async (req, res) => {
       tokenNo = approved.tokenNo;
 
       if (io) {
+        if (approved.availabilityChanges?.length) {
+          io.to(String(tenantId)).emit("menu_availability_update", { items: approved.availabilityChanges });
+        }
         io.to(String(tenantId)).emit("new_order", approved.tokenNo);
         io.to(String(tenantId)).emit("order_update", {
           orderId: approved.orderId,

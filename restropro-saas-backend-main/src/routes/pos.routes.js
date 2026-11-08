@@ -25,6 +25,12 @@ const {
   testPrintToPrinter,
   getPosPrintFormat,
   updatePosPrintFormat,
+  updateMenuAvailability,
+  resetMenuAvailability,
+  getLineAdjustmentReasons,
+  authorizeLineAdjustment,
+  adjustOrderItem,
+  getLineAdjustments,
 } = require("../controllers/pos.controller");
 const {
   getPrintAgents,
@@ -248,6 +254,64 @@ router.put(
   isSubscriptionActive,
   authorize([SCOPES.POS]),
   updatePosPrintFormat
+);
+
+// ─── Menu availability (86 board) ─────────────────────────
+
+router.patch(
+  "/menu-availability/:id",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  updateMenuAvailability
+);
+
+router.post(
+  "/menu-availability/reset",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.SETTINGS]),
+  resetMenuAvailability
+);
+
+// ─── Line comp / void / discount ──────────────────────────
+
+router.get(
+  "/line-adjustments/reasons",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.ORDERS]),
+  getLineAdjustmentReasons
+);
+
+router.post(
+  "/line-adjustments/authorize",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS]),
+  authorizeLineAdjustment
+);
+
+router.post(
+  "/order-items/:id/adjust",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.POS, SCOPES.ORDERS]),
+  adjustOrderItem
+);
+
+router.get(
+  "/line-adjustments",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.REPORTS, SCOPES.VIEW_INVOICE_AUDIT_LOG]),
+  getLineAdjustments
 );
 
 module.exports = router;

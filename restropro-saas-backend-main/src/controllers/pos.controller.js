@@ -21,10 +21,52 @@ const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePr
 const { submitPrintJob } = require("../services/print_job.service");
 const { getPosPrintFormatDB, upsertPosPrintFormatDB } = require("../services/pos-print-format.service");
 const { getSuperAdminImageStorageConfigDB } = require("../services/image_storage.service");
+const { checkAvailabilityTx, resetSoldOutDB } = require("../services/menu_availability.service");
+const { getMySqlPromiseConnection } = require("../config/mysql.db");
+
+/** Tell every POS / QR screen of the tenant that item availability changed. */
+function emitAvailability(req, tenantId, items) {
+  if (!items || items.length === 0) return;
+  const io = req.app.get("io");
+  if (io) io.to(String(tenantId)).emit("menu_availability_update", { items });
+}
+exports.emitAvailability = emitAvailability;
+
+function soldOutResponse(res, error) {
+  return res.status(409).json({
+    success: false,
+    code: "ITEM_SOLD_OUT",
+    message: error.message,
+    soldOutItems: error.soldOutItems || [],
+  });
+}
+
+async function precheckAvailability(tenantId, cart) {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await checkAvailabilityTx(conn, tenantId, cart);
+  } finally {
+    conn.release();
+  }
+  const { precheckCartAdjustmentsDB } = require("../services/line_adjustment.service");
+  await precheckCartAdjustmentsDB(tenantId, cart);
+}
+
+/** Known business-rule errors (sold out, bad approval) go back to the POS as-is. */
+function knownErrorResponse(res, error) {
+  if (error?.code === "ITEM_SOLD_OUT") return soldOutResponse(res, error);
+  if (error?.statusCode && error?.code && String(error.code).startsWith("LINE_ADJUST")) {
+    return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
+  }
+  return null;
+}
 
 exports.getPOSInitData = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
+
+    // Items 86'd on a previous day come back on the first POS load of a new day.
+    await resetSoldOutDB(tenantId, "stale").catch((e) => console.error("[pos] stale sold-out reset failed:", e.message));
 
     const [categories, paymentTypes, printSettings, storeSettings, storeTables, serviceCharge, printerConfigs, printFormat, globalStorage, menuLanguage] = await Promise.all([
       getCategoriesDB(tenantId),
@@ -101,6 +143,7 @@ exports.createOrder = async (req, res) => {
     }
 
     const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
+    emitAvailability(req, tenantId, result.availabilityChanges);
 
     if(selectedQrOrderItem) {
       await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
@@ -114,6 +157,8 @@ exports.createOrder = async (req, res) => {
     });
 
   } catch (error) {
+    const known = knownErrorResponse(res, error);
+    if (known) return known;
     console.error(error);
     return res.status(500).json({
       success: false,
@@ -187,6 +232,9 @@ exports.createOrderAndInvoice = async (req, res) => {
       });
     }
 
+    // Sold-out items must be rejected before the invoice is written.
+    await precheckAvailability(tenantId, cart);
+
     // create invoice
     const now = new Date();
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
@@ -202,6 +250,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus);
     const orderId = result.orderId;
     const tokenNo = result.tokenNo;
+    emitAvailability(req, tenantId, result.availabilityChanges);
 
     if(selectedQrOrderItem) {
       await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
@@ -216,6 +265,8 @@ exports.createOrderAndInvoice = async (req, res) => {
     });
 
   } catch (error) {
+    const known = knownErrorResponse(res, error);
+    if (known) return known;
     if (error?.isRegisterError) {
       return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
     }
@@ -321,6 +372,7 @@ exports.approvePOSQROrder = async (req, res) => {
     const qrOrderId = req.params.id;
 
     const approved = await approveQROrderDB(tenantId, qrOrderId, username);
+    emitAvailability(req, tenantId, approved.availabilityChanges);
 
     const io = req.app.get("io");
     if (io) {
@@ -519,5 +571,136 @@ exports.updatePosPrintFormat = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+// ─── Menu availability (86 board) ─────────────────────────
+
+exports.updateMenuAvailability = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const itemId = Number(req.params.id);
+    const { isSoldOut, stockLimit, autoReset } = req.body || {};
+    if (!itemId) {
+      return res.status(400).json({ success: false, message: req.__("please_provide_required_details") });
+    }
+    const { setMenuItemAvailabilityDB } = require("../services/menu_availability.service");
+    const item = await setMenuItemAvailabilityDB(tenantId, itemId, { isSoldOut, stockLimit, autoReset });
+    emitAvailability(req, tenantId, [item]);
+    return res.status(200).json({ success: true, item });
+  } catch (error) {
+    if (error.statusCode === 404) return res.status(404).json({ success: false, message: error.message });
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+exports.resetMenuAvailability = async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const scope = req.body?.scope === "auto" ? "auto" : "all";
+    const changed = await resetSoldOutDB(tenantId, scope);
+    const io = req.app.get("io");
+    if (io) io.to(String(tenantId)).emit("menu_availability_update", { reset: true });
+    return res.status(200).json({ success: true, changed });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+// ─── Line comp / void / discount ──────────────────────────
+
+// Holders of VOID_INVOICES approve their own comps/voids; others need a manager PIN.
+const LINE_APPROVAL_SCOPE = require("../config/user.config").SCOPES.VOID_INVOICES;
+
+function approvalRefusal(res, reason) {
+  return res.status(403).json({
+    success: false,
+    code: reason,
+    message: reason === "INVALID_MANAGER_PIN" ? "Invalid manager PIN." : "Manager approval required.",
+  });
+}
+
+function lineAdjustError(req, res, error) {
+  if (error?.statusCode && error?.code) {
+    return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
+  }
+  console.error(error);
+  return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+}
+
+exports.getLineAdjustmentReasons = async (req, res) => {
+  const { REASON_CODES } = require("../services/line_adjustment.service");
+  return res.status(200).json({ reasons: REASON_CODES });
+};
+
+/** Approve a comp/discount on an unsent cart line; returns a single-use token. */
+exports.authorizeLineAdjustment = async (req, res) => {
+  try {
+    const { resolveManagerApproval } = require("../middlewares/register.middleware");
+    const approval = await resolveManagerApproval(req, LINE_APPROVAL_SCOPE);
+    if (!approval.approved) return approvalRefusal(res, approval.reason);
+
+    const { authorizeUnsentAdjustmentDB } = require("../services/line_adjustment.service");
+    const { action, reasonCode, note, itemId, itemTitle, quantity, amount, discountType, discountValue } = req.body || {};
+    const result = await authorizeUnsentAdjustmentDB(req.user.tenant_id, {
+      action,
+      reasonCode,
+      note,
+      itemId,
+      itemTitle,
+      quantity,
+      amount,
+      discountType,
+      discountValue,
+      performedBy: req.user.username,
+      approvedBy: approval.approvedBy,
+    });
+    return res.status(200).json({ success: true, ...result, approvedBy: approval.approvedBy });
+  } catch (error) {
+    return lineAdjustError(req, res, error);
+  }
+};
+
+/** Void / comp / discount / undo on an item already sent to the kitchen. */
+exports.adjustOrderItem = async (req, res) => {
+  try {
+    const { resolveManagerApproval } = require("../middlewares/register.middleware");
+    const approval = await resolveManagerApproval(req, LINE_APPROVAL_SCOPE);
+    if (!approval.approved) return approvalRefusal(res, approval.reason);
+
+    const { adjustSentItemDB } = require("../services/line_adjustment.service");
+    const { action, reasonCode, note, quantity, discountType, discountValue } = req.body || {};
+    const result = await adjustSentItemDB(req.user.tenant_id, Number(req.params.id), {
+      action,
+      reasonCode,
+      note,
+      quantity,
+      discountType,
+      discountValue,
+      username: req.user.username,
+      approvedBy: approval.approvedBy,
+    });
+
+    const io = req.app.get("io");
+    if (io) {
+      const room = String(req.user.tenant_id);
+      io.to(room).emit("order_update", { source: "pos", orderId: result.orderId, orderItemId: result.orderItemId, action });
+      io.to(room).emit("table_status_update", { action: `item_${action}`, orderId: result.orderId });
+    }
+    return res.status(200).json({ success: true, ...result, approvedBy: approval.approvedBy });
+  } catch (error) {
+    return lineAdjustError(req, res, error);
+  }
+};
+
+exports.getLineAdjustments = async (req, res) => {
+  try {
+    const { getLineAdjustmentsDB } = require("../services/line_adjustment.service");
+    const rows = await getLineAdjustmentsDB(req.user.tenant_id, { from: req.query.from, to: req.query.to, limit: req.query.limit });
+    return res.status(200).json(rows);
+  } catch (error) {
+    return lineAdjustError(req, res, error);
   }
 };

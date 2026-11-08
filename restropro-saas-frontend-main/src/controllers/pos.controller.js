@@ -107,3 +107,25 @@ export async function approveQROrder(orderId) {
   }
 }
 // qr orders
+
+// ─── Menu availability (86 board) ─────────────────────────
+export async function updateMenuAvailability(itemId, { isSoldOut, stockLimit, autoReset } = {}) {
+  return ApiClient.patch(`/pos/menu-availability/${itemId}`, { isSoldOut, stockLimit, autoReset });
+}
+
+export async function resetMenuAvailability(scope = "all") {
+  return ApiClient.post(`/pos/menu-availability/reset`, { scope });
+}
+
+// ─── Line comp / void / discount ──────────────────────────
+export async function authorizeLineAdjustment(payload) {
+  return ApiClient.post(`/pos/line-adjustments/authorize`, payload);
+}
+
+export async function adjustOrderItem(orderItemId, payload) {
+  return ApiClient.post(`/pos/order-items/${orderItemId}/adjust`, payload);
+}
+
+export async function getLineAdjustments(from, to) {
+  return ApiClient.get(`/pos/line-adjustments`, { params: { from, to } });
+}

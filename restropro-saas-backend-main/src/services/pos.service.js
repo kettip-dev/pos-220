@@ -2,6 +2,7 @@ const { getMySqlPromiseConnection } = require("../config/mysql.db")
 const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
+const { consumeMenuItemStockTx } = require("./menu_availability.service");
 
 exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created') => {
   const conn = await getMySqlPromiseConnection();
@@ -42,6 +43,10 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
     );
 
     const orderId = orderResult.insertId;
+
+    // Sold-out / portion-count guard. Locks the menu rows so two terminals
+    // cannot both sell the last portion.
+    const availabilityChanges = await consumeMenuItemStockTx(conn, tenantId, cartItems);
 
     // Increment promotion redemptions if applied
     if (appliedPromotions && Array.isArray(appliedPromotions) && appliedPromotions.length > 0) {
@@ -96,6 +101,16 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
         ];
       })
     ]);
+
+    // step 5: comp / discount approvals on cart lines (audit-linked, single use)
+    if (cartItems.some((ci) => ci?.adjust?.type)) {
+      const { applyCartAdjustmentsTx } = require("./line_adjustment.service");
+      const [insertedRows] = await conn.query(
+        `SELECT id FROM order_items WHERE order_id = ? AND tenant_id = ? ORDER BY id ASC`,
+        [orderId, tenantId]
+      );
+      await applyCartAdjustmentsTx(conn, tenantId, orderId, cartItems, insertedRows.map((r) => r.id), username);
+    }
 
     // step 6: Save updated token no. to table token_sequences
     await conn.query("INSERT INTO token_sequences ( sequence_no, last_updated, tenant_id) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE sequence_no = VALUES(sequence_no), last_updated = VALUES(last_updated) ;", [tokenNo, tenantId]);
@@ -232,9 +247,15 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
       console.error(`[pos.service] Telegram order notify failed for order #${orderId}:`, err.message);
     });
 
+    if (availabilityChanges.length > 0) {
+      const { invalidateTenantCatalog } = require("../utils/cache.util");
+      await invalidateTenantCatalog(tenantId).catch(() => {});
+    }
+
     return {
       tokenNo,
-      orderId
+      orderId,
+      availabilityChanges
     }
   } catch (error) {
     console.error(error);
@@ -602,6 +623,7 @@ exports.approveQROrderDB = async (tenantId, qrOrderId, username = "Staff") => {
     orderId: created.orderId,
     tokenNo: created.tokenNo,
     tableId: qrOrder.table_id || null,
+    availabilityChanges: created.availabilityChanges || [],
   };
 };
 

@@ -34,6 +34,11 @@ export default function PrintTokenPage() {
       <h2 className="text-center font-bold text-xl mt-4 pb-2 border-b border-dashed">
         *** {receiptDetails?.stationName ? `KOT - ${receiptDetails.stationName.toUpperCase()}` : "KOT"} ***
       </h2>
+      {receiptDetails?.ticketBanner && (
+        <p className="mt-2 py-1 text-center font-black text-2xl tracking-widest bg-black text-white">
+          {String(receiptDetails.ticketBanner).toUpperCase()}
+        </p>
+      )}
 
       {header && <div className=''>
         <p className='my-2 text-center'>{header}</p>

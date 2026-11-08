@@ -569,6 +569,11 @@ export default function BindoActionDrawer({
                                 <span className="font-extrabold text-slate-900 dark:text-white text-xs">
                                   {item.quantity}x {itemName}
                                 </span>
+                                {item.adjust_type && (
+                                  <span className="text-[9px] px-1.5 rounded bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-black shrink-0 uppercase">
+                                    {item.adjust_type === "comp" ? t("pos_ops.comp", "Comp") : t("pos_ops.discount", "Discount")}
+                                  </span>
+                                )}
                                 {item.status && item.status !== "cancelled" && (
                                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200/70 dark:bg-zinc-700/70 text-slate-600 dark:text-slate-300 font-semibold shrink-0 uppercase tracking-tight">
                                     {itemStatusLabel(item.status)}
@@ -594,7 +599,7 @@ export default function BindoActionDrawer({
                               <button
                                 type="button"
                                 onClick={() => onVoidItem(item)}
-                                title={t("orders.void_item", "Void / Cancel item")}
+                                title={t("pos_ops.void_comp_item", "Void, comp or discount")}
                                 className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 flex items-center justify-center transition active:scale-95 cursor-pointer"
                               >
                                 <IconTrash size={14} />
@@ -788,6 +793,11 @@ export default function BindoActionDrawer({
                                   <span className="font-bold text-slate-800 dark:text-slate-100 truncate">
                                     {item.quantity}x {itemName}
                                   </span>
+                                  {item.adjust_type && (
+                                    <span className="text-[9px] px-1.5 rounded bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-black shrink-0 uppercase">
+                                      {item.adjust_type === "comp" ? t("pos_ops.comp", "Comp") : t("pos_ops.discount", "Discount")}
+                                    </span>
+                                  )}
                                   {item.status && item.status !== "cancelled" && (
                                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 font-medium shrink-0">
                                       {itemStatusLabel(item.status)}
@@ -811,7 +821,7 @@ export default function BindoActionDrawer({
                                 <button
                                   type="button"
                                   onClick={() => onVoidItem(item)}
-                                  title={t("orders.void_item", "Void / Cancel item")}
+                                  title={t("pos_ops.void_comp_item", "Void, comp or discount")}
                                   className="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center transition active:scale-95 cursor-pointer"
                                 >
                                   <IconTrash size={14} />

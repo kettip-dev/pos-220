@@ -247,6 +247,11 @@ exports.getOrdersPaymentSummary = async (req, res) => {
         } else {
           orderItems[index].addons = [];
         }
+
+        // A comped / discounted line's price already includes its add-ons.
+        if (orderItems[index].adjust_type === "comp" || orderItems[index].adjust_type === "discount") {
+          orderItems[index].addons = orderItems[index].addons.map((a) => ({ ...a, price: 0 }));
+        }
       });
 
       return {

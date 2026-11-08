@@ -1334,6 +1334,10 @@ exports.placeOrderViaQrMenuDB = async (tenantId, deliveryType, cartItems, custom
         };
       });
 
+      // Reject sold-out items before the guest's order reaches staff.
+      const { checkAvailabilityTx } = require("./menu_availability.service");
+      await checkAvailabilityTx(conn, tenantId, verifiedCartItems);
+
       // start transaction
       await conn.beginTransaction();
 

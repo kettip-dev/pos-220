@@ -12,6 +12,7 @@ import {
   IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import useLongPress from '../helpers/useLongPress';
 
 // Smart POS price formatter: adds thousands commas and strips unnecessary .00 for KHR (៛) or whole numbers
 export const formatPOSPrice = (price, currency = '') => {
@@ -71,11 +72,13 @@ const POSMenuItemCompactView = ({
   isReadOnly = false,
   hoveredItemId = null,
   onItemHover = null,
+  onItemLongPress = null,
   onScroll = null,
   scrollTopRatio = null,
 }) => {
   const { t } = useTranslation();
   useMenuLanguage();
+  const bindLongPress = useLongPress(isReadOnly ? null : onItemLongPress);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -156,6 +159,8 @@ const POSMenuItemCompactView = ({
             const FallbackIcon = getCategoryFallbackIcon(category_title, title);
 
             const isOutOfStock = isLowStock && minItemsCanBeMade !== null && minItemsCanBeMade <= 0;
+            const isSoldOut86 = Number(menuItem.is_sold_out) === 1;
+            const portionsLeft = menuItem.stock_limit === null || menuItem.stock_limit === undefined ? null : Number(menuItem.stock_limit);
 
             const triggerPrimaryAction = () => {
               if (isReadOnly) return;
@@ -173,6 +178,7 @@ const POSMenuItemCompactView = ({
                 aria-label={title}
                 onMouseEnter={() => onItemHover && onItemHover(id)}
                 onMouseLeave={() => onItemHover && onItemHover(null)}
+                {...bindLongPress(id)}
                 onClick={triggerPrimaryAction}
                 className={`group relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden rounded-xl bg-[#0D233A] select-none transition-all duration-150 ${
                   inCartCount > 0
@@ -188,7 +194,7 @@ const POSMenuItemCompactView = ({
                     src={imageURL}
                     alt=""
                     className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
-                      isOutOfStock ? 'grayscale opacity-60' : ''
+                      isOutOfStock || isSoldOut86 ? 'grayscale opacity-60' : ''
                     }`}
                     loading="lazy"
                   />
@@ -222,6 +228,20 @@ const POSMenuItemCompactView = ({
                     </span>
                   )}
                 </div>
+
+                {/* 86 board: sold-out veil and portions-left chip */}
+                {isSoldOut86 && (
+                  <div className="pointer-events-none absolute inset-0 z-[15] bg-slate-900/55 flex items-center justify-center">
+                    <span className="-rotate-12 px-3 py-1 rounded-lg border-2 border-white/90 text-white text-sm font-black tracking-widest uppercase bg-red-600/90 shadow-lg">
+                      {t('pos_ops.sold_out', 'Sold out')}
+                    </span>
+                  </div>
+                )}
+                {!isSoldOut86 && portionsLeft !== null && (
+                  <span className={`absolute ${inCartCount > 0 ? 'top-[38px]' : 'top-2'} right-2 z-[16] rounded-full bg-amber-500 text-white text-[10px] font-black px-2 py-[3px] shadow-md ring-1 ring-white/70 pointer-events-none`}>
+                    {t('pos_ops.n_left', '{{count}} left', { count: portionsLeft })}
+                  </span>
+                )}
 
                 {/* In-cart count badge */}
                 {inCartCount > 0 && (

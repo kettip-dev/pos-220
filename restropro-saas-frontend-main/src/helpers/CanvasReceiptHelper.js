@@ -603,6 +603,20 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     ctx.fillText(headerTitle, width / 2, y);
     y += paperSize === 58 ? 26 : 34;
 
+    // Action banner (e.g. "VOID", "FIRE COURSE 2"): white text on a black bar.
+    const ticketBanner = details.ticketBanner ? String(details.ticketBanner).toUpperCase() : "";
+    if (ticketBanner) {
+      const bannerH = paperSize === 58 ? 40 : 52;
+      ctx.fillRect(padding, y - (paperSize === 58 ? 18 : 24), contentWidth, bannerH);
+      ctx.save();
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textBaseline = "middle";
+      ctx.font = `bold ${paperSize === 58 ? 26 : 34}px ${FONT_FAMILY}`;
+      ctx.fillText(ticketBanner, width / 2, y - (paperSize === 58 ? 18 : 24) + bannerH / 2);
+      ctx.restore();
+      y += bannerH;
+    }
+
     y += 10;
     drawThickLine(ctx, y);
     y += 30;
