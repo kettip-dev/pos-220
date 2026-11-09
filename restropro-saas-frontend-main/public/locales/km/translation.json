@@ -198,6 +198,7 @@
     "hotel_bar": "សណ្ឋាគារ & បារ"
   },
   "register": {
+    "register": "ម៉ាស៊ីនគិតលុយ",
     "title": "បង្កើតគណនីអាជីវកម្ម",
     "business_name_label": "ឈ្មោះអាជីវកម្ម",
     "business_name_placeholder": "ឧ. ស្លាបព្រាមាស",
@@ -1908,7 +1909,8 @@
     "search": "ស្វែងរក",
     "filter_by_category": "ចម្រោះតាមប្រភេទ",
     "popular": "ពេញនិយម",
-    "vegetarian": "ម្ហូបបួស"
+    "vegetarian": "ម្ហូបបួស",
+    "customize": "កែតម្រូវ"
   },
   "rating": {
     "worst": "អន់ខ្លាំង",
