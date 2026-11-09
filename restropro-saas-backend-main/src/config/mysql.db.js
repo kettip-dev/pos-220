@@ -11,6 +11,7 @@ const { ensureBranchManagementSchema } = require("../utils/branchManagementMigra
 const { ensureBusinessRegistrationSchema } = require("../utils/businessRegistrationMigration");
 const { ensureTelegramSettingsSchema } = require("../utils/telegramSettingsMigration");
 const { ensureSupplierManagementSchema } = require("../utils/supplierManagementMigration");
+const { ensureInventoryCostingSchema } = require("../utils/inventoryCostingMigration");
 const { ensurePromotionSchema } = require("../utils/promotionMigration");
 const { ensureLoyaltyProgramSchema } = require("../utils/loyaltyMigration");
 const { ensureSplitBillSchema } = require("../utils/splitBillMigration");
@@ -82,9 +83,15 @@ ensureTelegramSettingsSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring telegram settings schema:", err);
 });
 
-ensureSupplierManagementSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring supplier management schema:", err);
-});
+// Costing seeds unit_cost from purchase-order lines, so it runs after the PO schema.
+ensureSupplierManagementSchema(pool)
+  .catch((err) => {
+    console.error("[Migration] Error ensuring supplier management schema:", err);
+  })
+  .then(() => ensureInventoryCostingSchema(pool))
+  .catch((err) => {
+    console.error("[Migration] Error ensuring inventory costing schema:", err);
+  });
 
 ensurePromotionSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring promotion schema:", err);

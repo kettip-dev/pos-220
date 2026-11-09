@@ -34,6 +34,7 @@ exports.addInventoryItem = async (req, res) => {
       quantity,
       unit,
       min_quantity_threshold,
+      unit_cost,
     } = req.body;
 
     if (!title || !quantity || !unit || !min_quantity_threshold) {
@@ -49,7 +50,8 @@ exports.addInventoryItem = async (req, res) => {
       unit,
       min_quantity_threshold,
       tenantId,
-      username
+      username,
+      unit_cost
     );
 
     return res.status(200).json({
@@ -90,6 +92,7 @@ exports.updateInventoryItem = async (req, res) => {
       title,
       unit,
       min_quantity_threshold,
+      unit_cost,
     } = req.body;
 
     await updateInventoryItemDB(
@@ -97,7 +100,8 @@ exports.updateInventoryItem = async (req, res) => {
       title,
       unit,
       min_quantity_threshold,
-      tenantId
+      tenantId,
+      unit_cost
     );
 
     return res.status(200).json({

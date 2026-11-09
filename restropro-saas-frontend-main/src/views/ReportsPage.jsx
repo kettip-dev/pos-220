@@ -68,7 +68,7 @@ const READY_REPORTS = new Set([
   "returning-customers", "top-customers", "customer-birthdays", "member-customers",
   "order-status", "kitchen-performance", "token-report", "qr-order-report",
   "table-turnover", "staff-created-orders", "inventory-summary", "low-stock",
-  "stock-movements", "wastage", "recipe-usage", "stock-reorder", "tax-summary",
+  "stock-movements", "wastage", "recipe-usage", "menu-profitability", "stock-reorder", "tax-summary",
   "tax-by-item", "service-charge", "discount-summary", "daily-close", "invoice-register",
   "reservation-summary", "upcoming-reservations", "reservation-no-show",
   "feedback-summary", "negative-feedback", "recommendation-score",

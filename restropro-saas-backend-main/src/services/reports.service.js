@@ -44,6 +44,7 @@ const REPORT_TITLES = {
   "stock-movements": "Stock Movements",
   "wastage": "Wastage",
   "recipe-usage": "Recipe Usage",
+  "menu-profitability": "Menu Profitability",
   "stock-reorder": "Reorder List",
   "tax-summary": "Tax Summary",
   "tax-by-item": "Tax by Item",
@@ -2018,6 +2019,224 @@ const getRecipeUsageReport = async (conn, type, from, to, tenantIds, currency, s
   });
 };
 
+/**
+ * Menu Profitability (food cost) — P&L Phase 1.
+ *
+ * Theoretical cost of what was sold: each sold line is costed from its recipe
+ * at the ingredients' CURRENT weighted-average `unit_cost`, using the same
+ * matching rules the POS uses to deduct stock (pos.service):
+ *   - base lines (variant 0, addon 0) always apply,
+ *   - variant lines apply when the sold variant matches,
+ *   - addon lines (item recipes and addon-library recipes) apply per chosen addon.
+ * Combo components carry price 0 and their own recipes; their cost is rolled
+ * up into the combo (parent) row so the combo shows its true margin.
+ *
+ * Sales are line revenue (price × qty + addon prices) before bill-level
+ * discounts, tax and service charge — a menu-engineering figure, not the
+ * invoice total.
+ */
+const getMenuProfitabilityReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const { filter, params } = getFilterCondition("oi.date", type, from, to);
+
+  const [lines, recipeCosts, libraryCosts, menuItems, variants, addons] = await Promise.all([
+    query(conn, `
+      SELECT
+        oi.tenant_id,
+        oi.item_id,
+        COALESCE(oi.variant_id, 0) AS variant_id,
+        oi.addons,
+        oi.combo_parent_id IS NOT NULL AS is_component,
+        p.item_id AS parent_item_id,
+        COALESCE(p.variant_id, 0) AS parent_variant_id,
+        COALESCE(SUM(oi.quantity), 0) AS quantity,
+        COALESCE(SUM(oi.price * oi.quantity), 0) AS sales
+      FROM order_items oi
+      LEFT JOIN order_items p ON p.id = oi.combo_parent_id AND p.tenant_id = oi.tenant_id
+      LEFT JOIN orders o ON o.id = oi.order_id AND o.tenant_id = oi.tenant_id
+      LEFT JOIN invoices i ON i.id = o.invoice_id AND i.tenant_id = o.tenant_id
+      WHERE oi.tenant_id IN (?) AND oi.status <> 'cancelled' AND ${filter}
+        AND (o.invoice_id IS NULL OR (${nonVoidInvoiceFilter()}))
+        AND (oi.combo_parent_id IS NULL OR p.status <> 'cancelled')
+      GROUP BY oi.tenant_id, oi.item_id, COALESCE(oi.variant_id, 0), oi.addons,
+        oi.combo_parent_id IS NOT NULL, p.item_id, COALESCE(p.variant_id, 0)
+    `, [tenantIds, ...params]),
+    query(conn, `
+      SELECT
+        mir.tenant_id, mir.menu_item_id, mir.variant_id, mir.addon_id,
+        COALESCE(SUM(mir.quantity * COALESCE(ii.unit_cost, 0)), 0) AS cost,
+        SUM(CASE WHEN COALESCE(ii.unit_cost, 0) <= 0 THEN 1 ELSE 0 END) AS uncosted
+      FROM menu_item_recipes mir
+      LEFT JOIN inventory_items ii ON ii.id = mir.inventory_item_id AND ii.tenant_id = mir.tenant_id
+      WHERE mir.tenant_id IN (?)
+      GROUP BY mir.tenant_id, mir.menu_item_id, mir.variant_id, mir.addon_id
+    `, [tenantIds]),
+    // Addon-library recipes are shared by every item the addon is attached to.
+    query(conn, `
+      SELECT
+        mia.tenant_id, mia.item_id AS menu_item_id, 0 AS variant_id, mia.id AS addon_id,
+        COALESCE(SUM(alr.quantity * COALESCE(ii.unit_cost, 0)), 0) AS cost,
+        SUM(CASE WHEN COALESCE(ii.unit_cost, 0) <= 0 THEN 1 ELSE 0 END) AS uncosted
+      FROM addon_library_recipes alr
+      JOIN menu_item_addons mia ON mia.library_addon_id = alr.library_addon_id AND mia.tenant_id = alr.tenant_id
+      LEFT JOIN inventory_items ii ON ii.id = alr.inventory_item_id AND ii.tenant_id = alr.tenant_id
+      WHERE alr.tenant_id IN (?)
+      GROUP BY mia.tenant_id, mia.item_id, mia.id
+    `, [tenantIds]).catch(() => []),
+    query(conn, `
+      SELECT mi.id, mi.tenant_id, mi.title, COALESCE(c.title, 'Uncategorized') AS category
+      FROM menu_items mi
+      LEFT JOIN categories c ON c.id = mi.category AND c.tenant_id = mi.tenant_id
+      WHERE mi.tenant_id IN (?)
+    `, [tenantIds]),
+    query(conn, `SELECT id, tenant_id, title FROM menu_item_variants WHERE tenant_id IN (?)`, [tenantIds]),
+    query(conn, `SELECT id, tenant_id, item_id, COALESCE(price, 0) AS price FROM menu_item_addons WHERE tenant_id IN (?)`, [tenantIds]),
+  ]);
+
+  const k = (...parts) => parts.join("|");
+  const costLines = new Map();
+  const itemsWithRecipe = new Set();
+  [...recipeCosts, ...libraryCosts].forEach((r) => {
+    const key = k(r.tenant_id, r.menu_item_id, Number(r.variant_id) || 0, Number(r.addon_id) || 0);
+    const prev = costLines.get(key) || { cost: 0, uncosted: 0 };
+    costLines.set(key, { cost: prev.cost + money(r.cost), uncosted: prev.uncosted + Number(r.uncosted || 0) });
+    // Only the item's own (non-addon) lines count as "has a recipe": a shared
+    // library addon recipe says nothing about the cost of the item itself.
+    if (!(Number(r.addon_id) > 0)) itemsWithRecipe.add(k(r.tenant_id, r.menu_item_id));
+  });
+  const itemById = new Map(menuItems.map((m) => [k(m.tenant_id, m.id), m]));
+  const variantById = new Map(variants.map((v) => [k(v.tenant_id, v.id), v]));
+  const addonById = new Map(addons.map((a) => [k(a.tenant_id, a.id), a]));
+
+  const parseAddons = (raw) => {
+    if (!raw) return [];
+    try {
+      const ids = JSON.parse(raw);
+      return Array.isArray(ids) ? ids.map(Number).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Cost of ONE unit of an item as sold (variant + chosen addons), mirroring stock deduction.
+  const unitCostOf = (tenantId, itemId, variantId, addonIds) => {
+    const variantKeys = variantId ? [0, variantId] : [0];
+    const addonKeys = [0, ...addonIds];
+    let cost = 0;
+    let uncosted = 0;
+    variantKeys.forEach((v) => addonKeys.forEach((a) => {
+      const line = costLines.get(k(tenantId, itemId, v, a));
+      if (line) {
+        cost += line.cost;
+        uncosted += line.uncosted;
+      }
+    }));
+    return { cost, uncosted, hasRecipe: itemsWithRecipe.has(k(tenantId, itemId)) };
+  };
+
+  const rowsByKey = new Map();
+  const rowFor = (tenantId, itemId, variantId) => {
+    const key = k(tenantId, itemId, variantId);
+    if (!rowsByKey.has(key)) {
+      const item = itemById.get(k(tenantId, itemId));
+      const variant = variantId ? variantById.get(k(tenantId, variantId)) : null;
+      rowsByKey.set(key, {
+        business_tenant_id: tenantId,
+        item: item?.title || "Deleted item",
+        variant: variant?.title || (variantId ? `Variant #${variantId}` : "Base item"),
+        category: item?.category || "Uncategorized",
+        quantity_sold: 0,
+        sales: 0,
+        total_cost: 0,
+        _hasRecipe: false,
+        _uncosted: false,
+      });
+    }
+    return rowsByKey.get(key);
+  };
+
+  lines.forEach((line) => {
+    const tenantId = Number(line.tenant_id);
+    const itemId = Number(line.item_id);
+    const variantId = Number(line.variant_id) || 0;
+    const qty = money(line.quantity);
+    const addonIds = parseAddons(line.addons);
+    const { cost, uncosted, hasRecipe } = unitCostOf(tenantId, itemId, variantId, addonIds);
+
+    const isComponent = Number(line.is_component) === 1 && line.parent_item_id;
+    const row = isComponent
+      ? rowFor(tenantId, Number(line.parent_item_id), Number(line.parent_variant_id) || 0)
+      : rowFor(tenantId, itemId, variantId);
+
+    if (!isComponent) {
+      const addonSales = addonIds.reduce((sum, id) => {
+        const addon = addonById.get(k(tenantId, id));
+        return sum + (addon && Number(addon.item_id) === itemId ? money(addon.price) : 0);
+      }, 0);
+      row.quantity_sold += qty;
+      row.sales += money(line.sales) + addonSales * qty;
+    }
+    row.total_cost += cost * qty;
+    if (hasRecipe) row._hasRecipe = true;
+    if (uncosted > 0) row._uncosted = true;
+  });
+
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const rows = [...rowsByKey.values()]
+    .filter((row) => row.quantity_sold > 0)
+    .map(({ _hasRecipe, _uncosted, ...row }) => {
+      const grossProfit = row.sales - row.total_cost;
+      return {
+        ...row,
+        sales: round2(row.sales),
+        total_cost: round2(row.total_cost),
+        unit_cost: row.quantity_sold > 0 ? round2(row.total_cost / row.quantity_sold) : 0,
+        gross_profit: round2(grossProfit),
+        food_cost_pct: row.sales > 0 ? round2((row.total_cost / row.sales) * 100) : 0,
+        margin_pct: row.sales > 0 ? round2((grossProfit / row.sales) * 100) : 0,
+        costing: !_hasRecipe ? "No recipe" : _uncosted ? "Missing ingredient cost" : "OK",
+      };
+    })
+    .sort((a, b) => b.gross_profit - a.gross_profit);
+
+  const totalSales = rows.reduce((sum, row) => sum + row.sales, 0);
+  const totalCost = rows.reduce((sum, row) => sum + row.total_cost, 0);
+  const costedSales = rows.filter((row) => row.costing === "OK").reduce((sum, row) => sum + row.sales, 0);
+
+  return makeReport({
+    reportId: "menu-profitability",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Item Sales", value: round2(totalSales), type: "money" },
+      { label: "Food Cost", value: round2(totalCost), type: "money" },
+      { label: "Gross Profit", value: round2(totalSales - totalCost), type: "money" },
+      { label: "Food Cost %", value: totalSales > 0 ? round2((totalCost / totalSales) * 100) : 0, type: "number" },
+      { label: "Sales Fully Costed %", value: totalSales > 0 ? round2((costedSales / totalSales) * 100) : 0, type: "number" },
+      { label: "Items Needing Costing", value: rows.filter((row) => row.costing !== "OK").length, type: "number" },
+    ],
+    tables: [{
+      title: "Menu Profitability",
+      columns: [
+        { key: "item", label: "Item" },
+        { key: "variant", label: "Variant" },
+        { key: "category", label: "Category" },
+        { key: "quantity_sold", label: "Qty", type: "number" },
+        { key: "sales", label: "Sales", type: "money" },
+        { key: "unit_cost", label: "Cost / Unit", type: "money" },
+        { key: "total_cost", label: "Food Cost", type: "money" },
+        { key: "gross_profit", label: "Gross Profit", type: "money" },
+        { key: "food_cost_pct", label: "Food Cost %", type: "number" },
+        { key: "margin_pct", label: "Margin %", type: "number" },
+        { key: "costing", label: "Costing" },
+      ],
+      rows,
+    }],
+  });
+};
+
 const getStockReorderReport = async (conn, type, from, to, tenantIds, currency, store) => {
   const rows = await getInventoryRows(conn, tenantIds, "AND COALESCE(quantity, 0) <= COALESCE(min_quantity_threshold, 0)");
 
@@ -3279,6 +3498,7 @@ const REPORT_BUILDERS = {
   "stock-movements": getStockMovementsReport,
   "wastage": getWastageReport,
   "recipe-usage": getRecipeUsageReport,
+  "menu-profitability": getMenuProfitabilityReport,
   "stock-reorder": getStockReorderReport,
   "tax-summary": getTaxSummaryReport,
   "tax-by-item": getTaxByItemReport,

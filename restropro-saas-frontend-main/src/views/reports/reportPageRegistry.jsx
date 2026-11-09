@@ -614,6 +614,21 @@ const CHARTS = {
   },
 
   /* Accounting */
+  "menu-profitability": ({ data, currency }) => {
+    const { rows, columns } = getTable(data);
+    const labelled = rows.map((row) => ({
+      ...row,
+      _label: row.variant && row.variant !== "Base item" ? `${row.item} · ${row.variant}` : row.item,
+    }));
+    // Only lines with a full recipe cost are meaningful on a food-cost chart.
+    const costed = labelled.filter((row) => row.costing === "OK" && Number(row.sales) > 0);
+    const worstFoodCost = [...costed].sort((a, b) => Number(b.food_cost_pct || 0) - Number(a.food_cost_pct || 0));
+    return [
+      <BarChart key="profit" title="Gross Profit by Item" rows={labelled} labelKey="_label" series={seriesFrom(columns, "gross_profit")} currency={currency} horizontal limit={10} />,
+      <BarChart key="foodcost" title="Highest Food Cost %" rows={worstFoodCost} labelKey="_label" series={seriesFrom(columns, "food_cost_pct")} horizontal limit={10} />,
+      <BarChart key="split" wide title="Sales vs Food Cost" rows={labelled} labelKey="_label" series={seriesFrom(columns, "total_cost", "gross_profit")} currency={currency} stacked limit={15} />,
+    ];
+  },
   "tax-summary": ({ data, currency }) => {
     const { rows, columns } = getTable(data);
     return timeTrendCharts(rows, columns, "date", "date", ["tax_total"], ["taxable_sales"], currency, { trend: "Tax Collected", volume: "Taxable Sales" });

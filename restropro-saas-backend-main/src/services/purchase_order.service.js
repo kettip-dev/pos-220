@@ -1,6 +1,7 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { syncLowStockAlertsDB } = require("./inventory.service");
 const { queueLowStockAlerts } = require("./notification.service");
+const { weightedAverageUnitCost } = require("../utils/inventoryCosting");
 
 /**
  * Create a new Purchase Order
@@ -296,7 +297,7 @@ exports.fulfillPurchaseOrderDB = async (id, userId, tenantId) => {
 
     // 2. Fetch PO line items
     const [poItems] = await conn.query(
-      `SELECT inventory_item_id, inventory_item_name, quantity
+      `SELECT inventory_item_id, inventory_item_name, quantity, unit_cost
        FROM inventory_purchase_order_items
        WHERE purchase_order_id = ? AND tenant_id = ?;`,
       [id, tenantId]
@@ -309,7 +310,7 @@ exports.fulfillPurchaseOrderDB = async (id, userId, tenantId) => {
     let inventoryItems = [];
     if (inventoryItemIds.length > 0) {
       const [res] = await conn.query(
-        `SELECT id, quantity, title FROM inventory_items WHERE id IN (?) AND tenant_id = ? FOR UPDATE;`,
+        `SELECT id, quantity, title, unit_cost FROM inventory_items WHERE id IN (?) AND tenant_id = ? FOR UPDATE;`,
         [inventoryItemIds, tenantId]
       );
       inventoryItems = res;
@@ -338,16 +339,20 @@ exports.fulfillPurchaseOrderDB = async (id, userId, tenantId) => {
         const prevQty = parseFloat(invItem.quantity) || 0;
         const addQty = parseFloat(poItem.quantity) || 0;
         const newQty = prevQty + addQty;
+        const newCost = weightedAverageUnitCost(prevQty, invItem.unit_cost, addQty, poItem.unit_cost);
 
         await conn.query(
           `UPDATE inventory_items
-           SET quantity = ?, status = CASE
+           SET quantity = ?, unit_cost = ?, status = CASE
              WHEN ? <= min_quantity_threshold THEN 'low'
              ELSE 'in'
            END
            WHERE id = ? AND tenant_id = ?;`,
-          [newQty, newQty, invItem.id, tenantId]
+          [newQty, newCost, newQty, invItem.id, tenantId]
         );
+        // The same item can appear on two lines of one PO: carry the running figures.
+        invItem.quantity = newQty;
+        invItem.unit_cost = newCost;
 
         inventoryLogs.push([
           tenantId,
