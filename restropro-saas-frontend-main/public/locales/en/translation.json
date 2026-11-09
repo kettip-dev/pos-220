@@ -1519,7 +1519,7 @@
     "customer_added_success": "បានបន្ថែមអតិថិជនដោយជោគជ័យ!",
     "customer_updated_success": "បានធ្វើបច្ចុប្បន្នភាពអតិថិជនដោយជោគជ័យ!",
     "customer_deleted_success": "បានលុបអតិថិជនដោយជោគជ័យ!",
-    "total_customers": "អតិថិជនសរុប",
+    "total_customers": "Total Customers",
     "orders_count": "ចំនួនការកុម្ម៉ង់",
     "total_spent": "ទឹកប្រាក់ចំណាយសរុប",
     "last_visit": "ចូលមកចុងក្រោយ",
