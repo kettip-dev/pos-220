@@ -769,40 +769,35 @@ export default function CustomersPage({ initialTab = "customers" }) {
           {/* ── Summary strip: one surface, four metrics ── */}
           <section
             aria-label={t("customers.summary", "Customer summary")}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-px mb-5 rounded-2xl overflow-hidden border border-slate-200 dark:border-neutral-800 bg-slate-200 dark:bg-neutral-800 shadow-xs"
+            className="grid grid-cols-2 lg:grid-cols-4 gap-px mb-4 rounded-xl overflow-hidden border border-slate-200 dark:border-neutral-800 bg-slate-200 dark:bg-neutral-800"
           >
             {summaryStats.map((stat) => {
               const StatIcon = stat.icon;
               return (
                 <div
                   key={stat.key}
-                  className="bg-white dark:bg-neutral-900 p-4 sm:p-5 flex flex-col"
+                  className="bg-white dark:bg-neutral-900 px-3 py-2.5 sm:px-4 flex items-center gap-2.5 min-w-0"
                 >
-                  <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 dark:text-neutral-400">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-neutral-800 flex items-center justify-center shrink-0">
                     <StatIcon size={16} stroke={iconStroke} className={stat.iconClass} />
-                    <span className="truncate">{stat.label}</span>
                   </div>
-                  <div className="mt-3 text-[28px] sm:text-[32px] font-bold leading-none tracking-tight text-slate-900 dark:text-white tabular-nums">
-                    {isLoading ? (
-                      <span className="inline-block h-7 w-12 rounded-md bg-slate-100 dark:bg-neutral-800 animate-pulse" />
-                    ) : (
-                      stat.value.toLocaleString()
-                    )}
-                  </div>
-                  {typeof stat.progress === "number" && (
-                    <div
-                      className="mt-3 h-1.5 w-full rounded-full bg-slate-100 dark:bg-neutral-800 overflow-hidden"
-                      aria-hidden="true"
-                    >
-                      <div
-                        className="h-full rounded-full bg-amber-500 transition-all"
-                        style={{ width: `${stat.progress}%` }}
-                      />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium text-slate-500 dark:text-neutral-400 truncate leading-tight">
+                      {stat.label}
+                    </p>
+                    <div className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-base font-bold leading-tight text-slate-900 dark:text-white tabular-nums">
+                        {isLoading ? (
+                          <span className="inline-block h-4 w-8 rounded bg-slate-100 dark:bg-neutral-800 animate-pulse align-middle" />
+                        ) : (
+                          stat.value.toLocaleString()
+                        )}
+                      </span>
+                      <span className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">
+                        {stat.hint}
+                      </span>
                     </div>
-                  )}
-                  <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400 truncate">
-                    {stat.hint}
-                  </p>
+                  </div>
                 </div>
               );
             })}
