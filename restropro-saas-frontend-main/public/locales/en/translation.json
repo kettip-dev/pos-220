@@ -60,6 +60,7 @@
     "hotel_bar": "Hotel. Bar."
   },
   "register": {
+    "register": "Register",
     "title": "Create Business Account",
     "business_name_label": "Business name",
     "business_name_placeholder": "e.g. The Golden Spoon",
@@ -1772,7 +1773,8 @@
     "search": "ស្វែងរក",
     "filter_by_category": "ចម្រោះតាមប្រភេទ",
     "popular": "ពេញនិយម",
-    "vegetarian": "ម្ហូបបួស"
+    "vegetarian": "Vegetarian",
+    "customize": "Customize"
   },
   "rating": {
     "worst": "Worst",
