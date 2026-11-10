@@ -1,0 +1,6409 @@
+{
+  "items": [
+    {
+      "id": 8198,
+      "slug": null,
+      "name": "Coca Cola Float",
+      "description": "Chilled Coca Cola topped with creamy vanilla ice cream for a fizzy, sweet, and nostalgic treat.",
+      "image": "https://files.durianx.com/data-file/product/coca-cola-float-2d149065f020c1bc.png",
+      "imageName": "coca-cola-float-2d149065f020c1bc.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10029,
+      "subCategoryId": 10383,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63607,
+          "locale": "en",
+          "field": "description",
+          "value": "Chilled Coca Cola topped with creamy vanilla ice cream for a fizzy, sweet, and nostalgic treat."
+        },
+        {
+          "id": 63516,
+          "locale": "km",
+          "field": "name",
+          "value": "Coca Cola Float"
+        },
+        {
+          "id": 63515,
+          "locale": "en",
+          "field": "name",
+          "value": "Coca Cola Float"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 8197,
+      "slug": null,
+      "name": "DR  Pepper Float",
+      "description": "Chilled Dr Pepper topped with creamy vanilla ice cream for a fizzy. sweet, and nostalgic treat.",
+      "image": "https://files.durianx.com/data-file/product/dr--pepper-float-db9c73d2c8a8da6a.png",
+      "imageName": "dr--pepper-float-db9c73d2c8a8da6a.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10029,
+      "subCategoryId": 10383,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63513,
+          "locale": "en",
+          "field": "name",
+          "value": "DR  Pepper Float"
+        },
+        {
+          "id": 63606,
+          "locale": "en",
+          "field": "description",
+          "value": "Chilled Dr Pepper topped with creamy vanilla ice cream for a fizzy. sweet, and nostalgic treat."
+        },
+        {
+          "id": 63514,
+          "locale": "km",
+          "field": "name",
+          "value": "DR  Pepper Float"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 8195,
+      "slug": null,
+      "name": "Vanilla Ice Cream",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/vanilla-ice-cream-1ec8b7c99e6e9be0.png",
+      "imageName": "vanilla-ice-cream-1ec8b7c99e6e9be0.png",
+      "qty": 0,
+      "price": 3,
+      "sellingPrice": 3,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10029,
+      "subCategoryId": 10383,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 14039,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 14290,
+              "name": "1 Scoop",
+              "unitPrice": 3,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63488,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "1 Scoop"
+                },
+                {
+                  "id": 63489,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "1 Scoop"
+                }
+              ]
+            },
+            {
+              "id": 14291,
+              "name": "2 Scoops",
+              "unitPrice": 5.5,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63491,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "2 Scoops"
+                },
+                {
+                  "id": 63490,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "2 Scoops"
+                }
+              ]
+            },
+            {
+              "id": 14292,
+              "name": "3 Scoops",
+              "unitPrice": 7.5,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63493,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "3 Scoops"
+                },
+                {
+                  "id": 63492,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "3 Scoops"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 63487,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            },
+            {
+              "id": 63486,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63485,
+          "locale": "km",
+          "field": "name",
+          "value": "Vanilla Ice Cream"
+        },
+        {
+          "id": 63484,
+          "locale": "en",
+          "field": "name",
+          "value": "Vanilla Ice Cream"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 2.55,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.45
+    },
+    {
+      "id": 8194,
+      "slug": null,
+      "name": "Pancake Breakfast Burrito",
+      "description": "Fluffy scrambled eggs, melted cheese, and crispy bacon wrapped in a soft, homemade pancake.",
+      "image": "https://files.durianx.com/data-file/product/breakfast-burrito-e3342a9f3e84bd7d.png",
+      "imageName": "breakfast-burrito-e3342a9f3e84bd7d.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10029,
+      "subCategoryId": 10383,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63478,
+          "locale": "en",
+          "field": "name",
+          "value": "Pancake Breakfast Burrito"
+        },
+        {
+          "id": 63483,
+          "locale": "km",
+          "field": "description",
+          "value": "Fluffy scrambled eggs, melted cheese, and crispy bacon wrapped in a soft, homemade pancake."
+        },
+        {
+          "id": 63479,
+          "locale": "km",
+          "field": "name",
+          "value": "Pancake Breakfast Burrito"
+        },
+        {
+          "id": 63480,
+          "locale": "en",
+          "field": "description",
+          "value": "Fluffy scrambled eggs, melted cheese, and crispy bacon wrapped in a soft, homemade pancake."
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 8193,
+      "slug": null,
+      "name": "Coleslaw",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/coleslaw-577b22597597a25f.png",
+      "imageName": "coleslaw-577b22597597a25f.png",
+      "qty": 0,
+      "price": 1.01,
+      "sellingPrice": 1.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 14038,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 14288,
+              "name": "Small",
+              "unitPrice": 1.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63469,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 63470,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "តូច"
+                }
+              ]
+            },
+            {
+              "id": 14289,
+              "name": "Large",
+              "unitPrice": 2.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63471,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                },
+                {
+                  "id": 63472,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "ធំ"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 63467,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 63468,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63466,
+          "locale": "km",
+          "field": "name",
+          "value": "Coleslaw"
+        },
+        {
+          "id": 63465,
+          "locale": "en",
+          "field": "name",
+          "value": "Coleslaw"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 0.86,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.15
+    },
+    {
+      "id": 8192,
+      "slug": null,
+      "name": "Steamed Rice",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/rice-72b87a606e1ed0ee.png",
+      "imageName": "rice-72b87a606e1ed0ee.png",
+      "qty": 0,
+      "price": 0.51,
+      "sellingPrice": 0.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 14037,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 14286,
+              "name": "Small",
+              "unitPrice": 0.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63461,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 63462,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "តូច"
+                }
+              ]
+            },
+            {
+              "id": 14287,
+              "name": "Large",
+              "unitPrice": 1.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63464,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "ធំ"
+                },
+                {
+                  "id": 63463,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 63460,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            },
+            {
+              "id": 63459,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63458,
+          "locale": "km",
+          "field": "name",
+          "value": "បាយស"
+        },
+        {
+          "id": 63457,
+          "locale": "en",
+          "field": "name",
+          "value": "Steamed Rice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 0.43,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.08
+    },
+    {
+      "id": 8191,
+      "slug": null,
+      "name": "Mike's Crazy Cheese Fries",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/mike-s-crazy-cheese-fries-fda3f139e7125993.png",
+      "imageName": "mike-s-crazy-cheese-fries-fda3f139e7125993.png",
+      "qty": 0,
+      "price": 5.01,
+      "sellingPrice": 5.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10237,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 14035,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 14282,
+              "name": "Regular",
+              "unitPrice": 5.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63444,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "ទៀងទាត់"
+                },
+                {
+                  "id": 63443,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Regular"
+                }
+              ]
+            },
+            {
+              "id": 14283,
+              "name": "Large",
+              "unitPrice": 9.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 63446,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "ធំ"
+                },
+                {
+                  "id": 63445,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 63441,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 63442,
+              "locale": "km",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63440,
+          "locale": "km",
+          "field": "name",
+          "value": "Mike's Crazy Cheese Fries"
+        },
+        {
+          "id": 63439,
+          "locale": "en",
+          "field": "name",
+          "value": "Mike's Crazy Cheese Fries"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.26,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.75
+    },
+    {
+      "id": 8190,
+      "slug": null,
+      "name": "Welch's Fruit Juice 473ml",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/welch-s-fruit-juice-296ml-d439f0e404fb7f7c.png",
+      "imageName": "welch-s-fruit-juice-296ml-d439f0e404fb7f7c.png",
+      "qty": 0,
+      "price": 4.5,
+      "sellingPrice": 4.5,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 87,
+      "subCategoryId": 88,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63432,
+          "locale": "km",
+          "field": "name",
+          "value": "Welch's Fruit Juice 473ml"
+        },
+        {
+          "id": 63431,
+          "locale": "en",
+          "field": "name",
+          "value": "Welch's Fruit Juice 473ml"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.82,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 8189,
+      "slug": null,
+      "name": "Welch's Fruit Juice 296ml",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/welch-s-fruit-juice-3f5f79c51c15a74f.png",
+      "imageName": "welch-s-fruit-juice-3f5f79c51c15a74f.png",
+      "qty": 0,
+      "price": 3.75,
+      "sellingPrice": 3.75,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": false,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 87,
+      "subCategoryId": 88,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63429,
+          "locale": "en",
+          "field": "name",
+          "value": "Welch's Fruit Juice 296ml"
+        },
+        {
+          "id": 63430,
+          "locale": "km",
+          "field": "name",
+          "value": "Welch's Fruit Juice 296ml"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.19,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.56
+    },
+    {
+      "id": 8188,
+      "slug": null,
+      "name": "Sparkling Ice Juice  Watermelon 502ml",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/sparkling-ice-juice--watermelon-502ml-8740a96e6f69ae35.png",
+      "imageName": "sparkling-ice-juice--watermelon-502ml-8740a96e6f69ae35.png",
+      "qty": 0,
+      "price": 3.75,
+      "sellingPrice": 3.75,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 87,
+      "subCategoryId": 88,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63428,
+          "locale": "km",
+          "field": "name",
+          "value": "Sparkling Ice Juice  Watermelon 502ml"
+        },
+        {
+          "id": 63427,
+          "locale": "en",
+          "field": "name",
+          "value": "Sparkling Ice Juice  Watermelon 502ml"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.19,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.56
+    },
+    {
+      "id": 8185,
+      "slug": null,
+      "name": "A&W Cream Soda (CAN) 355ml",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/a-w-cream-soda--can-f37b3e44a20c3f66.png",
+      "imageName": "a-w-cream-soda--can-f37b3e44a20c3f66.png",
+      "qty": 0,
+      "price": 2.51,
+      "sellingPrice": 2.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 87,
+      "subCategoryId": 88,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63410,
+          "locale": "km",
+          "field": "name",
+          "value": "A&W Cream Soda (CAN) 355ml"
+        },
+        {
+          "id": 63409,
+          "locale": "en",
+          "field": "name",
+          "value": "A&W Cream Soda (CAN) 355ml"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 2.13,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.38
+    },
+    {
+      "id": 8181,
+      "slug": null,
+      "name": "Mike's Coco Frappe",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/mike-s-coco-frappe-1-970b659e096737cd.png",
+      "imageName": "mike-s-coco-frappe-1-970b659e096737cd.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10029,
+      "subCategoryId": 10383,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63401,
+          "locale": "en",
+          "field": "name",
+          "value": "Mike's Coco Frappe"
+        },
+        {
+          "id": 63402,
+          "locale": "km",
+          "field": "name",
+          "value": "Mike's Coco Frappe"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 8179,
+      "slug": null,
+      "name": "Root Beer Float",
+      "description": "Chilled root beer topped with creamy vanilla ice cream for a smooth, fizzy, and refreshing treat.",
+      "image": "https://files.durianx.com/data-file/product/root-beer-float-94786365feb4b75d.png",
+      "imageName": "root-beer-float-94786365feb4b75d.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10029,
+      "subCategoryId": 10383,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63398,
+          "locale": "km",
+          "field": "name",
+          "value": "Root Beer Float"
+        },
+        {
+          "id": 63517,
+          "locale": "km",
+          "field": "description",
+          "value": "Chilled root beer topped with creamy vanilla ice cream for a smooth, fizzy, and refreshing treat."
+        },
+        {
+          "id": 63477,
+          "locale": "en",
+          "field": "description",
+          "value": "Chilled root beer topped with creamy vanilla ice cream for a smooth, fizzy, and refreshing treat."
+        },
+        {
+          "id": 63397,
+          "locale": "en",
+          "field": "name",
+          "value": "Root Beer Float"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 8176,
+      "slug": null,
+      "name": "Coconut Juice",
+      "description": "Fresh & Natural",
+      "image": "https://files.durianx.com/data-file/product/coconut-juice-43eed800dd1e5618.png",
+      "imageName": "coconut-juice-43eed800dd1e5618.png",
+      "qty": 0,
+      "price": 2.51,
+      "sellingPrice": 2.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 77,
+      "subCategoryId": 78,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63386,
+          "locale": "km",
+          "field": "name",
+          "value": "ទឹកដូង"
+        },
+        {
+          "id": 63476,
+          "locale": "en",
+          "field": "description",
+          "value": "Fresh & Natural"
+        },
+        {
+          "id": 63385,
+          "locale": "en",
+          "field": "name",
+          "value": "Coconut Juice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 2.13,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.38
+    },
+    {
+      "id": 8175,
+      "slug": null,
+      "name": "Carrot Juice",
+      "description": "100% pure and freshly squeezed carrot juice, packed with natural goodness and vibrant flavor.",
+      "image": "https://files.durianx.com/data-file/product/carrot-juice-92fbfc3d3552e235.png",
+      "imageName": "carrot-juice-92fbfc3d3552e235.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 77,
+      "subCategoryId": 78,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63384,
+          "locale": "km",
+          "field": "name",
+          "value": "ទឹកការ៉ុត"
+        },
+        {
+          "id": 63475,
+          "locale": "en",
+          "field": "description",
+          "value": "100% pure and freshly squeezed carrot juice, packed with natural goodness and vibrant flavor."
+        },
+        {
+          "id": 63383,
+          "locale": "en",
+          "field": "name",
+          "value": "Carrot Juice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 8174,
+      "slug": null,
+      "name": "Apple Juice",
+      "description": "100% pure and freshly pressed apple juice, naturally sweet and delicious.",
+      "image": "https://files.durianx.com/data-file/product/apple-juice-1-451f753edece72ad.png",
+      "imageName": "apple-juice-1-451f753edece72ad.png",
+      "qty": 0,
+      "price": 5.51,
+      "sellingPrice": 5.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 77,
+      "subCategoryId": 78,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63382,
+          "locale": "km",
+          "field": "name",
+          "value": "ទឹកផ្លែប៉ោម"
+        },
+        {
+          "id": 63474,
+          "locale": "en",
+          "field": "description",
+          "value": "100% pure and freshly pressed apple juice, naturally sweet and delicious."
+        },
+        {
+          "id": 63381,
+          "locale": "en",
+          "field": "name",
+          "value": "Apple Juice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.68,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.83
+    },
+    {
+      "id": 8173,
+      "slug": null,
+      "name": "Orange Juice",
+      "description": "100% pure and freshly squeezed orange juice for a bright, refreshing, and natural beverage",
+      "image": "https://files.durianx.com/data-file/product/orange-juice-b104ed30bbfd4c70.png",
+      "imageName": "orange-juice-b104ed30bbfd4c70.png",
+      "qty": 0,
+      "price": 5.51,
+      "sellingPrice": 5.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 77,
+      "subCategoryId": 78,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63380,
+          "locale": "km",
+          "field": "name",
+          "value": "ទឹកក្រូចស្រស់"
+        },
+        {
+          "id": 63473,
+          "locale": "en",
+          "field": "description",
+          "value": "100% pure and freshly squeezed orange juice for a bright, refreshing, and natural beverage"
+        },
+        {
+          "id": 63379,
+          "locale": "en",
+          "field": "name",
+          "value": "Orange Juice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.68,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.83
+    },
+    {
+      "id": 7494,
+      "slug": null,
+      "name": "Burrito Supreme Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-4md9gh4md9gh4md9--1-be0ecca090dc89f6.png",
+      "imageName": "gemini-generated-image-4md9gh4md9gh4md9--1-be0ecca090dc89f6.png",
+      "qty": 0,
+      "price": 7.51,
+      "sellingPrice": 7.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16546,
+          "name": "Salza Small",
+          "price": 0,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59925,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Small"
+            }
+          ]
+        },
+        {
+          "id": 16547,
+          "name": "Salza Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59926,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Regular"
+            }
+          ]
+        },
+        {
+          "id": 16548,
+          "name": "Nacho Cheese Sauce Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59927,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            }
+          ]
+        },
+        {
+          "id": 16549,
+          "name": "Nacho Cheese Sauce Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59928,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59924,
+          "locale": "km",
+          "field": "name",
+          "value": "Burrito Supreme Combo Meal"
+        },
+        {
+          "id": 59898,
+          "locale": "en",
+          "field": "name",
+          "value": "Burrito Supreme Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 6.38,
+      "commissionPercentage": 15,
+      "commissionPrice": 1.13
+    },
+    {
+      "id": 7493,
+      "slug": null,
+      "name": "Vegan Burrito",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-s2sqjps2sqjps2sq--2-fb090660c75b0d70.png",
+      "imageName": "gemini-generated-image-s2sqjps2sqjps2sq--2-fb090660c75b0d70.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16542,
+          "name": "Salza Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59920,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Small"
+            }
+          ]
+        },
+        {
+          "id": 16543,
+          "name": "Salza Regular",
+          "price": 0,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59921,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Regular"
+            }
+          ]
+        },
+        {
+          "id": 16544,
+          "name": "Nacho Cheese Sauce Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59922,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            }
+          ]
+        },
+        {
+          "id": 16545,
+          "name": "Nacho Cheese Sauce Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59923,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59919,
+          "locale": "km",
+          "field": "name",
+          "value": "Vegan Burrito"
+        },
+        {
+          "id": 59897,
+          "locale": "en",
+          "field": "name",
+          "value": "Vegan Burrito"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 7492,
+      "slug": null,
+      "name": "Vegan Burrito Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-s2sqjps2sqjps2sq--1-f2c417a7ec56ba61.png",
+      "imageName": "gemini-generated-image-s2sqjps2sqjps2sq--1-f2c417a7ec56ba61.png",
+      "qty": 0,
+      "price": 7.51,
+      "sellingPrice": 7.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16550,
+          "name": "Salza Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59930,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Small"
+            }
+          ]
+        },
+        {
+          "id": 16551,
+          "name": "Salza Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59931,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Regular"
+            }
+          ]
+        },
+        {
+          "id": 16552,
+          "name": "Nacho Cheese Sauce Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59932,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            }
+          ]
+        },
+        {
+          "id": 16553,
+          "name": "Nacho Cheese Sauce Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59933,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59929,
+          "locale": "km",
+          "field": "name",
+          "value": "Vegan Burrito Combo Meal"
+        },
+        {
+          "id": 59896,
+          "locale": "en",
+          "field": "name",
+          "value": "Vegan Burrito Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 6.38,
+      "commissionPercentage": 15,
+      "commissionPrice": 1.13
+    },
+    {
+      "id": 7491,
+      "slug": null,
+      "name": "New Generation Cheese Quesadillas",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/mini-cheese-quesadilla-5fcdb7282a84abee.png",
+      "imageName": "mini-cheese-quesadilla-5fcdb7282a84abee.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16554,
+          "name": "Salza Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59935,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Small"
+            },
+            {
+              "id": 63447,
+              "locale": "km",
+              "field": "name",
+              "value": "Salza Small"
+            }
+          ]
+        },
+        {
+          "id": 16555,
+          "name": "Salza Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59936,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Regular"
+            },
+            {
+              "id": 63448,
+              "locale": "km",
+              "field": "name",
+              "value": "Salza Regular"
+            }
+          ]
+        },
+        {
+          "id": 16556,
+          "name": "Nacho Cheese Sauce Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59937,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            },
+            {
+              "id": 63449,
+              "locale": "km",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            }
+          ]
+        },
+        {
+          "id": 16557,
+          "name": "Nacho Cheese Sauce Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59938,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            },
+            {
+              "id": 63450,
+              "locale": "km",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59895,
+          "locale": "en",
+          "field": "name",
+          "value": "New Generation Cheese Quesadillas"
+        },
+        {
+          "id": 59934,
+          "locale": "km",
+          "field": "name",
+          "value": "New Generation Cheese Quesadillas"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 7490,
+      "slug": null,
+      "name": "Mini Cheese Quesadilla Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-qi3qvdqi3qvdqi3q--1-30725927f45f4a5d.png",
+      "imageName": "gemini-generated-image-qi3qvdqi3qvdqi3q--1-30725927f45f4a5d.png",
+      "qty": 0,
+      "price": 5.25,
+      "sellingPrice": 5.25,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59817,
+          "locale": "km",
+          "field": "name",
+          "value": "Mini Cheese Quesadilla"
+        },
+        {
+          "id": 59816,
+          "locale": "en",
+          "field": "name",
+          "value": "Mini Cheese Quesadilla Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.46,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.79
+    },
+    {
+      "id": 7489,
+      "slug": null,
+      "name": "Wild Hog",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-es6lg6es6lg6es6l--1-3d044fa94c1b177c.png",
+      "imageName": "gemini-generated-image-es6lg6es6lg6es6l--1-3d044fa94c1b177c.png",
+      "qty": 0,
+      "price": 6.01,
+      "sellingPrice": 6.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10237,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 63608,
+          "locale": "km",
+          "field": "name",
+          "value": "Wild Hog"
+        },
+        {
+          "id": 59797,
+          "locale": "en",
+          "field": "name",
+          "value": "Wild Hog"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.11,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.9
+    },
+    {
+      "id": 7435,
+      "slug": null,
+      "name": "Chicken Pop (Large) 2 Fries + 2 Drinks",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-2026-05-22-11-37-16-enhanced-a943f3491309acc5.png",
+      "imageName": "photo-2026-05-22-11-37-16-enhanced-a943f3491309acc5.png",
+      "qty": 0,
+      "price": 12,
+      "sellingPrice": 12,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16534,
+          "name": "Coleslaw (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59597,
+              "locale": "en",
+              "field": "name",
+              "value": "Coleslaw (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16535,
+          "name": "Coleslaw (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59598,
+              "locale": "en",
+              "field": "name",
+              "value": "Coleslaw (Large)"
+            }
+          ]
+        },
+        {
+          "id": 16536,
+          "name": "Steam Rice (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59599,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16537,
+          "name": "Steam Rice (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59600,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Large)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 13803,
+          "name": "Toppings",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 13577,
+              "name": "Cheese",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59594,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Cheese"
+                }
+              ]
+            },
+            {
+              "id": 13578,
+              "name": "Seasoning",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59595,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Seasoning"
+                }
+              ]
+            },
+            {
+              "id": 13579,
+              "name": "Spicy Chilli",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59596,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Spicy Chilli"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 59593,
+              "locale": "en",
+              "field": "name",
+              "value": "Toppings"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 59592,
+          "locale": "km",
+          "field": "name",
+          "value": "Chicken Pop (Large) 2 Fries + 2 Drinks"
+        },
+        {
+          "id": 59549,
+          "locale": "en",
+          "field": "name",
+          "value": "Chicken Pop (Large) 2 Fries + 2 Drinks"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 10.2,
+      "commissionPercentage": 15,
+      "commissionPrice": 1.8
+    },
+    {
+      "id": 7434,
+      "slug": null,
+      "name": "Chicken Pop + Fries + Coca-Cola",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-2026-05-22-11-37-12-enhanced-d9fec01c5d722dba.png",
+      "imageName": "photo-2026-05-22-11-37-12-enhanced-d9fec01c5d722dba.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16530,
+          "name": "Coleslaw (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59588,
+              "locale": "en",
+              "field": "name",
+              "value": "Coleslaw (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16531,
+          "name": "Coleslaw (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59589,
+              "locale": "en",
+              "field": "name",
+              "value": "Coleslaw (Large)"
+            }
+          ]
+        },
+        {
+          "id": 16532,
+          "name": "Steam Rice (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59590,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16533,
+          "name": "Steam Rice (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59591,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Large)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 13802,
+          "name": "Toppings",
+          "type": "multi",
+          "min": 0,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 13574,
+              "name": "Cheese",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59585,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Cheese"
+                }
+              ]
+            },
+            {
+              "id": 13575,
+              "name": "Seasoning",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59586,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Seasoning"
+                }
+              ]
+            },
+            {
+              "id": 13576,
+              "name": "Spicy Chilli",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59587,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Spicy Chilli"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 59584,
+              "locale": "en",
+              "field": "name",
+              "value": "Toppings"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 59583,
+          "locale": "km",
+          "field": "name",
+          "value": "Chicken Pop + Fries + Coca-Cola"
+        },
+        {
+          "id": 59548,
+          "locale": "en",
+          "field": "name",
+          "value": "Chicken Pop + Fries + Coca-Cola"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 7433,
+      "slug": null,
+      "name": "Chicken Pop + Small Fries + Fresh Juice",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-tzyykstzyykstzyy-a235c0308dc88190.png",
+      "imageName": "gemini-generated-image-tzyykstzyykstzyy-a235c0308dc88190.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16526,
+          "name": "Coleslaw (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59576,
+              "locale": "en",
+              "field": "name",
+              "value": "Coleslaw (Small)"
+            },
+            {
+              "id": 59577,
+              "locale": "km",
+              "field": "name",
+              "value": "Coleslaw (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16527,
+          "name": "Coleslaw (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59578,
+              "locale": "en",
+              "field": "name",
+              "value": "Coleslaw (Large)"
+            }
+          ]
+        },
+        {
+          "id": 16528,
+          "name": "Steam Rice (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59579,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16529,
+          "name": "Steam Rice (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59580,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Large)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 13801,
+          "name": "Toppings",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 13571,
+              "name": "Cheese",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59573,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Cheese"
+                }
+              ]
+            },
+            {
+              "id": 13572,
+              "name": "Seasoning",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59574,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Seasoning"
+                }
+              ]
+            },
+            {
+              "id": 13573,
+              "name": "Spicy Chilli",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59575,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Spicy Chilli"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 59572,
+              "locale": "en",
+              "field": "name",
+              "value": "Toppings"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 59547,
+          "locale": "en",
+          "field": "name",
+          "value": "Chicken Pop + Small Fries + Fresh Juice"
+        },
+        {
+          "id": 59571,
+          "locale": "km",
+          "field": "name",
+          "value": "Chicken Pop + Small Fries + Fresh Juice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 7415,
+      "slug": null,
+      "name": "Chicken Nuggets Combo Meal 4pcs",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-s6s708s6s708s6s7-0db3a8577a0f66d0.png",
+      "imageName": "gemini-generated-image-s6s708s6s708s6s7-0db3a8577a0f66d0.png",
+      "qty": 0,
+      "price": 5.51,
+      "sellingPrice": 5.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16522,
+          "name": "Extra Coleslaw Sauce (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59419,
+              "locale": "en",
+              "field": "name",
+              "value": "Extra Coleslaw Sauce (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16523,
+          "name": "Extra Coleslaw Sauce (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59420,
+              "locale": "en",
+              "field": "name",
+              "value": "Extra Coleslaw Sauce (Large)"
+            }
+          ]
+        },
+        {
+          "id": 16524,
+          "name": "Steam Rice (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59421,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16525,
+          "name": "Steam Rice (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59422,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Large)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59418,
+          "locale": "en",
+          "field": "name",
+          "value": "Chicken Nuggets Combo Meal 4pcs"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.68,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.83
+    },
+    {
+      "id": 7408,
+      "slug": null,
+      "name": "Mike's Signature Fried Chicken 2pcs Combo",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-2026-05-22-09-46-16-enhanced-b98ac15b289c3b21.png",
+      "imageName": "photo-2026-05-22-09-46-16-enhanced-b98ac15b289c3b21.png",
+      "qty": 0,
+      "price": 7.01,
+      "sellingPrice": 7.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10240,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16518,
+          "name": "Extra Coleslaw Sauce (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59386,
+              "locale": "en",
+              "field": "name",
+              "value": "Extra Coleslaw Sauce (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16519,
+          "name": "Extra Coleslaw Sauce (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59387,
+              "locale": "en",
+              "field": "name",
+              "value": "Extra Coleslaw Sauce (Large)"
+            }
+          ]
+        },
+        {
+          "id": 16520,
+          "name": "Steam Rice (Small)",
+          "price": 0.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59388,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Small)"
+            }
+          ]
+        },
+        {
+          "id": 16521,
+          "name": "Steam Rice (Large)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59389,
+              "locale": "en",
+              "field": "name",
+              "value": "Steam Rice (Large)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59385,
+          "locale": "en",
+          "field": "name",
+          "value": "Mike's Signature Fried Chicken 2pcs Combo"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.96,
+      "commissionPercentage": 15,
+      "commissionPrice": 1.05
+    },
+    {
+      "id": 7384,
+      "slug": null,
+      "name": "Protein Chicken Cheese Burger",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-e7r3l0e7r3l0e7r3--1-eeb1def52eca3655.png",
+      "imageName": "gemini-generated-image-e7r3l0e7r3l0e7r3--1-eeb1def52eca3655.png",
+      "qty": 0,
+      "price": 5.51,
+      "sellingPrice": 5.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": false,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10237,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16508,
+          "name": "Coke&Fries",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59252,
+              "locale": "en",
+              "field": "name",
+              "value": "Coke&Fries"
+            }
+          ]
+        },
+        {
+          "id": 16509,
+          "name": "FrenchFries (small)",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59253,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            }
+          ]
+        },
+        {
+          "id": 16510,
+          "name": "FrenchFries (Regular)",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59254,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 16511,
+          "name": "Seasoning Fries (Regular)",
+          "price": 3.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59255,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 16512,
+          "name": "Seasoning Fries (large)",
+          "price": 5.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59256,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 16513,
+          "name": "Cheesy Fries(Regular)",
+          "price": 3.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59257,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            }
+          ]
+        },
+        {
+          "id": 16514,
+          "name": "Cheesy Fries (large)",
+          "price": 6.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59258,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 16515,
+          "name": "Onion Ring (1pc)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59259,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            }
+          ]
+        },
+        {
+          "id": 16516,
+          "name": "Onion Ring (3pcs)",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59260,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            }
+          ]
+        },
+        {
+          "id": 16517,
+          "name": "Onion Ring (5pcs)",
+          "price": 4.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59261,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59251,
+          "locale": "en",
+          "field": "name",
+          "value": "Protein Chicken Cheese Burger"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.68,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.83
+    },
+    {
+      "id": 7359,
+      "slug": null,
+      "name": "Classic Mike's Tower Burger 6x6",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/screenshot-2026-05-21-151013--2-6cbcf4ce598a7c3c.png",
+      "imageName": "screenshot-2026-05-21-151013--2-6cbcf4ce598a7c3c.png",
+      "qty": 0,
+      "price": 24.51,
+      "sellingPrice": 24.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": false,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10240,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16497,
+          "name": "Coke&Fries",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59031,
+              "locale": "en",
+              "field": "name",
+              "value": "Coke&Fries"
+            },
+            {
+              "id": 59043,
+              "locale": "km",
+              "field": "name",
+              "value": "Coke&Fries"
+            }
+          ]
+        },
+        {
+          "id": 16498,
+          "name": "FrenchFries (small)",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59032,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            },
+            {
+              "id": 59044,
+              "locale": "km",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            }
+          ]
+        },
+        {
+          "id": 16499,
+          "name": "FrenchFries (Regular)",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59033,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            },
+            {
+              "id": 59045,
+              "locale": "km",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 16500,
+          "name": "French Fries (large)",
+          "price": 5.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59034,
+              "locale": "en",
+              "field": "name",
+              "value": "French Fries (large)"
+            },
+            {
+              "id": 59046,
+              "locale": "km",
+              "field": "name",
+              "value": "French Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 16501,
+          "name": "Seasoning Fries (Regular)",
+          "price": 3.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59035,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            },
+            {
+              "id": 59047,
+              "locale": "km",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 16502,
+          "name": "Seasoning Fries (large)",
+          "price": 5.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59036,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            },
+            {
+              "id": 59048,
+              "locale": "km",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 16503,
+          "name": "Cheesy Fries(Regular)",
+          "price": 3.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59037,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            },
+            {
+              "id": 59049,
+              "locale": "km",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            }
+          ]
+        },
+        {
+          "id": 16504,
+          "name": "Cheesy Fries (large)",
+          "price": 6.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59038,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            },
+            {
+              "id": 59050,
+              "locale": "km",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 16505,
+          "name": "Onion Ring (1pc)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59039,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            },
+            {
+              "id": 59051,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            }
+          ]
+        },
+        {
+          "id": 16506,
+          "name": "Onion Ring (3pcs)",
+          "price": 0,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59040,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            },
+            {
+              "id": 59052,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            }
+          ]
+        },
+        {
+          "id": 16507,
+          "name": "Onion Ring (5pcs)",
+          "price": 4.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59041,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            },
+            {
+              "id": 59053,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59042,
+          "locale": "km",
+          "field": "name",
+          "value": "Classic Mike's Tower Burger 6x6"
+        },
+        {
+          "id": 59030,
+          "locale": "en",
+          "field": "name",
+          "value": "Classic Mike's Tower Burger 6x6"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 20.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 3.68
+    },
+    {
+      "id": 2895,
+      "slug": null,
+      "name": "Sloppy Joe Chilli Hot Dog",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/sloppy-joe-chilli-hot-dog-7ec5536a0dded9fc.png",
+      "imageName": "sloppy-joe-chilli-hot-dog-7ec5536a0dded9fc.png",
+      "qty": 0,
+      "price": 6.01,
+      "sellingPrice": 6.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10237,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 13460,
+          "name": "Coke&Fries",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29026,
+              "locale": "en",
+              "field": "name",
+              "value": "Coke&Fries"
+            },
+            {
+              "id": 29037,
+              "locale": "km",
+              "field": "name",
+              "value": "Coke&Fries"
+            }
+          ]
+        },
+        {
+          "id": 13461,
+          "name": "FrenchFries (small)",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29027,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            },
+            {
+              "id": 29038,
+              "locale": "km",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            }
+          ]
+        },
+        {
+          "id": 13462,
+          "name": "FrenchFries (Regular)",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29028,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            },
+            {
+              "id": 29039,
+              "locale": "km",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 13463,
+          "name": "French Fries (large)",
+          "price": 5.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29029,
+              "locale": "en",
+              "field": "name",
+              "value": "French Fries (large)"
+            },
+            {
+              "id": 29040,
+              "locale": "km",
+              "field": "name",
+              "value": "French Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 13464,
+          "name": "Seasoning Fries (Regular)",
+          "price": 3.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29030,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            },
+            {
+              "id": 29041,
+              "locale": "km",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 13465,
+          "name": "Seasoning Fries (large)",
+          "price": 5.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29031,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            },
+            {
+              "id": 29042,
+              "locale": "km",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 13466,
+          "name": "Cheesy Fries(Regular)",
+          "price": 3.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29032,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            },
+            {
+              "id": 29043,
+              "locale": "km",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            }
+          ]
+        },
+        {
+          "id": 13467,
+          "name": "Cheesy Fries (large)",
+          "price": 6.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29044,
+              "locale": "km",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            },
+            {
+              "id": 29033,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 13468,
+          "name": "Onion Ring (1pc)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29034,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            },
+            {
+              "id": 29045,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            }
+          ]
+        },
+        {
+          "id": 13469,
+          "name": "Onion Ring (3pcs)",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29035,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            },
+            {
+              "id": 29046,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            }
+          ]
+        },
+        {
+          "id": 13470,
+          "name": "Onion Ring (5pcs)",
+          "price": 4.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29036,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            },
+            {
+              "id": 29047,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 29025,
+          "locale": "km",
+          "field": "name",
+          "value": "Sloppy Joe Chilli Hot Dog"
+        },
+        {
+          "id": 21264,
+          "locale": "en",
+          "field": "name",
+          "value": "Sloppy Joe Chilli Hot Dog"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.11,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.9
+    },
+    {
+      "id": 2894,
+      "slug": null,
+      "name": "Veggie Burrito",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/veggie-burrito-3972b2df506498fe.png",
+      "imageName": "veggie-burrito-3972b2df506498fe.png",
+      "qty": 0,
+      "price": 6.51,
+      "sellingPrice": 6.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 16558,
+          "name": "Salza Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59940,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Small"
+            },
+            {
+              "id": 63609,
+              "locale": "km",
+              "field": "name",
+              "value": "Salza Small"
+            }
+          ]
+        },
+        {
+          "id": 16559,
+          "name": "Salza Regular",
+          "price": 0,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59941,
+              "locale": "en",
+              "field": "name",
+              "value": "Salza Regular"
+            },
+            {
+              "id": 63610,
+              "locale": "km",
+              "field": "name",
+              "value": "Salza Regular"
+            }
+          ]
+        },
+        {
+          "id": 16560,
+          "name": "Nacho Cheese Sauce Small",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59942,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            },
+            {
+              "id": 63611,
+              "locale": "km",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Small"
+            }
+          ]
+        },
+        {
+          "id": 16561,
+          "name": "Nacho Cheese Sauce Regular",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 59943,
+              "locale": "en",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            },
+            {
+              "id": 63612,
+              "locale": "km",
+              "field": "name",
+              "value": "Nacho Cheese Sauce Regular"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 59939,
+          "locale": "km",
+          "field": "name",
+          "value": "Veggie Burrito"
+        },
+        {
+          "id": 20955,
+          "locale": "en",
+          "field": "name",
+          "value": "Veggie Burrito"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 5.53,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.98
+    },
+    {
+      "id": 2893,
+      "slug": null,
+      "name": "Nacho Cheese Sauce",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/nacho-cheese-sauce-02478260f7c75b68.png",
+      "imageName": "nacho-cheese-sauce-02478260f7c75b68.png",
+      "qty": 0,
+      "price": 1.75,
+      "sellingPrice": 1.75,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 11175,
+          "name": "Size",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 3851,
+              "name": "Small",
+              "unitPrice": 1.75,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20953,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 30241,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "តូច"
+                }
+              ]
+            },
+            {
+              "id": 3852,
+              "name": "Large",
+              "unitPrice": 3.25,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20954,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                },
+                {
+                  "id": 30242,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "ធំ"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 30240,
+              "locale": "km",
+              "field": "name",
+              "value": "ទំហំ"
+            },
+            {
+              "id": 20952,
+              "locale": "en",
+              "field": "name",
+              "value": "Size"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 30239,
+          "locale": "km",
+          "field": "name",
+          "value": "Nacho Cheese Sauce"
+        },
+        {
+          "id": 20951,
+          "locale": "en",
+          "field": "name",
+          "value": "Nacho Cheese Sauce"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 1.49,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.26
+    },
+    {
+      "id": 2892,
+      "slug": null,
+      "name": "Salsa",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/salsa-63bce8c88ec87ba8.png",
+      "imageName": "salsa-63bce8c88ec87ba8.png",
+      "qty": 0,
+      "price": 1.75,
+      "sellingPrice": 1.75,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 11174,
+          "name": "Size",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 3849,
+              "name": "Small 4oz",
+              "unitPrice": 1.75,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 29886,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 20949,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small 4oz"
+                }
+              ]
+            },
+            {
+              "id": 3850,
+              "name": "Large 8oz",
+              "unitPrice": 3.25,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20950,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large 8oz"
+                },
+                {
+                  "id": 29887,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Large"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 29885,
+              "locale": "km",
+              "field": "name",
+              "value": "ទំហំ"
+            },
+            {
+              "id": 20948,
+              "locale": "en",
+              "field": "name",
+              "value": "Size"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 20947,
+          "locale": "en",
+          "field": "name",
+          "value": "Salsa"
+        },
+        {
+          "id": 29884,
+          "locale": "km",
+          "field": "name",
+          "value": "Salsa"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 1.49,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.26
+    },
+    {
+      "id": 2891,
+      "slug": null,
+      "name": "New Generation Chicken Quesadillas",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/mini-chicken-quesadilla-80aa79bac7b2ee98.png",
+      "imageName": "mini-chicken-quesadilla-80aa79bac7b2ee98.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 20889,
+          "locale": "en",
+          "field": "name",
+          "value": "New Generation Chicken Quesadillas"
+        },
+        {
+          "id": 63435,
+          "locale": "km",
+          "field": "name",
+          "value": "New Generation Chicken Quesadillas"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 2890,
+      "slug": null,
+      "name": "Shawarma",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-2026-02-04-15-18-26-f55a1787bb2c3cab.png",
+      "imageName": "photo-2026-02-04-15-18-26-f55a1787bb2c3cab.png",
+      "qty": 0,
+      "price": 4.01,
+      "sellingPrice": 4.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 11169,
+          "name": "Option",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 3839,
+              "name": "Chicken",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20871,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Chicken"
+                }
+              ]
+            },
+            {
+              "id": 3840,
+              "name": "Beef",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20872,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Beef"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 20870,
+              "locale": "en",
+              "field": "name",
+              "value": "Option"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 20869,
+          "locale": "en",
+          "field": "name",
+          "value": "Shawarma"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.41,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.6
+    },
+    {
+      "id": 601,
+      "slug": null,
+      "name": "Double Amor Cheese Taco Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/double-amor-cheese-taco-combo-meal-c71f119865136b15.png",
+      "imageName": "double-amor-cheese-taco-combo-meal-c71f119865136b15.png",
+      "qty": 0,
+      "price": 5.75,
+      "sellingPrice": 5.75,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 10337,
+          "name": "Options",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 940,
+              "name": "Chicken",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6421,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Chicken"
+                },
+                {
+                  "id": 6422,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "សាច់មាន់"
+                }
+              ]
+            },
+            {
+              "id": 941,
+              "name": "Beef",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6423,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Beef"
+                },
+                {
+                  "id": 6424,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "សាច់គោ"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6419,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 6420,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6416,
+          "locale": "km",
+          "field": "name",
+          "value": "Double Amor Cheese Taco Combo Meal"
+        },
+        {
+          "id": 6415,
+          "locale": "en",
+          "field": "name",
+          "value": "Double Amor Cheese Taco Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.89,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.86
+    },
+    {
+      "id": 600,
+      "slug": null,
+      "name": "Doble Amor Cheese Taco",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/doble--amor-cheese-taco-ce7b4425b545ddc3.png",
+      "imageName": "doble--amor-cheese-taco-ce7b4425b545ddc3.png",
+      "qty": 0,
+      "price": 5.01,
+      "sellingPrice": 5.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 10336,
+          "name": "Options",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 938,
+              "name": "Chicken",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6411,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Chicken"
+                },
+                {
+                  "id": 6412,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Chicken"
+                }
+              ]
+            },
+            {
+              "id": 939,
+              "name": "Beef",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6413,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Beef"
+                },
+                {
+                  "id": 6414,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Beef"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6410,
+              "locale": "km",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 6409,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6406,
+          "locale": "km",
+          "field": "name",
+          "value": "Doble Amor Cheese Taco"
+        },
+        {
+          "id": 6405,
+          "locale": "en",
+          "field": "name",
+          "value": "Doble Amor Cheese Taco"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.26,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.75
+    },
+    {
+      "id": 599,
+      "slug": null,
+      "name": "Double Amor Taco Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-deqgntdeqgntdeqg--1-a415ec08d385cf4a.png",
+      "imageName": "gemini-generated-image-deqgntdeqgntdeqg--1-a415ec08d385cf4a.png",
+      "qty": 0,
+      "price": 5.25,
+      "sellingPrice": 5.25,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 10335,
+          "name": "Options",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 936,
+              "name": "Chicken",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6401,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Chicken"
+                },
+                {
+                  "id": 29899,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Chicken"
+                }
+              ]
+            },
+            {
+              "id": 937,
+              "name": "Beef",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 29900,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Beef"
+                },
+                {
+                  "id": 6403,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Beef"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6399,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 29898,
+              "locale": "km",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6396,
+          "locale": "km",
+          "field": "name",
+          "value": "Double Amor Taco Combo Meal"
+        },
+        {
+          "id": 6395,
+          "locale": "en",
+          "field": "name",
+          "value": "Double Amor Taco Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.46,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.79
+    },
+    {
+      "id": 598,
+      "slug": null,
+      "name": "Double Amor Taco",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/double-taco-885ab88da901cd7e.png",
+      "imageName": "double-taco-885ab88da901cd7e.png",
+      "qty": 0,
+      "price": 4.01,
+      "sellingPrice": 4.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 10334,
+          "name": "Options",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 934,
+              "name": "Chicken",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6391,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Chicken"
+                }
+              ]
+            },
+            {
+              "id": 935,
+              "name": "Beef",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6393,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Beef"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6389,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6386,
+          "locale": "km",
+          "field": "name",
+          "value": "Double Amor Taco"
+        },
+        {
+          "id": 6385,
+          "locale": "en",
+          "field": "name",
+          "value": "Double Amor Taco"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.41,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.6
+    },
+    {
+      "id": 597,
+      "slug": null,
+      "name": "Taco Supreme Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-55-2026-04-20-15-47-40-enhanced-780889988e6cf2f0.png",
+      "imageName": "photo-55-2026-04-20-15-47-40-enhanced-780889988e6cf2f0.png",
+      "qty": 0,
+      "price": 5.51,
+      "sellingPrice": 5.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 13830,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 13697,
+              "name": "1 pc",
+              "unitPrice": 5.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59907,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "1 pc"
+                }
+              ]
+            },
+            {
+              "id": 13698,
+              "name": "2 pcs",
+              "unitPrice": 8.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 59908,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "2 pcs"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 59906,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [
+        {
+          "id": 10332,
+          "name": "Options",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 930,
+              "name": "Chicken",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6367,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Chicken"
+                },
+                {
+                  "id": 6368,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "សាច់មាន់"
+                }
+              ]
+            },
+            {
+              "id": 931,
+              "name": "Beef",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6370,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "សាច់គោ"
+                },
+                {
+                  "id": 6369,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Beef"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6366,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            },
+            {
+              "id": 6365,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6361,
+          "locale": "en",
+          "field": "name",
+          "value": "Taco Supreme Combo Meal"
+        },
+        {
+          "id": 6362,
+          "locale": "km",
+          "field": "name",
+          "value": "Taco Supreme Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.68,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.83
+    },
+    {
+      "id": 596,
+      "slug": null,
+      "name": "AL Pastor Taco Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-1fpt3q1fpt3q1fpt-enhanced-c186fa8127f286d8.png",
+      "imageName": "gemini-generated-image-1fpt3q1fpt3q1fpt-enhanced-c186fa8127f286d8.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [
+        {
+          "id": 11172,
+          "name": "Options",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 3845,
+              "name": "Pork",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20887,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Pork"
+                }
+              ]
+            },
+            {
+              "id": 3846,
+              "name": "Fish",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20888,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Fish"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 20886,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6356,
+          "locale": "km",
+          "field": "name",
+          "value": "Pastor AL Taco Combo Meal"
+        },
+        {
+          "id": 6355,
+          "locale": "en",
+          "field": "name",
+          "value": "AL Pastor Taco Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 594,
+      "slug": null,
+      "name": "Mini Chicken Quesadila Combo Meal",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-53-2026-04-20-15-47-40-enhanced-ca532e57b74971e9.png",
+      "imageName": "photo-53-2026-04-20-15-47-40-enhanced-ca532e57b74971e9.png",
+      "qty": 0,
+      "price": 5.25,
+      "sellingPrice": 5.25,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10238,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 6336,
+          "locale": "en",
+          "field": "name",
+          "value": "Mini Chicken Quesadila Combo Meal"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.46,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.79
+    },
+    {
+      "id": 585,
+      "slug": null,
+      "name": "Angry Bird Chicken Combo",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/photo-38-2026-04-20-15-47-40-131106d03ae1ba95.png",
+      "imageName": "photo-38-2026-04-20-15-47-40-131106d03ae1ba95.png",
+      "qty": 0,
+      "price": 5.01,
+      "sellingPrice": 5.01,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10239,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 10329,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 922,
+              "name": "3pcs",
+              "unitPrice": 5.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6261,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "3pcs"
+                },
+                {
+                  "id": 6260,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "3pcs"
+                }
+              ]
+            },
+            {
+              "id": 923,
+              "name": "6pcs",
+              "unitPrice": 8.01,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6262,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "6pcs"
+                },
+                {
+                  "id": 6263,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "6pcs"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6258,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 6259,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [
+        {
+          "id": 10330,
+          "name": "Spicy Levels",
+          "type": "single",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 924,
+              "name": "1 (Mild Bird)",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20931,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "1 (Mild Bird)"
+                },
+                {
+                  "id": 6266,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "1 (Mild Bird)"
+                }
+              ]
+            },
+            {
+              "id": 925,
+              "name": "2 (Spicy Bird)",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20932,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "2 (Spicy Bird)"
+                },
+                {
+                  "id": 6268,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "2 (Spicy Bird)"
+                }
+              ]
+            },
+            {
+              "id": 926,
+              "name": "3 (Angry Bird)",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 20933,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "3 (Angry Bird)"
+                },
+                {
+                  "id": 6270,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "3 (Angry Bird)"
+                }
+              ]
+            },
+            {
+              "id": 927,
+              "name": "4 (Crazy Bird)",
+              "unitPrice": 0,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6272,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "4 (Crazy Bird)"
+                },
+                {
+                  "id": 20934,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "4 (Crazy Bird)"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6264,
+              "locale": "en",
+              "field": "name",
+              "value": "Spicy Levels"
+            },
+            {
+              "id": 6265,
+              "locale": "km",
+              "field": "name",
+              "value": "កម្រិតហឹរ"
+            }
+          ]
+        }
+      ],
+      "translations": [
+        {
+          "id": 6255,
+          "locale": "km",
+          "field": "name",
+          "value": "Angry Bird Chicken Combo"
+        },
+        {
+          "id": 6254,
+          "locale": "en",
+          "field": "name",
+          "value": "Angry Bird Chicken Combo"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.26,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.75
+    },
+    {
+      "id": 581,
+      "slug": null,
+      "name": "Combo Classic California Hot Dog",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/combo-classic-california-hot-dog-1a1de5ad28949be9.png",
+      "imageName": "combo-classic-california-hot-dog-1a1de5ad28949be9.png",
+      "qty": 0,
+      "price": 5.51,
+      "sellingPrice": 5.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10237,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [
+        {
+          "id": 13471,
+          "name": "Coke&Fries",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29048,
+              "locale": "en",
+              "field": "name",
+              "value": "Coke&Fries"
+            },
+            {
+              "id": 29328,
+              "locale": "km",
+              "field": "name",
+              "value": "Coke&Fries"
+            }
+          ]
+        },
+        {
+          "id": 13472,
+          "name": "FrenchFries (small)",
+          "price": 1.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29049,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            },
+            {
+              "id": 29329,
+              "locale": "km",
+              "field": "name",
+              "value": "FrenchFries (small)"
+            }
+          ]
+        },
+        {
+          "id": 13473,
+          "name": "FrenchFries (Regular)",
+          "price": 2.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29050,
+              "locale": "en",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            },
+            {
+              "id": 29330,
+              "locale": "km",
+              "field": "name",
+              "value": "FrenchFries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 13474,
+          "name": "French Fries (large)",
+          "price": 5.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29051,
+              "locale": "en",
+              "field": "name",
+              "value": "French Fries (large)"
+            },
+            {
+              "id": 29331,
+              "locale": "km",
+              "field": "name",
+              "value": "French Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 13475,
+          "name": "Seasoning Fries (Regular)",
+          "price": 3.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29052,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            },
+            {
+              "id": 29332,
+              "locale": "km",
+              "field": "name",
+              "value": "Seasoning Fries (Regular)"
+            }
+          ]
+        },
+        {
+          "id": 13476,
+          "name": "Seasoning Fries (large)",
+          "price": 5.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29053,
+              "locale": "en",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            },
+            {
+              "id": 29333,
+              "locale": "km",
+              "field": "name",
+              "value": "Seasoning Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 13477,
+          "name": "Cheesy Fries(Regular)",
+          "price": 3.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29054,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            },
+            {
+              "id": 29334,
+              "locale": "km",
+              "field": "name",
+              "value": "Cheesy Fries(Regular)"
+            }
+          ]
+        },
+        {
+          "id": 13478,
+          "name": "Cheesy Fries (large)",
+          "price": 6.51,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29055,
+              "locale": "en",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            },
+            {
+              "id": 29335,
+              "locale": "km",
+              "field": "name",
+              "value": "Cheesy Fries (large)"
+            }
+          ]
+        },
+        {
+          "id": 13479,
+          "name": "Onion Ring (1pc)",
+          "price": 1.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29056,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            },
+            {
+              "id": 29336,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (1pc)"
+            }
+          ]
+        },
+        {
+          "id": 13480,
+          "name": "Onion Ring (3pcs)",
+          "price": 2.75,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29057,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            },
+            {
+              "id": 29337,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (3pcs)"
+            }
+          ]
+        },
+        {
+          "id": 13481,
+          "name": "Onion Ring (5pcs)",
+          "price": 4.01,
+          "receivablePrice": 0,
+          "sellingPrice": null,
+          "commissionPercentage": null,
+          "commissionPrice": null,
+          "qty": 0,
+          "status": true,
+          "required": false,
+          "translations": [
+            {
+              "id": 29058,
+              "locale": "en",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            },
+            {
+              "id": 29338,
+              "locale": "km",
+              "field": "name",
+              "value": "Onion Ring (5pcs)"
+            }
+          ]
+        }
+      ],
+      "foodVariations": [],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 6229,
+          "locale": "km",
+          "field": "name",
+          "value": "Combo Classic California Hot Dog"
+        },
+        {
+          "id": 6228,
+          "locale": "en",
+          "field": "name",
+          "value": "Combo Classic California Hot Dog"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 4.68,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.83
+    },
+    {
+      "id": 580,
+      "slug": null,
+      "name": "Orange Chicken Over Rice",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/gemini-generated-image-f5viktf5viktf5vi-c030d014355cd120.png",
+      "imageName": "gemini-generated-image-f5viktf5viktf5vi-c030d014355cd120.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10240,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 10327,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 918,
+              "name": "Small",
+              "unitPrice": 4.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6222,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 6223,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Small"
+                }
+              ]
+            },
+            {
+              "id": 919,
+              "name": "Large",
+              "unitPrice": 7.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6224,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                },
+                {
+                  "id": 6225,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Large"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6220,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 6221,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 6216,
+          "locale": "en",
+          "field": "name",
+          "value": "Orange Chicken Over Rice"
+        },
+        {
+          "id": 6217,
+          "locale": "km",
+          "field": "name",
+          "value": "Orange Chicken Over Rice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    },
+    {
+      "id": 579,
+      "slug": null,
+      "name": "Chavming",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/vars-ab06c2cbdf4004ec.png",
+      "imageName": "vars-ab06c2cbdf4004ec.png",
+      "qty": 0,
+      "price": 3.51,
+      "sellingPrice": 3.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10240,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 10326,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 916,
+              "name": "Small",
+              "unitPrice": 3.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6212,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 6213,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Small"
+                }
+              ]
+            },
+            {
+              "id": 917,
+              "name": "Large",
+              "unitPrice": 6.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 6214,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                },
+                {
+                  "id": 6215,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Large"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 6210,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 6211,
+              "locale": "km",
+              "field": "name",
+              "value": "Options"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 6207,
+          "locale": "km",
+          "field": "name",
+          "value": "Chavming"
+        },
+        {
+          "id": 6206,
+          "locale": "en",
+          "field": "name",
+          "value": "Chavming"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 2.98,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.53
+    },
+    {
+      "id": 574,
+      "slug": null,
+      "name": "Teriyaki Chicken Over Rice",
+      "description": "",
+      "image": "https://files.durianx.com/data-file/product/teriyaki-chicken-rice-enhanced-89dcdbfdb68ec8fb.png",
+      "imageName": "teriyaki-chicken-rice-enhanced-89dcdbfdb68ec8fb.png",
+      "qty": 0,
+      "price": 4.51,
+      "sellingPrice": 4.51,
+      "tax": 0,
+      "taxType": "percent",
+      "taxAmount": 0,
+      "discount": 0,
+      "discountType": "percent",
+      "isAlwaysOrderable": true,
+      "availableTimeStarts": null,
+      "availableTimeEnds": null,
+      "veg": false,
+      "status": true,
+      "orderCount": 0,
+      "ratingCount": 0,
+      "rating": {},
+      "stock": 0,
+      "images": [],
+      "categoryId": 10236,
+      "subCategoryId": 10240,
+      "recommended": false,
+      "organic": false,
+      "maximumCartQuantity": null,
+      "isApproved": true,
+      "isHalal": false,
+      "isVeg": false,
+      "itemNote": null,
+      "category": null,
+      "categories": [],
+      "addOns": [],
+      "foodVariations": [
+        {
+          "id": 10359,
+          "name": "Options",
+          "type": "single",
+          "variantType": "variant",
+          "min": 1,
+          "max": 1,
+          "required": true,
+          "variationCategory": [
+            {
+              "id": 988,
+              "name": "Small",
+              "unitPrice": 4.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 7196,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Small"
+                },
+                {
+                  "id": 7197,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Small"
+                }
+              ]
+            },
+            {
+              "id": 989,
+              "name": "Large",
+              "unitPrice": 7.51,
+              "receivablePrice": 0,
+              "sellingPrice": null,
+              "commissionPercentage": null,
+              "commissionPrice": null,
+              "status": true,
+              "translations": [
+                {
+                  "id": 7198,
+                  "locale": "en",
+                  "field": "name",
+                  "value": "Large"
+                },
+                {
+                  "id": 7199,
+                  "locale": "km",
+                  "field": "name",
+                  "value": "Large"
+                }
+              ]
+            }
+          ],
+          "translations": [
+            {
+              "id": 7194,
+              "locale": "en",
+              "field": "name",
+              "value": "Options"
+            },
+            {
+              "id": 7195,
+              "locale": "km",
+              "field": "name",
+              "value": "ជម្រើស"
+            }
+          ]
+        }
+      ],
+      "optionGroups": [],
+      "translations": [
+        {
+          "id": 6147,
+          "locale": "km",
+          "field": "name",
+          "value": "Teriyaki Chicken Over Rice"
+        },
+        {
+          "id": 6146,
+          "locale": "en",
+          "field": "name",
+          "value": "Teriyaki Chicken Over Rice"
+        }
+      ],
+      "storeInfo": null,
+      "unitPrice": 0,
+      "receivablePrice": 3.83,
+      "commissionPercentage": 15,
+      "commissionPrice": 0.68
+    }
+  ]
+}
