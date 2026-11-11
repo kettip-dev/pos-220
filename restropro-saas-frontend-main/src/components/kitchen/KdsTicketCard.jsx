@@ -198,7 +198,7 @@ export default function KdsTicketCard({
           <div
             className={clsx(
               "mt-2 inline-flex max-w-full items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-black",
-              urgency === "ontime" ? "bg-amber-400/15 text-amber-300 border border-amber-400/30" : "bg-black/20"
+              urgency === "ontime" ? "bg-amber-400/15 text-amber-500 border border-amber-400/40" : "bg-black/20"
             )}
           >
             <IconClockPlus size={14} stroke={2.4} className="shrink-0" />
@@ -422,9 +422,9 @@ export default function KdsTicketCard({
               e.stopPropagation();
               onStartAll();
             }}
-            className="h-12 px-4 rounded-xl bg-[var(--kds-soft)] hover:bg-[var(--kds-soft-2)] border border-[color:var(--kds-line)] text-[color:var(--kds-text)] font-bold text-sm flex items-center gap-2 transition active:scale-95"
+            className="h-12 px-3 shrink-0 whitespace-nowrap rounded-xl bg-[var(--kds-soft)] hover:bg-[var(--kds-soft-2)] border border-[color:var(--kds-line)] text-[color:var(--kds-text)] font-bold text-sm flex items-center gap-1.5 transition active:scale-95"
           >
-            <IconPlayerPlayFilled size={15} />
+            <IconPlayerPlayFilled size={15} className="shrink-0" />
             {t("kitchen.kds.start_all", "Start all")}
           </button>
         )}
@@ -437,10 +437,14 @@ export default function KdsTicketCard({
             }}
             title={t("kitchen.delay.title", "Add cooking time")}
             aria-label={t("kitchen.delay.title", "Add cooking time")}
-            className="h-12 px-3 rounded-xl bg-[var(--kds-soft)] hover:bg-[var(--kds-soft-2)] border border-[color:var(--kds-line)] text-amber-300 font-bold text-sm flex items-center gap-1.5 transition active:scale-95"
+            className={clsx(
+              "relative w-12 h-12 shrink-0 rounded-xl border flex items-center justify-center transition active:scale-95",
+              delayMinutes > 0
+                ? "bg-amber-400/15 border-amber-400/50 text-amber-500"
+                : "bg-[var(--kds-soft)] hover:bg-[var(--kds-soft-2)] border-[color:var(--kds-line)] text-amber-500"
+            )}
           >
-            <IconClockPlus size={18} stroke={2.2} />
-            <span className="hidden sm:inline">{t("kitchen.delay.short", "Time")}</span>
+            <IconClockPlus size={21} stroke={2.2} />
           </button>
         )}
         <button
@@ -451,14 +455,14 @@ export default function KdsTicketCard({
             onBump();
           }}
           className={clsx(
-            "flex-1 h-12 rounded-xl font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.98]",
+            "flex-1 min-w-0 h-12 px-3 rounded-xl font-black text-sm uppercase tracking-wider whitespace-nowrap flex items-center justify-center gap-2 transition active:scale-[0.98]",
             hasActive ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950" : "bg-[var(--kds-soft)] text-[color:var(--kds-faint)]"
           )}
         >
-          <IconCheck size={19} stroke={3} />
-          {hasActive ? t("kitchen.kds.bump", "Bump") : t("kitchen.kds.done", "Done")}
+          <IconCheck size={19} stroke={3} className="shrink-0" />
+          <span className="truncate">{hasActive ? t("kitchen.kds.bump", "Bump") : t("kitchen.kds.done", "Done")}</span>
           {hasActive && totalCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-md bg-black/15 text-[11px] tabular-nums normal-case tracking-normal">
+            <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-black/15 text-[11px] tabular-nums normal-case tracking-normal">
               {doneCount}/{totalCount}
             </span>
           )}
