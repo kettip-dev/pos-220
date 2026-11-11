@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import PrepTimePresets, { isValidPrepInput } from "../../components/kitchen/PrepTimePresets";
 import Page from "../../components/Page";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -257,7 +258,7 @@ export default function MenuItemViewPage() {
         if ((formBarcode || "").trim() !== (state.menuItem?.barcode || "")) {
           await setMenuItemBarcode(id, formBarcode.trim() || null);
         }
-        if (String(formPrepMinutes || "") !== String(state.menuItem?.prep_minutes || "")) {
+        if (String(formPrepMinutes || "") !== String(state.menuItem?.prep_minutes || "") && isValidPrepInput(formPrepMinutes)) {
           await setMenuItemPrepMinutes(id, formPrepMinutes === "" ? null : Number(formPrepMinutes));
         }
         await _init(itemId);
@@ -1137,18 +1138,14 @@ export default function MenuItemViewPage() {
                   htmlFor="prep_minutes"
                   className="text-xs font-bold uppercase tracking-wide mb-1.5 block text-gray-500"
                 >
-                  {t("pos_ops.prep_minutes", "Target prep time on the kitchen screen (minutes, optional)")}
+                  {t("kitchen.prep.item_label", "Cooking time on the kitchen screen")}
                 </label>
-                <input
+                <PrepTimePresets
                   id="prep_minutes"
                   value={formPrepMinutes}
-                  onChange={(e) => setFormPrepMinutes(e.target.value)}
-                  type="number"
-                  min="1"
-                  max="240"
-                  inputMode="numeric"
-                  className="min-h-[44px] text-sm w-full rounded-xl px-4 py-2.5 border border-restro-border-green dark:bg-black focus:outline-restro-border-green bg-restro-gray"
-                  placeholder={t("pos_ops.prep_minutes_ph", "e.g. 12")}
+                  onChange={setFormPrepMinutes}
+                  inheritedMinutes={categories?.find((c) => String(c.id) === String(formCategoryId))?.prep_minutes || null}
+                  inheritedLabel={categories?.find((c) => String(c.id) === String(formCategoryId))?.title || null}
                 />
               </div>
 

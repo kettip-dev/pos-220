@@ -3,6 +3,9 @@ const {
   updateOrderItemStatusDB,
   bulkUpdateOrderItemStatusDB,
   markOrderAllItemsStatusDB,
+  getDelayReasonsDB,
+  saveDelayReasonsDB,
+  addKitchenDelayDB,
 } = require("../services/kitchen.service");
 const { notifyOrderReady } = require("../services/notification.service");
 
@@ -196,5 +199,86 @@ exports.updateKitchenOrderItemStatus = async (req, res) => {
       success: false,
       message: req.__("something_went_wrong_try_later"), // Translate message
     });
+  }
+};
+
+const toPositiveIds = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+exports.getDelayReasons = async (req, res) => {
+  try {
+    const reasons = await getDelayReasonsDB(req.user.tenant_id);
+    return res.status(200).json(reasons);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+exports.saveDelayReasons = async (req, res) => {
+  try {
+    const input = Array.isArray(req.body?.reasons) ? req.body.reasons : null;
+    if (!input || input.length > 30) {
+      return res.status(400).json({ success: false, message: req.__("invalid_request") });
+    }
+    const reasons = [];
+    for (const r of input) {
+      const label = String(r?.label || "").trim().slice(0, 80);
+      const minutes = Number(r?.default_minutes);
+      if (!label || !Number.isInteger(minutes) || minutes < 0 || minutes > 240) {
+        return res.status(400).json({ success: false, message: req.__("invalid_request") });
+      }
+      const id = Number(r?.id);
+      reasons.push({
+        id: Number.isInteger(id) && id > 0 ? id : null,
+        label,
+        icon: r?.icon ? String(r.icon).trim().slice(0, 16) : null,
+        default_minutes: minutes,
+      });
+    }
+    const saved = await saveDelayReasonsDB(req.user.tenant_id, reasons);
+    return res.status(200).json({ success: true, reasons: saved });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+exports.addKitchenDelay = async (req, res) => {
+  try {
+    const orderItemIds = toPositiveIds(req.body?.orderItemIds);
+    const clear = req.body?.clear === true;
+    const minutes = Number(req.body?.minutes);
+    const reasonId = Number(req.body?.reasonId) || null;
+    const reasonLabel = req.body?.reasonLabel ? String(req.body.reasonLabel).trim().slice(0, 80) : null;
+
+    const minutesValid = Number.isInteger(minutes) && minutes !== 0 && Math.abs(minutes) <= 240;
+    if (orderItemIds.length === 0 || orderItemIds.length > 200 || (!clear && !minutesValid)) {
+      return res.status(400).json({ success: false, message: req.__("invalid_request") });
+    }
+
+    const groups = await addKitchenDelayDB(req.user.tenant_id, {
+      orderItemIds,
+      minutes: clear ? 0 : minutes,
+      reasonId,
+      reasonLabel,
+      clear,
+      username: req.user.username,
+    });
+
+    if (groups.length > 0) {
+      emitToTenant(req, "order_update", { source: "kitchen", type: "delay", orderIds: groups.map((g) => g.orderId) });
+      // Front-of-house alert: only when the kitchen actually needs more time.
+      if (!clear && minutes > 0) {
+        groups.forEach((g) => emitToTenant(req, "kitchen_delay", { ...g, itemIds: undefined }));
+      }
+    }
+
+    return res.status(200).json({ success: true, updated: groups.reduce((n, g) => n + g.itemIds.length, 0) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
   }
 };

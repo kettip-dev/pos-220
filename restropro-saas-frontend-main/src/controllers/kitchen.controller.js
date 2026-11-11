@@ -61,3 +61,16 @@ export async function markOrderAllItemsStatus(orderId, status, fromStatuses, sta
     throw error;
   }
 }
+
+/** Add (or remove, with a negative value) cooking time on open lines; `clear` resets it. */
+export async function addKitchenDelay({ orderItemIds, minutes, reasonId = null, clear = false }) {
+  return ApiClient.post("/kitchen/delay", { orderItemIds, minutes, reasonId, clear });
+}
+
+export async function getKitchenDelayReasons() {
+  return ApiClient.get("/kitchen/delay-reasons");
+}
+
+export async function saveKitchenDelayReasons(reasons) {
+  return ApiClient.put("/kitchen/delay-reasons", { reasons });
+}

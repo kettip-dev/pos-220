@@ -311,12 +311,13 @@ export function useCategories() {
   };
 }
 
-export async function addCategory(title, kitchen_station_id = null, translations = undefined) {
+export async function addCategory(title, kitchen_station_id = null, translations = undefined, prep_minutes = undefined) {
   try {
     const response = await ApiClient.post("/settings/categories/add", {
       title,
       kitchen_station_id: kitchen_station_id ? Number(kitchen_station_id) : null,
       translations,
+      prep_minutes,
     })
     return response;
   } catch (error) {
@@ -333,12 +334,13 @@ export async function deleteCategory(id) {
   }
 };
 
-export async function updateCategory(id, title, kitchen_station_id = null, translations = undefined) {
+export async function updateCategory(id, title, kitchen_station_id = null, translations = undefined, prep_minutes = undefined) {
   try {
     const response = await ApiClient.post(`/settings/categories/${id}/update`, {
       title,
       kitchen_station_id: kitchen_station_id ? Number(kitchen_station_id) : null,
       translations,
+      prep_minutes,
     })
     return response;
   } catch (error) {

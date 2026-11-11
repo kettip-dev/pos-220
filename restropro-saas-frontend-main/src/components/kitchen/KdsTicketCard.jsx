@@ -13,6 +13,7 @@ import {
   IconPlayerPlayFilled,
   IconFlame,
   IconBan,
+  IconClockPlus,
 } from "@tabler/icons-react";
 import {
   diningLabel,
@@ -22,6 +23,7 @@ import {
   itemOverTarget,
   allDayKey,
   isItemDone,
+  delayReasonLabel,
 } from "./kdsUtils";
 
 const SIZE = {
@@ -94,6 +96,10 @@ export default function KdsTicketCard({
   onBump,
   highlightKey = null,
   nowMs = null,
+  dueMs = null,
+  delayMinutes = 0,
+  delayReason = null,
+  onDelay,
 }) {
   const { t } = useTranslation();
   const { displayOrderItem } = useMenuLanguage();
@@ -106,6 +112,8 @@ export default function KdsTicketCard({
   const hasActive = displayItems.some((i) => i.status === "created" || i.status === "preparing");
   const isFresh = elapsedSec < 60;
   const unitCount = liveItems.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
+  // Ticket countdown from the slowest item's cooking time (+ any delay).
+  const dueSec = dueMs && hasActive ? Math.round((dueMs - (nowMs || Date.now())) / 1000) : null;
 
   // Group companion items by station for the "other stations" strip
   const companionGroups = {};
@@ -177,11 +185,29 @@ export default function KdsTicketCard({
               {urgency === "late" ? <IconFlame size={18} stroke={2.4} /> : <IconClock size={17} stroke={2.4} />}
               {formatDuration(elapsedSec)}
             </div>
-            <div className={clsx("mt-1.5 font-semibold", S.meta, urgency === "ontime" ? "text-[color:var(--kds-muted)]" : "opacity-80")}>
-              {t("kitchen.kds.items", "{{count}} items", { count: unitCount })}
+            <div className={clsx("mt-1.5 font-semibold tabular-nums", S.meta, urgency === "ontime" ? "text-[color:var(--kds-muted)]" : "opacity-90")}>
+              {dueSec !== null
+                ? dueSec >= 0
+                  ? t("kitchen.prep.due_in", "Due in {{time}}", { time: formatDuration(dueSec) })
+                  : t("kitchen.prep.overdue", "{{time}} late", { time: formatDuration(-dueSec) })
+                : t("kitchen.kds.items", "{{count}} items", { count: unitCount })}
             </div>
           </div>
         </div>
+        {delayMinutes > 0 && hasActive && (
+          <div
+            className={clsx(
+              "mt-2 inline-flex max-w-full items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-black",
+              urgency === "ontime" ? "bg-amber-400/15 text-amber-300 border border-amber-400/30" : "bg-black/20"
+            )}
+          >
+            <IconClockPlus size={14} stroke={2.4} className="shrink-0" />
+            <span className="truncate">
+              +{delayMinutes} {t("kitchen.prep.min_unit", "min")}
+              {delayReason ? ` · ${delayReasonLabel(delayReason, null, t)}` : ""}
+            </span>
+          </div>
+        )}
       </header>
 
       {/* Progress */}
@@ -400,6 +426,21 @@ export default function KdsTicketCard({
           >
             <IconPlayerPlayFilled size={15} />
             {t("kitchen.kds.start_all", "Start all")}
+          </button>
+        )}
+        {hasActive && onDelay && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelay();
+            }}
+            title={t("kitchen.delay.title", "Add cooking time")}
+            aria-label={t("kitchen.delay.title", "Add cooking time")}
+            className="h-12 px-3 rounded-xl bg-[var(--kds-soft)] hover:bg-[var(--kds-soft-2)] border border-[color:var(--kds-line)] text-amber-300 font-bold text-sm flex items-center gap-1.5 transition active:scale-95"
+          >
+            <IconClockPlus size={18} stroke={2.2} />
+            <span className="hidden sm:inline">{t("kitchen.delay.short", "Time")}</span>
           </button>
         )}
         <button

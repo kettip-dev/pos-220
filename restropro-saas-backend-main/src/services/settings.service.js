@@ -1115,17 +1115,17 @@ exports.deleteStoreTableDB = async (id, tenantId) => {
     }
 };
 
-exports.addCategoryDB = async (title, tenantId, kitchenStationId = null, translations = null) => {
+exports.addCategoryDB = async (title, tenantId, kitchenStationId = null, translations = null, prepMinutes = null) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
         const sql = `
         INSERT INTO categories
-        (title, tenant_id, kitchen_station_id, translations)
-        VALUES (?, ?, ?, ?);
+        (title, tenant_id, kitchen_station_id, translations, prep_minutes)
+        VALUES (?, ?, ?, ?, ?);
         `;
 
-        const [result] = await conn.query(sql, [title, tenantId, kitchenStationId ? Number(kitchenStationId) : null, translations || null]);
+        const [result] = await conn.query(sql, [title, tenantId, kitchenStationId ? Number(kitchenStationId) : null, translations || null, prepMinutes || null]);
         await invalidateTenantCatalog(tenantId);
         return result.insertId;
     } catch (error) {
@@ -1148,6 +1148,7 @@ exports.getCategoriesDB = async (tenantId) => {
               c.is_enabled,
               c.translations,
               c.kitchen_station_id,
+              c.prep_minutes,
               ks.name AS kitchen_station_name,
               ks.color AS kitchen_station_color
             FROM categories c
@@ -1166,7 +1167,7 @@ exports.getCategoriesDB = async (tenantId) => {
     });
 };
 
-exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefined, translations = undefined) => {
+exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefined, translations = undefined, prepMinutes = undefined) => {
     const conn = await getMySqlPromiseConnection();
 
     try {
@@ -1184,6 +1185,11 @@ exports.updateCategoryDB = async (id, title, tenantId, kitchenStationId = undefi
         if (translations !== undefined) {
             sql += `, translations = ?`;
             params.push(translations);
+        }
+
+        if (prepMinutes !== undefined) {
+            sql += `, prep_minutes = ?`;
+            params.push(prepMinutes || null);
         }
 
         sql += ` WHERE id = ? AND tenant_id = ?;`;

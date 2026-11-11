@@ -66,7 +66,9 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.seat_no,
         oi.fire_status,
         oi.fired_at,
-        mi.prep_minutes,
+        COALESCE(mi.prep_minutes, cat.prep_minutes) AS prep_minutes,
+        oi.delay_minutes,
+        oi.delay_reason,
         oi.kitchen_station_id,
         ks.name AS station_name,
         ks.color AS station_color,
@@ -74,6 +76,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
       FROM
         order_items oi
         LEFT JOIN menu_items mi ON oi.item_id = mi.id
+        LEFT JOIN categories cat ON cat.id = mi.category AND cat.tenant_id = mi.tenant_id
         LEFT JOIN menu_item_variants miv ON oi.item_id = miv.item_id AND oi.variant_id = miv.id
         LEFT JOIN kitchen_stations ks ON oi.kitchen_station_id = ks.id
         
@@ -254,6 +257,187 @@ exports.markOrderAllItemsStatusDB = async (tenantId, orderId, status, fromStatus
   } catch (error) {
     console.error(error);
     throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+// ── Kitchen delays ───────────────────────────────────────────────────────────
+
+// Seeded the first time a tenant opens the list. `code` lets the UI translate
+// the stock labels; owners can rename, re-order, add or remove any of them.
+const DEFAULT_DELAY_REASONS = [
+  { code: "ingredients", label: "Waiting for ingredients", icon: "🛒", default_minutes: 15 },
+  { code: "no_gas", label: "No gas / equipment problem", icon: "🔥", default_minutes: 10 },
+  { code: "busy", label: "Kitchen very busy", icon: "👨‍🍳", default_minutes: 5 },
+  { code: "remake", label: "Remaking the dish", icon: "♻️", default_minutes: 8 },
+  { code: "waiting_table", label: "Waiting for the rest of the table", icon: "🍽️", default_minutes: 5 },
+];
+
+const MAX_DELAY_MINUTES = 600;
+
+const listDelayReasons = async (conn, tenantId) => {
+  const [rows] = await conn.query(
+    `SELECT id, code, label, icon, default_minutes, sort_order
+     FROM kitchen_delay_reasons
+     WHERE tenant_id = ? AND is_active = 1
+     ORDER BY sort_order, id`,
+    [tenantId]
+  );
+  return rows;
+};
+
+exports.getDelayReasonsDB = async (tenantId) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    // Any row (even inactive) means the tenant already has a list: only seed brand-new tenants.
+    const [[{ total }]] = await conn.query(
+      `SELECT COUNT(*) AS total FROM kitchen_delay_reasons WHERE tenant_id = ?`,
+      [tenantId]
+    );
+    if (Number(total) === 0) {
+      const values = DEFAULT_DELAY_REASONS.map((r, i) => [tenantId, r.code, r.label, r.icon, r.default_minutes, i]);
+      await conn.query(
+        `INSERT INTO kitchen_delay_reasons (tenant_id, code, label, icon, default_minutes, sort_order) VALUES ?`,
+        [values]
+      );
+    }
+    return await listDelayReasons(conn, tenantId);
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Replaces the tenant's list: rows sent with an id are updated, rows without one
+ * are inserted, and rows left out are deactivated (kept for old log entries).
+ */
+exports.saveDelayReasonsDB = async (tenantId, reasons) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    await conn.beginTransaction();
+    const keepIds = [];
+    for (let i = 0; i < reasons.length; i++) {
+      const r = reasons[i];
+      if (r.id) {
+        const [res] = await conn.query(
+          `UPDATE kitchen_delay_reasons
+           SET label = ?, icon = ?, default_minutes = ?, sort_order = ?, is_active = 1
+           WHERE id = ? AND tenant_id = ?`,
+          [r.label, r.icon, r.default_minutes, i, r.id, tenantId]
+        );
+        if (res.affectedRows > 0) {
+          keepIds.push(r.id);
+          continue;
+        }
+      }
+      const [ins] = await conn.query(
+        `INSERT INTO kitchen_delay_reasons (tenant_id, label, icon, default_minutes, sort_order) VALUES (?, ?, ?, ?, ?)`,
+        [tenantId, r.label, r.icon, r.default_minutes, i]
+      );
+      keepIds.push(ins.insertId);
+    }
+    if (keepIds.length > 0) {
+      await conn.query(
+        `UPDATE kitchen_delay_reasons SET is_active = 0 WHERE tenant_id = ? AND id NOT IN (?)`,
+        [tenantId, keepIds]
+      );
+    } else {
+      await conn.query(`UPDATE kitchen_delay_reasons SET is_active = 0 WHERE tenant_id = ?`, [tenantId]);
+    }
+    await conn.commit();
+    return await listDelayReasons(conn, tenantId);
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+/**
+ * Adds (or, with a negative value, removes) extra cooking time on still-open lines.
+ * `clear` resets the delay to zero. Returns per-order details for the socket alert.
+ */
+exports.addKitchenDelayDB = async (tenantId, { orderItemIds, minutes, reasonId, reasonLabel, clear, username }) => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    let reason = null;
+    if (reasonId) {
+      const [rows] = await conn.query(
+        `SELECT id, code, label, icon FROM kitchen_delay_reasons WHERE id = ? AND tenant_id = ?`,
+        [reasonId, tenantId]
+      );
+      reason = rows[0] || null;
+    }
+    const label = reason ? reason.label : reasonLabel || null;
+
+    // Only lines of this tenant that are still being cooked.
+    const [lines] = await conn.query(
+      `SELECT oi.id, oi.order_id, COALESCE(oi.custom_title, mi.title) AS item_title, oi.quantity,
+              o.token_no, o.table_id, st.table_title, o.delivery_type
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       LEFT JOIN menu_items mi ON mi.id = oi.item_id
+       LEFT JOIN store_tables st ON st.id = o.table_id
+       WHERE oi.id IN (?) AND o.tenant_id = ? AND oi.status IN ('created', 'preparing')`,
+      [orderItemIds, tenantId]
+    );
+    if (lines.length === 0) return [];
+
+    const ids = lines.map((l) => l.id);
+    if (clear) {
+      await conn.query(`UPDATE order_items SET delay_minutes = 0, delay_reason = NULL WHERE id IN (?)`, [ids]);
+    } else {
+      await conn.query(
+        `UPDATE order_items
+         SET delay_minutes = LEAST(?, GREATEST(0, delay_minutes + ?)),
+             delay_reason = CASE WHEN delay_minutes = 0 THEN NULL ELSE COALESCE(?, delay_reason) END
+         WHERE id IN (?)`,
+        [MAX_DELAY_MINUTES, minutes, label, ids]
+      );
+    }
+
+    // Group by order for the log and the alert.
+    const byOrder = new Map();
+    for (const l of lines) {
+      if (!byOrder.has(l.order_id)) {
+        byOrder.set(l.order_id, {
+          orderId: l.order_id,
+          tokenNo: l.token_no,
+          tableTitle: l.table_title || null,
+          deliveryType: l.delivery_type,
+          itemIds: [],
+          items: [],
+        });
+      }
+      const g = byOrder.get(l.order_id);
+      g.itemIds.push(l.id);
+      g.items.push(`${l.quantity}× ${l.item_title || ""}`.trim());
+    }
+
+    const logRows = [...byOrder.values()].map((g) => [
+      tenantId,
+      g.orderId,
+      g.itemIds.join(",").slice(0, 1000),
+      reason ? reason.code : null,
+      clear ? "cleared" : label,
+      clear ? 0 : minutes,
+      username || null,
+    ]);
+    await conn.query(
+      `INSERT INTO kitchen_delay_log (tenant_id, order_id, order_item_ids, reason_code, reason_label, minutes, created_by) VALUES ?`,
+      [logRows]
+    );
+
+    return [...byOrder.values()].map((g) => ({
+      ...g,
+      minutes: clear ? 0 : minutes,
+      cleared: Boolean(clear),
+      reason: label,
+      reasonCode: reason ? reason.code : null,
+      reasonIcon: reason ? reason.icon : null,
+    }));
   } finally {
     conn.release();
   }

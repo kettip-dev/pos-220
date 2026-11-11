@@ -24,7 +24,9 @@ import {
 import Page from "../components/Page";
 import { useStoreSettings } from "../controllers/settings.controller";
 import {
+  addKitchenDelay,
   bulkUpdateKitchenOrderItemStatus,
+  getKitchenDelayReasons,
   getKitchenOrders,
   markOrderAllItemsStatus,
   updateKitchenOrderItemStatus,
@@ -37,13 +39,14 @@ import { getUserDetailsInLocalStorage } from "../helpers/UserDetails";
 import KdsTicketCard from "../components/kitchen/KdsTicketCard";
 import KdsRecallDrawer from "../components/kitchen/KdsRecallDrawer";
 import KdsSettingsPopover from "../components/kitchen/KdsSettingsPopover";
+import KdsDelaySheet from "../components/kitchen/KdsDelaySheet";
 import {
   DINING_TYPES,
   filterCompanionItems,
   filterItemsForStation,
   formatDuration,
   getTicketStartMs,
-  getUrgency,
+  getTicketTiming,
   isItemActive,
   isItemDone,
   loadKdsSettings,
@@ -327,6 +330,49 @@ export default function KitchenPage() {
     );
   };
 
+  // ── Delays / extra cooking time ──
+  const [delayReasons, setDelayReasons] = useState([]);
+  const [delayOrderId, setDelayOrderId] = useState(null);
+  const [isDelayBusy, setIsDelayBusy] = useState(false);
+
+  const loadDelayReasons = useCallback(async () => {
+    try {
+      const res = await getKitchenDelayReasons();
+      if (res.status === 200 && Array.isArray(res.data)) setDelayReasons(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDelayReasons();
+  }, [loadDelayReasons]);
+
+  const openDelay = (order) => {
+    setDelayOrderId(order.id);
+    loadDelayReasons();
+  };
+
+  const submitDelay = async ({ orderItemIds, minutes, reasonId, clear = false }) => {
+    if (!orderItemIds?.length) return;
+    setIsDelayBusy(true);
+    try {
+      await addKitchenDelay({ orderItemIds, minutes, reasonId, clear });
+      setDelayOrderId(null);
+      toast.success(
+        clear
+          ? tr("kitchen.delay.cleared", "Delay cleared")
+          : tr("kitchen.delay.added", "+{{m}} min added. Front of house was told.", { m: minutes })
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || tr("kitchen.error_processing_request", "Could not update the ticket"));
+    } finally {
+      setIsDelayBusy(false);
+      refresh();
+    }
+  };
+
   const recallTicket = (order) => {
     runAction(
       () => patchLocalItems((i, o) => o.id === order.id && inScope(i) && i.status === "completed", "preparing"),
@@ -380,7 +426,8 @@ export default function KitchenPage() {
       .filter(({ order }) => diningFilter === "all" || order.delivery_type === diningFilter)
       .map((tk) => {
         const elapsedSec = Math.max(0, Math.floor((now - tk.startMs) / 1000));
-        return { ...tk, elapsedSec, urgency: getUrgency(elapsedSec, settings) };
+        const timing = getTicketTiming(tk.displayItems, tk.startMs, now, settings);
+        return { ...tk, elapsedSec, ...timing };
       });
     list.sort((a, b) => (settings.sortOrder === "newest" ? b.startMs - a.startMs : a.startMs - b.startMs));
     return list;
@@ -496,12 +543,12 @@ export default function KitchenPage() {
 
   // ── Bump-bar / keyboard shortcuts ──
   const keyStateRef = useRef({});
-  keyStateRef.current = { tickets, selectedTicketId, isRecallOpen, isSettingsOpen };
+  keyStateRef.current = { tickets, selectedTicketId, isRecallOpen, isSettingsOpen, isDelayOpen: delayOrderId !== null };
 
   useEffect(() => {
     const onKey = (e) => {
-      const { tickets: list, selectedTicketId: sel, isRecallOpen: recallOpen, isSettingsOpen: settingsOpen } = keyStateRef.current;
-      if (recallOpen || settingsOpen) return;
+      const { tickets: list, selectedTicketId: sel, isRecallOpen: recallOpen, isSettingsOpen: settingsOpen, isDelayOpen } = keyStateRef.current;
+      if (recallOpen || settingsOpen || isDelayOpen) return;
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -536,6 +583,10 @@ export default function KitchenPage() {
       }
       if (e.key === "u" || e.key === "U") {
         undoBump();
+        return;
+      }
+      if ((e.key === "d" || e.key === "D") && selected) {
+        openDelay(selected.order);
         return;
       }
       if (e.key === "r" || e.key === "R") {
@@ -832,6 +883,10 @@ export default function KitchenPage() {
                 companionItems={tk.companionItems}
                 elapsedSec={tk.elapsedSec}
                 urgency={tk.urgency}
+                dueMs={tk.dueMs}
+                delayMinutes={tk.delayMinutes}
+                delayReason={tk.delayReason}
+                onDelay={() => openDelay(tk.order)}
                 isExpo={isExpo}
                 size={settings.textSize}
                 isSelected={selectedTicketId === tk.order.id}
@@ -850,6 +905,22 @@ export default function KitchenPage() {
           </div>
         )}
       </main>
+
+      {(() => {
+        const tk = delayOrderId !== null ? tickets.find((x) => x.order.id === delayOrderId) : null;
+        const activeItems = tk ? tk.displayItems.filter(isItemActive) : [];
+        return (
+          <KdsDelaySheet
+            open={Boolean(tk) && activeItems.length > 0}
+            ticket={tk ? { order: tk.order, items: activeItems } : null}
+            reasons={delayReasons}
+            busy={isDelayBusy}
+            onClose={() => setDelayOrderId(null)}
+            onSubmit={(payload) => submitDelay(payload)}
+            onClear={(orderItemIds) => submitDelay({ orderItemIds, clear: true })}
+          />
+        );
+      })()}
 
       <KdsRecallDrawer
         open={isRecallOpen}

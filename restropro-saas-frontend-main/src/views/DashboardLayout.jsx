@@ -4,6 +4,7 @@ import QBONavigation from "../components/QBONavigation";
 import OperationalBar, { OperationalBottomNav } from "../components/OperationalBar";
 import SearchModal from "../components/SearchModal";
 import useAuth from "../helpers/useAuth";
+import KitchenDelayAlerts from "../components/kitchen/KitchenDelayAlerts";
 
 const LAYOUT_MODE_KEY = "restro_dashboard_layout_mode";
 
@@ -94,6 +95,8 @@ export default function DashboardLayout() {
         {/* Phones: bottom tab bar replaces the left rail */}
         <OperationalBottomNav />
         <SearchModal />
+        {/* Kitchen "needs more time" alerts for cashiers and waiters (not on the KDS itself) */}
+        {!location.pathname.startsWith("/dashboard/kitchen") && <KitchenDelayAlerts />}
       </div>
     );
   }

@@ -32,6 +32,7 @@ import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../../contexts/ThemeContext";
 import clsx from "clsx";
+import KitchenDelayReasonsCard from "../../components/kitchen/KitchenDelayReasonsCard";
 
 export const STATION_ICONS = [
   { id: "Flame", label: "Flame", icon: IconFlame },
@@ -375,6 +376,8 @@ export default function KitchenStationsSettingsPage() {
           })}
         </div>
       )}
+
+      <KitchenDelayReasonsCard />
 
       {/* Add / Edit Station Modal */}
       {isAddOpen && (
