@@ -848,6 +848,14 @@ exports.deleteStoreTable = async (req, res) => {
 };
 
 
+// Category default cooking time: 1-240 minutes, or null to clear. `undefined` = not sent.
+const parsePrepMinutes = (value) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 1 && n <= 240 ? n : null;
+};
+
 exports.addCategory = async (req, res) => {
     try {
         const tenantId = req.user.tenant_id;
@@ -860,7 +868,7 @@ exports.addCategory = async (req, res) => {
             });
         }
 
-        const id = await addCategoryDB(title, tenantId, kitchen_station_id, sanitizeTranslations(req.body.translations));
+        const id = await addCategoryDB(title, tenantId, kitchen_station_id, sanitizeTranslations(req.body.translations), parsePrepMinutes(req.body.prep_minutes) ?? null);
         return res.status(200).json({
             success: true,
             message: req.__("category_added"),
@@ -902,7 +910,7 @@ exports.updateCategory = async (req, res) => {
             });
         }
 
-        await updateCategoryDB(id, title, tenantId, kitchen_station_id, sanitizeTranslations(req.body.translations));
+        await updateCategoryDB(id, title, tenantId, kitchen_station_id, sanitizeTranslations(req.body.translations), parsePrepMinutes(req.body.prep_minutes));
         return res.status(200).json({
             success: true,
             message: req.__("category_updated"),

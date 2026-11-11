@@ -27,6 +27,7 @@ const { ensureAddonLibrarySchema } = require("../utils/addonLibraryMigration");
 const { ensureDesktopLoginSchema } = require("../utils/desktopLoginMigration");
 const { ensureMenuLanguageSchema } = require("../utils/menuLanguageMigration");
 const { ensurePosFeaturesSchema } = require("../utils/posFeaturesMigration");
+const { ensureKitchenTimingSchema } = require("../utils/kitchenTimingMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -52,6 +53,10 @@ ensureTableFloorSchema(pool).catch((err) => {
 
 ensurePrintSettingsSchema(pool).catch((err) => {
   console.error("[Migration] Error ensuring print settings schema:", err);
+});
+
+ensureKitchenTimingSchema(pool).catch((err) => {
+  console.error("[Migration] Error ensuring kitchen timing schema:", err);
 });
 
 ensureKitchenStationsSchema(pool).catch((err) => {

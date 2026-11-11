@@ -20,6 +20,7 @@ import {
 } from "../../controllers/settings.controller";
 import { useMenuItems } from "../../controllers/menu_item.controller";
 import { useKitchenStations } from "../../controllers/kitchen_stations.controller";
+import PrepTimePresets, { isValidPrepInput } from "../../components/kitchen/PrepTimePresets";
 import toast from "react-hot-toast";
 import { mutate } from "swr";
 import { useTranslation } from "react-i18next";
@@ -48,6 +49,8 @@ export default function CategoriesPage() {
   const [addStationId, setAddStationId] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editStationId, setEditStationId] = useState("");
+  const [addPrep, setAddPrep] = useState("");
+  const [editPrep, setEditPrep] = useState("");
   const [addTranslations, setAddTranslations] = useState({});
   const [editTranslations, setEditTranslations] = useState({});
   const translationsEnabled = useTranslationsEnabled();
@@ -87,12 +90,17 @@ export default function CategoriesPage() {
       toast.error(t("categories.please_provide_category_title"));
       return;
     }
+    if (!isValidPrepInput(addPrep)) {
+      toast.error(t("kitchen.prep.invalid", "Cooking time must be 1-240 minutes"));
+      return;
+    }
     const toastId = toast.loading(t("categories.please_wait"));
     try {
-      const res = await addCategory(title, addStationId || null, translationsEnabled ? addTranslations : undefined);
+      const res = await addCategory(title, addStationId || null, translationsEnabled ? addTranslations : undefined, addPrep ? Number(addPrep) : null);
       if (res.status === 200) {
         setAddTitle("");
         setAddStationId("");
+        setAddPrep("");
         setAddTranslations({});
         setIsAddOpen(false);
         await mutate(APIURL);
@@ -114,9 +122,13 @@ export default function CategoriesPage() {
       toast.error(t("categories.please_provide_category_title"));
       return;
     }
+    if (!isValidPrepInput(editPrep)) {
+      toast.error(t("kitchen.prep.invalid", "Cooking time must be 1-240 minutes"));
+      return;
+    }
     const toastId = toast.loading(t("categories.please_wait"));
     try {
-      const res = await updateCategory(id, title, editStationId || null, translationsEnabled ? editTranslations : undefined);
+      const res = await updateCategory(id, title, editStationId || null, translationsEnabled ? editTranslations : undefined, editPrep ? Number(editPrep) : null);
       if (res.status === 200) {
         setEditCategory(null);
         setEditTitle("");
@@ -188,6 +200,7 @@ export default function CategoriesPage() {
           onClick={() => {
             setAddTitle("");
             setAddStationId("");
+            setAddPrep("");
             setIsAddOpen(true);
           }}
           className="rounded-xl border border-restro-border-green transition active:scale-95 hover:shadow-md px-3.5 py-2 text-sm flex items-center gap-1.5 text-white bg-restro-green hover:bg-restro-green-button-hover font-semibold shrink-0 min-h-[42px]"
@@ -203,6 +216,7 @@ export default function CategoriesPage() {
           onClick={() => {
             setAddTitle("");
             setAddStationId("");
+            setAddPrep("");
             setIsAddOpen(true);
           }}
           className="group flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-restro-border-green hover:border-restro-green/60 bg-restro-gray hover:bg-restro-button-hover transition-all duration-200 p-6 min-h-[140px] cursor-pointer active:scale-95"
@@ -217,7 +231,7 @@ export default function CategoriesPage() {
 
         {/* Category cards */}
         {categoryList.map((cat, index) => {
-          const { id, title, is_enabled, kitchen_station_name, kitchen_station_color, kitchen_station_id } = cat;
+          const { id, title, is_enabled, kitchen_station_name, kitchen_station_color, kitchen_station_id, prep_minutes } = cat;
           const count = itemCounts[id] || 0;
           const gradient = CATEGORY_GRADIENTS[index % CATEGORY_GRADIENTS.length];
           const initials = (title || "").slice(0, 2).toUpperCase();
@@ -266,6 +280,12 @@ export default function CategoriesPage() {
                   >
                     {is_enabled ? t("menu_items.active", "Visible") : t("menu_items.hidden", "Hidden")}
                   </span>
+                  {/* Cooking time badge */}
+                  {isKitchenEnabled && prep_minutes ? (
+                    <span className="text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                      ⏱ {t("kitchen.prep.min_short", "{{m}} min", { m: prep_minutes })}
+                    </span>
+                  ) : null}
                   {/* Station badge */}
                   {isKitchenEnabled && kitchen_station_name && (
                     <span
@@ -301,6 +321,7 @@ export default function CategoriesPage() {
                     setEditCategory(cat);
                     setEditTitle(title || "");
                     setEditStationId(kitchen_station_id ? String(kitchen_station_id) : "");
+                    setEditPrep(prep_minutes ? String(prep_minutes) : "");
                     setEditTranslations(normalizeTranslations(cat.translations));
                   }}
                   className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95 text-restro-text hover:bg-restro-button-hover"
@@ -379,6 +400,17 @@ export default function CategoriesPage() {
                 </p>
               </div>
             )}
+            {isKitchenEnabled && (
+              <div className="mb-4">
+                <label className="mb-1 block text-gray-500 text-sm font-medium">
+                  {t("kitchen.prep.label", "Cooking time")}
+                </label>
+                <PrepTimePresets value={addPrep} onChange={setAddPrep} />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {t("kitchen.prep.category_hint", "Default for every item in this category. An item's own time wins.")}
+                </p>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setIsAddOpen(false)}
@@ -453,6 +485,17 @@ export default function CategoriesPage() {
                 </select>
                 <p className="text-[11px] text-gray-400 mt-1">
                   Items in this category route to this station by default.
+                </p>
+              </div>
+            )}
+            {isKitchenEnabled && (
+              <div className="mb-4">
+                <label className="mb-1 block text-gray-500 text-sm font-medium">
+                  {t("kitchen.prep.label", "Cooking time")}
+                </label>
+                <PrepTimePresets value={editPrep} onChange={setEditPrep} />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {t("kitchen.prep.category_hint", "Default for every item in this category. An item's own time wins.")}
                 </p>
               </div>
             )}

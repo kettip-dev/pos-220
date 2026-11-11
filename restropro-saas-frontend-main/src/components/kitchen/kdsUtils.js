@@ -76,13 +76,70 @@ export const DEFAULT_KDS_SETTINGS = {
   showAllDay: true, // "all day" counts of what is still to cook
 };
 
+/** When an item started counting against its target (fired time for held courses). */
+const itemStartMs = (item) => toMs(item?.fired_at) || toMs(item?.date);
+
+/** Extra minutes the kitchen added to a line (delay / +time). */
+export const itemDelayMinutes = (item) => Math.max(0, Number(item?.delay_minutes) || 0);
+
+/** Cooking-time target in minutes including any delay, or null when the item has no time set. */
+export const itemTargetMinutes = (item) => {
+  const prep = Number(item?.prep_minutes);
+  if (!prep) return null;
+  return prep + itemDelayMinutes(item);
+};
+
 /** Seconds an item has been cooking against its own target (null = no target). */
 export const itemOverTarget = (item, nowMs) => {
-  const target = Number(item?.prep_minutes);
+  const target = itemTargetMinutes(item);
   if (!target || !["created", "preparing"].includes(item?.status)) return null;
-  const startMs = toMs(item.fired_at) || toMs(item.date);
+  const startMs = itemStartMs(item);
   if (!startMs) return null;
   return Math.floor((nowMs - startMs) / 1000) - target * 60;
+};
+
+/** Share of the target time after which a ticket turns amber. */
+export const WARN_RATIO = 0.7;
+
+/**
+ * Ticket timing from its items' own cooking times.
+ *  - If any open item has a cooking time, the ticket is due when its slowest item is due
+ *    (amber after 70% of that time, red once it is past).
+ *  - Otherwise the screen's warn/late minutes apply, pushed back by any delay the kitchen added.
+ * Returns { urgency, dueMs, delayMinutes, delayReason }.
+ */
+export const getTicketTiming = (items, startMs, nowMs, settings) => {
+  const open = (items || []).filter(isItemActive);
+  let delayMinutes = 0;
+  let delayReason = null;
+  open.forEach((i) => {
+    const d = itemDelayMinutes(i);
+    if (d > delayMinutes) {
+      delayMinutes = d;
+      delayReason = i.delay_reason || null;
+    }
+  });
+
+  let dueMs = null;
+  open.forEach((i) => {
+    const target = itemTargetMinutes(i);
+    const s = itemStartMs(i) || startMs;
+    if (target && s) dueMs = Math.max(dueMs || 0, s + target * 60000);
+  });
+
+  if (dueMs) {
+    const total = Math.max(60000, dueMs - startMs);
+    const elapsed = nowMs - startMs;
+    const urgency = nowMs >= dueMs ? "late" : elapsed >= total * WARN_RATIO ? "warning" : "ontime";
+    return { urgency, dueMs, delayMinutes, delayReason };
+  }
+
+  const elapsedSec = Math.max(0, Math.floor((nowMs - startMs) / 1000));
+  const shifted = {
+    warnMinutes: (settings?.warnMinutes ?? 5) + delayMinutes,
+    lateMinutes: (settings?.lateMinutes ?? 10) + delayMinutes,
+  };
+  return { urgency: getUrgency(elapsedSec, shifted), dueMs: null, delayMinutes, delayReason };
 };
 
 /** Key used to group the same dish across tickets for the all-day bar. */
@@ -131,4 +188,23 @@ export const diningLabel = (type, t = fallbackT) => {
   const known = DINING_TYPES.find((d) => d.id === type && d.id !== "all");
   if (known) return t(`kitchen.kds.dining_${known.id}`, known.label);
   return type ? String(type) : t("kitchen.kds.order", "Order");
+};
+
+/** English labels the backend seeds for new tenants; matching labels are shown translated. */
+export const DEFAULT_DELAY_REASON_LABELS = {
+  ingredients: "Waiting for ingredients",
+  no_gas: "No gas / equipment problem",
+  busy: "Kitchen very busy",
+  remake: "Remaking the dish",
+  waiting_table: "Waiting for the rest of the table",
+};
+
+/** Delay reason for display: stock reasons are translated unless the owner renamed them. */
+export const delayReasonLabel = (label, code, t = fallbackT) => {
+  if (!label) return "";
+  const stockCode =
+    code && DEFAULT_DELAY_REASON_LABELS[code] === label
+      ? code
+      : Object.keys(DEFAULT_DELAY_REASON_LABELS).find((k) => DEFAULT_DELAY_REASON_LABELS[k] === label);
+  return stockCode ? t(`kitchen.delay.reason_${stockCode}`, label) : label;
 };
