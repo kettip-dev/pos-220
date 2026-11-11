@@ -73,11 +73,13 @@ export default function InventoryPage() {
   const quantityRef = useRef(null);
   const unitRef = useRef(null);
   const minQuantityThresholdRef = useRef(null);
+  const unitCostRef = useRef(null);
 
   const updateTitleRef = useRef(null);
   const updateQuantityRef = useRef(null);
   const updateUnitRef = useRef(null);
   const updateMinQuantityThresholdRef = useRef(null);
+  const updateUnitCostRef = useRef(null);
 
   const [selectedUpdateItem, setSelectedUpdateItem] = useState(null);
 
@@ -101,6 +103,7 @@ export default function InventoryPage() {
     visibleColumns: {
       currentStock: true,
       minStock: true,
+      unitCost: true,
       status: true,
       updatedOn: true,
     },
@@ -182,6 +185,7 @@ export default function InventoryPage() {
         Quantity: item.quantity,
         Unit: item.unit,
         "Min Threshold": item.min_quantity_threshold,
+        "Unit Cost": Number(item.unit_cost || 0),
         Status: item.status,
         "Updated At": item.updated_at
           ? moment.utc(item.updated_at).local().format("DD/MM/YYYY, h:mm A")
@@ -227,6 +231,13 @@ export default function InventoryPage() {
     const quantity = parseFloat(quantityRef.current?.value || 0);
     const unit = unitRef.current?.value;
     const minQuantityThreshold = parseFloat(minQuantityThresholdRef.current?.value || 0);
+    const unitCostRaw = unitCostRef.current?.value;
+    const unitCost = unitCostRaw === "" || unitCostRaw == null ? null : parseFloat(unitCostRaw);
+
+    if (unitCost != null && (!Number.isFinite(unitCost) || unitCost < 0)) {
+      toast.error(t('inventory.toast_unit_cost_invalid', 'Unit cost must be zero or more.'));
+      return;
+    }
 
     if (!title) {
       toast.error(t('inventory.toast_item_name_required'));
@@ -255,6 +266,7 @@ export default function InventoryPage() {
         quantity,
         unit,
         min_quantity_threshold: minQuantityThreshold,
+        unit_cost: unitCost,
       });
 
       if (res.status === 200) {
@@ -265,6 +277,7 @@ export default function InventoryPage() {
         quantityRef.current.value = "";
         unitRef.current.value = "pc";
         minQuantityThresholdRef.current.value = "";
+        if (unitCostRef.current) unitCostRef.current.value = "";
 
         document.getElementById('modal-add-inventory-item').close();
 
@@ -283,6 +296,13 @@ export default function InventoryPage() {
     const quantity = parseFloat(updateQuantityRef.current?.value || 0);
     const unit = updateUnitRef.current?.value;
     const minQuantityThreshold = parseFloat(updateMinQuantityThresholdRef.current?.value || 0);
+    const updateUnitCostRaw = updateUnitCostRef.current?.value;
+    const unitCost = updateUnitCostRaw === "" || updateUnitCostRaw == null ? null : parseFloat(updateUnitCostRaw);
+
+    if (unitCost != null && (!Number.isFinite(unitCost) || unitCost < 0)) {
+      toast.error(t('inventory.toast_unit_cost_invalid', 'Unit cost must be zero or more.'));
+      return;
+    }
 
     if(!selectedUpdateItem){
       toast.error(t('inventory.toast_invalid_request'));
@@ -315,6 +335,7 @@ export default function InventoryPage() {
         title,
         unit,
         min_quantity_threshold: minQuantityThreshold,
+        unit_cost: unitCost,
       });
 
       if (res.status === 200) {
@@ -681,6 +702,7 @@ export default function InventoryPage() {
                     {[
                       { key: "currentStock", label: t('inventory.table_current_stock', 'Current Stock') },
                       { key: "minStock", label: t('inventory.table_min_stock', 'Min Stock') },
+                      { key: "unitCost", label: t('inventory.table_unit_cost', 'Unit Cost') },
                       { key: "status", label: t('inventory.table_stock_status', 'Stock Status') },
                       { key: "updatedOn", label: t('inventory.table_updated_on', 'Updated On') },
                     ].map((col) => (
@@ -828,6 +850,9 @@ export default function InventoryPage() {
                     {tableSettings.visibleColumns.minStock && (
                       <th className="px-3 py-3">{t('inventory.table_min_stock')}</th>
                     )}
+                    {tableSettings.visibleColumns.unitCost && (
+                      <th className="px-3 py-3 text-right">{t('inventory.table_unit_cost', 'Unit Cost')}</th>
+                    )}
                     {tableSettings.visibleColumns.status && (
                       <th className="px-3 py-3 text-center">{t('inventory.table_stock_status')}</th>
                     )}
@@ -839,7 +864,7 @@ export default function InventoryPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-neutral-800/80">
                   {paginatedInventory.map((inventoryItem, i) => {
-                    const { id, title, quantity, unit, min_quantity_threshold, status, updated_at, business } = inventoryItem;
+                    const { id, title, quantity, unit, min_quantity_threshold, unit_cost, status, updated_at, business } = inventoryItem;
                     const isSelected = selectedInventory.has(id);
 
                     return (
@@ -891,6 +916,19 @@ export default function InventoryPage() {
                         {tableSettings.visibleColumns.minStock && (
                           <td className={clsx("px-3 tabular-nums text-slate-500 dark:text-slate-400", tableSettings.compactDensity ? "py-2" : "py-3")}>
                             {min_quantity_threshold != null ? min_quantity_threshold : "-"} <span className="text-slate-400 font-normal">{unit}</span>
+                          </td>
+                        )}
+
+                        {/* Unit Cost (weighted average, per stock unit) */}
+                        {tableSettings.visibleColumns.unitCost && (
+                          <td className={clsx("px-3 tabular-nums text-right whitespace-nowrap", tableSettings.compactDensity ? "py-2" : "py-3")}>
+                            {Number(unit_cost) > 0 ? (
+                              <span className="font-medium text-slate-800 dark:text-slate-200">
+                                {Number(unit_cost).toFixed(2)} <span className="text-slate-400 font-normal">/ {unit}</span>
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 dark:text-amber-400 text-xs font-medium">{t('inventory.unit_cost_not_set', 'Not set')}</span>
+                            )}
                           </td>
                         )}
 
@@ -963,6 +1001,7 @@ export default function InventoryPage() {
                                   updateQuantityRef.current.value = inventoryItem.quantity;
                                   updateUnitRef.current.value = inventoryItem.unit;
                                   updateMinQuantityThresholdRef.current.value = inventoryItem.min_quantity_threshold;
+                                  if (updateUnitCostRef.current) updateUnitCostRef.current.value = Number(inventoryItem.unit_cost) > 0 ? Number(inventoryItem.unit_cost) : "";
                                 });
                                 document.getElementById("modal-update-inventory-item").showModal();
                               }}
@@ -1081,6 +1120,13 @@ export default function InventoryPage() {
             </div>
           </div>
 
+          {/* Unit Cost */}
+          <div className="mt-4">
+            <label htmlFor="item_unit_cost" className="mb-1 block text-gray-500 text-sm">{t('inventory.form_unit_cost_label', 'Cost per unit (optional)')}</label>
+            <input id="item_unit_cost" ref={unitCostRef} type="number" min="0" step="0.0001" inputMode="decimal" className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green' placeholder={t('inventory.form_unit_cost_placeholder', 'e.g. 2.50 per kg / pc')} />
+            <p className="mt-1 text-xs text-slate-400">{t('inventory.form_unit_cost_hint', 'Updated automatically when purchase orders with a cost are received.')}</p>
+          </div>
+
           {/* Actions */}
           <div className="modal-action w-full">
             <form method="dialog" className="w-full">
@@ -1130,6 +1176,13 @@ export default function InventoryPage() {
               <label htmlFor="low_stock_qty" className="mb-1 block text-gray-500 text-sm">{t('inventory.form_update_min_qty_label')}</label>
               <input ref={updateMinQuantityThresholdRef} type="number" className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green' placeholder={t('inventory.form_update_min_qty_placeholder')} />
             </div>
+          </div>
+
+          {/* Unit Cost */}
+          <div className="mt-4">
+            <label htmlFor="update_item_unit_cost" className="mb-1 block text-gray-500 text-sm">{t('inventory.form_unit_cost_label', 'Cost per unit (optional)')}</label>
+            <input id="update_item_unit_cost" ref={updateUnitCostRef} type="number" min="0" step="0.0001" inputMode="decimal" className='text-sm w-full rounded-lg px-4 py-2 border border-restro-border-green dark:bg-black focus:outline-restro-border-green' placeholder={t('inventory.form_unit_cost_placeholder', 'e.g. 2.50 per kg / pc')} />
+            <p className="mt-1 text-xs text-slate-400">{t('inventory.form_unit_cost_hint', 'Updated automatically when purchase orders with a cost are received.')}</p>
           </div>
 
           {/* Actions */}

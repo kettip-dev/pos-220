@@ -864,6 +864,10 @@
       "recommendation-score": {
         "title": "ពិន្ទុនៃការណែនាំបន្ត",
         "desc": "និន្នាការ និងការបែងចែកពិន្ទុនៃការណែនាំបន្តតាមចន្លោះពេល។"
+      },
+      "menu-profitability": {
+        "title": "ប្រាក់ចំណេញតាមមុខម្ហូប",
+        "desc": "ថ្លៃដើមម្ហូប ប្រាក់ចំណេញដុល និងភាគរយចំណេញ តាមមុខម្ហូបនីមួយៗ ពីរូបមន្ត និងថ្លៃដើមគ្រឿងផ្សំ។"
       }
     },
     "back_to_reports": "ត្រឡប់ទៅទំព័ររបាយការណ៍វិញ",
@@ -3909,7 +3913,13 @@
     "dashboard_kpi_total_items": "មុខទំនិញសរុប",
     "dashboard_kpi_total_in": "នាំចូលសរុប",
     "dashboard_kpi_total_out": "នាំចេញសរុប",
-    "dashboard_kpi_total_wastage": "ការខូចខាតសរុប"
+    "dashboard_kpi_total_wastage": "ការខូចខាតសរុប",
+    "table_unit_cost": "ថ្លៃដើមក្នុងមួយឯកតា",
+    "unit_cost_not_set": "មិនទាន់កំណត់",
+    "form_unit_cost_label": "ថ្លៃដើមក្នុងមួយឯកតា (ស្រេចចិត្ត)",
+    "form_unit_cost_placeholder": "ឧ. 2.50 ក្នុងមួយ kg / pc",
+    "form_unit_cost_hint": "ធ្វើបច្ចុប្បន្នភាពដោយស្វ័យប្រវត្តិ ពេលទទួលការបញ្ជាទិញដែលមានថ្លៃដើម។",
+    "toast_unit_cost_invalid": "ថ្លៃដើមត្រូវតែស្មើ ០ ឬច្រើនជាងនេះ។"
   },
   "refresh_page": {
     "title": "ទាមទារការផ្ទុកទំព័រឡើងវិញ",

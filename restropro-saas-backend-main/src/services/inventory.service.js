@@ -1,6 +1,15 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { queueLowStockAlerts } = require("./notification.service");
 const { tenantFilter } = require("../utils/tenant_scope");
+const { weightedAverageUnitCost } = require("../utils/inventoryCosting");
+
+/** Cost entered by hand: a non-negative number, or null when not supplied. */
+const parseUnitCost = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 10000) / 10000 : null;
+};
+exports.parseUnitCost = parseUnitCost;
 
 const VENDOR_SORT_COLUMNS = {
     created_at: "created_at",
@@ -162,7 +171,8 @@ exports.addInventoryItemDB = async (
   unit,
   minQuantityThreshold,
   tenantId,
-  username
+  username,
+  unitCost = null
 ) => {
   const conn = await getMySqlPromiseConnection();
   try {
@@ -177,14 +187,15 @@ exports.addInventoryItemDB = async (
 
     const sql = `
       INSERT INTO inventory_items
-      (title, quantity, unit, min_quantity_threshold, status, tenant_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      (title, quantity, unit, min_quantity_threshold, unit_cost, status, tenant_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const [result] = await conn.query(sql, [
       title,
       quantity,
       unit,
       minQuantityThreshold,
+      parseUnitCost(unitCost) ?? 0,
       status,
       tenantId,
     ]);
@@ -219,12 +230,10 @@ exports.addInventoryItemDB = async (
 /**
  * Enterprise inventory summary (READ-ONLY).
  *
- * NOTE ON "INVENTORY VALUE": `inventory_items` stores quantity, unit and a
- * reorder threshold — there is NO unit cost or price column anywhere in the
- * inventory schema (verified against the live database: inventory_items,
- * inventory_logs, inventory_low_stock_alerts). A monetary valuation therefore
- * cannot be computed, and this returns stock QUANTITY figures instead of
- * inventing one. Adding a `unit_cost` column would make valuation possible.
+ * NOTE ON "INVENTORY VALUE": `inventory_items.unit_cost` (weighted average,
+ * see utils/inventoryCosting) now exists, but many items still carry 0 until
+ * a costed PO is received or a cost is entered, so a monetary valuation here
+ * would understate stock. This keeps returning QUANTITY figures.
  */
 exports.getInventorySummaryDB = async (scope) => {
   const conn = await getMySqlPromiseConnection();
@@ -384,6 +393,7 @@ exports.getInventoryItemsDB = async (status, scope) => {
         quantity,
         unit,
         min_quantity_threshold,
+        unit_cost,
         status,
         tenant_id,
         created_at,
@@ -402,6 +412,7 @@ exports.getInventoryItemsDB = async (status, scope) => {
         quantity,
         unit,
         min_quantity_threshold,
+        unit_cost,
         status,
         tenant_id,
         created_at,
@@ -426,7 +437,8 @@ exports.updateInventoryItemDB = async (
   title,
   unit,
   minQuantityThreshold,
-  tenantId
+  tenantId,
+  unitCost = null
 ) => {
   const conn = await getMySqlPromiseConnection();
   try {
@@ -449,14 +461,17 @@ exports.updateInventoryItemDB = async (
 
     const sql = `
       UPDATE inventory_items
-      SET title = ?, unit = ?, min_quantity_threshold = ?, status = ?
+      SET title = ?, unit = ?, min_quantity_threshold = ?, status = ?,
+          unit_cost = COALESCE(?, unit_cost)
       WHERE id = ? AND tenant_id = ?
     `;
+    // unit_cost is only overwritten when the caller sent one (older clients don't).
     await conn.query(sql, [
       title,
       unit,
       minQuantityThreshold,
       status,
+      parseUnitCost(unitCost),
       itemId,
       tenantId,
     ]);
@@ -1051,7 +1066,7 @@ exports.updatePurchaseOrderToCompleteDB = async (
     // Add to inventory
     const [purchaseOrderItems] = await conn.query(
       `
-        SELECT inventory_item_id, quantity FROM inventory_purchase_order_items
+        SELECT inventory_item_id, quantity, unit_cost FROM inventory_purchase_order_items
         WHERE purchase_order_id = ? AND tenant_id = ?
       `,
       [id, tenantId]
@@ -1064,7 +1079,7 @@ exports.updatePurchaseOrderToCompleteDB = async (
     const [inventoryItems] = inventoryItemIds.length > 0
       ? await conn.query(
           `
-            SELECT id, quantity FROM inventory_items
+            SELECT id, quantity, unit_cost FROM inventory_items
             WHERE id IN (?) AND tenant_id = ?
             FOR UPDATE
           `,
@@ -1082,9 +1097,13 @@ exports.updatePurchaseOrderToCompleteDB = async (
       if (inventoryItem) {
         const previousQuantity = parseFloat(inventoryItem.quantity);
         const newQuantity = previousQuantity + parseFloat(poItem.quantity);
+        const newCost = weightedAverageUnitCost(previousQuantity, inventoryItem.unit_cost, poItem.quantity, poItem.unit_cost);
 
         // Prepare inventory update
-        inventoryUpdates.push([newQuantity, inventoryItem.id, tenantId]);
+        inventoryUpdates.push([newQuantity, newCost, inventoryItem.id, tenantId]);
+        // The same item can appear on two lines of one PO: carry the running figures.
+        inventoryItem.quantity = newQuantity;
+        inventoryItem.unit_cost = newCost;
 
         // Prepare inventory log
         inventoryLogs.push([
@@ -1102,14 +1121,16 @@ exports.updatePurchaseOrderToCompleteDB = async (
     });
 
     // Update inventory quantities
-    for (const [newQuantity, itemId, tenantId] of inventoryUpdates) {
+    // Each line's update is computed from the running figures above, so a
+    // repeated item ends on its final quantity and cost.
+    for (const [newQuantity, newCost, itemId, tenantId] of inventoryUpdates) {
       await conn.query(
         `
           UPDATE inventory_items
-          SET quantity = ?
+          SET quantity = ?, unit_cost = ?
           WHERE id = ? AND tenant_id = ?
         `,
-        [newQuantity, itemId, tenantId]
+        [newQuantity, newCost, itemId, tenantId]
       );
     }
 

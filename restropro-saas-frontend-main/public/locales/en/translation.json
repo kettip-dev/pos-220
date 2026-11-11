@@ -725,6 +725,10 @@
       "recommendation-score": {
         "title": "Recommendation Score",
         "desc": "Recommend rating trend and distribution by period."
+      },
+      "menu-profitability": {
+        "title": "Menu Profitability",
+        "desc": "Food cost, gross profit and margin per menu item, from recipes and ingredient unit costs."
       }
     },
     "back_to_reports": "Back to Reports",
@@ -3800,7 +3804,13 @@
     "dashboard_kpi_total_items": "Dashboard Kpi Total Items",
     "dashboard_kpi_total_in": "Dashboard Kpi Total In",
     "dashboard_kpi_total_out": "Dashboard Kpi Total Out",
-    "dashboard_kpi_total_wastage": "Dashboard Kpi Total Wastage"
+    "dashboard_kpi_total_wastage": "Dashboard Kpi Total Wastage",
+    "table_unit_cost": "Unit Cost",
+    "unit_cost_not_set": "Not set",
+    "form_unit_cost_label": "Cost per unit (optional)",
+    "form_unit_cost_placeholder": "e.g. 2.50 per kg / pc",
+    "form_unit_cost_hint": "Updated automatically when purchase orders with a cost are received.",
+    "toast_unit_cost_invalid": "Unit cost must be zero or more."
   },
   "refresh_page": {
     "title": "Session Expired",

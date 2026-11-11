@@ -14,10 +14,10 @@ export function useInventoryItems({status}) {
   };
 }
 
-export async function addInventoryItem({title, quantity, unit, min_quantity_threshold}) {
+export async function addInventoryItem({title, quantity, unit, min_quantity_threshold, unit_cost}) {
   try {
     const response = await ApiClient.post(`/inventory/add-item`, {
-      title, quantity, unit, min_quantity_threshold
+      title, quantity, unit, min_quantity_threshold, unit_cost
     });
     return response;
   } catch (error) {
@@ -25,10 +25,10 @@ export async function addInventoryItem({title, quantity, unit, min_quantity_thre
   }
 }
 
-export async function updateInventoryItem({id, title, unit, min_quantity_threshold}) {
+export async function updateInventoryItem({id, title, unit, min_quantity_threshold, unit_cost}) {
   try {
     const response = await ApiClient.put(`/inventory/${id}`, {
-      title, unit, min_quantity_threshold
+      title, unit, min_quantity_threshold, unit_cost
     });
     return response;
   } catch (error) {

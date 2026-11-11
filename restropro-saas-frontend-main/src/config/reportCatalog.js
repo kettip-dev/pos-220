@@ -462,6 +462,15 @@ export const REPORT_CATALOG = [
     priority: "Medium",
   },
   {
+    id: "menu-profitability",
+    title: "Menu Profitability",
+    category: "Accounting",
+    description: "Food cost, gross profit and margin per menu item, from recipes and ingredient unit costs.",
+    icon: IconDatabaseDollar,
+    status: "ready",
+    priority: "Core",
+  },
+  {
     id: "stock-reorder",
     title: "Reorder List",
     category: "Inventory",
