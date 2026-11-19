@@ -1078,7 +1078,7 @@ export default function POSPaymentDrawer({
         </div>
 
         {/* ==================== FOOTER: Settlement status + primary action ==================== */}
-        <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 sm:px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex-1 flex items-stretch gap-2 min-w-0">
             {isCash ? (
               <>
@@ -1135,12 +1135,13 @@ export default function POSPaymentDrawer({
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Phones: Confirm takes a full-width row; secondary actions share the row below */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
             {canAddPartial && (
               <button
                 type="button"
                 onClick={handleAddPartial}
-                className="h-14 px-4 rounded-xl text-sm font-semibold text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-2"
+                className="flex-1 sm:flex-none justify-center h-12 sm:h-14 px-3 sm:px-4 rounded-xl text-sm font-semibold text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-500/40 bg-sky-50 dark:bg-sky-500/10 hover:bg-sky-100 transition-all duration-150 active:scale-95 cursor-pointer flex items-center gap-2 whitespace-nowrap"
                 title={t('pos.add_part_payment_hint', 'Take this amount now and pay the rest with another method')}
               >
                 <IconPlus size={18} />
@@ -1156,7 +1157,7 @@ export default function POSPaymentDrawer({
                   ? t('pos.pay_later_hint', 'Customer pays later: the balance goes on their account')
                   : t('pos.pay_later_needs_customer', 'Attach a customer to the bill to use Pay Later')}
                 className={clsx(
-                  "h-14 px-4 rounded-xl text-sm font-semibold border flex items-center gap-2 transition-all duration-150 active:scale-95 touch-manipulation",
+                  "flex-1 sm:flex-none justify-center h-12 sm:h-14 px-3 sm:px-4 rounded-xl text-sm font-semibold border flex items-center gap-2 whitespace-nowrap transition-all duration-150 active:scale-95 touch-manipulation",
                   canPayLater
                     ? "text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 cursor-pointer"
                     : "text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 cursor-not-allowed"
@@ -1169,7 +1170,7 @@ export default function POSPaymentDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="h-14 px-5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-150 active:scale-95 cursor-pointer"
+              className="flex-1 sm:flex-none h-12 sm:h-14 px-5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-150 active:scale-95 cursor-pointer"
             >
               {t('pos.cancel', 'Cancel')}
             </button>
@@ -1178,7 +1179,7 @@ export default function POSPaymentDrawer({
               onClick={handleFinalizePayment}
               disabled={isCtaDisabled}
               className={clsx(
-                "flex-1 lg:flex-none lg:min-w-[340px] h-14 pl-5 pr-2 rounded-xl text-white flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] touch-manipulation cursor-pointer select-none",
+                "order-first sm:order-none basis-full sm:basis-auto flex-1 lg:flex-none lg:min-w-[340px] h-14 pl-4 sm:pl-5 pr-2 rounded-xl text-white flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] touch-manipulation cursor-pointer select-none",
                 isCtaDisabled
                   ? "bg-slate-300 dark:bg-slate-700 cursor-not-allowed"
                   : "bg-restro-green hover:bg-restro-green-button-hover shadow-lg shadow-emerald-600/20"
