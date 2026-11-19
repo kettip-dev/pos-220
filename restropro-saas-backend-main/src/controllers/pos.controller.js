@@ -884,3 +884,31 @@ exports.issueGiftCard = async (req, res) => {
     return giftCardErrorResponse(req, res, error);
   }
 };
+
+// ─── Per-cashier favourites ──────────────────────────────
+
+exports.getPosFavorites = async (req, res) => {
+  try {
+    const { getPosFavoritesDB } = require("../services/pos_favorites.service");
+    const menuItemIds = await getPosFavoritesDB(req.user.tenant_id, req.user.username);
+    return res.status(200).json({ menuItemIds });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};
+
+exports.savePosFavorites = async (req, res) => {
+  try {
+    const { menuItemIds } = req.body || {};
+    if (!Array.isArray(menuItemIds)) {
+      return res.status(400).json({ success: false, message: req.__("please_provide_required_details") });
+    }
+    const { savePosFavoritesDB } = require("../services/pos_favorites.service");
+    const saved = await savePosFavoritesDB(req.user.tenant_id, req.user.username, menuItemIds);
+    return res.status(200).json({ success: true, menuItemIds: saved });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: req.__("something_went_wrong_try_later") });
+  }
+};

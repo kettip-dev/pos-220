@@ -76,7 +76,7 @@ export default function SettingsHomePage() {
       title: t("settings.pos_layout", "POS Layout"),
       description: t(
         "settings.desc_pos_layout",
-        "Put the order ticket on the left or right of the POS screen. Saved per device."
+        "Menu tile size, photos, price and category labels, and which side the order ticket sits on. Saved per device."
       ),
       path: "/dashboard/settings/pos-layout",
       category: t("settings.cat_general_operations", "General & Operations"),

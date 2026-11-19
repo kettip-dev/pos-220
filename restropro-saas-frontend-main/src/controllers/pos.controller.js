@@ -171,3 +171,12 @@ export async function lookupGiftCard(code) {
 export async function issueGiftCard(payload) {
   return ApiClient.post(`/pos/gift-cards`, payload);
 }
+
+// ─── Per-cashier favourites ───────────────────────────────
+export async function getPosFavorites() {
+  return ApiClient.get(`/pos/favorites`);
+}
+
+export async function savePosFavorites(menuItemIds) {
+  return ApiClient.put(`/pos/favorites`, { menuItemIds });
+}

@@ -29,6 +29,7 @@ const { ensureMenuLanguageSchema } = require("../utils/menuLanguageMigration");
 const { ensurePosFeaturesSchema } = require("../utils/posFeaturesMigration");
 const { ensureKitchenTimingSchema } = require("../utils/kitchenTimingMigration");
 const { ensurePmsIntegrationSchema } = require("../utils/pmsIntegrationMigration");
+const { ensurePosFavoritesSchema } = require("../utils/posFavoritesMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -81,6 +82,7 @@ const MIGRATIONS = [
   ["register", ensureRegisterSchema], // extends order_sub_invoices (split bill)
   ["customer credit", ensureCustomerCreditSchema], // needs invoices.customer_phone
   ["POS features", ensurePosFeaturesSchema], // extends register/invoice tables
+  ["POS favorites", ensurePosFavoritesSchema],
 ];
 
 exports.schemaReady = (async () => {

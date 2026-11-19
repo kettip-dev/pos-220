@@ -1,12 +1,43 @@
 import { useEffect, useState } from "react";
 
-// Per-terminal POS layout preference. Stored on the device (not the tenant)
-// so each tablet can match its counter: e.g. ticket on the side nearest the
-// customer, or swapped for left-handed staff.
+// Per-terminal POS layout & display preferences. Stored on the device (not the
+// tenant) so each screen can match its counter, its size and its staff.
 const TICKET_SIDE_KEY = "restro_pos_ticket_side";
+const DISPLAY_PREFS_KEY = "restro_pos_display_prefs";
 const CHANGE_EVENT = "restro:pos-layout-changed";
 
 export const TICKET_SIDES = { LEFT: "left", RIGHT: "right" };
+export const TILE_SIZES = { SMALL: "small", MEDIUM: "medium", LARGE: "large" };
+
+export const DEFAULT_DISPLAY_PREFS = {
+  tileSize: TILE_SIZES.MEDIUM, // menu tile size
+  showImages: true, // photo tiles; off = colour-coded text tiles (fastest to scan)
+  showPrice: true,
+  showCategory: true, // category name under the item (only in "All" / Favorites)
+};
+
+function notify() {
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+}
+
+function useStoredValue(read, storageKey) {
+  const [value, setValue] = useState(read);
+  useEffect(() => {
+    const sync = () => setValue(read());
+    const onStorage = (e) => {
+      if (e.key === storageKey) sync();
+    };
+    window.addEventListener(CHANGE_EVENT, sync);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(CHANGE_EVENT, sync);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return value;
+}
+
+// ─── Ticket side ──────────────────────────────────────────
 
 export function getTicketSide() {
   try {
@@ -25,24 +56,40 @@ export function setTicketSide(side) {
   } catch {
     // storage unavailable: preference lasts for this page only
   }
-  window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: value }));
+  notify();
 }
 
 export function useTicketSide() {
-  const [side, setSide] = useState(getTicketSide);
+  return [useStoredValue(getTicketSide, TICKET_SIDE_KEY), setTicketSide];
+}
 
-  useEffect(() => {
-    const sync = () => setSide(getTicketSide());
-    const onStorage = (e) => {
-      if (e.key === TICKET_SIDE_KEY) sync();
-    };
-    window.addEventListener(CHANGE_EVENT, sync);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, sync);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
+// ─── Menu tile display ────────────────────────────────────
 
-  return [side, setTicketSide];
+export function getDisplayPrefs() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DISPLAY_PREFS_KEY) || "{}");
+    const prefs = { ...DEFAULT_DISPLAY_PREFS, ...(stored && typeof stored === "object" ? stored : {}) };
+    if (!Object.values(TILE_SIZES).includes(prefs.tileSize)) prefs.tileSize = DEFAULT_DISPLAY_PREFS.tileSize;
+    ["showImages", "showPrice", "showCategory"].forEach((k) => {
+      prefs[k] = prefs[k] !== false;
+    });
+    return prefs;
+  } catch {
+    return { ...DEFAULT_DISPLAY_PREFS };
+  }
+}
+
+export function setDisplayPrefs(patch) {
+  const next = patch === null ? { ...DEFAULT_DISPLAY_PREFS } : { ...getDisplayPrefs(), ...patch };
+  try {
+    localStorage.setItem(DISPLAY_PREFS_KEY, JSON.stringify(next));
+  } catch {
+    // storage unavailable
+  }
+  notify();
+}
+
+/** [prefs, update(patch) | update(null) to reset] */
+export function useDisplayPrefs() {
+  return [useStoredValue(getDisplayPrefs, DISPLAY_PREFS_KEY), setDisplayPrefs];
 }

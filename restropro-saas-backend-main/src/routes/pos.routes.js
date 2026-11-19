@@ -36,6 +36,8 @@ const {
   saveCombo,
   deleteCombo,
   getUpsellPairs,
+  getPosFavorites,
+  savePosFavorites,
   getCustomerLastOrder,
   getGiftCards,
   lookupGiftCard,
@@ -345,6 +347,8 @@ router.delete("/combos/:id", isLoggedIn, isAuthenticated, isSubscriptionActive, 
 
 router.get("/upsell-pairs", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getUpsellPairs);
 router.get("/customers/:phone/last-order", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getCustomerLastOrder);
+router.get("/favorites", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), getPosFavorites);
+router.put("/favorites", isLoggedIn, isAuthenticated, isSubscriptionActive, authorize([SCOPES.POS]), savePosFavorites);
 
 // ─── Gift cards ───────────────────────────────────────────
 

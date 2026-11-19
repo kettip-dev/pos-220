@@ -2,9 +2,9 @@ import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import Page from "../components/Page";
 import DeleteModal from "../components/DeleteModal";
-import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus, IconHistory, IconBulb, IconCloudOff, IconCloudUpload } from "@tabler/icons-react";
+import { IconPlus, IconNotes, IconArmchair, IconScreenShare, IconSearch, IconDeviceFloppy, IconChefHat, IconCash, IconMinus, IconNote, IconTrash, IconFilter, IconPhoto, IconFilterFilled, IconClipboardList, IconX, IconClearAll, IconPencil, IconCheck, IconCarrot, IconRotate, IconQrcode, IconArmchair2, IconUser, IconUsers, IconCategory, IconGridDots, IconLayoutGrid, IconListDetails, IconListTree, IconMenu4, IconLayoutGridFilled, IconMenu2, IconLayoutList, IconLayout2, IconLayout2Filled, IconAlertTriangleFilled, IconChevronUp, IconShoppingCart, IconCopy, IconReceipt, IconLayersIntersect, IconLoader2, IconTag, IconSparkles, IconFlame, IconBan, IconGift, IconDiscount2, IconPencilPlus, IconHistory, IconBulb, IconCloudOff, IconCloudUpload, IconStarFilled, IconStar, IconChevronDown } from "@tabler/icons-react";
 import { VITE_BACKEND_SOCKET_IO, iconStroke } from "../config/config";
-import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts, getUpsellPairs, getCustomerLastOrder } from "../controllers/pos.controller";
+import { approveQROrder, cancelAllQROrders, cancelQROrder, createOrder, createOrderAndInvoice, getDrafts, getQROrders, getQROrdersCount, initPOS, setDrafts, getUpsellPairs, getCustomerLastOrder, getPosFavorites, savePosFavorites } from "../controllers/pos.controller";
 import { CURRENCIES } from '../config/currencies.config';
 import { PAYMENT_ICONS } from "../config/payment_icons";
 import { toast } from "react-hot-toast";
@@ -53,7 +53,9 @@ import { checkMyShiftEligibility } from '../controllers/shift_roster.controller'
 import { useRegisterStatus, isRegisterClosedError } from '../controllers/register.controller';
 import RegisterPanel from '../components/register/RegisterPanel';
 import OpenRegisterModal from '../components/register/OpenRegisterModal';
-import { useTicketSide, TICKET_SIDES } from '../helpers/POSLayoutPrefs';
+import { useTicketSide, TICKET_SIDES, useDisplayPrefs } from '../helpers/POSLayoutPrefs';
+import { CATEGORY_ALL_TONE, CATEGORY_FAVORITES_TONE, toneForIndex } from '../helpers/CategoryTones';
+
 
 export default function POSPage() {
   const { t } = useTranslation();
@@ -256,6 +258,7 @@ export default function POSPage() {
   });
 
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isCategorySheetOpen, setIsCategorySheetOpen] = useState(false); // phone category picker
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isPaySummaryExpanded, setIsPaySummaryExpanded] = useState(false);
   const [dualScreenRoomId, setDualScreenRoomId] = useState(null);
@@ -276,11 +279,14 @@ export default function POSPage() {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [isSendingToKitchen, setIsSendingToKitchen] = useState(false);
   const [customExchangeRate, setCustomExchangeRate] = useState(null);
-  const searchInputRef = useRef(null);
+  const searchInputRef = useRef(null); // catalog-bar search (tablet/desktop, "/" shortcut)
+  const mobileSearchInputRef = useRef(null); // header search (phones)
 
   // Per-terminal layout: which side the order ticket sits on (Settings > POS Layout)
   const [ticketSide] = useTicketSide();
   const isTicketLeft = ticketSide === TICKET_SIDES.LEFT;
+  // Per-terminal menu tile display (Settings > POS Layout)
+  const [displayPrefs] = useDisplayPrefs();
 
   // 'Add to Same Line' preference (persisted in localStorage, default true)
   const [isAddSameLine, setIsAddSameLine] = useState(() => {
@@ -405,17 +411,50 @@ export default function POSPage() {
     return counts;
   }, [menuItems]);
 
-  // Cover photo per category tile: the first enabled item in that category with an image.
-  const categoryCovers = React.useMemo(() => {
-    const covers = {};
-    (menuItems || []).forEach(item => {
-      if (!item.is_enabled || !item.image) return;
-      const url = getImageURL(item.image);
-      if (!covers.all) covers.all = url;
-      if (item.category_id && !covers[item.category_id]) covers[item.category_id] = url;
-    });
-    return covers;
-  }, [menuItems]);
+  // Per-cashier favourites: saved on the server per user, so they follow the cashier to any terminal.
+  const [favoriteIds, setFavoriteIds] = useState([]);
+  const [isFavoriteEditMode, setIsFavoriteEditMode] = useState(false);
+  const favoriteIdSet = React.useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const favoriteSaveSeq = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPosFavorites()
+      .then((res) => {
+        if (!cancelled && Array.isArray(res?.data?.menuItemIds)) setFavoriteIds(res.data.menuItemIds);
+      })
+      .catch((err) => console.error('Failed to load POS favorites', err));
+    return () => { cancelled = true; };
+  }, []);
+
+  const toggleFavorite = async (menuItemId) => {
+    const previous = favoriteIds;
+    const next = previous.includes(menuItemId)
+      ? previous.filter((id) => id !== menuItemId)
+      : [...previous, menuItemId];
+    setFavoriteIds(next);
+    playTapSound();
+    const seq = ++favoriteSaveSeq.current;
+    try {
+      await savePosFavorites(next);
+    } catch (err) {
+      console.error(err);
+      if (seq === favoriteSaveSeq.current) setFavoriteIds(previous);
+      toast.error(t('pos.favorites_save_failed', 'Could not save favorites. Try again.'));
+    }
+  };
+
+  // Keep the selected category visible in the vertical rail (only scrolls the rail itself)
+  const categoryRailRef = useRef(null);
+  useEffect(() => {
+    const rail = categoryRailRef.current;
+    const btn = rail?.querySelector(`[data-category-id="${selectedCategory}"]`);
+    if (!rail || !btn) return;
+    const top = btn.offsetTop - rail.offsetTop;
+    if (top < rail.scrollTop || top + btn.offsetHeight > rail.scrollTop + rail.clientHeight) {
+      rail.scrollTo({ top: top - 8, behavior: 'smooth' });
+    }
+  }, [selectedCategory]);
 
   // A fresh ticket starts at course 1.
   useEffect(() => {
@@ -782,7 +821,7 @@ export default function POSPage() {
     if (dualScreenRoomId && isSocketConnected) {
       socket.emit('pos_filter_update_backend', {
         roomId: dualScreenRoomId,
-        selectedCategory: selectedCategory,
+        selectedCategory: selectedCategory === 'favorites' ? 'all' : selectedCategory,
         searchQuery: searchQuery,
         view: state.view,
       });
@@ -3003,6 +3042,33 @@ export default function POSPage() {
 
   const currentSelectedTable = storeTables.find(t => String(t.id) === String(tableRef.current?.value));
 
+
+  // Category list for the POS rail/chips: "All" first, then enabled categories, each with a stable colour.
+  // Favourites in the cashier's order, skipping items that are gone or disabled
+  const menuItemById = new Map((menuItems || []).map((m) => [m.id, m]));
+  const favoriteMenuItems = favoriteIds.map((id) => menuItemById.get(id)).filter((m) => m && m.is_enabled);
+  const isFavoritesView = selectedCategory === 'favorites';
+  // Grid input: Favorites tab shows pinned items; while editing it shows the whole menu to pick from
+  const gridMenuItems = isFavoritesView && !isFavoriteEditMode ? favoriteMenuItems : menuItems;
+  const gridCategory = isFavoritesView ? 'all' : selectedCategory;
+
+  const categoryTiles = [
+    { id: 'all', label: t('pos.all'), count: categoryCounts.all || 0, tone: CATEGORY_ALL_TONE },
+    { id: 'favorites', label: t('pos.favorites', 'Favorites'), count: favoriteMenuItems.length, tone: CATEGORY_FAVORITES_TONE, icon: IconStarFilled },
+    ...categories.filter((category) => category.is_enabled).map((category, index) => ({
+      id: category.id,
+      label: displayName(category),
+      count: categoryCounts[category.id] || 0,
+      tone: toneForIndex(index),
+    })),
+  ];
+  // Category colour per item tile (used by text-only tiles)
+  const categoryToneById = Object.fromEntries(
+    categories.filter((c) => c.is_enabled).map((c, index) => [c.id, toneForIndex(index)])
+  );
+  const selectedCategoryTile = categoryTiles.find((c) => c.id === selectedCategory) || categoryTiles[0];
+  const selectCategory = (id) => setState((prev) => ({ ...prev, selectedCategory: id }));
+
   return (
     <Page className='px-1.5 sm:px-3 pt-1 sm:pt-2 pb-1.5 sm:pb-2.5 flex flex-col min-h-0 h-full flex-1 overflow-hidden select-none'>
       {/* Hidden legacy select elements to preserve 100% backend, print, and ref compatibility */}
@@ -3039,7 +3105,7 @@ export default function POSPage() {
         user={user}
         searchQuery={searchQuery}
         onSearchChange={(query) => setState(prev => ({ ...prev, searchQuery: query }))}
-        searchInputRef={searchInputRef}
+        searchInputRef={mobileSearchInputRef}
         draftsCount={drafts?.length || 0}
         onOpenDrafts={btnOpenDraftsModal}
         qrOrdersCount={state.qrOrdersCount || 0}
@@ -3117,67 +3183,123 @@ export default function POSPage() {
       )}>
 
         {/* Catalog Panel (70%) */}
-        <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-xl border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
-          {/* Sub-bar: Full-Width Category Rail + View Switcher */}
-          <div className="bg-white dark:bg-slate-900 flex items-start justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
-            {/* Category tiles styled like the menu item cards: equal-size photo tiles in a grid,
-                every category visible and one tap away. Very long menus cap at ~2 rows and scroll. */}
-            <div className="flex-1 min-w-0 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2 py-0.5 max-h-[132px] overflow-y-auto">
-              {[
-                { id: 'all', label: t('pos.all'), count: categoryCounts.all || 0, cover: categoryCovers.all },
-                ...categories.filter((category) => category.is_enabled).map((category) => ({
-                  id: category.id,
-                  label: displayName(category),
-                  count: categoryCounts[category.id] || 0,
-                  cover: categoryCovers[category.id],
-                })),
-              ].map(({ id, label, count, cover }) => {
-                const isSelected = selectedCategory === id;
-                return (
+        <div className="h-full md:w-[68%] lg:w-[70%] flex flex-row overflow-hidden border rounded-xl border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+          {/* Vertical category rail (tablet/desktop). Scales to any number of categories:
+              one column, natural vertical scroll, full names, selection always visible. */}
+          <nav
+            ref={categoryRailRef}
+            aria-label={t('pos.categories', 'Categories')}
+            className="hidden md:flex w-[150px] lg:w-[172px] shrink-0 flex-col gap-1.5 p-2 overflow-y-auto overscroll-contain border-r border-[#E3E5E8] dark:border-slate-800 bg-[#F7F8FA] dark:bg-slate-950/40"
+          >
+            {categoryTiles.map(({ id, label, count, tone, icon: TileIcon }) => {
+              const isSelected = selectedCategory === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-category-id={id}
+                  aria-pressed={isSelected}
+                  onClick={() => selectCategory(id)}
+                  className={clsx(
+                    "relative shrink-0 min-h-[48px] pl-3.5 pr-2 py-2 rounded-xl border text-left flex items-center gap-2 overflow-hidden transition active:scale-95 touch-manipulation select-none cursor-pointer",
+                    isSelected
+                      ? clsx(tone.solid, "text-white border-transparent shadow-md")
+                      : "bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 border-[#E3E5E8] dark:border-slate-700 hover:bg-[#F4F5F8] dark:hover:bg-slate-800"
+                  )}
+                >
+                  <span className={clsx("absolute left-0 inset-y-0 w-1.5", isSelected ? "bg-white/35" : tone.solid)} />
+                  <span className="flex-1 min-w-0 text-[13px] font-bold leading-[1.2] break-words flex items-center gap-1.5">
+                    {TileIcon && <TileIcon size={15} className={isSelected ? "text-white" : "text-amber-500"} />}
+                    <span className="min-w-0">{label}</span>
+                  </span>
+                  <span className={clsx(
+                    "shrink-0 min-w-[24px] h-[22px] px-1.5 rounded-full text-[11px] font-black flex items-center justify-center",
+                    isSelected ? "bg-white/25 text-white" : "bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-slate-300"
+                  )}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+          {/* Sub-bar: current category (or phone chips) + tools */}
+          <div className="bg-white dark:bg-slate-900 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
+            {/* Tablet/desktop: selected category title + menu search (search sits right above
+                the grid it filters, which also frees room in the top header) */}
+            <div className="hidden md:flex flex-1 min-w-0 items-center gap-3">
+              <div className="flex items-center gap-2 min-w-0 shrink">
+                <span className={clsx("w-2.5 h-2.5 rounded-full shrink-0", selectedCategoryTile?.tone.solid)} />
+                <h2 className="truncate text-base font-bold text-gray-900 dark:text-white">{selectedCategoryTile?.label}</h2>
+                <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#F4F5F8] dark:bg-slate-800 text-[11px] font-bold text-gray-600 dark:text-slate-300 tabular-nums">
+                  {selectedCategoryTile?.count || 0}
+                </span>
+                {(isFavoritesView || isFavoriteEditMode) && (
                   <button
-                    key={id}
                     type="button"
-                    data-category-id={id}
-                    aria-pressed={isSelected}
+                    onClick={() => setIsFavoriteEditMode((v) => !v)}
                     className={clsx(
-                      "group relative h-[58px] overflow-hidden rounded-xl text-left transition active:scale-95 touch-manipulation select-none cursor-pointer bg-gradient-to-br from-[#0D233A] via-[#123553] to-[#006B6F]",
-                      isSelected
-                        ? "ring-[3px] ring-[#2CA01C] ring-offset-1 ring-offset-white dark:ring-offset-slate-900 shadow-md"
-                        : "opacity-90 hover:opacity-100"
+                      "shrink-0 min-h-[42px] px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer",
+                      isFavoriteEditMode
+                        ? "bg-amber-500 hover:bg-amber-600 text-white shadow-sm"
+                        : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
                     )}
-                    onClick={() => {
-                      setState({
-                        ...state,
-                        selectedCategory: id
-                      });
-                    }}
                   >
-                    {cover && (
-                      <img
-                        src={cover}
-                        alt=""
-                        loading="lazy"
-                        draggable={false}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    )}
-                    <div className={clsx(
-                      "pointer-events-none absolute inset-0",
-                      isSelected ? "bg-gradient-to-t from-black/85 via-black/45 to-black/10" : "bg-gradient-to-t from-black/90 via-black/60 to-black/30"
-                    )} />
-                    <span className="absolute top-1.5 right-1.5 min-w-[22px] h-[20px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center bg-white/90 text-[#0D233A] shadow-sm">
-                      {count}
-                    </span>
-                    <span className="absolute inset-x-2 bottom-1.5 line-clamp-2 text-[12px] font-bold leading-[1.15] text-white drop-shadow pr-1">
-                      {label}
-                    </span>
+                    {isFavoriteEditMode ? <IconCheck size={16} stroke={2.6} /> : <IconStar size={16} stroke={2.4} />}
+                    {isFavoriteEditMode ? t('pos.done', 'Done') : t('pos.edit_favorites', 'Edit favorites')}
                   </button>
-                );
-              })}
+                )}
+              </div>
+              <div className="relative flex-1 min-w-[160px] max-w-[420px] ml-auto">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
+                  <IconSearch size={17} stroke={2} />
+                </span>
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setState(prev => ({ ...prev, searchQuery: e.target.value }))}
+                  placeholder={t('pos.search_items_placeholder', 'Search menu items...')}
+                  aria-label={t('pos.search_items_placeholder', 'Search menu items...')}
+                  className="w-full pl-9 pr-10 min-h-[42px] rounded-xl text-sm font-medium border border-transparent focus:border-[#008489] bg-[#F4F5F8] hover:bg-[#ECEEF1] dark:bg-slate-800 text-gray-800 dark:text-slate-100 placeholder-gray-500 outline-none transition [&::-webkit-search-cancel-button]:hidden"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setState(prev => ({ ...prev, searchQuery: '' }))}
+                    aria-label={t('pos.close', 'Clear')}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-[38px] h-[38px] rounded-lg text-gray-500 hover:text-gray-900 hover:bg-white dark:hover:bg-slate-700 flex items-center justify-center cursor-pointer active:scale-95"
+                  >
+                    <IconX size={16} stroke={iconStroke} />
+                  </button>
+                ) : (
+                  <span className="hidden xl:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-[10px] font-mono font-bold text-gray-400 border border-gray-200 dark:border-slate-700 pointer-events-none">
+                    /
+                  </span>
+                )}
+              </div>
             </div>
+            {/* Phone: one "filter by category" button (no sideways scroll). It opens a sheet
+                of category tiles laid out like the menu items. */}
+            <button
+              type="button"
+              onClick={() => setIsCategorySheetOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={isCategorySheetOpen}
+              className="md:hidden order-1 basis-full w-full min-h-[46px] pl-3 pr-2.5 rounded-xl border border-[#D4D7DC] dark:border-slate-700 bg-[#F4F5F8] dark:bg-slate-800 flex items-center gap-2.5 text-left active:scale-[0.98] transition touch-manipulation"
+            >
+              <IconFilter size={18} stroke={iconStroke} className="text-gray-500 dark:text-slate-400 shrink-0" />
+              <span className={clsx("w-2.5 h-2.5 rounded-full shrink-0", selectedCategoryTile?.tone.solid)} />
+              <span className="flex-1 min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white">{selectedCategoryTile?.label}</span>
+              <span className="shrink-0 px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-[11px] font-bold text-gray-600 dark:text-slate-300 tabular-nums">
+                {selectedCategoryTile?.count || 0}
+              </span>
+              <IconChevronDown size={18} stroke={2.2} className="text-gray-500 shrink-0" />
+            </button>
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
-            <div className="flex items-center gap-1.5 shrink-0 pl-1.5 border-l border-[#E3E5E8] dark:border-slate-800">
+            <div className="order-2 md:order-none w-full md:w-auto flex items-center justify-end gap-1.5 shrink-0 overflow-x-auto no-scrollbar md:overflow-visible md:pl-1.5 md:border-l border-[#E3E5E8] dark:border-slate-800">
               {(!isOnline || offlineQueue.length > 0) && (
                 <button
                   type="button"
@@ -3250,12 +3372,52 @@ export default function POSPage() {
             </div>
           </div>
 
+          {/* Favourites edit mode banner */}
+          {isFavoriteEditMode && (
+            <div className="shrink-0 mx-2 sm:mx-4 mt-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center gap-2 text-amber-900 dark:text-amber-200">
+              <IconStarFilled size={16} className="text-amber-500 shrink-0" />
+              <span className="flex-1 min-w-0 text-xs font-semibold">
+                {t('pos.favorites_edit_hint', 'Tap items to add or remove them from your favorites. Use the categories to browse.')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsFavoriteEditMode(false)}
+                className="md:hidden shrink-0 min-h-[42px] px-3.5 rounded-xl bg-amber-500 text-white text-xs font-bold active:scale-95"
+              >
+                {t('pos.done', 'Done')}
+              </button>
+            </div>
+          )}
+
           {/* Menu Catalog Grid / List */}
           <div className='flex-1 h-full overflow-hidden pt-2'>
-            {state.view === 'detailed' ? (
+            {isFavoritesView && !isFavoriteEditMode && favoriteMenuItems.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
+                <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                  <IconStarFilled size={30} className="text-amber-400" />
+                </div>
+                <p className="text-base font-bold text-gray-800 dark:text-slate-100">{t('pos.favorites_empty_title', 'No favorites yet')}</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 max-w-xs">
+                  {t('pos.favorites_empty_desc', 'Pin the items you ring up most, so they are always one tap away.')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsFavoriteEditMode(true)}
+                  className="min-h-[46px] px-5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold flex items-center gap-2 active:scale-95 transition"
+                >
+                  <IconStar size={18} stroke={2.4} />
+                  {t('pos.add_favorites', 'Add favorites')}
+                </button>
+              </div>
+            ) : state.view === 'detailed' ? (
               <POSMenuItemDetailedView
-                menuItems={menuItems}
-                selectedCategory={selectedCategory}
+                menuItems={gridMenuItems}
+                selectedCategory={gridCategory}
+                favoriteIds={favoriteIdSet}
+                isFavoriteEditMode={isFavoriteEditMode}
+                onToggleFavorite={toggleFavorite}
+                displayPrefs={displayPrefs}
+                categoryToneById={categoryToneById}
                 categories={categories}
                 searchQuery={searchQuery}
                 currency={currency}
@@ -3269,8 +3431,13 @@ export default function POSPage() {
               />
             ) : (
               <POSMenuItemCompactView
-                menuItems={menuItems}
-                selectedCategory={selectedCategory}
+                menuItems={gridMenuItems}
+                selectedCategory={gridCategory}
+                favoriteIds={favoriteIdSet}
+                isFavoriteEditMode={isFavoriteEditMode}
+                onToggleFavorite={toggleFavorite}
+                displayPrefs={displayPrefs}
+                categoryToneById={categoryToneById}
                 categories={categories}
                 searchQuery={searchQuery}
                 currency={currency}
@@ -3284,7 +3451,74 @@ export default function POSPage() {
               />
             )}
           </div>
+          </div>
         </div>
+
+        {/* Phone category picker: bottom sheet of colour-coded tiles (2 columns, like the menu grid) */}
+        {isCategorySheetOpen && (
+          <>
+            <button
+              type="button"
+              aria-label={t('pos.close', 'Close')}
+              onClick={() => setIsCategorySheetOpen(false)}
+              className="md:hidden fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs"
+            />
+            <div
+              role="dialog"
+              aria-label={t('pos.categories', 'Categories')}
+              className="md:hidden fixed inset-x-0 bottom-0 z-[61] max-h-[80vh] flex flex-col rounded-t-3xl bg-white dark:bg-slate-900 shadow-[0_-12px_40px_rgba(15,23,42,0.25)] pb-[env(safe-area-inset-bottom)]"
+            >
+              <div className="flex flex-col items-center pt-2 pb-1 shrink-0">
+                <div className="w-10 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+              </div>
+              <div className="flex items-center justify-between px-4 pb-2 shrink-0">
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">{t('pos.categories', 'Categories')}</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsCategorySheetOpen(false)}
+                  aria-label={t('pos.close', 'Close')}
+                  className="w-[42px] h-[42px] rounded-full bg-[#F4F5F8] dark:bg-slate-800 text-gray-600 dark:text-slate-300 flex items-center justify-center active:scale-95"
+                >
+                  <IconX size={18} stroke={iconStroke} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-y-auto overscroll-contain">
+                {categoryTiles.map(({ id, label, count, tone, icon: TileIcon }) => {
+                  const isSelected = selectedCategory === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={isSelected}
+                      onClick={() => {
+                        selectCategory(id);
+                        setIsCategorySheetOpen(false);
+                      }}
+                      className={clsx(
+                        "relative min-h-[68px] pl-4 pr-2.5 py-2 rounded-2xl border text-left flex items-center gap-2 overflow-hidden transition active:scale-95 touch-manipulation select-none",
+                        isSelected
+                          ? clsx(tone.solid, "text-white border-transparent shadow-md")
+                          : clsx(tone.soft, "text-gray-800 dark:text-slate-100 border-[#E3E5E8] dark:border-slate-700")
+                      )}
+                    >
+                      <span className={clsx("absolute left-0 inset-y-0 w-1.5", isSelected ? "bg-white/35" : tone.solid)} />
+                      <span className="flex-1 min-w-0 flex items-center gap-1.5 text-[14px] font-bold leading-[1.2]">
+                        {TileIcon && <TileIcon size={15} className={clsx("shrink-0", isSelected ? "text-white" : "text-amber-500")} />}
+                        <span className="min-w-0 line-clamp-2">{label}</span>
+                      </span>
+                      <span className={clsx(
+                        "shrink-0 min-w-[26px] h-[24px] px-1.5 rounded-full text-[11px] font-black flex items-center justify-center",
+                        isSelected ? "bg-white/25 text-white" : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300"
+                      )}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Mobile floating "view cart" bar */}
         {cartItemsCount > 0 && !isMobileCartOpen && (

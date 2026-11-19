@@ -10,6 +10,8 @@ import {
   IconMinus,
   IconSearch,
   IconAdjustmentsHorizontal,
+  IconStar,
+  IconStarFilled,
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import useLongPress from '../helpers/useLongPress';
@@ -59,6 +61,37 @@ export const getCategoryFallbackIcon = (categoryTitle = '', title = '') => {
   return IconToolsKitchen2;
 };
 
+// Tile size presets (Settings > POS Layout). Literal classes so Tailwind keeps them.
+const TILE_SIZE_STYLES = {
+  small: {
+    grid: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]',
+    photoAspect: 'aspect-square sm:aspect-[6/5]',
+    textAspect: 'aspect-[4/3]',
+    price: 'text-[14px] sm:text-[15px]',
+    name: 'text-[12px] sm:text-[13px]',
+    textName: 'text-[13px] sm:text-[14px]',
+    icon: 36,
+  },
+  medium: {
+    grid: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]',
+    photoAspect: 'aspect-[4/5] sm:aspect-[6/5]',
+    textAspect: 'aspect-[3/2]',
+    price: 'text-[17px] sm:text-[19px]',
+    name: 'text-[13px] sm:text-[15px]',
+    textName: 'text-[15px] sm:text-[17px]',
+    icon: 48,
+  },
+  large: {
+    grid: 'grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]',
+    photoAspect: 'aspect-[4/5] sm:aspect-[5/4]',
+    textAspect: 'aspect-[3/2]',
+    price: 'text-[20px] sm:text-[22px]',
+    name: 'text-[15px] sm:text-[17px]',
+    textName: 'text-[17px] sm:text-[20px]',
+    icon: 56,
+  },
+};
+
 const POSMenuItemCompactView = ({
   menuItems,
   selectedCategory,
@@ -75,7 +108,15 @@ const POSMenuItemCompactView = ({
   onItemLongPress = null,
   onScroll = null,
   scrollTopRatio = null,
+  favoriteIds = null,
+  isFavoriteEditMode = false,
+  onToggleFavorite = null,
+  displayPrefs = null,
+  categoryToneById = null,
 }) => {
+  const prefs = { tileSize: 'medium', showImages: true, showPrice: true, showCategory: true, ...(displayPrefs || {}) };
+  const size = TILE_SIZE_STYLES[prefs.tileSize] || TILE_SIZE_STYLES.medium;
+
   const { t } = useTranslation();
   useMenuLanguage();
   const bindLongPress = useLongPress(isReadOnly ? null : onItemLongPress);
@@ -121,7 +162,7 @@ const POSMenuItemCompactView = ({
         <div
           ref={containerRef}
           onScroll={onScroll}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 auto-rows-max gap-2 sm:gap-3 w-full z-0 px-2 sm:px-4 pt-1 sm:pt-1.5 pb-24 md:pb-6 rounded-b-xl overflow-y-auto h-full content-start"
+          className={`grid ${size.grid} auto-rows-max gap-2.5 sm:gap-3 w-full z-0 px-2 sm:px-4 pt-1 sm:pt-1.5 pb-24 md:pb-6 rounded-b-xl overflow-y-auto h-full content-start`}
         >
           {filteredMenuItems.map((menuItem, i) => {
             const { id, price, image, addons, variants } = menuItem;
@@ -129,6 +170,8 @@ const POSMenuItemCompactView = ({
             const category_title = displayCategoryName(menuItem);
 
             const imageURL = image ? getImageURL(image) : null;
+            const showPhoto = prefs.showImages;
+            const textToneClass = categoryToneById?.[menuItem.category_id]?.solid || 'bg-[#0D233A]';
             const hasVariantOrAddon = variants?.length > 0 || addons?.length > 0;
             const isHovered = String(hoveredItemId) === String(id);
 
@@ -162,8 +205,14 @@ const POSMenuItemCompactView = ({
             const isSoldOut86 = Number(menuItem.is_sold_out) === 1;
             const portionsLeft = menuItem.stock_limit === null || menuItem.stock_limit === undefined ? null : Number(menuItem.stock_limit);
 
+            const isFavorite = Boolean(favoriteIds?.has(id));
+
             const triggerPrimaryAction = () => {
               if (isReadOnly) return;
+              if (isFavoriteEditMode && onToggleFavorite) {
+                onToggleFavorite(id);
+                return;
+              }
               if (hasVariantOrAddon) {
                 btnOpenVariantAndAddonModal(id);
               } else {
@@ -180,7 +229,7 @@ const POSMenuItemCompactView = ({
                 onMouseLeave={() => onItemHover && onItemHover(null)}
                 {...bindLongPress(id)}
                 onClick={triggerPrimaryAction}
-                className={`group relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden rounded-xl bg-[#0D233A] select-none transition-all duration-150 ${
+                className={`group relative ${showPhoto ? size.photoAspect : size.textAspect} overflow-hidden rounded-2xl ${showPhoto ? 'bg-[#0D233A]' : textToneClass} select-none transition-all duration-150 ${
                   inCartCount > 0
                     ? 'ring-[3px] ring-[#F97316] shadow-[0_8px_20px_-10px_rgba(249,115,22,0.7)]'
                     : isHovered
@@ -188,8 +237,10 @@ const POSMenuItemCompactView = ({
                     : 'shadow-[0_1px_3px_rgba(15,23,42,0.18)] hover:shadow-[0_12px_24px_-12px_rgba(15,23,42,0.55)] hover:-translate-y-0.5'
                 } ${!isReadOnly ? 'cursor-pointer active:scale-[0.97] active:translate-y-0' : ''}`}
               >
-                {/* Full-bleed photo */}
-                {image ? (
+                {/* Full-bleed photo (or a plain category-coloured tile when photos are off) */}
+                {!showPhoto ? (
+                  <div className={`absolute inset-0 bg-gradient-to-br from-white/10 to-black/20 ${isOutOfStock || isSoldOut86 ? 'opacity-60' : ''}`} />
+                ) : image ? (
                   <img
                     src={imageURL}
                     alt=""
@@ -200,12 +251,14 @@ const POSMenuItemCompactView = ({
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-start justify-center pt-[18%] bg-gradient-to-br from-[#0D233A] via-[#123553] to-[#006B6F]">
-                    <FallbackIcon size={40} stroke={1.5} className="text-white/35" />
+                    <FallbackIcon size={size.icon} stroke={1.5} className="text-white/35" />
                   </div>
                 )}
 
                 {/* Legibility scrim: text sits on a dark bottom gradient */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-black/90 via-black/55 to-transparent" />
+                {showPhoto && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-black/90 via-black/55 to-transparent" />
+                )}
 
                 {/* Top-left status chips */}
                 <div className="absolute top-2 left-2 z-10 flex items-center gap-1 max-w-[70%]">
@@ -222,9 +275,9 @@ const POSMenuItemCompactView = ({
                   {hasVariantOrAddon && (
                     <span
                       title={t("pos_menu.customize", "Customize")}
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-black/45 backdrop-blur-sm text-white ring-1 ring-white/25"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-black/45 backdrop-blur-sm text-white ring-1 ring-white/25"
                     >
-                      <IconAdjustmentsHorizontal size={13} stroke={2.2} />
+                      <IconAdjustmentsHorizontal size={15} stroke={2.2} />
                     </span>
                   )}
                 </div>
@@ -243,6 +296,17 @@ const POSMenuItemCompactView = ({
                   </span>
                 )}
 
+                {/* Favourites edit mode: star toggle on every tile */}
+                {isFavoriteEditMode && (
+                  <div className={`pointer-events-none absolute inset-0 z-[25] flex items-start justify-end p-2 ${isFavorite ? 'ring-[3px] ring-inset ring-amber-400 rounded-[inherit]' : 'bg-black/25'}`}>
+                    <span className={`w-[40px] h-[40px] rounded-full flex items-center justify-center shadow-lg ring-2 ${
+                      isFavorite ? 'bg-amber-400 text-white ring-white' : 'bg-black/50 text-white ring-white/60 backdrop-blur-sm'
+                    }`}>
+                      {isFavorite ? <IconStarFilled size={20} /> : <IconStar size={20} stroke={2.2} />}
+                    </span>
+                  </div>
+                )}
+
                 {/* In-cart count badge */}
                 {inCartCount > 0 && (
                   <div className="absolute top-2 right-2 z-20 min-w-[26px] h-[26px] px-1.5 rounded-full bg-[#F97316] text-white text-xs font-extrabold tabular-nums flex items-center justify-center shadow-md ring-2 ring-white/90">
@@ -251,24 +315,32 @@ const POSMenuItemCompactView = ({
                 )}
 
                 {/* Text overlay */}
-                <div className={`absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 ${showBottomStepper ? 'pr-[52px]' : ''}`}>
-                  <p className="text-[15px] sm:text-base font-extrabold leading-tight tabular-nums text-white drop-shadow-sm">
-                    {formatPOSPrice(price, currency)}
-                  </p>
+                <div className={`absolute inset-x-0 bottom-0 z-10 px-3 pb-3 ${showBottomStepper ? 'pr-[52px]' : ''}`}>
+                  {/* Photo tiles lead with the price; text tiles lead with the name */}
+                  {showPhoto && prefs.showPrice && (
+                    <p className={`${size.price} font-extrabold leading-tight tabular-nums text-white drop-shadow-sm`}>
+                      {formatPOSPrice(price, currency)}
+                    </p>
+                  )}
                   <p
                     title={title}
-                    className="mt-0.5 line-clamp-2 text-[12px] sm:text-[13px] font-semibold leading-[1.2] text-white drop-shadow-sm"
+                    className={`mt-0.5 ${showPhoto ? 'line-clamp-2' : 'line-clamp-3'} ${showPhoto ? size.name : size.textName} font-bold leading-[1.2] text-white drop-shadow-sm`}
                   >
                     {title}
                   </p>
                   {secondaryTitle && (
-                    <p className="line-clamp-1 text-[11px] font-medium leading-tight text-white/80 drop-shadow-sm">
+                    <p className="line-clamp-1 text-[12px] font-medium leading-tight text-white/80 drop-shadow-sm">
                       {secondaryTitle}
                     </p>
                   )}
-                  {!isReadOnly && selectedCategory === "all" && category_title && (
-                    <p className="mt-0.5 text-[10px] font-medium text-white/65 truncate">
+                  {!isReadOnly && prefs.showCategory && selectedCategory === "all" && category_title && (
+                    <p className="mt-0.5 text-[11px] font-medium text-white/70 truncate">
                       {category_title}
+                    </p>
+                  )}
+                  {!showPhoto && prefs.showPrice && (
+                    <p className={`mt-1 ${size.price} font-extrabold leading-tight tabular-nums text-white/95`}>
+                      {formatPOSPrice(price, currency)}
                     </p>
                   )}
                 </div>

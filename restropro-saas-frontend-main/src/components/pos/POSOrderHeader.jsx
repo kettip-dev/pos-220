@@ -7,7 +7,8 @@ import {
   IconNotes, 
   IconQrcode, 
   IconScreenShare, 
-  IconPlus, 
+  IconPlus,
+  IconMinus,
   IconX, 
   IconUsers, 
   IconToolsKitchen2,
@@ -400,27 +401,29 @@ export default function POSOrderHeader({
               </button>
 
               {/* Guest Covers Stepper */}
-              <div className="hidden sm:flex items-center min-h-[42px] px-2 sm:px-2.5 rounded-xl bg-white dark:bg-slate-900 border border-[#D4D7DC] dark:border-slate-700 gap-1 text-xs select-none shrink-0 shadow-2xs">
-                <span className="text-gray-500 dark:text-slate-400 flex items-center gap-1 font-semibold text-[11px]" title={t('pos.covers', 'Guests')}>
-                  <IconUsers size={14} stroke={iconStroke} />
-                  <span className="hidden xl:inline">{t('pos.covers', 'Guests')}:</span>
-                </span>
+              <div
+                className="hidden sm:flex items-center min-h-[46px] pl-2.5 pr-1 py-0.5 rounded-xl bg-white dark:bg-slate-900 border border-[#D4D7DC] dark:border-slate-700 gap-1 select-none shrink-0 shadow-2xs"
+                title={t('pos.covers', 'Guests')}
+                role="group"
+                aria-label={t('pos.covers', 'Guests')}
+              >
+                <IconUsers size={20} stroke={iconStroke} className="text-gray-500 dark:text-slate-400 shrink-0" />
                 <button
                   type="button"
                   onClick={() => onUpdateGuestCount && onUpdateGuestCount(Math.max(1, guestCount - 1))}
-                  className="w-7 h-7 rounded-lg bg-[#F4F5F8] dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 font-bold flex items-center justify-center transition active:scale-90 cursor-pointer"
-                  title="Decrease guest count"
+                  className="w-[42px] h-[42px] rounded-lg bg-[#F4F5F8] dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer"
+                  aria-label="Decrease guest count"
                 >
-                  -
+                  <IconMinus size={16} stroke={2.6} />
                 </button>
-                <span className="font-bold text-gray-900 dark:text-white px-1 text-center min-w-[16px]">{guestCount}</span>
+                <span className="font-bold text-sm tabular-nums text-gray-900 dark:text-white text-center min-w-[20px]">{guestCount}</span>
                 <button
                   type="button"
                   onClick={() => onUpdateGuestCount && onUpdateGuestCount(guestCount + 1)}
-                  className="w-7 h-7 rounded-lg bg-[#F4F5F8] dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 font-bold flex items-center justify-center transition active:scale-90 cursor-pointer"
-                  title="Increase guest count"
+                  className="w-[42px] h-[42px] rounded-lg bg-[#F4F5F8] dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer"
+                  aria-label="Increase guest count"
                 >
-                  +
+                  <IconPlus size={16} stroke={2.6} />
                 </button>
               </div>
             </div>
@@ -430,9 +433,9 @@ export default function POSOrderHeader({
           {renderCustomerChip()}
         </div>
 
-        {/* Responsive Menu Search Input — the only element that shrinks, so
-            nothing overlaps on narrow/older POS screens (row scrolls instead) */}
-        <div className="relative min-w-[110px] max-w-[240px] flex-1 ml-auto">
+        {/* Phone-only Menu Search Input. On tablet/desktop the search lives in the
+            catalog bar right above the menu grid (POSPage). */}
+        <div className="md:hidden relative min-w-[110px] max-w-[240px] flex-1 ml-auto">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
               <IconSearch size={15} stroke={2} />
             </span>
@@ -460,7 +463,7 @@ export default function POSOrderHeader({
         </div>
 
         {/* Right Segment: Register Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 md:ml-auto">
 
           {/* Quick Register Actions (QBO Bordered Pill Toolbar - Icon Only) */}
           <div className="flex items-center p-0.5 rounded-xl bg-[#F4F5F8] dark:bg-slate-800 border border-[#E3E5E8] dark:border-slate-700 shrink-0 gap-0.5">
@@ -513,32 +516,34 @@ export default function POSOrderHeader({
               type="button"
               onClick={onOpenRegister}
               className={clsx(
-                "min-h-[42px] px-2.5 sm:px-3 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 border touch-manipulation cursor-pointer select-none shrink-0",
+                "relative w-[46px] h-[46px] rounded-xl transition-all active:scale-95 flex items-center justify-center border touch-manipulation cursor-pointer select-none shrink-0",
                 registerSession
                   ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
                   : isRegisterEnforced
                     ? "border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 animate-pulse"
                     : "border-[#D4D7DC] dark:border-slate-700 text-gray-700 dark:text-slate-200"
               )}
-              title={t('register.register', 'Register')}
+              title={registerSession ? registerSession.register_name : t('register.closed', 'Register closed')}
+              aria-label={registerSession ? registerSession.register_name : t('register.closed', 'Register closed')}
             >
-              <IconCashRegister size={17} stroke={iconStroke} />
-              <span className="hidden xl:inline max-w-[140px] truncate">
-                {registerSession ? registerSession.register_name : t('register.closed', 'Register closed')}
-              </span>
-              <span className={clsx("w-2 h-2 rounded-full", registerSession ? "bg-emerald-500" : "bg-rose-500")} />
+              <IconCashRegister size={22} stroke={iconStroke} />
+              {/* Open / closed status dot */}
+              <span className={clsx(
+                "absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-slate-900",
+                registerSession ? "bg-emerald-500" : "bg-rose-500"
+              )} />
             </button>
           )}
 
-          {/* QBO Green '+ New' Order Trigger */}
+          {/* Green '+' New Ticket trigger (icon only; label kept for tooltip + screen readers) */}
           <button
             type="button"
             onClick={onInitNewOrder}
-            className="min-h-[42px] px-3 sm:px-3.5 py-1.5 rounded-xl bg-[#2CA01C] hover:bg-[#248417] text-white text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-2xs touch-manipulation cursor-pointer select-none shrink-0"
+            className="w-[46px] h-[46px] rounded-xl bg-[#2CA01C] hover:bg-[#248417] text-white transition-all active:scale-95 flex items-center justify-center shadow-2xs touch-manipulation cursor-pointer select-none shrink-0"
             title={t('pos.new_order', 'New Ticket')}
+            aria-label={t('pos.new_order', 'New Ticket')}
           >
-            <IconPlus size={16} stroke={2.5} />
-            <span className="hidden lg:inline">{t('pos.new_order', 'New')}</span>
+            <IconPlus size={24} stroke={2.6} />
           </button>
 
         </div>

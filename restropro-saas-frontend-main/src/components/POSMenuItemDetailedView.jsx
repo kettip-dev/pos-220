@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useMenuLanguage, displayParts, displayCategoryName, matchesMenuSearch } from "../helpers/MenuLanguageHelper";
 import { getImageURL } from '../helpers/ImageHelper';
-import { IconAlertTriangleFilled, IconMinus, IconSearch, IconAdjustmentsHorizontal } from "@tabler/icons-react";
+import { IconAlertTriangleFilled, IconMinus, IconSearch, IconAdjustmentsHorizontal, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import useLongPress from '../helpers/useLongPress';
 import {
@@ -25,7 +25,14 @@ const POSMenuItemDetailedView = ({
   onItemLongPress = null,
   onScroll = null,
   scrollTopRatio = null,
+  favoriteIds = null,
+  isFavoriteEditMode = false,
+  onToggleFavorite = null,
+  displayPrefs = null,
+  categoryToneById = null,
 }) => {
+  const prefs = { showImages: true, showPrice: true, showCategory: true, ...(displayPrefs || {}) };
+
   const { t } = useTranslation();
   useMenuLanguage();
   const bindLongPress = useLongPress(isReadOnly ? null : onItemLongPress);
@@ -80,6 +87,7 @@ const POSMenuItemDetailedView = ({
             const category_title = displayCategoryName(menuItem);
 
             const imageURL = image ? getImageURL(image) : null;
+            const textToneClass = categoryToneById?.[menuItem.category_id]?.solid || 'bg-[#0D233A]';
             const hasVariantOrAddon = variants?.length > 0 || addons?.length > 0;
             const isHovered = String(hoveredItemId) === String(id);
 
@@ -112,8 +120,14 @@ const POSMenuItemDetailedView = ({
             const isSoldOut86 = Number(menuItem.is_sold_out) === 1;
             const portionsLeft = menuItem.stock_limit === null || menuItem.stock_limit === undefined ? null : Number(menuItem.stock_limit);
 
+            const isFavorite = Boolean(favoriteIds?.has(id));
+
             const triggerPrimaryAction = () => {
               if (isReadOnly) return;
+              if (isFavoriteEditMode && onToggleFavorite) {
+                onToggleFavorite(id);
+                return;
+              }
               if (hasVariantOrAddon) {
                 btnOpenVariantAndAddonModal(id);
               } else {
@@ -130,7 +144,7 @@ const POSMenuItemDetailedView = ({
                 onMouseLeave={() => onItemHover && onItemHover(null)}
                 {...bindLongPress(id)}
                 onClick={triggerPrimaryAction}
-                className={`group relative h-32 sm:h-36 overflow-hidden rounded-xl bg-[#0D233A] select-none transition-all duration-150 ${
+                className={`group relative h-32 sm:h-36 overflow-hidden rounded-xl ${prefs.showImages ? 'bg-[#0D233A]' : textToneClass} select-none transition-all duration-150 ${
                   inCartCount > 0
                     ? 'ring-[3px] ring-[#F97316] shadow-[0_8px_20px_-10px_rgba(249,115,22,0.7)]'
                     : isHovered
@@ -138,8 +152,8 @@ const POSMenuItemDetailedView = ({
                     : 'shadow-[0_1px_3px_rgba(15,23,42,0.18)] hover:shadow-[0_12px_24px_-12px_rgba(15,23,42,0.55)] hover:-translate-y-0.5'
                 } ${!isReadOnly ? 'cursor-pointer active:scale-[0.99] active:translate-y-0' : ''}`}
               >
-                {/* Full-bleed photo */}
-                {image ? (
+                {/* Full-bleed photo (or a plain category-coloured tile when photos are off) */}
+                {!prefs.showImages ? null : image ? (
                   <img
                     src={imageURL}
                     alt=""
@@ -155,7 +169,9 @@ const POSMenuItemDetailedView = ({
                 )}
 
                 {/* Legibility scrim: text sits on a dark left-side gradient */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/5" />
+                {prefs.showImages && (
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/5" />
+                )}
 
                 {/* 86 board: sold-out veil and portions-left chip */}
                 {isSoldOut86 && (
@@ -169,6 +185,17 @@ const POSMenuItemDetailedView = ({
                   <span className={`absolute ${inCartCount > 0 ? 'top-[38px]' : 'top-2'} right-2 z-[16] rounded-full bg-amber-500 text-white text-[10px] font-black px-2 py-[3px] shadow-md ring-1 ring-white/70 pointer-events-none`}>
                     {t('pos_ops.n_left', '{{count}} left', { count: portionsLeft })}
                   </span>
+                )}
+
+                {/* Favourites edit mode: star toggle on every tile */}
+                {isFavoriteEditMode && (
+                  <div className={`pointer-events-none absolute inset-0 z-[25] flex items-start justify-end p-2 ${isFavorite ? 'ring-[3px] ring-inset ring-amber-400 rounded-[inherit]' : 'bg-black/25'}`}>
+                    <span className={`w-[40px] h-[40px] rounded-full flex items-center justify-center shadow-lg ring-2 ${
+                      isFavorite ? 'bg-amber-400 text-white ring-white' : 'bg-black/50 text-white ring-white/60 backdrop-blur-sm'
+                    }`}>
+                      {isFavorite ? <IconStarFilled size={20} /> : <IconStar size={20} stroke={2.2} />}
+                    </span>
+                  </div>
                 )}
 
                 {/* In-cart count badge */}
@@ -192,7 +219,7 @@ const POSMenuItemDetailedView = ({
                           {minItemsCanBeMade !== null ? minItemsCanBeMade : t('inventory.low_stock', 'Low Stock')}
                         </span>
                       )}
-                      {!isReadOnly && selectedCategory === "all" && category_title && (
+                      {!isReadOnly && prefs.showCategory && selectedCategory === "all" && category_title && (
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-white/60 truncate">
                           {category_title}
                         </span>
@@ -217,9 +244,11 @@ const POSMenuItemDetailedView = ({
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
-                    <p className="text-base sm:text-lg font-extrabold leading-none tabular-nums text-white drop-shadow-sm shrink-0">
-                      {formatPOSPrice(price, currency)}
-                    </p>
+                    {prefs.showPrice && (
+                      <p className="text-base sm:text-lg font-extrabold leading-none tabular-nums text-white drop-shadow-sm shrink-0">
+                        {formatPOSPrice(price, currency)}
+                      </p>
+                    )}
                     {hasVariantOrAddon && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-black/40 backdrop-blur-sm ring-1 ring-white/20 px-2 py-[3px] text-[10px] font-semibold text-white/90 truncate">
                         <IconAdjustmentsHorizontal size={12} stroke={2.2} className="shrink-0" />
