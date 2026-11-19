@@ -20,6 +20,7 @@ import {
   IconMaximize,
   IconMinimize,
   IconHandFinger,
+  IconReceipt,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
 
@@ -95,94 +96,11 @@ export default function OrderStatusDisplayPage() {
     layoutModeRef.current = layoutMode;
   }, [layoutMode]);
 
-  // Resizable Split Ratios for Vertical (left %) and Horizontal (top %)
-  const [splitRatioVert, setSplitRatioVert] = useState(() => {
-    const saved = localStorage.getItem("orderStatusSplitRatioVertical");
-    return saved ? Number(saved) : 50;
-  });
-
-  const [splitRatioHoriz, setSplitRatioHoriz] = useState(() => {
-    const saved = localStorage.getItem("orderStatusSplitRatioHorizontal");
-    return saved ? Number(saved) : 50;
-  });
-
-  const isDraggingRef = useRef(false);
-  const mainContainerRef = useRef(null);
-
   const toggleLayoutMode = () => {
     const nextMode = layoutMode === "vertical" ? "horizontal" : "vertical";
     setLayoutMode(nextMode);
     localStorage.setItem("orderStatusLayout", nextMode);
   };
-
-  // Drag handlers for LeetCode-style resizable split screen (Vertical & Horizontal)
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = layoutModeRef.current === "vertical" ? "col-resize" : "row-resize";
-  };
-
-  const resetSplitRatio = () => {
-    if (layoutMode === "vertical") {
-      setSplitRatioVert(50);
-      localStorage.setItem("orderStatusSplitRatioVertical", "50");
-    } else {
-      setSplitRatioHoriz(50);
-      localStorage.setItem("orderStatusSplitRatioHorizontal", "50");
-    }
-  };
-
-  useEffect(() => {
-    const handlePointerMove = (clientX, clientY) => {
-      if (!isDraggingRef.current || !mainContainerRef.current) return;
-      const rect = mainContainerRef.current.getBoundingClientRect();
-
-      if (layoutModeRef.current === "vertical") {
-        const relativeX = clientX - rect.left;
-        let newRatio = (relativeX / rect.width) * 100;
-        newRatio = Math.max(15, Math.min(85, newRatio));
-        setSplitRatioVert(newRatio);
-        localStorage.setItem("orderStatusSplitRatioVertical", String(newRatio));
-      } else {
-        const relativeY = clientY - rect.top;
-        let newRatio = (relativeY / rect.height) * 100;
-        newRatio = Math.max(15, Math.min(85, newRatio));
-        setSplitRatioHoriz(newRatio);
-        localStorage.setItem("orderStatusSplitRatioHorizontal", String(newRatio));
-      }
-    };
-
-    const handleMouseMove = (e) => {
-      handlePointerMove(e.clientX, e.clientY);
-    };
-
-    const handleTouchMove = (e) => {
-      if (e.touches.length > 0) {
-        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-
-    const handleEnd = () => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false;
-        document.body.style.userSelect = "";
-        document.body.style.cursor = "";
-      }
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleEnd);
-    window.addEventListener("touchmove", handleTouchMove);
-    window.addEventListener("touchend", handleEnd);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleEnd);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleEnd);
-    };
-  }, []);
 
   const [heroToken, setHeroToken] = useState(null);
   const [rightPanelTokens, setRightPanelTokens] = useState([]);
@@ -607,30 +525,176 @@ export default function OrderStatusDisplayPage() {
     );
   }
 
-  // --- Detailed View Filters ---
-  // PREPARING orders: orders with at least 1 item created or preparing, sorted newest to top (position 1)
+  // --- Detailed View: three lanes, each order in exactly one lane ---
+  const isItemReady = (i) => i.status === "completed" || i.status === "delivered";
+  const activeItemsOf = (order) => (order.items || []).filter((i) => i.status !== "cancelled");
+
+  // RECEIVED: nothing started yet (every item still queued)
+  const receivedOrders = state.orders
+    .filter((order) => {
+      const items = activeItemsOf(order);
+      return items.length > 0 && items.every((i) => !i.status || i.status === "created");
+    })
+    .sort((a, b) => a.id - b.id);
+
+  // PREPARING: kitchen has started (something cooking or partly ready)
   const preparingOrders = state.orders
     .filter((order) => {
-      if (!order.items || order.items.length === 0) return false;
-      return order.items.some((i) => i.status === "created" || i.status === "preparing");
+      const items = activeItemsOf(order);
+      if (items.length === 0 || isOrderFullyReady(order)) return false;
+      return items.some((i) => i.status === "preparing" || isItemReady(i));
     })
+    .sort((a, b) => a.id - b.id);
+
+  // READY: every item done, most recently ready first
+  const readyOrders = state.orders
+    .filter(isOrderFullyReady)
     .sort((a, b) => {
-      const timeA = preparingTimestampsRef.current[a.id] || (a.id * 1000);
-      const timeB = preparingTimestampsRef.current[b.id] || (b.id * 1000);
+      const timeA = readyTimestampsRef.current[a.id] || a.id * 1000;
+      const timeB = readyTimestampsRef.current[b.id] || b.id * 1000;
       return timeB - timeA;
     });
 
-  // READY orders: orders with at least 1 item completed or delivered, sorted newest to top (position 1)
-  const readyOrders = state.orders
-    .filter((order) => {
-      if (!order.items || order.items.length === 0) return false;
-      return order.items.some((i) => i.status === "completed" || i.status === "delivered");
-    })
-    .sort((a, b) => {
-      const timeA = readyTimestampsRef.current[a.id] || (a.id * 1000);
-      const timeB = readyTimestampsRef.current[b.id] || (b.id * 1000);
-      return timeB - timeA;
-    });
+  const orderLabel = (order) => {
+    if (order.table_title) return order.table_title;
+    const type = String(order.delivery_type || "").toLowerCase();
+    if (type === "takeaway") return "Takeaway";
+    if (type === "delivery") return "Delivery";
+    if (type === "dinein") return "Dine-in";
+    return "";
+  };
+
+  const minutesSince = (date) => {
+    const t = new Date(date).getTime();
+    if (!Number.isFinite(t)) return null;
+    return Math.max(0, Math.floor((currentTime.getTime() - t) / 60000));
+  };
+
+  const LANES = {
+    received: {
+      title: "Order Received",
+      icon: IconReceipt,
+      orders: receivedOrders,
+      empty: "No new orders",
+      headText: "text-slate-700 dark:text-slate-200",
+      badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+      bar: "bg-slate-400",
+      token: "bg-slate-700 text-white dark:bg-slate-600",
+      card: "border-slate-200 bg-white dark:border-slate-700/70 dark:bg-[#181818]",
+    },
+    preparing: {
+      title: "Preparing",
+      icon: IconChefHat,
+      orders: preparingOrders,
+      empty: "Kitchen is all caught up",
+      headText: "text-amber-700 dark:text-amber-400",
+      badge: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
+      bar: "bg-amber-500",
+      token: "bg-amber-500 text-white",
+      card: "border-amber-200 bg-white dark:border-amber-800/50 dark:bg-[#181818]",
+    },
+    ready: {
+      title: "Ready for Pickup",
+      icon: IconChecks,
+      orders: readyOrders,
+      empty: "No orders ready yet",
+      headText: "text-emerald-700 dark:text-emerald-400",
+      badge: "bg-emerald-600 text-white",
+      bar: "bg-emerald-500",
+      token: "bg-emerald-600 text-white",
+      card: "border-emerald-300 bg-emerald-50/70 dark:border-emerald-700/60 dark:bg-emerald-950/30",
+    },
+  };
+
+  const renderItemStatus = (item) => {
+    if (isItemReady(item)) {
+      return (
+        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+          <IconCheck size={12} stroke={iconStroke} /> Ready
+        </span>
+      );
+    }
+    if (item.status === "preparing") {
+      return (
+        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
+          <IconClock size={12} stroke={iconStroke} className="animate-pulse" /> Cooking
+        </span>
+      );
+    }
+    return (
+      <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+        Queued
+      </span>
+    );
+  };
+
+  const renderOrderCard = (order, laneKey) => {
+    const lane = LANES[laneKey];
+    const items = activeItemsOf(order);
+    const readyCount = items.filter(isItemReady).length;
+    const pct = items.length ? Math.round((readyCount / items.length) * 100) : 0;
+    const label = orderLabel(order);
+    const mins = minutesSince(order.date);
+
+    return (
+      <div
+        key={order.id}
+        className={`osd-hero-pop rounded-2xl border p-3.5 flex flex-col gap-2.5 shadow-sm ${lane.card}`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-xl tabular-nums shrink-0 ${lane.token}`}
+          >
+            {order.token_no ?? "–"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-extrabold text-gray-900 dark:text-white truncate">
+              {label || `Order #${order.id}`}
+            </p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {new Date(order.date).toLocaleTimeString("en-US", { timeStyle: "short" })}
+              {mins !== null && ` · ${mins < 1 ? "just now" : `${mins} min`}`}
+            </p>
+          </div>
+          {laneKey === "ready" ? (
+            <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-600 text-white">
+              <IconCheck size={13} stroke={iconStroke} /> Ready
+            </span>
+          ) : (
+            <span className={`shrink-0 text-xs font-extrabold px-2.5 py-1 rounded-full tabular-nums ${lane.badge}`}>
+              {readyCount}/{items.length}
+            </span>
+          )}
+        </div>
+
+        {laneKey === "preparing" && (
+          <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-500 ${lane.bar}`} style={{ width: `${pct}%` }} />
+          </div>
+        )}
+
+        <ul className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800 max-h-52 overflow-y-auto no-scrollbar">
+          {items.map((item) => (
+            <li key={item.id} className="py-1.5 flex items-center justify-between gap-2 text-sm">
+              <span
+                className={`min-w-0 truncate font-semibold ${
+                  isItemReady(item) && laneKey !== "ready"
+                    ? "text-slate-400 dark:text-slate-500 line-through decoration-slate-300"
+                    : "text-gray-800 dark:text-gray-100"
+                }`}
+              >
+                <span className="font-extrabold tabular-nums">{item.quantity}×</span> {item.item_title}
+                {item.variant_title && (
+                  <span className="text-slate-500 dark:text-slate-400 font-medium"> · {item.variant_title}</span>
+                )}
+              </span>
+              {laneKey !== "ready" && renderItemStatus(item)}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
 
   // --- Token Display View Filters (Driven strictly by 100% overall order completion) ---
   // Token READY orders: orders where ALL active items are completed/delivered and ZERO items are created/preparing
@@ -710,7 +774,7 @@ export default function OrderStatusDisplayPage() {
           {displayMode === "detailed" && (
             <button
               onClick={toggleLayoutMode}
-              title={`Switch to ${layoutMode === "vertical" ? "Horizontal (Stacked)" : "Vertical (Side-by-Side)"} view`}
+              title={`Switch to ${layoutMode === "vertical" ? "stacked rows" : "three columns"}`}
               className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
             >
               {layoutMode === "vertical" ? (
@@ -904,237 +968,54 @@ export default function OrderStatusDisplayPage() {
           </div>
         </main>
       ) : (
-        /* Main Swimlane Layout Container for Detailed View with Resizable Split Screen */
+        /* Detailed View: three lanes (Received -> Preparing -> Ready) */
         <main
-          ref={mainContainerRef}
-          className={`flex-1 p-3 overflow-hidden ${
+          className={`flex-1 min-h-0 p-3 md:p-4 overflow-y-auto md:overflow-hidden grid gap-3 md:gap-4 bg-[#f8faf8] dark:bg-[#0a0a0a] ${
             layoutMode === "vertical"
-              ? "flex flex-row gap-0.5 min-h-0"
-              : "flex flex-col gap-0.5 min-h-0"
+              ? "grid-cols-1 md:grid-cols-3"
+              : "grid-cols-1 md:grid-rows-3"
           }`}
         >
-          {/* Preparing Swimlane Panel */}
-          <section
-            style={
-              layoutMode === "vertical"
-                ? { width: `calc(${splitRatioVert}% - 6px)`, height: "100%" }
-                : { height: `calc(${splitRatioHoriz}% - 6px)`, width: "100%" }
-            }
-            className="flex flex-col rounded-2xl border border-restro-border-green bg-white dark:bg-[#121212] p-3 overflow-hidden shadow-xs shrink-0 max-h-full"
-          >
-            {/* Panel Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-restro-border-green mb-2 shrink-0">
-              <h2 className="text-sm font-extrabold text-gray-900 dark:text-white tracking-wide uppercase">
-                Preparing
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-restro-gray border border-restro-border-green text-restro-text text-xs font-bold">
-                {preparingOrders.length} {preparingOrders.length === 1 ? "Order" : "Orders"}
-              </span>
-            </div>
-
-            {/* Inner Scrollable Cards Container */}
-            <div className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
-              {preparingOrders.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 min-h-[140px]">
-                  <div className="w-12 h-12 rounded-full bg-restro-gray dark:bg-restro-gray/60 border border-restro-border-green flex items-center justify-center mb-2 text-restro-text">
-                    <IconChefHat size={26} stroke={iconStroke} />
-                  </div>
-                  <p className="text-restro-text font-bold text-sm">All caught up!</p>
-                  <p className="text-xs text-restro-text mt-0.5">No orders currently in preparation</p>
+          {["received", "preparing", "ready"].map((laneKey) => {
+            const lane = LANES[laneKey];
+            const LaneIcon = lane.icon;
+            return (
+              <section
+                key={laneKey}
+                className="min-h-[240px] md:min-h-0 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121212] overflow-hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  <h2 className={`text-sm md:text-base font-extrabold tracking-wider uppercase flex items-center gap-2 ${lane.headText}`}>
+                    <LaneIcon size={20} stroke={iconStroke} /> {lane.title}
+                  </h2>
+                  <span className={`min-w-[32px] h-8 px-2.5 inline-flex items-center justify-center rounded-full text-sm font-extrabold tabular-nums ${lane.badge}`}>
+                    {lane.orders.length}
+                  </span>
                 </div>
-              ) : (
-                <div
-                  className="grid gap-2.5 items-start transition-all duration-200 ease-in-out"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 270px), 1fr))`,
-                  }}
-                >
-                  {preparingOrders.map((order) => {
-                    const totalItems = order.items.length;
-                    const completedItems = order.items.filter(
-                      (i) => i.status === "completed" || i.status === "delivered"
-                    ).length;
 
-                    return (
-                      <div
-                        key={order.id}
-                        className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#181818] p-3 shadow-sm flex flex-col justify-start space-y-2 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-md h-full"
-                      >
-                        {/* Single Horizontal Header Row */}
-                        <div className="flex items-center justify-between pb-1">
-                          <div className="w-9 h-9 rounded-full bg-gray-800 dark:bg-[#0a0a0a] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                            {order.token_no}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-restro-text bg-restro-gray border border-restro-border-green px-2 py-0.5 rounded-full">
-                              {completedItems}/{totalItems} ready
-                            </span>
-                            <span className="text-xs text-restro-text font-bold">
-                              {new Date(order.date).toLocaleTimeString("en-US", { timeStyle: "short" })}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Vertically Stacked Pending Items List with horizontal dividers */}
-                        <div className="flex flex-col divide-y divide-gray-200 dark:divide-gray-700/60 pt-1 border-t border-restro-border-green/60 max-h-48 overflow-y-auto no-scrollbar">
-                          {order.items
-                            .filter((item) => item.status !== "completed" && item.status !== "delivered")
-                            .map((item, idx) => {
-                              const isPrep = item.status === "preparing";
-
-                              return (
-                                <div key={idx} className="py-1.5 flex items-center justify-between text-xs font-semibold">
-                                  <div className="flex items-center gap-2 truncate pr-2">
-                                    {isPrep ? (
-                                      <IconClock size={15} stroke={iconStroke} className="text-restro-text shrink-0 animate-pulse" />
-                                    ) : (
-                                      <span className="w-3.5 shrink-0"></span>
-                                    )}
-                                    <span className="truncate text-gray-800 dark:text-gray-200">
-                                      {item.item_title} {item.variant_title && `(${item.variant_title})`} x {item.quantity}
-                                    </span>
-                                  </div>
-                                  <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
-                                    isPrep
-                                      ? "bg-restro-gray text-restro-text border border-restro-border-green"
-                                      : "text-restro-text"
-                                  }`}>
-                                    {isPrep ? "Cooking" : "Queued"}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3">
+                  {lane.orders.length === 0 ? (
+                    <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500">
+                      <LaneIcon size={30} stroke={iconStroke} />
+                      <p className="mt-2 text-sm font-bold">{lane.empty}</p>
+                    </div>
+                  ) : (
+                    <div
+                      className="grid gap-3 items-start"
+                      style={{
+                        gridTemplateColumns:
+                          layoutMode === "vertical"
+                            ? "repeat(auto-fill, minmax(min(100%, 260px), 1fr))"
+                            : "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
+                      }}
+                    >
+                      {lane.orders.map((order) => renderOrderCard(order, laneKey))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </section>
-
-          {/* LeetCode Style Draggable Divider Handle */}
-          {layoutMode === "vertical" ? (
-            <div
-              onMouseDown={handleMouseDown}
-              onTouchStart={() => { isDraggingRef.current = true; }}
-              onDoubleClick={resetSplitRatio}
-              title="Drag left/right to resize panels | Double-click to reset 50/50"
-              className="w-3 hover:w-4 bg-transparent hover:bg-restro-green/20 dark:hover:bg-restro-green-10 flex items-center justify-center cursor-col-resize group transition-all shrink-0 select-none h-full py-4 z-20"
-            >
-              <div className="w-1.5 h-14 rounded-full bg-restro-border-green group-hover:bg-restro-green transition-colors flex flex-col items-center justify-center gap-1 shadow-xs">
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-              </div>
-            </div>
-          ) : (
-            <div
-              onMouseDown={handleMouseDown}
-              onTouchStart={() => { isDraggingRef.current = true; }}
-              onDoubleClick={resetSplitRatio}
-              title="Drag up/down to resize panels | Double-click to reset 50/50"
-              className="h-3 hover:h-4 bg-transparent hover:bg-restro-green/20 dark:hover:bg-restro-green-10 flex items-center justify-center cursor-row-resize group transition-all shrink-0 select-none w-full px-4 z-20"
-            >
-              <div className="h-1.5 w-14 rounded-full bg-restro-border-green group-hover:bg-restro-green transition-colors flex items-center justify-center gap-1 shadow-xs">
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-              </div>
-            </div>
-          )}
-
-          {/* Ready for Pickup Swimlane Panel */}
-          <section
-            style={
-              layoutMode === "vertical"
-                ? { width: `calc(${100 - splitRatioVert}% - 6px)`, height: "100%" }
-                : { height: `calc(${100 - splitRatioHoriz}% - 6px)`, width: "100%" }
-            }
-            className="flex flex-col rounded-2xl border border-restro-border-green bg-white dark:bg-[#121212] p-3 overflow-hidden shadow-xs shrink-0 max-h-full"
-          >
-            {/* Panel Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-restro-border-green mb-2 shrink-0">
-              <h2 className="text-sm font-extrabold text-restro-green tracking-wide uppercase">
-                Ready for Pickup
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-restro-green-light dark:bg-restro-green-10 border border-restro-border-green text-restro-green text-xs font-bold">
-                {readyOrders.length} {readyOrders.length === 1 ? "Order" : "Orders"}
-              </span>
-            </div>
-
-            {/* Inner Scrollable Cards Container */}
-            <div ref={readyScrollRef} className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
-              {readyOrders.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 min-h-[140px]">
-                  <div className="w-12 h-12 rounded-full bg-restro-gray dark:bg-restro-gray/60 border border-restro-border-green flex items-center justify-center mb-2 text-restro-text">
-                    <IconSparkles size={26} stroke={iconStroke} />
-                  </div>
-                  <p className="text-restro-text font-bold text-sm">No orders ready yet</p>
-                  <p className="text-xs text-restro-text mt-0.5">Orders will pop up here when kitchen completes them</p>
-                </div>
-              ) : (
-                <div
-                  className="grid gap-2.5 items-start transition-all duration-200 ease-in-out"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 270px), 1fr))`,
-                  }}
-                >
-                  {readyOrders.map((order) => {
-                    const readyItems = order.items.filter(
-                      (i) => i.status === "completed" || i.status === "delivered"
-                    );
-                    const isFullyReady = readyItems.length === order.items.length;
-
-                    return (
-                      <div
-                        key={order.id}
-                        className="rounded-2xl border border-restro-border-green bg-restro-green-light/40 dark:bg-[#181818] p-3 shadow-sm flex flex-col justify-start space-y-2 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-md h-full"
-                      >
-                        {/* Single Horizontal Header Row */}
-                        <div className="flex items-center justify-between pb-1">
-                          <div className="w-9 h-9 rounded-full bg-restro-green text-white flex items-center justify-center font-bold text-sm shadow-sm border border-emerald-400 shrink-0">
-                            {order.token_no}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {isFullyReady ? (
-                              <span className="text-[10px] font-bold text-restro-green-dark bg-restro-green-light border border-restro-border-green px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <IconCheck size={12} stroke={iconStroke} /> Complete & Ready
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-restro-green-dark bg-restro-green-light border border-restro-border-green px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <IconCheck size={12} stroke={iconStroke} /> Items Ready ({readyItems.length}/{order.items.length})
-                              </span>
-                            )}
-                            <span className="text-xs text-restro-text font-bold">
-                              {new Date(order.date).toLocaleTimeString("en-US", { timeStyle: "short" })}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Vertically Stacked Ready Items List with horizontal dividers */}
-                        <div className="flex flex-col divide-y divide-gray-200 dark:divide-gray-700/60 pt-1 border-t border-restro-border-green/60 max-h-48 overflow-y-auto no-scrollbar">
-                          {readyItems.map((item, idx) => (
-                            <div key={idx} className="py-1.5 flex items-center justify-between text-xs font-semibold">
-                              <div className="flex items-center gap-2 truncate pr-2">
-                                <IconChecks size={15} stroke={iconStroke} className="text-restro-green shrink-0" />
-                                <span className="truncate text-gray-900 dark:text-gray-100 font-bold">
-                                  {item.item_title} {item.variant_title && `(${item.variant_title})`} x {item.quantity}
-                                </span>
-                              </div>
-                              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-restro-green-light text-restro-green-dark">
-                                Ready
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
+              </section>
+            );
+          })}
         </main>
       )}
     </div>
