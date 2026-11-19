@@ -28,6 +28,7 @@ const { ensureDesktopLoginSchema } = require("../utils/desktopLoginMigration");
 const { ensureMenuLanguageSchema } = require("../utils/menuLanguageMigration");
 const { ensurePosFeaturesSchema } = require("../utils/posFeaturesMigration");
 const { ensureKitchenTimingSchema } = require("../utils/kitchenTimingMigration");
+const { ensurePmsIntegrationSchema } = require("../utils/pmsIntegrationMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -47,121 +48,50 @@ pool.on("connection", (connection) => {
 
 console.log(`DB Pool Created with Cambodia Timezone (+07:00).`);
 
-ensureTableFloorSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring table floor schema:", err);
-});
+// Schema migrations run one at a time, in dependency order. Running them in
+// parallel caused ALTER TABLE deadlocks and steps that ran before the columns
+// they depend on existed (e.g. customer groups need promotion_discount_total,
+// customer credit needs invoices.customer_phone from customer groups).
+const MIGRATIONS = [
+  ["table floor", ensureTableFloorSchema],
+  ["print settings", ensurePrintSettingsSchema],
+  ["kitchen timing", ensureKitchenTimingSchema],
+  ["PMS integration", ensurePmsIntegrationSchema],
+  ["kitchen stations", ensureKitchenStationsSchema],
+  ["cambodia dual currency", ensureCambodiaDualCurrencySchema],
+  ["QR order security", ensureQrOrderSecuritySchema],
+  ["billing mode", ensureBillingModeSchema],
+  ["branch management", ensureBranchManagementSchema],
+  ["business registration", ensureBusinessRegistrationSchema],
+  ["telegram settings", ensureTelegramSettingsSchema],
+  ["supplier management", ensureSupplierManagementSchema],
+  ["promotion", ensurePromotionSchema],
+  ["loyalty program", ensureLoyaltyProgramSchema],
+  ["bill splitting", ensureSplitBillSchema],
+  ["shift & roster", ensureShiftRosterSchema],
+  ["inventory adjustments & transfers", ensureInventoryAdjustmentsAndTransfersSchema],
+  ["customer groups", ensureCustomerGroupSchema], // needs promotion columns
+  ["kitchen mode", ensureKitchenModeSchema],
+  ["print agents", ensurePrintAgentsSchema],
+  ["customer 360", ensureCustomer360Schema],
+  ["desktop login", ensureDesktopLoginSchema],
+  ["addon availability", ensureAddonAvailabilitySchema],
+  ["addon library", ensureAddonLibrarySchema], // extends menu_item_addons
+  ["menu language", ensureMenuLanguageSchema], // adds a column to addon_library
+  ["register", ensureRegisterSchema], // extends order_sub_invoices (split bill)
+  ["customer credit", ensureCustomerCreditSchema], // needs invoices.customer_phone
+  ["POS features", ensurePosFeaturesSchema], // extends register/invoice tables
+];
 
-ensurePrintSettingsSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring print settings schema:", err);
-});
-
-ensureKitchenTimingSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring kitchen timing schema:", err);
-});
-
-ensureKitchenStationsSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring kitchen stations schema:", err);
-});
-
-ensureCambodiaDualCurrencySchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring cambodia dual currency schema:", err);
-});
-
-ensureQrOrderSecuritySchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring QR order security schema:", err);
-});
-
-ensureBillingModeSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring billing mode schema:", err);
-});
-
-ensureBranchManagementSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring branch management schema:", err);
-});
-
-ensureBusinessRegistrationSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring business registration schema:", err);
-});
-
-ensureTelegramSettingsSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring telegram settings schema:", err);
-});
-
-ensureSupplierManagementSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring supplier management schema:", err);
-});
-
-ensurePromotionSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring promotion schema:", err);
-});
-
-ensureLoyaltyProgramSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring loyalty program schema:", err);
-});
-
-// Register schema extends order_sub_invoices, so it waits for the split-bill schema.
-const splitBillSchemaReady = ensureSplitBillSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring bill splitting schema:", err);
-});
-
-ensureShiftRosterSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring shift & roster schema:", err);
-});
-
-ensureInventoryAdjustmentsAndTransfersSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring inventory adjustments & transfers schema:", err);
-});
-
-ensureCustomerGroupSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring customer groups schema:", err);
-});
-
-ensureKitchenModeSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring kitchen mode schema:", err);
-});
-
-ensurePrintAgentsSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring print agents schema:", err);
-});
-
-ensureCustomer360Schema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring customer 360 schema:", err);
-});
-
-ensureDesktopLoginSchema(pool).catch((err) => {
-  console.error("[Migration] Error ensuring desktop login schema:", err);
-});
-
-// Add-on library extends menu_item_addons, so it waits for the availability column.
-ensureAddonAvailabilitySchema(pool)
-  .catch((err) => {
-    console.error("[Migration] Error ensuring addon availability schema:", err);
-  })
-  .then(() => ensureAddonLibrarySchema(pool))
-  .catch((err) => {
-    console.error("[Migration] Error ensuring addon library schema:", err);
-  })
-  // Menu translations add a column to addon_library, so they wait for it.
-  .then(() => ensureMenuLanguageSchema(pool))
-  .catch((err) => {
-    console.error("[Migration] Error ensuring menu language schema:", err);
-  });
-
-// Pay-later extends register_payments.source and invoice_audit_log.action, so it waits for the register schema.
-splitBillSchemaReady
-  .then(() => ensureRegisterSchema(pool))
-  .catch((err) => {
-    console.error("[Migration] Error ensuring register schema:", err);
-  })
-  .then(() => ensureCustomerCreditSchema(pool))
-  .catch((err) => {
-    console.error("[Migration] Error ensuring customer credit schema:", err);
-  })
-  // POS features extend register/invoice tables, so they run last.
-  .then(() => ensurePosFeaturesSchema(pool))
-  .catch((err) => {
-    console.error("[Migration] Error ensuring POS features schema:", err);
-  });
+exports.schemaReady = (async () => {
+  for (const [name, run] of MIGRATIONS) {
+    try {
+      await run(pool);
+    } catch (err) {
+      console.error(`[Migration] Error ensuring ${name} schema:`, err);
+    }
+  }
+})();
 
 exports.getMySqlPromiseConnection = async () => {
   try {
