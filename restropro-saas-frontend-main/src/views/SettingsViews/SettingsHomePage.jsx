@@ -16,6 +16,7 @@ import {
   IconCashRegister,
   IconRefresh,
   IconLanguage,
+  IconLayoutSidebarRight,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import Page from "../../components/Page";
@@ -69,6 +70,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/details",
       category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconInfoSquareRounded stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "pos-layout",
+      title: t("settings.pos_layout", "POS Layout"),
+      description: t(
+        "settings.desc_pos_layout",
+        "Put the order ticket on the left or right of the POS screen. Saved per device."
+      ),
+      path: "/dashboard/settings/pos-layout",
+      category: t("settings.cat_general_operations", "General & Operations"),
+      icon: <IconLayoutSidebarRight stroke={iconStroke} className="w-6 h-6" />,
     },
     {
       id: "print-settings",

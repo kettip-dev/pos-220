@@ -36,6 +36,7 @@ import PaymentTypesPage from "./views/SettingsViews/PaymentTypesPage";
 import RegistersSettingsPage from "./views/SettingsViews/RegistersSettingsPage";
 import LoyaltySettingsPage from "./views/SettingsViews/LoyaltySettingsPage";
 import DevicesPage from "./views/SettingsViews/DevicesPage";
+import POSLayoutSettingsPage from "./views/SettingsViews/POSLayoutSettingsPage";
 import ContactSupport from "./views/SettingsViews/ContactSupportPage";
 import UserGuidePage from "./views/UserGuidePage";
 import CategoriesPage from "./views/SettingsViews/CategoriesPage";
@@ -499,6 +500,7 @@ export default function App() {
               <Route path="payment-types" element={<RequiresSingleBusiness><PaymentTypesPage /></RequiresSingleBusiness>} />
               <Route path="registers" element={<RequiresSingleBusiness><RegistersSettingsPage /></RequiresSingleBusiness>} />
               <Route path="loyalty" element={<RequiresSingleBusiness><LoyaltySettingsPage /></RequiresSingleBusiness>} />
+              <Route path="pos-layout" element={<POSLayoutSettingsPage />} />
             </Route>
           </Route>
           {/* app routes */}

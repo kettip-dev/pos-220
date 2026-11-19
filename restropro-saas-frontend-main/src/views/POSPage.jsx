@@ -53,6 +53,7 @@ import { checkMyShiftEligibility } from '../controllers/shift_roster.controller'
 import { useRegisterStatus, isRegisterClosedError } from '../controllers/register.controller';
 import RegisterPanel from '../components/register/RegisterPanel';
 import OpenRegisterModal from '../components/register/OpenRegisterModal';
+import { useTicketSide, TICKET_SIDES } from '../helpers/POSLayoutPrefs';
 
 export default function POSPage() {
   const { t } = useTranslation();
@@ -277,6 +278,10 @@ export default function POSPage() {
   const [customExchangeRate, setCustomExchangeRate] = useState(null);
   const searchInputRef = useRef(null);
 
+  // Per-terminal layout: which side the order ticket sits on (Settings > POS Layout)
+  const [ticketSide] = useTicketSide();
+  const isTicketLeft = ticketSide === TICKET_SIDES.LEFT;
+
   // 'Add to Same Line' preference (persisted in localStorage, default true)
   const [isAddSameLine, setIsAddSameLine] = useState(() => {
     const stored = localStorage.getItem("restro_pos_add_to_same_line");
@@ -347,12 +352,6 @@ export default function POSPage() {
 
   const { categories, menuItems, paymentTypes, printSettings, storeSettings, storeTables, currency, cartItems, searchQuery, selectedCategory, selectedItemId, drafts, customer, customerType, isLoading } = state;
 
-  // Keep the selected category pill fully visible (centred) in the horizontal rail
-  const categoryRailRef = useRef(null);
-  useEffect(() => {
-    const pill = categoryRailRef.current?.querySelector(`[data-category-id="${selectedCategory}"]`);
-    pill?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-  }, [selectedCategory]);
 
   const posBillingMode = storeSettings?.pos_payment_mode || storeSettings?.posPaymentMode || "flexible";
   const isPrepaidOnly = posBillingMode === "prepaid";
@@ -3099,18 +3098,19 @@ export default function POSPage() {
         description={t("shift_roster.pos_shift_expired_desc", "Enter Manager PIN to extend POS terminal access.")}
       />
 
-      {/* Main Split Layout: Catalog (Left) + Cart Sidebar (Right) - Fluid Edge-to-Edge Tablet Height */}
-      <div className='mt-1.5 sm:mt-2 flex-1 min-h-0 h-full flex flex-col md:flex-row gap-2.5 sm:gap-3 overflow-hidden'>
+      {/* Main Split Layout: Catalog + Cart Sidebar (side set per terminal) - Fluid Edge-to-Edge Tablet Height */}
+      <div className={clsx(
+        'mt-1.5 sm:mt-2 flex-1 min-h-0 h-full flex flex-col gap-2.5 sm:gap-3 overflow-hidden',
+        isTicketLeft ? 'md:flex-row-reverse' : 'md:flex-row'
+      )}>
 
         {/* Catalog Panel (70%) */}
         <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-xl border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
           {/* Sub-bar: Full-Width Category Rail + View Switcher */}
-          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
-            {/* QBO Style Category horizontal pill bar with counts */}
-            <div
-              ref={categoryRailRef}
-              className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 pr-6 touch-pan-x scroll-smooth [mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)]"
-            >
+          <div className="bg-white dark:bg-slate-900 flex items-start justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
+            {/* Category pills wrap onto rows so every category is visible and one tap away
+                (no hidden horizontal scroll). Very long menus cap at ~2 rows and scroll vertically. */}
+            <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 py-0.5 max-h-[100px] overflow-y-auto">
               <button
                 type="button"
                 data-category-id="all"
