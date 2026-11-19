@@ -414,7 +414,6 @@ exports.hasRefreshToken = (req, res, next) => {
         console.error(error);
 
         res.clearCookie('accessToken',{
-            expires: new Date(Date.now() ),
             httpOnly: true,
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
@@ -422,7 +421,6 @@ exports.hasRefreshToken = (req, res, next) => {
             path: "/"
         });
         res.clearCookie('refreshToken', {
-            expires: new Date(Date.now()),
             httpOnly: true,
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
@@ -430,7 +428,6 @@ exports.hasRefreshToken = (req, res, next) => {
             path: "/"
         }); 
         res.clearCookie('restro__authenticated', {
-            expires: new Date(Date.now()),
             domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
             sameSite: false,
             secure: CONFIG.COOKIE_SECURE,

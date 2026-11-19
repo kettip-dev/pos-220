@@ -451,7 +451,6 @@ exports.signOut = async (req, res) => {
     const user = req.user || tryVerify(accessToken) || tryVerify(refreshToken);
 
     res.clearCookie("accessToken", {
-      expires: new Date(Date.now()),
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
@@ -459,7 +458,6 @@ exports.signOut = async (req, res) => {
       path: "/",
     });
     res.clearCookie("refreshToken", {
-      expires: new Date(Date.now()),
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
@@ -467,7 +465,6 @@ exports.signOut = async (req, res) => {
       path: "/",
     });
     res.clearCookie("restroprosaas__authenticated", {
-      expires: new Date(Date.now()),
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
       secure: CONFIG.COOKIE_SECURE,
@@ -728,7 +725,6 @@ exports.getNewAccessToken = async (req, res) => {
   } catch (error) {
     // 🔥 Logout safely
     res.clearCookie("accessToken", {
-      expires: new Date(Date.now()),
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
@@ -736,7 +732,6 @@ exports.getNewAccessToken = async (req, res) => {
       path: "/",
     });
     res.clearCookie("refreshToken", {
-      expires: new Date(Date.now()),
       httpOnly: true,
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
@@ -744,7 +739,6 @@ exports.getNewAccessToken = async (req, res) => {
       path: "/",
     });
     res.clearCookie("restroprosaas__authenticated", {
-      expires: new Date(Date.now()),
       domain: CONFIG.FRONTEND_DOMAIN_COOKIE,
       sameSite: false,
       secure: CONFIG.COOKIE_SECURE,
