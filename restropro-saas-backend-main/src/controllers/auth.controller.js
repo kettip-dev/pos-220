@@ -426,11 +426,29 @@ exports.signUp = async (req, res) => {
 
 exports.signOut = async (req, res) => {
   try {
-    const user = req.user;
     const refreshToken =
       req.cookies.refreshToken ||
       req.headers["x-refresh-token"] ||
       req.body?.refreshToken;
+
+    // Sign-out must work even when the session is already dead (expired access
+    // token, revoked refresh token) — otherwise the "Login again" screen can
+    // never clear the stale cookies. Resolve the user from whichever token
+    // still verifies; if none does, just clear the cookies.
+    const tryVerify = (token) => {
+      if (!token) return null;
+      try {
+        return verifyToken(token);
+      } catch {
+        return null;
+      }
+    };
+    const accessToken =
+      req.cookies.accessToken ||
+      (req.headers.authorization?.startsWith("Bearer")
+        ? req.headers.authorization.split(" ")[1]
+        : null);
+    const user = req.user || tryVerify(accessToken) || tryVerify(refreshToken);
 
     res.clearCookie("accessToken", {
       expires: new Date(Date.now()),
@@ -457,7 +475,9 @@ exports.signOut = async (req, res) => {
     });
 
     // remove refreshToken in DB.
-    await removeRefreshTokenDB(user.username, refreshToken);
+    if (user?.username && refreshToken) {
+      await removeRefreshTokenDB(user.username, refreshToken);
+    }
 
     // Auto Clock-Out
     if (user?.tenant_id && user?.username) {

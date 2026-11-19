@@ -9,18 +9,16 @@ export default function RefreshPage() {
   const { t } = useTranslation();
 
   const btnLogout = async () => {
+    // The session is already invalid here, so sign-out is best-effort: whatever
+    // the server answers, the user must end up on the login screen.
+    toast.loading(t("refresh_page.buttons.login_again"));
     try {
-      toast.loading(t("refresh_page.buttons.login_again"));
-      const response = await signOut();
-
-      if (response.status === 200) {
-        toast.dismiss();
-        navigate("/login", { replace: true });
-      }
+      await signOut();
     } catch (error) {
-      toast.dismiss();
-      toast.error(t("toast.something_went_wrong"));
       console.error(error);
+    } finally {
+      toast.dismiss();
+      navigate("/login", { replace: true });
     }
   };
 

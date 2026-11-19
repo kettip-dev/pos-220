@@ -8,7 +8,9 @@ router.post("/signin", signIn);
 router.post("/signup", signUp);
 router.get("/google-config", getGoogleAuthConfig);
 router.post("/google", googleSignIn);
-router.post("/signout", isLoggedIn, isAuthenticated, signOut);
+// No auth middleware: sign-out must succeed (and clear cookies) even when the
+// session has already expired or been revoked. signOut resolves the user itself.
+router.post("/signout", signOut);
 router.post("/refresh-token", hasRefreshToken, getNewAccessToken);
 router.post("/remove-device", isLoggedIn, isAuthenticated, removeDeviceAccessToken);
 router.get("/devices", isLoggedIn, isAuthenticated, getDevices);
