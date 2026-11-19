@@ -3225,7 +3225,7 @@ export default function POSPage() {
 
           <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
           {/* Sub-bar: current category (or phone chips) + tools */}
-          <div className="bg-white dark:bg-slate-900 flex flex-wrap md:flex-nowrap items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
             {/* Tablet/desktop: selected category title + menu search (search sits right above
                 the grid it filters, which also frees room in the top header) */}
             <div className="hidden md:flex flex-1 min-w-0 items-center gap-3">
@@ -3287,9 +3287,9 @@ export default function POSPage() {
               onClick={() => setIsCategorySheetOpen(true)}
               aria-haspopup="dialog"
               aria-expanded={isCategorySheetOpen}
-              className="md:hidden order-1 basis-full w-full min-h-[46px] pl-3 pr-2.5 rounded-xl border border-[#D4D7DC] dark:border-slate-700 bg-[#F4F5F8] dark:bg-slate-800 flex items-center gap-2.5 text-left active:scale-[0.98] transition touch-manipulation"
+              className="md:hidden flex-1 min-w-0 min-h-[44px] pl-3 pr-2 rounded-xl border border-[#D4D7DC] dark:border-slate-700 bg-[#F4F5F8] dark:bg-slate-800 flex items-center gap-2.5 text-left active:scale-[0.98] transition touch-manipulation"
             >
-              <IconFilter size={18} stroke={iconStroke} className="text-gray-500 dark:text-slate-400 shrink-0" />
+              <IconFilter size={18} stroke={iconStroke} className="hidden min-[420px]:block text-gray-500 dark:text-slate-400 shrink-0" />
               <span className={clsx("w-2.5 h-2.5 rounded-full shrink-0", selectedCategoryTile?.tone.solid)} />
               <span className="flex-1 min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white">{selectedCategoryTile?.label}</span>
               <span className="shrink-0 px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-[11px] font-bold text-gray-600 dark:text-slate-300 tabular-nums">
@@ -3299,7 +3299,7 @@ export default function POSPage() {
             </button>
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
-            <div className="order-2 md:order-none w-full md:w-auto flex items-center justify-end gap-1.5 shrink-0 overflow-x-auto no-scrollbar md:overflow-visible md:pl-1.5 md:border-l border-[#E3E5E8] dark:border-slate-800">
+            <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 md:pl-1.5 md:border-l border-[#E3E5E8] dark:border-slate-800">
               {(!isOnline || offlineQueue.length > 0) && (
                 <button
                   type="button"
