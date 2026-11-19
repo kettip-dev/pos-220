@@ -1053,7 +1053,12 @@ export default function OrdersPage() {
                     onClick={() => {
                       setShowOrderDisplayMenu(false);
                       if (!storeSettings?.unique_qr_code) {
-                        toast.error("Store QR code not found!");
+                        toast.error(
+                          t(
+                            "orders.order_display_unavailable",
+                            "Order Display isn't ready yet. Refresh the page and try again."
+                          )
+                        );
                         return;
                       }
                       window.open(

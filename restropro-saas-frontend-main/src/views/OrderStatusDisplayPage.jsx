@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import { getOrderStatusDisplayData } from "../controllers/order_status_display.controller";
 import { SocketContext } from "../contexts/SocketContext";
-import { initSocket } from "../utils/socket";
+import sharedSocket, { initSocket } from "../utils/socket";
 import { useTheme } from "../contexts/ThemeContext";
 import { getImageURL } from "../helpers/ImageHelper";
 import {
@@ -17,8 +17,19 @@ import {
   IconHash,
   IconVolume,
   IconVolumeOff,
+  IconMaximize,
+  IconMinimize,
+  IconHandFinger,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
+
+// An order is "ready for pickup" only when every non-cancelled item is done.
+const isOrderFullyReady = (order) => {
+  if (!order?.items || order.items.length === 0) return false;
+  const activeItems = order.items.filter((i) => i.status !== "cancelled");
+  if (activeItems.length === 0) return false;
+  return activeItems.every((i) => i.status === "completed" || i.status === "delivered");
+};
 
 export default function OrderStatusDisplayPage() {
   const { qrcode } = useParams();
@@ -279,14 +290,80 @@ export default function OrderStatusDisplayPage() {
   const readyTimestampsRef = useRef({});
   const preparingTimestampsRef = useRef({});
   const orderReadyCountsRef = useRef({});
+  const previousFullyReadyIdsRef = useRef(new Set());
+  const hasLoadedOnceRef = useRef(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+
+  // Browsers block audio/speech until the page has had a user gesture. A TV
+  // opened via window.open has none, so ask for one tap and remember it.
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  useEffect(() => {
+    if (audioUnlocked) return;
+    const unlock = () => {
+      setAudioUnlocked(true);
+      try {
+        if ("speechSynthesis" in window) {
+          const u = new SpeechSynthesisUtterance(" ");
+          u.volume = 0;
+          window.speechSynthesis.speak(u);
+        }
+      } catch (e) { /* ignore */ }
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [audioUnlocked]);
+
+  // Fullscreen toggle for TV / kiosk screens
+  const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch (e) {
+      console.warn("Fullscreen not available:", e);
+    }
+  };
+
+  // Keep the display awake (Screen Wake Lock API, re-acquired when visible again)
+  useEffect(() => {
+    let lock = null;
+    const acquire = async () => {
+      try {
+        if ("wakeLock" in navigator && document.visibilityState === "visible") {
+          lock = await navigator.wakeLock.request("screen");
+        }
+      } catch (e) { /* unsupported or denied */ }
+    };
+    acquire();
+    const onVisible = () => { if (document.visibilityState === "visible") acquire(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      try { lock?.release(); } catch (e) { /* ignore */ }
+    };
+  }, []);
 
   // Web Speech API Voice Token Announcement Helper (Female Voice Priority)
-  const speakTokenAnnouncement = (tokenNo) => {
+  const speakTokenAnnouncement = (tokenNos) => {
     if (!soundEnabledRef.current) return;
+    const list = (Array.isArray(tokenNos) ? tokenNos : [tokenNos]).filter(Boolean);
+    if (list.length === 0) return;
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       try {
         window.speechSynthesis.cancel(); // Clear any pending speech queue
-        const message = `Token number ${tokenNo}`;
+        const message =
+          list.length === 1
+            ? `Token number ${list[0]}, please collect your order. Token number ${list[0]}.`
+            : `Token numbers ${list.join(", ")}, please collect your orders.`;
         const utterance = new SpeechSynthesisUtterance(message);
         utterance.rate = 0.9;
         utterance.pitch = 1; // Female tone pitch
@@ -368,56 +445,39 @@ export default function OrderStatusDisplayPage() {
           return allItemsReady && !hasPendingItems;
         }).length;
 
-        // 3. Play Web Speech Voice Announcement based on active display mode:
-        // - In Token Mode: Voice announces ONLY when a NEW TOKEN is added to the screen
-        // - In Detailed View: Voice announces when ready items count increases
-        const shouldPlayChimeInTokenMode =
-          displayModeRef.current === "token" &&
-          currentTokenReadyOrdersCount > previousTokenReadyOrdersCountRef.current;
-
-        const shouldPlayChimeInDetailedMode =
-          displayModeRef.current === "detailed" &&
-          currentReadyItemsCount > previousReadyItemsCountRef.current;
-
-        if (
-          playChimeOnReadyIncrease &&
-          soundEnabledRef.current &&
-          (shouldPlayChimeInTokenMode || shouldPlayChimeInDetailedMode)
-        ) {
-          try {
-            let targetOrderToAnnounce = null;
+        // 3. Voice announcement. Diff by order id (not by counts) so that one
+        // order being collected while another becomes ready still announces,
+        // and the token that is actually new is the one spoken.
+        // - Token Mode: announce orders that just became 100% ready
+        // - Detailed View: announce orders that gained a ready item
+        const fullyReadyIds = new Set(
+          (orders || []).filter(isOrderFullyReady).map((o) => o.id)
+        );
+        const tokensToAnnounce = [];
+        if (hasLoadedOnceRef.current) {
+          (orders || []).forEach((order) => {
+            if (!order.token_no) return;
             if (displayModeRef.current === "token") {
-              const currentTokenReadyOrders = (orders || []).filter((order) => {
-                if (!order.items || order.items.length === 0) return false;
-                const activeItems = order.items.filter((i) => i.status !== "cancelled");
-                if (activeItems.length === 0) return false;
-                const allItemsReady = activeItems.every(
-                  (i) => i.status === "completed" || i.status === "delivered"
-                );
-                const hasPendingItems = activeItems.some(
-                  (i) => i.status === "created" || i.status === "preparing" || !i.status
-                );
-                return allItemsReady && !hasPendingItems;
-              });
-              if (currentTokenReadyOrders.length > 0) {
-                targetOrderToAnnounce = currentTokenReadyOrders[currentTokenReadyOrders.length - 1];
+              if (fullyReadyIds.has(order.id) && !previousFullyReadyIdsRef.current.has(order.id)) {
+                tokensToAnnounce.push(order.token_no);
               }
             } else {
-              const currentReadyOrders = (orders || []).filter((order) => {
-                if (!order.items || order.items.length === 0) return false;
-                return order.items.some((i) => i.status === "completed" || i.status === "delivered");
-              });
-              if (currentReadyOrders.length > 0) {
-                targetOrderToAnnounce = currentReadyOrders[currentReadyOrders.length - 1];
-              }
+              const readyNow = (order.items || []).filter(
+                (i) => i.status === "completed" || i.status === "delivered"
+              ).length;
+              const readyBefore = orderReadyCountsRef.current[order.id] || 0;
+              if (readyNow > readyBefore) tokensToAnnounce.push(order.token_no);
             }
+          });
+        }
+        previousFullyReadyIdsRef.current = fullyReadyIds;
+        hasLoadedOnceRef.current = true;
 
-            if (targetOrderToAnnounce && targetOrderToAnnounce.token_no) {
-              speakTokenAnnouncement(targetOrderToAnnounce.token_no);
-            } else {
-              const audio = new Audio("/new_order_sound.mp3");
-              audio.play().catch((e) => console.log("Audio play suppressed:", e));
-            }
+        if (playChimeOnReadyIncrease && soundEnabledRef.current && tokensToAnnounce.length > 0) {
+          try {
+            const chime = new Audio("/new_order_sound.mp3");
+            chime.play().catch(() => {});
+            setTimeout(() => speakTokenAnnouncement(tokensToAnnounce), 600);
           } catch (e) {
             console.error(e);
           }
@@ -425,6 +485,7 @@ export default function OrderStatusDisplayPage() {
 
         previousReadyItemsCountRef.current = currentReadyItemsCount;
         previousTokenReadyOrdersCountRef.current = currentTokenReadyOrdersCount;
+        setLastSyncedAt(new Date());
 
         // Track state transition timestamps for ordering (Preparing and Ready for Pickup)
         const now = Date.now();
@@ -468,10 +529,16 @@ export default function OrderStatusDisplayPage() {
       }
     } catch (err) {
       console.error(err);
+      // Once the screen has data, keep showing it through transient network
+      // errors instead of replacing the whole TV with an error page.
+      if (hasLoadedOnceRef.current) return;
+      const notFound = err?.response?.status === 404;
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: "Unable to load order status display.",
+        error: notFound
+          ? "This display link is no longer valid. Open the Order Display again from the Orders page."
+          : "Unable to load order status display. Retrying…",
       }));
     }
   };
@@ -483,32 +550,38 @@ export default function OrderStatusDisplayPage() {
   // Socket listener for live updates
   useEffect(() => {
     if (!state.tenantId) return;
+    // Context socket can be null outside the provider; fall back to the shared client.
+    const s = socket || sharedSocket;
 
     const handleUpdate = () => {
       fetchData(true);
     };
 
-    if (isSocketConnected && socket) {
-      socket.emit("authenticate", state.tenantId);
-      socket.on("order_update", handleUpdate);
-      socket.on("new_order", handleUpdate);
-      socket.on("ready_for_pickup", handleUpdate);
-    } else {
-      initSocket();
-      socket.emit("authenticate", state.tenantId);
-      socket.on("order_update", handleUpdate);
-      socket.on("new_order", handleUpdate);
-      socket.on("ready_for_pickup", handleUpdate);
-    }
+    if (!s.connected) initSocket();
+    s.emit("authenticate", state.tenantId);
+    s.on("order_update", handleUpdate);
+    s.on("new_order", handleUpdate);
+    s.on("ready_for_pickup", handleUpdate);
+
+    // Catch up on anything missed while the socket was down.
+    if (isSocketConnected) fetchData(true);
 
     return () => {
-      if (socket) {
-        socket.off("order_update", handleUpdate);
-        socket.off("new_order", handleUpdate);
-        socket.off("ready_for_pickup", handleUpdate);
-      }
+      s.off("order_update", handleUpdate);
+      s.off("new_order", handleUpdate);
+      s.off("ready_for_pickup", handleUpdate);
     };
   }, [state.tenantId, isSocketConnected]);
+
+  // Safety-net polling: a wall display must never freeze on stale data if the
+  // socket silently drops. Faster when offline, slow when the socket is live.
+  useEffect(() => {
+    const interval = setInterval(
+      () => fetchData(true),
+      isSocketConnected ? 30000 : 8000
+    );
+    return () => clearInterval(interval);
+  }, [qrcode, isSocketConnected]);
 
 
 
@@ -561,20 +634,11 @@ export default function OrderStatusDisplayPage() {
 
   // --- Token Display View Filters (Driven strictly by 100% overall order completion) ---
   // Token READY orders: orders where ALL active items are completed/delivered and ZERO items are created/preparing
-  const tokenReadyOrders = state.orders.filter((order) => {
-    if (!order.items || order.items.length === 0) return false;
-    const activeItems = order.items.filter((i) => i.status !== "cancelled");
-    if (activeItems.length === 0) return false;
-
-    const allItemsReady = activeItems.every(
-      (i) => i.status === "completed" || i.status === "delivered"
-    );
-    const hasPendingItems = activeItems.some(
-      (i) => i.status === "created" || i.status === "preparing" || !i.status
-    );
-
-    return allItemsReady && !hasPendingItems;
-  });
+  // Token PREPARING orders: everything with items that is not yet fully ready,
+  // oldest first so customers can see their place in the queue.
+  const tokenPreparingOrders = state.orders
+    .filter((order) => order.token_no && order.items?.length > 0 && !isOrderFullyReady(order))
+    .sort((a, b) => a.id - b.id);
 
   return (
     <div className="h-screen max-h-screen min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors">
@@ -616,7 +680,7 @@ export default function OrderStatusDisplayPage() {
           <button
             onClick={toggleSound}
             title={soundEnabled ? "Mute Order Token Sound" : "Enable Order Token Sound"}
-            className={`p-2 rounded-xl border transition-all shadow-xs shrink-0 ${
+            className={`h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl border transition-all shadow-xs shrink-0 ${
               soundEnabled
                 ? "bg-restro-gray dark:bg-[#1e1e1e] border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60"
                 : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/50 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/60"
@@ -633,7 +697,7 @@ export default function OrderStatusDisplayPage() {
           <button
             onClick={() => toggleDisplayMode(displayMode === "detailed" ? "token" : "detailed")}
             title={`Switch to ${displayMode === "detailed" ? "Token Display" : "Detailed View"}`}
-            className="p-2 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
+            className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
           >
             {displayMode === "detailed" ? (
               <IconHash size={20} stroke={iconStroke} />
@@ -647,7 +711,7 @@ export default function OrderStatusDisplayPage() {
             <button
               onClick={toggleLayoutMode}
               title={`Switch to ${layoutMode === "vertical" ? "Horizontal (Stacked)" : "Vertical (Side-by-Side)"} view`}
-              className="p-2 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
+              className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
             >
               {layoutMode === "vertical" ? (
                 <IconLayoutColumns size={20} stroke={iconStroke} />
@@ -657,8 +721,30 @@ export default function OrderStatusDisplayPage() {
             </button>
           )}
 
-          {/* Time Display */}
-          <div className="text-right border-l border-restro-border-green dark:border-emerald-500/30 pl-3">
+          {/* Fullscreen Toggle (TV / kiosk) */}
+          {document.fullscreenEnabled && (
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit full screen" : "Full screen"}
+              className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
+            >
+              {isFullscreen ? (
+                <IconMinimize size={20} stroke={iconStroke} />
+              ) : (
+                <IconMaximize size={20} stroke={iconStroke} />
+              )}
+            </button>
+          )}
+
+          {/* Time Display + live sync status */}
+          <div
+            className="text-right border-l border-restro-border-green dark:border-emerald-500/30 pl-3"
+            title={
+              lastSyncedAt
+                ? `Last updated ${lastSyncedAt.toLocaleTimeString()}`
+                : undefined
+            }
+          >
             <p className="text-lg font-bold tracking-tight text-gray-900 dark:text-white leading-tight">
               {currentTime.toLocaleTimeString("en-US", {
                 hour: "2-digit",
@@ -666,7 +752,13 @@ export default function OrderStatusDisplayPage() {
                 second: "2-digit",
               })}
             </p>
-            <p className="text-[10px] text-restro-text dark:text-gray-400 font-medium">
+            <p className="text-[10px] text-restro-text dark:text-gray-400 font-medium flex items-center justify-end gap-1.5">
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full ${
+                  isSocketConnected ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                }`}
+                title={isSocketConnected ? "Live" : "Reconnecting…"}
+              />
               {currentTime.toLocaleDateString("en-US", {
                 weekday: "short",
                 month: "short",
@@ -677,84 +769,139 @@ export default function OrderStatusDisplayPage() {
         </div>
       </header>
 
+      <style>{`
+        @keyframes osdHeroPop { 0% { transform: scale(0.85); opacity: 0; } 60% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(1); } }
+        .osd-hero-pop { animation: osdHeroPop 450ms ease-out both; }
+      `}</style>
+
+      {soundEnabled && !audioUnlocked && (
+        <button
+          type="button"
+          onClick={() => setAudioUnlocked(true)}
+          className="shrink-0 min-h-[42px] w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 text-sm font-bold active:scale-[0.99]"
+        >
+          <IconHandFinger size={18} stroke={iconStroke} />
+          Tap anywhere once to enable token announcements
+        </button>
+      )}
+
       {/* Main Container: Render either Hero + Queue Token Display or Detailed Order Status Swimlanes */}
       {displayMode === "token" ? (
-        <main className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col md:flex-row gap-5 h-[calc(100vh-60px)] bg-[#f8faf8] dark:bg-[#0a0a0a]">
-          {/* LEFT HERO PANEL (RECENTLY CALLED TOKEN) */}
+        <main className="flex-1 min-h-0 p-4 md:p-6 overflow-hidden flex flex-col md:flex-row gap-5 bg-[#f8faf8] dark:bg-[#0a0a0a]">
+          {/* LEFT HERO PANEL (NOW CALLING) */}
           <section className="w-full md:w-5/12 flex flex-col items-center justify-center rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-6 shrink-0 max-h-full">
-            <h2 className="text-base font-extrabold text-gray-800 dark:text-gray-200 tracking-wider uppercase mb-6">
-              RECENTLY CALLED TOKEN
+            <h2 className="text-base md:text-xl font-extrabold text-gray-800 dark:text-gray-200 tracking-[0.2em] uppercase mb-6">
+              {heroToken ? "Now Calling" : "Recently Called"}
             </h2>
 
-            {/* Big Token Hero Card with exact requested background class and no shadow */}
-            <div className="bg-gray-50 dark:bg-restro-gray border border-restro-border-green dark:border-emerald-500/40 rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center w-full max-w-md min-h-[280px] transition-all duration-300">
+            <div
+              className={`rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center w-full max-w-xl min-h-[240px] md:min-h-[45vh] transition-all duration-300 border ${
+                heroToken
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-500/50"
+                  : "bg-gray-50 dark:bg-restro-gray border-restro-border-green dark:border-emerald-500/40"
+              }`}
+            >
               {heroToken ? (
-                <>
-                  <span className="text-7xl sm:text-8xl md:text-9xl font-extrabold text-gray-900 dark:text-white leading-none tracking-tight">
+                <div key={heroToken.id} className="osd-hero-pop flex flex-col items-center">
+                  <span
+                    className="font-extrabold text-gray-900 dark:text-white leading-none tracking-tight tabular-nums"
+                    style={{ fontSize: "clamp(5rem, 14vw, 16rem)" }}
+                  >
                     {heroToken.token_no}
                   </span>
-                  <span className="px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold uppercase tracking-wider bg-restro-green-light dark:bg-emerald-950/80 text-restro-green-dark dark:text-emerald-300 border border-restro-border-green dark:border-emerald-500/40 flex items-center gap-1.5 mt-8">
-                    <IconCheck size={16} stroke={iconStroke} /> READY FOR PICKUP
+                  <span className="px-5 py-2 rounded-full text-sm md:text-lg font-extrabold uppercase tracking-wider bg-restro-green text-white flex items-center gap-2 mt-8 whitespace-nowrap">
+                    <IconCheck size={20} stroke={iconStroke} /> Ready for pickup
                   </span>
-                </>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center p-4">
-                  <div className="w-14 h-14 rounded-full bg-restro-gray dark:bg-emerald-950/60 border border-restro-border-green dark:border-emerald-500/40 flex items-center justify-center mb-3">
-                    <IconSparkles size={28} stroke={iconStroke} className="text-restro-green dark:text-emerald-400" />
+                  <div className="w-16 h-16 rounded-full bg-restro-gray dark:bg-emerald-950/60 border border-restro-border-green dark:border-emerald-500/40 flex items-center justify-center mb-3">
+                    <IconSparkles size={30} stroke={iconStroke} className="text-restro-green dark:text-emerald-400" />
                   </div>
-                  <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Waiting for call...</p>
-                  <p className="text-xs text-restro-text dark:text-gray-400 mt-1">Tokens will be announced here</p>
+                  <p className="text-base md:text-xl font-bold text-gray-700 dark:text-gray-300">Waiting for the next order…</p>
+                  <p className="text-sm md:text-base text-restro-text dark:text-gray-400 mt-1">Your token will be called here when it is ready</p>
                 </div>
               )}
             </div>
           </section>
 
-          {/* RIGHT SIDE PANEL (OTHER READY TOKENS GRID) */}
-          <section className="w-full md:w-7/12 flex flex-col rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-5 overflow-hidden shrink-0 max-h-full">
-            <div className="flex items-center justify-between pb-3 border-b border-restro-border-green dark:border-emerald-500/30 mb-4 shrink-0">
-              <h2 className="text-sm font-extrabold text-restro-green dark:text-emerald-400 tracking-widest uppercase">
-                Ready Tokens
-              </h2>
-              <span className="px-3 py-0.5 rounded-full bg-restro-green-light dark:bg-emerald-950/70 border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 text-xs font-bold">
-                {rightPanelTokens.length} Ready
-              </span>
-            </div>
+          {/* RIGHT SIDE: READY TOKENS (top) + NOW PREPARING (bottom) */}
+          <div className="w-full md:w-7/12 flex-1 min-h-0 flex flex-col gap-5">
+            <section className="flex-[3] min-h-0 flex flex-col rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-5 overflow-hidden">
+              <div className="flex items-center justify-between pb-3 border-b border-restro-border-green dark:border-emerald-500/30 mb-4 shrink-0">
+                <h2 className="text-base md:text-lg font-extrabold text-restro-green dark:text-emerald-400 tracking-widest uppercase flex items-center gap-2">
+                  <IconCheck size={20} stroke={iconStroke} /> Ready for Pickup
+                </h2>
+                <span className="px-3 py-1 rounded-full bg-restro-green-light dark:bg-emerald-950/70 border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 text-sm font-bold tabular-nums">
+                  {rightPanelTokens.length + (heroToken ? 1 : 0)}
+                </span>
+              </div>
 
-            <div className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
-              {rightPanelTokens.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-restro-text dark:text-gray-400">
-                  <div className="w-12 h-12 rounded-full bg-restro-gray dark:bg-emerald-950/60 border border-restro-border-green dark:border-emerald-500/40 flex items-center justify-center mb-3">
-                    <IconSparkles size={24} stroke={iconStroke} className="text-restro-green dark:text-emerald-400" />
+              <div className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
+                {rightPanelTokens.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-restro-text dark:text-gray-400">
+                    <p className="text-sm md:text-base font-bold text-gray-800 dark:text-gray-200">
+                      {heroToken ? "No other tokens waiting" : "No tokens ready yet"}
+                    </p>
+                    <p className="text-xs md:text-sm text-restro-text dark:text-gray-400 mt-1">Called tokens stay listed here until collected</p>
                   </div>
-                  <p className="text-sm font-bold text-gray-800 dark:text-gray-200">No other ready tokens</p>
-                  <p className="text-xs text-restro-text dark:text-gray-400 mt-1">Tokens move here after announcement</p>
-                </div>
-              ) : (
-                <div
-                  className="grid gap-3.5 items-start"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 180px), 1fr))`,
-                  }}
-                >
-                  {rightPanelTokens.map((order) => (
-                    <div
-                      key={order.id}
-                      className="rounded-2xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#161616] p-4 flex flex-col items-center justify-between transition-all duration-200 min-h-[120px]"
-                    >
-                      <div className="flex-1 flex items-center justify-center py-1">
-                        <span className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white leading-none tracking-tight">
+                ) : (
+                  <div
+                    className="grid gap-3.5 items-start"
+                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 150px), 1fr))" }}
+                  >
+                    {rightPanelTokens.map((order) => (
+                      <div
+                        key={order.id}
+                        className="osd-hero-pop rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/30 p-4 flex items-center justify-center min-h-[110px]"
+                      >
+                        <span
+                          className="font-extrabold text-gray-900 dark:text-white leading-none tracking-tight tabular-nums"
+                          style={{ fontSize: "clamp(2.5rem, 4.5vw, 4.5rem)" }}
+                        >
                           {order.token_no}
                         </span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-restro-green-light dark:bg-emerald-950/80 text-restro-green-dark dark:text-emerald-300 border border-restro-border-green dark:border-emerald-500/40 flex items-center gap-1 shrink-0">
-                        <IconCheck size={11} stroke={iconStroke} /> READY FOR PICKUP
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="flex-[2] min-h-0 flex flex-col rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-5 overflow-hidden">
+              <div className="flex items-center justify-between pb-3 border-b border-restro-border-green dark:border-emerald-500/30 mb-4 shrink-0">
+                <h2 className="text-base md:text-lg font-extrabold text-gray-700 dark:text-gray-300 tracking-widest uppercase flex items-center gap-2">
+                  <IconChefHat size={20} stroke={iconStroke} /> Now Preparing
+                </h2>
+                <span className="px-3 py-1 rounded-full bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-gray-700 text-restro-text dark:text-gray-300 text-sm font-bold tabular-nums">
+                  {tokenPreparingOrders.length}
+                </span>
+              </div>
+              <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
+                {tokenPreparingOrders.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm md:text-base font-bold text-restro-text dark:text-gray-400">
+                    Kitchen is all caught up
+                  </div>
+                ) : (
+                  <div
+                    className="grid gap-2.5"
+                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 96px), 1fr))" }}
+                  >
+                    {tokenPreparingOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="rounded-xl border border-gray-200 dark:border-gray-700/70 bg-gray-50 dark:bg-[#181818] h-16 flex items-center justify-center"
+                      >
+                        <span className="text-2xl md:text-3xl font-extrabold text-gray-500 dark:text-gray-400 tabular-nums">
+                          {order.token_no}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
         </main>
       ) : (
         /* Main Swimlane Layout Container for Detailed View with Resizable Split Screen */
@@ -762,8 +909,8 @@ export default function OrderStatusDisplayPage() {
           ref={mainContainerRef}
           className={`flex-1 p-3 overflow-hidden ${
             layoutMode === "vertical"
-              ? "flex flex-row gap-0.5 h-[calc(100vh-60px)]"
-              : "flex flex-col gap-0.5 h-[calc(100vh-60px)]"
+              ? "flex flex-row gap-0.5 min-h-0"
+              : "flex flex-col gap-0.5 min-h-0"
           }`}
         >
           {/* Preparing Swimlane Panel */}

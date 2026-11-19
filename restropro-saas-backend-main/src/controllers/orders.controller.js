@@ -5,6 +5,7 @@ const {
   getPrintSettingDB,
   getStoreSettingDB,
   getServiceChargeDB,
+  ensureQRMenuCodeDB,
 } = require("../services/settings.service");
 
 exports.getOrders = async (req, res) => {
@@ -102,10 +103,22 @@ exports.getOrdersInit = async (req, res) => {
       getStoreSettingDB(tenantId),
     ]);
 
+    // The Order Display screen is addressed by the store's public code. Stores
+    // that never saved Store Settings have none yet, so create it on demand.
+    let resolvedStoreSettings = storeSettings;
+    if (!storeSettings?.unique_qr_code) {
+      try {
+        const code = await ensureQRMenuCodeDB(tenantId);
+        resolvedStoreSettings = { ...(storeSettings || {}), unique_qr_code: code };
+      } catch (err) {
+        console.error("Failed to create store display code:", err);
+      }
+    }
+
     return res.status(200).json({
       paymentTypes,
       printSettings,
-      storeSettings,
+      storeSettings: resolvedStoreSettings,
     });
   } catch (error) {
     console.error(error);
