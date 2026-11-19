@@ -405,6 +405,18 @@ export default function POSPage() {
     return counts;
   }, [menuItems]);
 
+  // Cover photo per category tile: the first enabled item in that category with an image.
+  const categoryCovers = React.useMemo(() => {
+    const covers = {};
+    (menuItems || []).forEach(item => {
+      if (!item.is_enabled || !item.image) return;
+      const url = getImageURL(item.image);
+      if (!covers.all) covers.all = url;
+      if (item.category_id && !covers[item.category_id]) covers[item.category_id] = url;
+    });
+    return covers;
+  }, [menuItems]);
+
   // A fresh ticket starts at course 1.
   useEffect(() => {
     if (!cartItems || cartItems.length === 0) {
@@ -3108,57 +3120,56 @@ export default function POSPage() {
         <div className="h-full md:w-[68%] lg:w-[70%] flex flex-col overflow-hidden border rounded-xl border-[#E3E5E8] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
           {/* Sub-bar: Full-Width Category Rail + View Switcher */}
           <div className="bg-white dark:bg-slate-900 flex items-start justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
-            {/* Category pills wrap onto rows so every category is visible and one tap away
-                (no hidden horizontal scroll). Very long menus cap at ~2 rows and scroll vertically. */}
-            <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 py-0.5 max-h-[100px] overflow-y-auto">
-              <button
-                type="button"
-                data-category-id="all"
-                className={`flex-shrink-0 min-w-fit min-h-[42px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
-                  selectedCategory === "all" 
-                    ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
-                    : 'bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-[#D4D7DC] dark:border-slate-700'
-                }`}
-                onClick={() => {
-                  setState({
-                    ...state,
-                    selectedCategory: 'all'
-                  });
-                }}
-              >
-                <span>{t('pos.all')}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                  selectedCategory === "all" ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700'
-                }`}>
-                  {categoryCounts.all || 0}
-                </span>
-              </button>
-
-              {categories.filter((category) => category.is_enabled).map((category, index) => {
-                const count = categoryCounts[category.id] || 0;
-                const isSelected = selectedCategory === category.id;
+            {/* Category tiles styled like the menu item cards: equal-size photo tiles in a grid,
+                every category visible and one tap away. Very long menus cap at ~2 rows and scroll. */}
+            <div className="flex-1 min-w-0 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2 py-0.5 max-h-[132px] overflow-y-auto">
+              {[
+                { id: 'all', label: t('pos.all'), count: categoryCounts.all || 0, cover: categoryCovers.all },
+                ...categories.filter((category) => category.is_enabled).map((category) => ({
+                  id: category.id,
+                  label: displayName(category),
+                  count: categoryCounts[category.id] || 0,
+                  cover: categoryCovers[category.id],
+                })),
+              ].map(({ id, label, count, cover }) => {
+                const isSelected = selectedCategory === id;
                 return (
                   <button
-                    key={index}
+                    key={id}
                     type="button"
-                    data-category-id={category.id}
-                    className={`flex-shrink-0 min-w-fit min-h-[42px] px-3.5 py-1.5 rounded-full text-xs font-semibold transition active:scale-95 flex items-center gap-2 border touch-manipulation select-none cursor-pointer ${
-                      isSelected 
-                        ? 'bg-[#0D233A] text-white border-[#0D233A] shadow-2xs font-bold' 
-                        : 'bg-[#F4F5F8] hover:bg-[#E8EAED] dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-[#D4D7DC] dark:border-slate-700'
-                    }`}
+                    data-category-id={id}
+                    aria-pressed={isSelected}
+                    className={clsx(
+                      "group relative h-[58px] overflow-hidden rounded-xl text-left transition active:scale-95 touch-manipulation select-none cursor-pointer bg-gradient-to-br from-[#0D233A] via-[#123553] to-[#006B6F]",
+                      isSelected
+                        ? "ring-[3px] ring-[#2CA01C] ring-offset-1 ring-offset-white dark:ring-offset-slate-900 shadow-md"
+                        : "opacity-90 hover:opacity-100"
+                    )}
                     onClick={() => {
                       setState({
                         ...state,
-                        selectedCategory: category.id
+                        selectedCategory: id
                       });
                     }}
                   >
-                    <span>{displayName(category)}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                      isSelected ? 'bg-white/20 text-white' : 'bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700'
-                    }`}>
+                    {cover && (
+                      <img
+                        src={cover}
+                        alt=""
+                        loading="lazy"
+                        draggable={false}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    )}
+                    <div className={clsx(
+                      "pointer-events-none absolute inset-0",
+                      isSelected ? "bg-gradient-to-t from-black/85 via-black/45 to-black/10" : "bg-gradient-to-t from-black/90 via-black/60 to-black/30"
+                    )} />
+                    <span className="absolute top-1.5 right-1.5 min-w-[22px] h-[20px] px-1.5 rounded-full text-[10px] font-black flex items-center justify-center bg-white/90 text-[#0D233A] shadow-sm">
                       {count}
+                    </span>
+                    <span className="absolute inset-x-2 bottom-1.5 line-clamp-2 text-[12px] font-bold leading-[1.15] text-white drop-shadow pr-1">
+                      {label}
                     </span>
                   </button>
                 );
