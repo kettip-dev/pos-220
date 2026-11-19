@@ -146,7 +146,7 @@ exports.createOrder = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal, clientOrderId} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal, clientOrderId, pmsReservationId, pmsRoomNumber, pmsGuestName} = req.body;
 
     // Offline retry of an order that already reached the server: answer with it.
     const { findOrderByClientIdDB } = require("../services/pos.service");
@@ -162,7 +162,7 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null);
     emitAvailability(req, tenantId, result.availabilityChanges);
 
     if(selectedQrOrderItem) {
@@ -223,7 +223,7 @@ exports.createOrderAndInvoice = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments, payLater, clientOrderId} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments, payLater, clientOrderId, pmsReservationId, pmsRoomNumber, pmsGuestName} = req.body;
 
     const { findOrderByClientIdDB } = require("../services/pos.service");
     const existing = await findOrderByClientIdDB(tenantId, clientOrderId);
@@ -273,7 +273,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const isKitchenDisabled = storeSettings && (storeSettings.is_kitchen_enabled === 0 || storeSettings.is_kitchen_enabled === false);
     const targetOrderStatus = isKitchenDisabled ? 'completed' : 'created';
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null);
     const orderId = result.orderId;
     const tokenNo = result.tokenNo;
     emitAvailability(req, tenantId, result.availabilityChanges);
@@ -282,12 +282,23 @@ exports.createOrderAndInvoice = async (req, res) => {
       await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
     }
 
+    let pmsCharge = null;
+    if (pmsReservationId) {
+      try {
+        const { postRoomChargeForOrderDB } = require("../services/pms.service");
+        pmsCharge = await postRoomChargeForOrderDB(tenantId, orderId, username);
+      } catch (pmsErr) {
+        console.warn(`[PMS] Failed to auto-post room charge for Order #${orderId}:`, pmsErr.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: req.__("order_created_token", { token: tokenNo }), // Translate message
       tokenNo,
       orderId,
-      invoiceId
+      invoiceId,
+      pmsCharge
     });
 
   } catch (error) {

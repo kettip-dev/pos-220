@@ -158,6 +158,16 @@ exports.cancelKitchenOrder = async (req, res) => {
 
     await cancelOrderDB(orderIds, tenantId);
 
+    // Auto-void any posted PMS charges for cancelled orders
+    try {
+      const { voidRoomChargeForOrderDB } = require("../services/pms.service");
+      for (const oid of orderIds) {
+        await voidRoomChargeForOrderDB(tenantId, oid, "Order cancelled in POS");
+      }
+    } catch (pmsVoidErr) {
+      console.warn("[PMS] Failed auto-voiding room charge during order cancellation:", pmsVoidErr.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: req.__("order_cancelled_successfully") // Translate message

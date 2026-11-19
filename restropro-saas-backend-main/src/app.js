@@ -47,6 +47,7 @@ const promotionsRoutes = require("./routes/promotions.routes");
 const customerGroupsRoutes = require("./routes/customer_groups.routes");
 const profileRoutes = require("./routes/profile.routes");
 const registerRoutes = require("./routes/register.routes");
+const pmsRoutes = require("./routes/pms.routes");
 // routes import
 
 
@@ -189,6 +190,7 @@ app.use("/api/v1/promotions", promotionsRoutes);
 app.use("/api/v1/customer-groups", customerGroupsRoutes);
 app.use("/api/v1/profile", profileRoutes);
 app.use("/api/v1/register", registerRoutes);
+app.use("/api/v1/pms", pmsRoutes);
 // routes
 
 app.get("/", (req, res)=>{

@@ -4,7 +4,7 @@ const { queueLowStockAlerts } = require("./notification.service");
 const { sendOrderTelegramNotification } = require("./telegram.service");
 const { consumeMenuItemStockTx } = require("./menu_availability.service");
 
-exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created', clientOrderId = null) => {
+exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, customerId, tableId, paymentStatus = 'pending', invoiceId = null, username = null, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, orderStatus = 'created', clientOrderId = null, pmsReservationId = null, pmsRoomNumber = null, pmsGuestName = null) => {
   const conn = await getMySqlPromiseConnection();
 
   try {
@@ -36,10 +36,11 @@ exports.createOrderDB = async (tenantId, cartItems, deliveryType, customerType, 
       : null;
     const promoDiscount = Number(promotionDiscountTotal || 0);
     const groupDiscount = Number(customerGroupDiscountTotal || 0);
+    const initialSyncStatus = pmsReservationId ? 'PENDING' : 'NONE';
 
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status, client_order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created', clientOrderId ? String(clientOrderId).slice(0, 64) : null]
+      `INSERT INTO orders (delivery_type, customer_type, customer_id, customer_group_id, customer_group_name, customer_group_discount_total, table_id, token_no, payment_status, invoice_id, applied_promotions, promotion_discount_total, tenant_id, created_by, status, client_order_id, pms_reservation_id, pms_room_number, pms_guest_name, pms_sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [deliveryType, customerType, customerId, customerGroupId ? Number(customerGroupId) : null, customerGroupName || null, groupDiscount, tableId, tokenNo, paymentStatus || 'pending', invoiceId || null, cleanAppliedPromos, promoDiscount, tenantId, username, orderStatus || 'created', clientOrderId ? String(clientOrderId).slice(0, 64) : null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, initialSyncStatus]
     );
 
     const orderId = orderResult.insertId;
