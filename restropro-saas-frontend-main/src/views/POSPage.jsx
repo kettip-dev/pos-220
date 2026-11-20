@@ -465,7 +465,8 @@ export default function POSPage() {
     }
   }, [cartItems?.length]);
 
-  // Up to two items often ordered with what is on the ticket.
+  // Up to four items often ordered with what is on the ticket
+  // (catalog bar shows all four; the phone cart strip shows the first two).
   const pairSuggestions = React.useMemo(() => {
     if (!cartItems || cartItems.length === 0) return [];
     const inCart = new Set(cartItems.map((c) => String(c.id)));
@@ -480,8 +481,23 @@ export default function POSPage() {
       .sort((a, b) => b[1] - a[1])
       .map(([id]) => (menuItems || []).find((m) => String(m.id) === id))
       .filter((m) => m && m.is_enabled && Number(m.is_sold_out) !== 1 && Number(m.is_combo) !== 1)
-      .slice(0, 2);
+      .slice(0, 4);
   }, [cartItems, upsellPairs, dismissedSuggestions, menuItems]);
+
+  // Name of the most recently added ticket item that has pairings, shown as
+  // "Often with <item>" so the cashier knows why these are suggested.
+  const pairAnchorName = React.useMemo(() => {
+    if (!cartItems || cartItems.length === 0) return '';
+    for (let i = cartItems.length - 1; i >= 0; i -= 1) {
+      const c = cartItems[i];
+      if ((upsellPairs[c.id] || []).length > 0) return displayOrderItem(c)?.title || c.title || '';
+    }
+    return '';
+  }, [cartItems, upsellPairs, displayOrderItem]);
+
+  const addSuggestedItem = (m) =>
+    (m.variants?.length || m.addons?.length ? btnOpenVariantAndAddonModal(m.id) : addItemToCart(m));
+  const dismissSuggestion = (m) => setDismissedSuggestions((prev) => [...prev, String(m.id)]);
 
   const soldOutCount = React.useMemo(
     () => (menuItems || []).filter((m) => m.is_enabled && Number(m.is_sold_out) === 1).length,
@@ -3390,7 +3406,7 @@ export default function POSPage() {
           )}
 
           {/* Menu Catalog Grid / List */}
-          <div className='flex-1 h-full overflow-hidden pt-2'>
+          <div className='flex-1 min-h-0 overflow-hidden pt-2'>
             {isFavoritesView && !isFavoriteEditMode && favoriteMenuItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
                 <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
@@ -3451,6 +3467,72 @@ export default function POSPage() {
               />
             )}
           </div>
+
+          {/* Often ordered together (tablet/desktop). Sits under the grid so it
+              never pushes menu items down under the cashier's finger; its
+              height stays reserved while the ticket has items. */}
+          {cartItems?.length > 0 && (
+            <div className="hidden md:flex shrink-0 h-[64px] items-center gap-2.5 px-3 border-t border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/20">
+              <div className="shrink-0 flex items-center gap-1.5 max-w-[150px] lg:max-w-[190px] min-w-0">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+                  <IconBulb size={17} className="text-amber-600 dark:text-amber-400" />
+                </span>
+                <span className="min-w-0 leading-tight">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                    {t('pos_ops.often_with', 'Often with')}
+                  </span>
+                  <span className="block truncate text-xs font-bold text-gray-800 dark:text-slate-100">
+                    {pairAnchorName || t('pos.this_order', 'this order')}
+                  </span>
+                </span>
+              </div>
+
+              {pairSuggestions.length > 0 ? (
+                <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  {pairSuggestions.map((m) => (
+                    <span
+                      key={m.id}
+                      className="shrink-0 flex items-center h-[48px] rounded-xl border border-amber-300 dark:border-amber-700/60 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => addSuggestedItem(m)}
+                        className="h-full flex items-center gap-2 pl-1.5 pr-2.5 active:scale-95 transition touch-manipulation cursor-pointer hover:bg-amber-50 dark:hover:bg-slate-800"
+                      >
+                        {m.image ? (
+                          <img src={getImageURL(m.image)} alt="" loading="lazy" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <span className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
+                            <IconPlus size={16} stroke={2.6} className="text-[#2CA01C]" />
+                          </span>
+                        )}
+                        <span className="min-w-0 text-left leading-tight">
+                          <span className="block truncate max-w-[140px] text-[13px] font-bold text-gray-900 dark:text-white">{displayName(m)}</span>
+                          <span className="block text-[11px] font-semibold text-gray-500 dark:text-slate-400 tabular-nums">{currency}{Number(m.price).toFixed(2)}</span>
+                        </span>
+                        <span className="w-7 h-7 rounded-full bg-[#2CA01C] text-white flex items-center justify-center shrink-0">
+                          <IconPlus size={15} stroke={2.8} />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dismissSuggestion(m)}
+                        aria-label={t('pos_ops.dismiss', 'Dismiss')}
+                        title={t('pos_ops.dismiss', 'Dismiss')}
+                        className="h-full w-[34px] flex items-center justify-center border-l border-amber-200 dark:border-amber-800/60 text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        <IconX size={14} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="flex-1 min-w-0 truncate text-xs font-medium text-gray-500 dark:text-slate-400">
+                  {t('pos_ops.no_pair_suggestions', 'No pairing suggestions for this order yet')}
+                </p>
+              )}
+            </div>
+          )}
           </div>
         </div>
 
@@ -4120,18 +4202,18 @@ export default function POSPage() {
 
           {/* Persistent Live Financial Calculation Tray & Actions */}
           <div className="flex-shrink-0 w-full p-3.5 border-t border-[#E3E5E8] dark:border-slate-800 bg-[#F4F5F8]/70 dark:bg-slate-800/50 space-y-2.5">
-            {/* Often ordered together */}
+            {/* Often ordered together: phones only (no catalog bar there) */}
             {pairSuggestions.length > 0 && (
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="md:hidden flex items-center gap-1.5 min-w-0">
                 <IconBulb size={15} className="text-amber-500 shrink-0" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 shrink-0">{t('pos_ops.often_with', 'Often with')}</span>
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0">
-                  {pairSuggestions.map((m) => (
+                  {pairSuggestions.slice(0, 2).map((m) => (
                     <span key={m.id} className="flex items-center shrink-0 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 overflow-hidden">
                       <button
                         type="button"
-                        onClick={() => (m.variants?.length || m.addons?.length ? btnOpenVariantAndAddonModal(m.id) : addItemToCart(m))}
-                        className="min-h-[36px] pl-2.5 pr-1.5 text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1 active:scale-95 cursor-pointer"
+                        onClick={() => addSuggestedItem(m)}
+                        className="min-h-[42px] pl-2.5 pr-1.5 text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1 active:scale-95 cursor-pointer"
                       >
                         <IconPlus size={13} stroke={2.6} className="text-[#2CA01C]" />
                         <span className="truncate max-w-[120px]">{displayName(m)}</span>
@@ -4139,9 +4221,9 @@ export default function POSPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setDismissedSuggestions((prev) => [...prev, String(m.id)])}
+                        onClick={() => dismissSuggestion(m)}
                         aria-label={t('pos_ops.dismiss', 'Dismiss')}
-                        className="min-h-[36px] px-1.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                        className="min-h-[42px] px-2 text-gray-400 hover:text-gray-700 cursor-pointer"
                       >
                         <IconX size={12} />
                       </button>
