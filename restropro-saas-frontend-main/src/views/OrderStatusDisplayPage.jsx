@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import { getOrderStatusDisplayData } from "../controllers/order_status_display.controller";
 import { SocketContext } from "../contexts/SocketContext";
-import { initSocket } from "../utils/socket";
+import sharedSocket, { initSocket } from "../utils/socket";
 import { useTheme } from "../contexts/ThemeContext";
 import { getImageURL } from "../helpers/ImageHelper";
 import {
@@ -17,8 +17,20 @@ import {
   IconHash,
   IconVolume,
   IconVolumeOff,
+  IconMaximize,
+  IconMinimize,
+  IconHandFinger,
+  IconReceipt,
 } from "@tabler/icons-react";
 import { iconStroke } from "../config/config";
+
+// An order is "ready for pickup" only when every non-cancelled item is done.
+const isOrderFullyReady = (order) => {
+  if (!order?.items || order.items.length === 0) return false;
+  const activeItems = order.items.filter((i) => i.status !== "cancelled");
+  if (activeItems.length === 0) return false;
+  return activeItems.every((i) => i.status === "completed" || i.status === "delivered");
+};
 
 export default function OrderStatusDisplayPage() {
   const { qrcode } = useParams();
@@ -84,94 +96,11 @@ export default function OrderStatusDisplayPage() {
     layoutModeRef.current = layoutMode;
   }, [layoutMode]);
 
-  // Resizable Split Ratios for Vertical (left %) and Horizontal (top %)
-  const [splitRatioVert, setSplitRatioVert] = useState(() => {
-    const saved = localStorage.getItem("orderStatusSplitRatioVertical");
-    return saved ? Number(saved) : 50;
-  });
-
-  const [splitRatioHoriz, setSplitRatioHoriz] = useState(() => {
-    const saved = localStorage.getItem("orderStatusSplitRatioHorizontal");
-    return saved ? Number(saved) : 50;
-  });
-
-  const isDraggingRef = useRef(false);
-  const mainContainerRef = useRef(null);
-
   const toggleLayoutMode = () => {
     const nextMode = layoutMode === "vertical" ? "horizontal" : "vertical";
     setLayoutMode(nextMode);
     localStorage.setItem("orderStatusLayout", nextMode);
   };
-
-  // Drag handlers for LeetCode-style resizable split screen (Vertical & Horizontal)
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = layoutModeRef.current === "vertical" ? "col-resize" : "row-resize";
-  };
-
-  const resetSplitRatio = () => {
-    if (layoutMode === "vertical") {
-      setSplitRatioVert(50);
-      localStorage.setItem("orderStatusSplitRatioVertical", "50");
-    } else {
-      setSplitRatioHoriz(50);
-      localStorage.setItem("orderStatusSplitRatioHorizontal", "50");
-    }
-  };
-
-  useEffect(() => {
-    const handlePointerMove = (clientX, clientY) => {
-      if (!isDraggingRef.current || !mainContainerRef.current) return;
-      const rect = mainContainerRef.current.getBoundingClientRect();
-
-      if (layoutModeRef.current === "vertical") {
-        const relativeX = clientX - rect.left;
-        let newRatio = (relativeX / rect.width) * 100;
-        newRatio = Math.max(15, Math.min(85, newRatio));
-        setSplitRatioVert(newRatio);
-        localStorage.setItem("orderStatusSplitRatioVertical", String(newRatio));
-      } else {
-        const relativeY = clientY - rect.top;
-        let newRatio = (relativeY / rect.height) * 100;
-        newRatio = Math.max(15, Math.min(85, newRatio));
-        setSplitRatioHoriz(newRatio);
-        localStorage.setItem("orderStatusSplitRatioHorizontal", String(newRatio));
-      }
-    };
-
-    const handleMouseMove = (e) => {
-      handlePointerMove(e.clientX, e.clientY);
-    };
-
-    const handleTouchMove = (e) => {
-      if (e.touches.length > 0) {
-        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-
-    const handleEnd = () => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false;
-        document.body.style.userSelect = "";
-        document.body.style.cursor = "";
-      }
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleEnd);
-    window.addEventListener("touchmove", handleTouchMove);
-    window.addEventListener("touchend", handleEnd);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleEnd);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleEnd);
-    };
-  }, []);
 
   const [heroToken, setHeroToken] = useState(null);
   const [rightPanelTokens, setRightPanelTokens] = useState([]);
@@ -279,14 +208,80 @@ export default function OrderStatusDisplayPage() {
   const readyTimestampsRef = useRef({});
   const preparingTimestampsRef = useRef({});
   const orderReadyCountsRef = useRef({});
+  const previousFullyReadyIdsRef = useRef(new Set());
+  const hasLoadedOnceRef = useRef(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+
+  // Browsers block audio/speech until the page has had a user gesture. A TV
+  // opened via window.open has none, so ask for one tap and remember it.
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  useEffect(() => {
+    if (audioUnlocked) return;
+    const unlock = () => {
+      setAudioUnlocked(true);
+      try {
+        if ("speechSynthesis" in window) {
+          const u = new SpeechSynthesisUtterance(" ");
+          u.volume = 0;
+          window.speechSynthesis.speak(u);
+        }
+      } catch (e) { /* ignore */ }
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [audioUnlocked]);
+
+  // Fullscreen toggle for TV / kiosk screens
+  const [isFullscreen, setIsFullscreen] = useState(() => Boolean(document.fullscreenElement));
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch (e) {
+      console.warn("Fullscreen not available:", e);
+    }
+  };
+
+  // Keep the display awake (Screen Wake Lock API, re-acquired when visible again)
+  useEffect(() => {
+    let lock = null;
+    const acquire = async () => {
+      try {
+        if ("wakeLock" in navigator && document.visibilityState === "visible") {
+          lock = await navigator.wakeLock.request("screen");
+        }
+      } catch (e) { /* unsupported or denied */ }
+    };
+    acquire();
+    const onVisible = () => { if (document.visibilityState === "visible") acquire(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      try { lock?.release(); } catch (e) { /* ignore */ }
+    };
+  }, []);
 
   // Web Speech API Voice Token Announcement Helper (Female Voice Priority)
-  const speakTokenAnnouncement = (tokenNo) => {
+  const speakTokenAnnouncement = (tokenNos) => {
     if (!soundEnabledRef.current) return;
+    const list = (Array.isArray(tokenNos) ? tokenNos : [tokenNos]).filter(Boolean);
+    if (list.length === 0) return;
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       try {
         window.speechSynthesis.cancel(); // Clear any pending speech queue
-        const message = `Token number ${tokenNo}`;
+        const message =
+          list.length === 1
+            ? `Token number ${list[0]}, please collect your order. Token number ${list[0]}.`
+            : `Token numbers ${list.join(", ")}, please collect your orders.`;
         const utterance = new SpeechSynthesisUtterance(message);
         utterance.rate = 0.9;
         utterance.pitch = 1; // Female tone pitch
@@ -368,56 +363,39 @@ export default function OrderStatusDisplayPage() {
           return allItemsReady && !hasPendingItems;
         }).length;
 
-        // 3. Play Web Speech Voice Announcement based on active display mode:
-        // - In Token Mode: Voice announces ONLY when a NEW TOKEN is added to the screen
-        // - In Detailed View: Voice announces when ready items count increases
-        const shouldPlayChimeInTokenMode =
-          displayModeRef.current === "token" &&
-          currentTokenReadyOrdersCount > previousTokenReadyOrdersCountRef.current;
-
-        const shouldPlayChimeInDetailedMode =
-          displayModeRef.current === "detailed" &&
-          currentReadyItemsCount > previousReadyItemsCountRef.current;
-
-        if (
-          playChimeOnReadyIncrease &&
-          soundEnabledRef.current &&
-          (shouldPlayChimeInTokenMode || shouldPlayChimeInDetailedMode)
-        ) {
-          try {
-            let targetOrderToAnnounce = null;
+        // 3. Voice announcement. Diff by order id (not by counts) so that one
+        // order being collected while another becomes ready still announces,
+        // and the token that is actually new is the one spoken.
+        // - Token Mode: announce orders that just became 100% ready
+        // - Detailed View: announce orders that gained a ready item
+        const fullyReadyIds = new Set(
+          (orders || []).filter(isOrderFullyReady).map((o) => o.id)
+        );
+        const tokensToAnnounce = [];
+        if (hasLoadedOnceRef.current) {
+          (orders || []).forEach((order) => {
+            if (!order.token_no) return;
             if (displayModeRef.current === "token") {
-              const currentTokenReadyOrders = (orders || []).filter((order) => {
-                if (!order.items || order.items.length === 0) return false;
-                const activeItems = order.items.filter((i) => i.status !== "cancelled");
-                if (activeItems.length === 0) return false;
-                const allItemsReady = activeItems.every(
-                  (i) => i.status === "completed" || i.status === "delivered"
-                );
-                const hasPendingItems = activeItems.some(
-                  (i) => i.status === "created" || i.status === "preparing" || !i.status
-                );
-                return allItemsReady && !hasPendingItems;
-              });
-              if (currentTokenReadyOrders.length > 0) {
-                targetOrderToAnnounce = currentTokenReadyOrders[currentTokenReadyOrders.length - 1];
+              if (fullyReadyIds.has(order.id) && !previousFullyReadyIdsRef.current.has(order.id)) {
+                tokensToAnnounce.push(order.token_no);
               }
             } else {
-              const currentReadyOrders = (orders || []).filter((order) => {
-                if (!order.items || order.items.length === 0) return false;
-                return order.items.some((i) => i.status === "completed" || i.status === "delivered");
-              });
-              if (currentReadyOrders.length > 0) {
-                targetOrderToAnnounce = currentReadyOrders[currentReadyOrders.length - 1];
-              }
+              const readyNow = (order.items || []).filter(
+                (i) => i.status === "completed" || i.status === "delivered"
+              ).length;
+              const readyBefore = orderReadyCountsRef.current[order.id] || 0;
+              if (readyNow > readyBefore) tokensToAnnounce.push(order.token_no);
             }
+          });
+        }
+        previousFullyReadyIdsRef.current = fullyReadyIds;
+        hasLoadedOnceRef.current = true;
 
-            if (targetOrderToAnnounce && targetOrderToAnnounce.token_no) {
-              speakTokenAnnouncement(targetOrderToAnnounce.token_no);
-            } else {
-              const audio = new Audio("/new_order_sound.mp3");
-              audio.play().catch((e) => console.log("Audio play suppressed:", e));
-            }
+        if (playChimeOnReadyIncrease && soundEnabledRef.current && tokensToAnnounce.length > 0) {
+          try {
+            const chime = new Audio("/new_order_sound.mp3");
+            chime.play().catch(() => {});
+            setTimeout(() => speakTokenAnnouncement(tokensToAnnounce), 600);
           } catch (e) {
             console.error(e);
           }
@@ -425,6 +403,7 @@ export default function OrderStatusDisplayPage() {
 
         previousReadyItemsCountRef.current = currentReadyItemsCount;
         previousTokenReadyOrdersCountRef.current = currentTokenReadyOrdersCount;
+        setLastSyncedAt(new Date());
 
         // Track state transition timestamps for ordering (Preparing and Ready for Pickup)
         const now = Date.now();
@@ -468,10 +447,16 @@ export default function OrderStatusDisplayPage() {
       }
     } catch (err) {
       console.error(err);
+      // Once the screen has data, keep showing it through transient network
+      // errors instead of replacing the whole TV with an error page.
+      if (hasLoadedOnceRef.current) return;
+      const notFound = err?.response?.status === 404;
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: "Unable to load order status display.",
+        error: notFound
+          ? "This display link is no longer valid. Open the Order Display again from the Orders page."
+          : "Unable to load order status display. Retrying…",
       }));
     }
   };
@@ -483,32 +468,38 @@ export default function OrderStatusDisplayPage() {
   // Socket listener for live updates
   useEffect(() => {
     if (!state.tenantId) return;
+    // Context socket can be null outside the provider; fall back to the shared client.
+    const s = socket || sharedSocket;
 
     const handleUpdate = () => {
       fetchData(true);
     };
 
-    if (isSocketConnected && socket) {
-      socket.emit("authenticate", state.tenantId);
-      socket.on("order_update", handleUpdate);
-      socket.on("new_order", handleUpdate);
-      socket.on("ready_for_pickup", handleUpdate);
-    } else {
-      initSocket();
-      socket.emit("authenticate", state.tenantId);
-      socket.on("order_update", handleUpdate);
-      socket.on("new_order", handleUpdate);
-      socket.on("ready_for_pickup", handleUpdate);
-    }
+    if (!s.connected) initSocket();
+    s.emit("authenticate", state.tenantId);
+    s.on("order_update", handleUpdate);
+    s.on("new_order", handleUpdate);
+    s.on("ready_for_pickup", handleUpdate);
+
+    // Catch up on anything missed while the socket was down.
+    if (isSocketConnected) fetchData(true);
 
     return () => {
-      if (socket) {
-        socket.off("order_update", handleUpdate);
-        socket.off("new_order", handleUpdate);
-        socket.off("ready_for_pickup", handleUpdate);
-      }
+      s.off("order_update", handleUpdate);
+      s.off("new_order", handleUpdate);
+      s.off("ready_for_pickup", handleUpdate);
     };
   }, [state.tenantId, isSocketConnected]);
+
+  // Safety-net polling: a wall display must never freeze on stale data if the
+  // socket silently drops. Faster when offline, slow when the socket is live.
+  useEffect(() => {
+    const interval = setInterval(
+      () => fetchData(true),
+      isSocketConnected ? 30000 : 8000
+    );
+    return () => clearInterval(interval);
+  }, [qrcode, isSocketConnected]);
 
 
 
@@ -534,47 +525,184 @@ export default function OrderStatusDisplayPage() {
     );
   }
 
-  // --- Detailed View Filters ---
-  // PREPARING orders: orders with at least 1 item created or preparing, sorted newest to top (position 1)
+  // --- Detailed View: three lanes, each order in exactly one lane ---
+  const isItemReady = (i) => i.status === "completed" || i.status === "delivered";
+  const activeItemsOf = (order) => (order.items || []).filter((i) => i.status !== "cancelled");
+
+  // RECEIVED: nothing started yet (every item still queued)
+  const receivedOrders = state.orders
+    .filter((order) => {
+      const items = activeItemsOf(order);
+      return items.length > 0 && items.every((i) => !i.status || i.status === "created");
+    })
+    .sort((a, b) => a.id - b.id);
+
+  // PREPARING: kitchen has started (something cooking or partly ready)
   const preparingOrders = state.orders
     .filter((order) => {
-      if (!order.items || order.items.length === 0) return false;
-      return order.items.some((i) => i.status === "created" || i.status === "preparing");
+      const items = activeItemsOf(order);
+      if (items.length === 0 || isOrderFullyReady(order)) return false;
+      return items.some((i) => i.status === "preparing" || isItemReady(i));
     })
+    .sort((a, b) => a.id - b.id);
+
+  // READY: every item done, most recently ready first
+  const readyOrders = state.orders
+    .filter(isOrderFullyReady)
     .sort((a, b) => {
-      const timeA = preparingTimestampsRef.current[a.id] || (a.id * 1000);
-      const timeB = preparingTimestampsRef.current[b.id] || (b.id * 1000);
+      const timeA = readyTimestampsRef.current[a.id] || a.id * 1000;
+      const timeB = readyTimestampsRef.current[b.id] || b.id * 1000;
       return timeB - timeA;
     });
 
-  // READY orders: orders with at least 1 item completed or delivered, sorted newest to top (position 1)
-  const readyOrders = state.orders
-    .filter((order) => {
-      if (!order.items || order.items.length === 0) return false;
-      return order.items.some((i) => i.status === "completed" || i.status === "delivered");
-    })
-    .sort((a, b) => {
-      const timeA = readyTimestampsRef.current[a.id] || (a.id * 1000);
-      const timeB = readyTimestampsRef.current[b.id] || (b.id * 1000);
-      return timeB - timeA;
-    });
+  const orderLabel = (order) => {
+    if (order.table_title) return order.table_title;
+    const type = String(order.delivery_type || "").toLowerCase();
+    if (type === "takeaway") return "Takeaway";
+    if (type === "delivery") return "Delivery";
+    if (type === "dinein") return "Dine-in";
+    return "";
+  };
+
+  const minutesSince = (date) => {
+    const t = new Date(date).getTime();
+    if (!Number.isFinite(t)) return null;
+    return Math.max(0, Math.floor((currentTime.getTime() - t) / 60000));
+  };
+
+  const LANES = {
+    received: {
+      title: "Order Received",
+      icon: IconReceipt,
+      orders: receivedOrders,
+      empty: "No new orders",
+      headText: "text-slate-700 dark:text-slate-200",
+      badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+      bar: "bg-slate-400",
+      token: "bg-slate-700 text-white dark:bg-slate-600",
+      card: "border-slate-200 bg-white dark:border-slate-700/70 dark:bg-[#181818]",
+    },
+    preparing: {
+      title: "Preparing",
+      icon: IconChefHat,
+      orders: preparingOrders,
+      empty: "Kitchen is all caught up",
+      headText: "text-amber-700 dark:text-amber-400",
+      badge: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
+      bar: "bg-amber-500",
+      token: "bg-amber-500 text-white",
+      card: "border-amber-200 bg-white dark:border-amber-800/50 dark:bg-[#181818]",
+    },
+    ready: {
+      title: "Ready for Pickup",
+      icon: IconChecks,
+      orders: readyOrders,
+      empty: "No orders ready yet",
+      headText: "text-emerald-700 dark:text-emerald-400",
+      badge: "bg-emerald-600 text-white",
+      bar: "bg-emerald-500",
+      token: "bg-emerald-600 text-white",
+      card: "border-emerald-300 bg-emerald-50/70 dark:border-emerald-700/60 dark:bg-emerald-950/30",
+    },
+  };
+
+  const renderItemStatus = (item) => {
+    if (isItemReady(item)) {
+      return (
+        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+          <IconCheck size={12} stroke={iconStroke} /> Ready
+        </span>
+      );
+    }
+    if (item.status === "preparing") {
+      return (
+        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
+          <IconClock size={12} stroke={iconStroke} className="animate-pulse" /> Cooking
+        </span>
+      );
+    }
+    return (
+      <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+        Queued
+      </span>
+    );
+  };
+
+  const renderOrderCard = (order, laneKey) => {
+    const lane = LANES[laneKey];
+    const items = activeItemsOf(order);
+    const readyCount = items.filter(isItemReady).length;
+    const pct = items.length ? Math.round((readyCount / items.length) * 100) : 0;
+    const label = orderLabel(order);
+    const mins = minutesSince(order.date);
+
+    return (
+      <div
+        key={order.id}
+        className={`osd-hero-pop rounded-2xl border p-3.5 flex flex-col gap-2.5 shadow-sm ${lane.card}`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold text-xl tabular-nums shrink-0 ${lane.token}`}
+          >
+            {order.token_no ?? "–"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-extrabold text-gray-900 dark:text-white truncate">
+              {label || `Order #${order.id}`}
+            </p>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {new Date(order.date).toLocaleTimeString("en-US", { timeStyle: "short" })}
+              {mins !== null && ` · ${mins < 1 ? "just now" : `${mins} min`}`}
+            </p>
+          </div>
+          {laneKey === "ready" ? (
+            <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-600 text-white">
+              <IconCheck size={13} stroke={iconStroke} /> Ready
+            </span>
+          ) : (
+            <span className={`shrink-0 text-xs font-extrabold px-2.5 py-1 rounded-full tabular-nums ${lane.badge}`}>
+              {readyCount}/{items.length}
+            </span>
+          )}
+        </div>
+
+        {laneKey === "preparing" && (
+          <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-500 ${lane.bar}`} style={{ width: `${pct}%` }} />
+          </div>
+        )}
+
+        <ul className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800 max-h-52 overflow-y-auto no-scrollbar">
+          {items.map((item) => (
+            <li key={item.id} className="py-1.5 flex items-center justify-between gap-2 text-sm">
+              <span
+                className={`min-w-0 truncate font-semibold ${
+                  isItemReady(item) && laneKey !== "ready"
+                    ? "text-slate-400 dark:text-slate-500 line-through decoration-slate-300"
+                    : "text-gray-800 dark:text-gray-100"
+                }`}
+              >
+                <span className="font-extrabold tabular-nums">{item.quantity}×</span> {item.item_title}
+                {item.variant_title && (
+                  <span className="text-slate-500 dark:text-slate-400 font-medium"> · {item.variant_title}</span>
+                )}
+              </span>
+              {laneKey !== "ready" && renderItemStatus(item)}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
 
   // --- Token Display View Filters (Driven strictly by 100% overall order completion) ---
   // Token READY orders: orders where ALL active items are completed/delivered and ZERO items are created/preparing
-  const tokenReadyOrders = state.orders.filter((order) => {
-    if (!order.items || order.items.length === 0) return false;
-    const activeItems = order.items.filter((i) => i.status !== "cancelled");
-    if (activeItems.length === 0) return false;
-
-    const allItemsReady = activeItems.every(
-      (i) => i.status === "completed" || i.status === "delivered"
-    );
-    const hasPendingItems = activeItems.some(
-      (i) => i.status === "created" || i.status === "preparing" || !i.status
-    );
-
-    return allItemsReady && !hasPendingItems;
-  });
+  // Token PREPARING orders: everything with items that is not yet fully ready,
+  // oldest first so customers can see their place in the queue.
+  const tokenPreparingOrders = state.orders
+    .filter((order) => order.token_no && order.items?.length > 0 && !isOrderFullyReady(order))
+    .sort((a, b) => a.id - b.id);
 
   return (
     <div className="h-screen max-h-screen min-h-screen bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors">
@@ -616,7 +744,7 @@ export default function OrderStatusDisplayPage() {
           <button
             onClick={toggleSound}
             title={soundEnabled ? "Mute Order Token Sound" : "Enable Order Token Sound"}
-            className={`p-2 rounded-xl border transition-all shadow-xs shrink-0 ${
+            className={`h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl border transition-all shadow-xs shrink-0 ${
               soundEnabled
                 ? "bg-restro-gray dark:bg-[#1e1e1e] border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60"
                 : "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/50 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/60"
@@ -633,7 +761,7 @@ export default function OrderStatusDisplayPage() {
           <button
             onClick={() => toggleDisplayMode(displayMode === "detailed" ? "token" : "detailed")}
             title={`Switch to ${displayMode === "detailed" ? "Token Display" : "Detailed View"}`}
-            className="p-2 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
+            className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
           >
             {displayMode === "detailed" ? (
               <IconHash size={20} stroke={iconStroke} />
@@ -646,8 +774,8 @@ export default function OrderStatusDisplayPage() {
           {displayMode === "detailed" && (
             <button
               onClick={toggleLayoutMode}
-              title={`Switch to ${layoutMode === "vertical" ? "Horizontal (Stacked)" : "Vertical (Side-by-Side)"} view`}
-              className="p-2 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
+              title={`Switch to ${layoutMode === "vertical" ? "stacked rows" : "three columns"}`}
+              className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
             >
               {layoutMode === "vertical" ? (
                 <IconLayoutColumns size={20} stroke={iconStroke} />
@@ -657,8 +785,30 @@ export default function OrderStatusDisplayPage() {
             </button>
           )}
 
-          {/* Time Display */}
-          <div className="text-right border-l border-restro-border-green dark:border-emerald-500/30 pl-3">
+          {/* Fullscreen Toggle (TV / kiosk) */}
+          {document.fullscreenEnabled && (
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit full screen" : "Full screen"}
+              className="h-[42px] w-[42px] flex items-center justify-center active:scale-95 rounded-xl bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 hover:bg-restro-green-light dark:hover:bg-emerald-950/60 transition-all shadow-xs shrink-0"
+            >
+              {isFullscreen ? (
+                <IconMinimize size={20} stroke={iconStroke} />
+              ) : (
+                <IconMaximize size={20} stroke={iconStroke} />
+              )}
+            </button>
+          )}
+
+          {/* Time Display + live sync status */}
+          <div
+            className="text-right border-l border-restro-border-green dark:border-emerald-500/30 pl-3"
+            title={
+              lastSyncedAt
+                ? `Last updated ${lastSyncedAt.toLocaleTimeString()}`
+                : undefined
+            }
+          >
             <p className="text-lg font-bold tracking-tight text-gray-900 dark:text-white leading-tight">
               {currentTime.toLocaleTimeString("en-US", {
                 hour: "2-digit",
@@ -666,7 +816,13 @@ export default function OrderStatusDisplayPage() {
                 second: "2-digit",
               })}
             </p>
-            <p className="text-[10px] text-restro-text dark:text-gray-400 font-medium">
+            <p className="text-[10px] text-restro-text dark:text-gray-400 font-medium flex items-center justify-end gap-1.5">
+              <span
+                className={`inline-block w-1.5 h-1.5 rounded-full ${
+                  isSocketConnected ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                }`}
+                title={isSocketConnected ? "Live" : "Reconnecting…"}
+              />
               {currentTime.toLocaleDateString("en-US", {
                 weekday: "short",
                 month: "short",
@@ -677,317 +833,189 @@ export default function OrderStatusDisplayPage() {
         </div>
       </header>
 
+      <style>{`
+        @keyframes osdHeroPop { 0% { transform: scale(0.85); opacity: 0; } 60% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(1); } }
+        .osd-hero-pop { animation: osdHeroPop 450ms ease-out both; }
+      `}</style>
+
+      {soundEnabled && !audioUnlocked && (
+        <button
+          type="button"
+          onClick={() => setAudioUnlocked(true)}
+          className="shrink-0 min-h-[42px] w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 text-sm font-bold active:scale-[0.99]"
+        >
+          <IconHandFinger size={18} stroke={iconStroke} />
+          Tap anywhere once to enable token announcements
+        </button>
+      )}
+
       {/* Main Container: Render either Hero + Queue Token Display or Detailed Order Status Swimlanes */}
       {displayMode === "token" ? (
-        <main className="flex-1 p-4 md:p-6 overflow-hidden flex flex-col md:flex-row gap-5 h-[calc(100vh-60px)] bg-[#f8faf8] dark:bg-[#0a0a0a]">
-          {/* LEFT HERO PANEL (RECENTLY CALLED TOKEN) */}
+        <main className="flex-1 min-h-0 p-4 md:p-6 overflow-hidden flex flex-col md:flex-row gap-5 bg-[#f8faf8] dark:bg-[#0a0a0a]">
+          {/* LEFT HERO PANEL (NOW CALLING) */}
           <section className="w-full md:w-5/12 flex flex-col items-center justify-center rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-6 shrink-0 max-h-full">
-            <h2 className="text-base font-extrabold text-gray-800 dark:text-gray-200 tracking-wider uppercase mb-6">
-              RECENTLY CALLED TOKEN
+            <h2 className="text-base md:text-xl font-extrabold text-gray-800 dark:text-gray-200 tracking-[0.2em] uppercase mb-6">
+              {heroToken ? "Now Calling" : "Recently Called"}
             </h2>
 
-            {/* Big Token Hero Card with exact requested background class and no shadow */}
-            <div className="bg-gray-50 dark:bg-restro-gray border border-restro-border-green dark:border-emerald-500/40 rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center w-full max-w-md min-h-[280px] transition-all duration-300">
+            <div
+              className={`rounded-3xl p-8 md:p-12 flex flex-col items-center justify-center w-full max-w-xl min-h-[240px] md:min-h-[45vh] transition-all duration-300 border ${
+                heroToken
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-500/50"
+                  : "bg-gray-50 dark:bg-restro-gray border-restro-border-green dark:border-emerald-500/40"
+              }`}
+            >
               {heroToken ? (
-                <>
-                  <span className="text-7xl sm:text-8xl md:text-9xl font-extrabold text-gray-900 dark:text-white leading-none tracking-tight">
+                <div key={heroToken.id} className="osd-hero-pop flex flex-col items-center">
+                  <span
+                    className="font-extrabold text-gray-900 dark:text-white leading-none tracking-tight tabular-nums"
+                    style={{ fontSize: "clamp(5rem, 14vw, 16rem)" }}
+                  >
                     {heroToken.token_no}
                   </span>
-                  <span className="px-5 py-2 rounded-full text-xs sm:text-sm font-extrabold uppercase tracking-wider bg-restro-green-light dark:bg-emerald-950/80 text-restro-green-dark dark:text-emerald-300 border border-restro-border-green dark:border-emerald-500/40 flex items-center gap-1.5 mt-8">
-                    <IconCheck size={16} stroke={iconStroke} /> READY FOR PICKUP
+                  <span className="px-5 py-2 rounded-full text-sm md:text-lg font-extrabold uppercase tracking-wider bg-restro-green text-white flex items-center gap-2 mt-8 whitespace-nowrap">
+                    <IconCheck size={20} stroke={iconStroke} /> Ready for pickup
                   </span>
-                </>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center p-4">
-                  <div className="w-14 h-14 rounded-full bg-restro-gray dark:bg-emerald-950/60 border border-restro-border-green dark:border-emerald-500/40 flex items-center justify-center mb-3">
-                    <IconSparkles size={28} stroke={iconStroke} className="text-restro-green dark:text-emerald-400" />
+                  <div className="w-16 h-16 rounded-full bg-restro-gray dark:bg-emerald-950/60 border border-restro-border-green dark:border-emerald-500/40 flex items-center justify-center mb-3">
+                    <IconSparkles size={30} stroke={iconStroke} className="text-restro-green dark:text-emerald-400" />
                   </div>
-                  <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Waiting for call...</p>
-                  <p className="text-xs text-restro-text dark:text-gray-400 mt-1">Tokens will be announced here</p>
+                  <p className="text-base md:text-xl font-bold text-gray-700 dark:text-gray-300">Waiting for the next order…</p>
+                  <p className="text-sm md:text-base text-restro-text dark:text-gray-400 mt-1">Your token will be called here when it is ready</p>
                 </div>
               )}
             </div>
           </section>
 
-          {/* RIGHT SIDE PANEL (OTHER READY TOKENS GRID) */}
-          <section className="w-full md:w-7/12 flex flex-col rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-5 overflow-hidden shrink-0 max-h-full">
-            <div className="flex items-center justify-between pb-3 border-b border-restro-border-green dark:border-emerald-500/30 mb-4 shrink-0">
-              <h2 className="text-sm font-extrabold text-restro-green dark:text-emerald-400 tracking-widest uppercase">
-                Ready Tokens
-              </h2>
-              <span className="px-3 py-0.5 rounded-full bg-restro-green-light dark:bg-emerald-950/70 border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 text-xs font-bold">
-                {rightPanelTokens.length} Ready
-              </span>
-            </div>
+          {/* RIGHT SIDE: READY TOKENS (top) + NOW PREPARING (bottom) */}
+          <div className="w-full md:w-7/12 flex-1 min-h-0 flex flex-col gap-5">
+            <section className="flex-[3] min-h-0 flex flex-col rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-5 overflow-hidden">
+              <div className="flex items-center justify-between pb-3 border-b border-restro-border-green dark:border-emerald-500/30 mb-4 shrink-0">
+                <h2 className="text-base md:text-lg font-extrabold text-restro-green dark:text-emerald-400 tracking-widest uppercase flex items-center gap-2">
+                  <IconCheck size={20} stroke={iconStroke} /> Ready for Pickup
+                </h2>
+                <span className="px-3 py-1 rounded-full bg-restro-green-light dark:bg-emerald-950/70 border border-restro-border-green dark:border-emerald-500/40 text-restro-green dark:text-emerald-400 text-sm font-bold tabular-nums">
+                  {rightPanelTokens.length + (heroToken ? 1 : 0)}
+                </span>
+              </div>
 
-            <div className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
-              {rightPanelTokens.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-restro-text dark:text-gray-400">
-                  <div className="w-12 h-12 rounded-full bg-restro-gray dark:bg-emerald-950/60 border border-restro-border-green dark:border-emerald-500/40 flex items-center justify-center mb-3">
-                    <IconSparkles size={24} stroke={iconStroke} className="text-restro-green dark:text-emerald-400" />
+              <div className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
+                {rightPanelTokens.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-restro-text dark:text-gray-400">
+                    <p className="text-sm md:text-base font-bold text-gray-800 dark:text-gray-200">
+                      {heroToken ? "No other tokens waiting" : "No tokens ready yet"}
+                    </p>
+                    <p className="text-xs md:text-sm text-restro-text dark:text-gray-400 mt-1">Called tokens stay listed here until collected</p>
                   </div>
-                  <p className="text-sm font-bold text-gray-800 dark:text-gray-200">No other ready tokens</p>
-                  <p className="text-xs text-restro-text dark:text-gray-400 mt-1">Tokens move here after announcement</p>
-                </div>
-              ) : (
-                <div
-                  className="grid gap-3.5 items-start"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 180px), 1fr))`,
-                  }}
-                >
-                  {rightPanelTokens.map((order) => (
-                    <div
-                      key={order.id}
-                      className="rounded-2xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#161616] p-4 flex flex-col items-center justify-between transition-all duration-200 min-h-[120px]"
-                    >
-                      <div className="flex-1 flex items-center justify-center py-1">
-                        <span className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white leading-none tracking-tight">
+                ) : (
+                  <div
+                    className="grid gap-3.5 items-start"
+                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 150px), 1fr))" }}
+                  >
+                    {rightPanelTokens.map((order) => (
+                      <div
+                        key={order.id}
+                        className="osd-hero-pop rounded-2xl border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/30 p-4 flex items-center justify-center min-h-[110px]"
+                      >
+                        <span
+                          className="font-extrabold text-gray-900 dark:text-white leading-none tracking-tight tabular-nums"
+                          style={{ fontSize: "clamp(2.5rem, 4.5vw, 4.5rem)" }}
+                        >
                           {order.token_no}
                         </span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-restro-green-light dark:bg-emerald-950/80 text-restro-green-dark dark:text-emerald-300 border border-restro-border-green dark:border-emerald-500/40 flex items-center gap-1 shrink-0">
-                        <IconCheck size={11} stroke={iconStroke} /> READY FOR PICKUP
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="flex-[2] min-h-0 flex flex-col rounded-3xl border border-restro-border-green dark:border-emerald-500/30 bg-white dark:bg-[#121212] p-5 overflow-hidden">
+              <div className="flex items-center justify-between pb-3 border-b border-restro-border-green dark:border-emerald-500/30 mb-4 shrink-0">
+                <h2 className="text-base md:text-lg font-extrabold text-gray-700 dark:text-gray-300 tracking-widest uppercase flex items-center gap-2">
+                  <IconChefHat size={20} stroke={iconStroke} /> Now Preparing
+                </h2>
+                <span className="px-3 py-1 rounded-full bg-restro-gray dark:bg-[#1e1e1e] border border-restro-border-green dark:border-gray-700 text-restro-text dark:text-gray-300 text-sm font-bold tabular-nums">
+                  {tokenPreparingOrders.length}
+                </span>
+              </div>
+              <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
+                {tokenPreparingOrders.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm md:text-base font-bold text-restro-text dark:text-gray-400">
+                    Kitchen is all caught up
+                  </div>
+                ) : (
+                  <div
+                    className="grid gap-2.5"
+                    style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 96px), 1fr))" }}
+                  >
+                    {tokenPreparingOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="rounded-xl border border-gray-200 dark:border-gray-700/70 bg-gray-50 dark:bg-[#181818] h-16 flex items-center justify-center"
+                      >
+                        <span className="text-2xl md:text-3xl font-extrabold text-gray-500 dark:text-gray-400 tabular-nums">
+                          {order.token_no}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
         </main>
       ) : (
-        /* Main Swimlane Layout Container for Detailed View with Resizable Split Screen */
+        /* Detailed View: three lanes (Received -> Preparing -> Ready) */
         <main
-          ref={mainContainerRef}
-          className={`flex-1 p-3 overflow-hidden ${
+          className={`flex-1 min-h-0 p-3 md:p-4 overflow-y-auto md:overflow-hidden grid gap-3 md:gap-4 bg-[#f8faf8] dark:bg-[#0a0a0a] ${
             layoutMode === "vertical"
-              ? "flex flex-row gap-0.5 h-[calc(100vh-60px)]"
-              : "flex flex-col gap-0.5 h-[calc(100vh-60px)]"
+              ? "grid-cols-1 md:grid-cols-3"
+              : "grid-cols-1 md:grid-rows-3"
           }`}
         >
-          {/* Preparing Swimlane Panel */}
-          <section
-            style={
-              layoutMode === "vertical"
-                ? { width: `calc(${splitRatioVert}% - 6px)`, height: "100%" }
-                : { height: `calc(${splitRatioHoriz}% - 6px)`, width: "100%" }
-            }
-            className="flex flex-col rounded-2xl border border-restro-border-green bg-white dark:bg-[#121212] p-3 overflow-hidden shadow-xs shrink-0 max-h-full"
-          >
-            {/* Panel Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-restro-border-green mb-2 shrink-0">
-              <h2 className="text-sm font-extrabold text-gray-900 dark:text-white tracking-wide uppercase">
-                Preparing
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-restro-gray border border-restro-border-green text-restro-text text-xs font-bold">
-                {preparingOrders.length} {preparingOrders.length === 1 ? "Order" : "Orders"}
-              </span>
-            </div>
-
-            {/* Inner Scrollable Cards Container */}
-            <div className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
-              {preparingOrders.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 min-h-[140px]">
-                  <div className="w-12 h-12 rounded-full bg-restro-gray dark:bg-restro-gray/60 border border-restro-border-green flex items-center justify-center mb-2 text-restro-text">
-                    <IconChefHat size={26} stroke={iconStroke} />
-                  </div>
-                  <p className="text-restro-text font-bold text-sm">All caught up!</p>
-                  <p className="text-xs text-restro-text mt-0.5">No orders currently in preparation</p>
+          {["received", "preparing", "ready"].map((laneKey) => {
+            const lane = LANES[laneKey];
+            const LaneIcon = lane.icon;
+            return (
+              <section
+                key={laneKey}
+                className="min-h-[240px] md:min-h-0 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121212] overflow-hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                  <h2 className={`text-sm md:text-base font-extrabold tracking-wider uppercase flex items-center gap-2 ${lane.headText}`}>
+                    <LaneIcon size={20} stroke={iconStroke} /> {lane.title}
+                  </h2>
+                  <span className={`min-w-[32px] h-8 px-2.5 inline-flex items-center justify-center rounded-full text-sm font-extrabold tabular-nums ${lane.badge}`}>
+                    {lane.orders.length}
+                  </span>
                 </div>
-              ) : (
-                <div
-                  className="grid gap-2.5 items-start transition-all duration-200 ease-in-out"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 270px), 1fr))`,
-                  }}
-                >
-                  {preparingOrders.map((order) => {
-                    const totalItems = order.items.length;
-                    const completedItems = order.items.filter(
-                      (i) => i.status === "completed" || i.status === "delivered"
-                    ).length;
 
-                    return (
-                      <div
-                        key={order.id}
-                        className="rounded-2xl border border-restro-border-green bg-white dark:bg-[#181818] p-3 shadow-sm flex flex-col justify-start space-y-2 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-md h-full"
-                      >
-                        {/* Single Horizontal Header Row */}
-                        <div className="flex items-center justify-between pb-1">
-                          <div className="w-9 h-9 rounded-full bg-gray-800 dark:bg-[#0a0a0a] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-                            {order.token_no}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-restro-text bg-restro-gray border border-restro-border-green px-2 py-0.5 rounded-full">
-                              {completedItems}/{totalItems} ready
-                            </span>
-                            <span className="text-xs text-restro-text font-bold">
-                              {new Date(order.date).toLocaleTimeString("en-US", { timeStyle: "short" })}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Vertically Stacked Pending Items List with horizontal dividers */}
-                        <div className="flex flex-col divide-y divide-gray-200 dark:divide-gray-700/60 pt-1 border-t border-restro-border-green/60 max-h-48 overflow-y-auto no-scrollbar">
-                          {order.items
-                            .filter((item) => item.status !== "completed" && item.status !== "delivered")
-                            .map((item, idx) => {
-                              const isPrep = item.status === "preparing";
-
-                              return (
-                                <div key={idx} className="py-1.5 flex items-center justify-between text-xs font-semibold">
-                                  <div className="flex items-center gap-2 truncate pr-2">
-                                    {isPrep ? (
-                                      <IconClock size={15} stroke={iconStroke} className="text-restro-text shrink-0 animate-pulse" />
-                                    ) : (
-                                      <span className="w-3.5 shrink-0"></span>
-                                    )}
-                                    <span className="truncate text-gray-800 dark:text-gray-200">
-                                      {item.item_title} {item.variant_title && `(${item.variant_title})`} x {item.quantity}
-                                    </span>
-                                  </div>
-                                  <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
-                                    isPrep
-                                      ? "bg-restro-gray text-restro-text border border-restro-border-green"
-                                      : "text-restro-text"
-                                  }`}>
-                                    {isPrep ? "Cooking" : "Queued"}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3">
+                  {lane.orders.length === 0 ? (
+                    <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500">
+                      <LaneIcon size={30} stroke={iconStroke} />
+                      <p className="mt-2 text-sm font-bold">{lane.empty}</p>
+                    </div>
+                  ) : (
+                    <div
+                      className="grid gap-3 items-start"
+                      style={{
+                        gridTemplateColumns:
+                          layoutMode === "vertical"
+                            ? "repeat(auto-fill, minmax(min(100%, 260px), 1fr))"
+                            : "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
+                      }}
+                    >
+                      {lane.orders.map((order) => renderOrderCard(order, laneKey))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </section>
-
-          {/* LeetCode Style Draggable Divider Handle */}
-          {layoutMode === "vertical" ? (
-            <div
-              onMouseDown={handleMouseDown}
-              onTouchStart={() => { isDraggingRef.current = true; }}
-              onDoubleClick={resetSplitRatio}
-              title="Drag left/right to resize panels | Double-click to reset 50/50"
-              className="w-3 hover:w-4 bg-transparent hover:bg-restro-green/20 dark:hover:bg-restro-green-10 flex items-center justify-center cursor-col-resize group transition-all shrink-0 select-none h-full py-4 z-20"
-            >
-              <div className="w-1.5 h-14 rounded-full bg-restro-border-green group-hover:bg-restro-green transition-colors flex flex-col items-center justify-center gap-1 shadow-xs">
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-              </div>
-            </div>
-          ) : (
-            <div
-              onMouseDown={handleMouseDown}
-              onTouchStart={() => { isDraggingRef.current = true; }}
-              onDoubleClick={resetSplitRatio}
-              title="Drag up/down to resize panels | Double-click to reset 50/50"
-              className="h-3 hover:h-4 bg-transparent hover:bg-restro-green/20 dark:hover:bg-restro-green-10 flex items-center justify-center cursor-row-resize group transition-all shrink-0 select-none w-full px-4 z-20"
-            >
-              <div className="h-1.5 w-14 rounded-full bg-restro-border-green group-hover:bg-restro-green transition-colors flex items-center justify-center gap-1 shadow-xs">
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-                <div className="w-0.5 h-0.5 rounded-full bg-white dark:bg-gray-900"></div>
-              </div>
-            </div>
-          )}
-
-          {/* Ready for Pickup Swimlane Panel */}
-          <section
-            style={
-              layoutMode === "vertical"
-                ? { width: `calc(${100 - splitRatioVert}% - 6px)`, height: "100%" }
-                : { height: `calc(${100 - splitRatioHoriz}% - 6px)`, width: "100%" }
-            }
-            className="flex flex-col rounded-2xl border border-restro-border-green bg-white dark:bg-[#121212] p-3 overflow-hidden shadow-xs shrink-0 max-h-full"
-          >
-            {/* Panel Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-restro-border-green mb-2 shrink-0">
-              <h2 className="text-sm font-extrabold text-restro-green tracking-wide uppercase">
-                Ready for Pickup
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-restro-green-light dark:bg-restro-green-10 border border-restro-border-green text-restro-green text-xs font-bold">
-                {readyOrders.length} {readyOrders.length === 1 ? "Order" : "Orders"}
-              </span>
-            </div>
-
-            {/* Inner Scrollable Cards Container */}
-            <div ref={readyScrollRef} className="overflow-y-auto no-scrollbar flex-1 pr-1 min-h-0">
-              {readyOrders.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 min-h-[140px]">
-                  <div className="w-12 h-12 rounded-full bg-restro-gray dark:bg-restro-gray/60 border border-restro-border-green flex items-center justify-center mb-2 text-restro-text">
-                    <IconSparkles size={26} stroke={iconStroke} />
-                  </div>
-                  <p className="text-restro-text font-bold text-sm">No orders ready yet</p>
-                  <p className="text-xs text-restro-text mt-0.5">Orders will pop up here when kitchen completes them</p>
-                </div>
-              ) : (
-                <div
-                  className="grid gap-2.5 items-start transition-all duration-200 ease-in-out"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, 270px), 1fr))`,
-                  }}
-                >
-                  {readyOrders.map((order) => {
-                    const readyItems = order.items.filter(
-                      (i) => i.status === "completed" || i.status === "delivered"
-                    );
-                    const isFullyReady = readyItems.length === order.items.length;
-
-                    return (
-                      <div
-                        key={order.id}
-                        className="rounded-2xl border border-restro-border-green bg-restro-green-light/40 dark:bg-[#181818] p-3 shadow-sm flex flex-col justify-start space-y-2 transition-all duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-md h-full"
-                      >
-                        {/* Single Horizontal Header Row */}
-                        <div className="flex items-center justify-between pb-1">
-                          <div className="w-9 h-9 rounded-full bg-restro-green text-white flex items-center justify-center font-bold text-sm shadow-sm border border-emerald-400 shrink-0">
-                            {order.token_no}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {isFullyReady ? (
-                              <span className="text-[10px] font-bold text-restro-green-dark bg-restro-green-light border border-restro-border-green px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <IconCheck size={12} stroke={iconStroke} /> Complete & Ready
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-restro-green-dark bg-restro-green-light border border-restro-border-green px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <IconCheck size={12} stroke={iconStroke} /> Items Ready ({readyItems.length}/{order.items.length})
-                              </span>
-                            )}
-                            <span className="text-xs text-restro-text font-bold">
-                              {new Date(order.date).toLocaleTimeString("en-US", { timeStyle: "short" })}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Vertically Stacked Ready Items List with horizontal dividers */}
-                        <div className="flex flex-col divide-y divide-gray-200 dark:divide-gray-700/60 pt-1 border-t border-restro-border-green/60 max-h-48 overflow-y-auto no-scrollbar">
-                          {readyItems.map((item, idx) => (
-                            <div key={idx} className="py-1.5 flex items-center justify-between text-xs font-semibold">
-                              <div className="flex items-center gap-2 truncate pr-2">
-                                <IconChecks size={15} stroke={iconStroke} className="text-restro-green shrink-0" />
-                                <span className="truncate text-gray-900 dark:text-gray-100 font-bold">
-                                  {item.item_title} {item.variant_title && `(${item.variant_title})`} x {item.quantity}
-                                </span>
-                              </div>
-                              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-restro-green-light text-restro-green-dark">
-                                Ready
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
+              </section>
+            );
+          })}
         </main>
       )}
     </div>

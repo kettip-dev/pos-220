@@ -266,6 +266,47 @@ exports.updateQRMenuCodeDB = async (uniqueQRCode, tenantId) => {
     }
 };
 
+/**
+ * Returns the tenant's public store code (used by the QR menu and the
+ * customer-facing order status display), creating one if the store has
+ * never saved its settings. Safe to call concurrently: an existing code
+ * is never overwritten.
+ */
+exports.ensureQRMenuCodeDB = async (tenantId) => {
+    if (!tenantId) return null;
+    const conn = await getMySqlPromiseConnection();
+
+    try {
+        const [existing] = await conn.query(
+            `SELECT unique_qr_code FROM store_details WHERE tenant_id = ? LIMIT 1;`,
+            [tenantId]
+        );
+        if (existing[0]?.unique_qr_code) return existing[0].unique_qr_code;
+
+        const { nanoid } = require("nanoid");
+        const newCode = nanoid();
+
+        await conn.query(
+            `INSERT INTO store_details (tenant_id, unique_qr_code)
+             VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE unique_qr_code = COALESCE(unique_qr_code, VALUES(unique_qr_code));`,
+            [tenantId, newCode]
+        );
+
+        const [rows] = await conn.query(
+            `SELECT unique_qr_code FROM store_details WHERE tenant_id = ? LIMIT 1;`,
+            [tenantId]
+        );
+        await invalidateTenantSettings(tenantId);
+        return rows[0]?.unique_qr_code || null;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    } finally {
+        conn.release();
+    }
+};
+
 exports.getPrintSettingDB = async (tenantId) => {
     const conn = await getMySqlPromiseConnection();
 
