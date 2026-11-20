@@ -460,6 +460,12 @@ export function getQBOAppCategories(t, options = {}) {
           scopes: [SCOPES.SETTINGS],
           features: [PLAN_FEATURES.SETTINGS],
         },
+        {
+          label: t("navbar.hotel_pms", "Hotel PMS"),
+          path: "/dashboard/settings/hotel-pms",
+          scopes: [SCOPES.SETTINGS],
+          features: [PLAN_FEATURES.SETTINGS],
+        },
       ],
     },
     {

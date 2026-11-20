@@ -5,6 +5,7 @@ import {
   IconArrowUpRight,
   IconBook,
   IconBrandTelegram,
+  IconBed,
   IconChefHat,
   IconCreditCard,
   IconInfoSquareRounded,
@@ -103,6 +104,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/telegram",
       category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconBrandTelegram stroke={iconStroke} className="w-6 h-6 text-[#229ED9]" />,
+    },
+    {
+      id: "hotel-pms",
+      title: t("settings.hotel_pms", "Hotel PMS"),
+      description: t(
+        "settings.desc_hotel_pms",
+        "Connect a hotel PMS for Room Service orders and Charge to Room payments on guest bills."
+      ),
+      path: "/dashboard/settings/hotel-pms",
+      category: t("settings.cat_general_operations", "General & Operations"),
+      icon: <IconBed stroke={iconStroke} className="w-6 h-6 text-[#7C3AED]" />,
     },
     {
       id: "thermal-printers",

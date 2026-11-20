@@ -2,10 +2,11 @@ import React, { useEffect } from "react";
 import { useMenuLanguage } from "../../helpers/MenuLanguageHelper";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
-import { IconArrowBackUp, IconHistory, IconX, IconArmchair, IconBoxSeam, IconMotorbike } from "@tabler/icons-react";
+import { IconArrowBackUp, IconHistory, IconX, IconArmchair, IconBed, IconBoxSeam, IconMotorbike } from "@tabler/icons-react";
 import { formatAgo, formatDuration, getOrderTitle } from "./kdsUtils";
 
 const DiningIcon = ({ type }) => {
+  if (type === "roomservice") return <IconBed size={15} stroke={2} />;
   if (type === "dinein") return <IconArmchair size={15} stroke={2} />;
   if (type === "delivery") return <IconMotorbike size={15} stroke={2} />;
   return <IconBoxSeam size={15} stroke={2} />;

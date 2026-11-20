@@ -341,6 +341,12 @@ export const getNavGroups = (t, options = {}) => {
         features: [PLAN_FEATURES.SETTINGS],
       },
       {
+        text: t("navbar.hotel_pms", "Hotel PMS"),
+        path: "/dashboard/settings/hotel-pms",
+        scopes: [SCOPES.SETTINGS],
+        features: [PLAN_FEATURES.SETTINGS],
+      },
+      {
         text: t("navbar.tables_setup", "Tables & Floors"),
         path: "/dashboard/settings/tables",
         scopes: [SCOPES.SETTINGS],

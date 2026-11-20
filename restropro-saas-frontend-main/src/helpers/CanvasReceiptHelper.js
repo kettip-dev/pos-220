@@ -174,6 +174,9 @@ function normalizePrintDetails(details = {}) {
     ...details,
     cartItems: (details.cartItems || details.items || []).map(normalizeItem),
     tableName: firstDefined(details.tableName, details.table?.table_title, details.order_title),
+    roomNumber: firstDefined(details.roomNumber, details.pms_room_number, null),
+    roomGuestName: firstDefined(details.roomGuestName, details.pms_guest_name, null),
+    roomServiceNote: firstDefined(details.roomServiceNote, details.room_service_note, null),
     customer: details.customer || (details.customer_name ? { name: details.customer_name } : null),
     itemsTotal: Number(firstDefined(details.itemsTotal, details.sub_total, 0)),
     discountAmount: Number(firstDefined(details.discountAmount, details.discount_total, 0)),
@@ -236,6 +239,9 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
     dualTenderInfo = null,
     cashTendered = null,
     changeAmount = null,
+    roomNumber,
+    roomGuestName,
+    roomServiceNote,
   } = normalizePrintDetails(details);
 
   // Measurement canvas to dynamically compute height
@@ -324,7 +330,7 @@ export function renderReceiptToCanvas(details = {}, paperSize = 80) {
 
     const diningInfo = [
       deliveryType ? `Type: ${deliveryType}` : null,
-      tableName || tableId ? `Table: ${tableName || tableId}` : null,
+      roomNumber ? `Room: ${roomNumber}${roomGuestName ? ` (${roomGuestName})` : ""}` : tableName || tableId ? `Table: ${tableName || tableId}` : null,
       customer?.name ? `Guest: ${customer.name}` : null,
     ]
       .filter(Boolean)
@@ -561,6 +567,9 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     orderId,
     stationName,
     notes,
+    roomNumber,
+    roomGuestName,
+    roomServiceNote,
   } = normalizePrintDetails(details);
 
   // Measurement canvas
@@ -647,7 +656,7 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     ctx.font = `bold ${paperSize === 58 ? 20 : 26}px ${FONT_FAMILY}`;
     const locationStr = [
       deliveryType ? deliveryType.toUpperCase() : null,
-      tableName || tableId ? `TABLE ${tableName || tableId}` : null,
+      roomNumber ? `ROOM ${roomNumber}` : tableName || tableId ? `TABLE ${tableName || tableId}` : null,
     ]
       .filter(Boolean)
       .join("  -  ");
@@ -655,6 +664,13 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     if (locationStr) {
       ctx.fillText(locationStr, width / 2, y);
       y += paperSize === 58 ? 24 : 30;
+    }
+    if (roomNumber && (roomGuestName || roomServiceNote)) {
+      ctx.font = `bold ${paperSize === 58 ? 15 : 18}px ${FONT_FAMILY}`;
+      for (const line of [roomGuestName ? `Guest: ${roomGuestName}` : null, roomServiceNote ? `Deliver: ${roomServiceNote}` : null].filter(Boolean)) {
+        ctx.fillText(line.length > 48 ? `${line.slice(0, 47)}…` : line, width / 2, y);
+        y += paperSize === 58 ? 20 : 24;
+      }
     }
 
     ctx.font = `normal ${paperSize === 58 ? 15 : 18}px ${FONT_FAMILY}`;

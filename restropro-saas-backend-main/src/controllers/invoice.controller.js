@@ -205,6 +205,16 @@ exports.voidInvoice = async (req, res) => {
     const io = req.app.get("io");
     if (io) io.to(String(tenantId)).emit("register_update", { action: "invoice_voided", invoiceId: Number(invoiceId) });
 
+    // A voided bill must come off the guest's hotel folio too.
+    getOrderIdsForInvoiceDB(invoiceId, tenantId)
+      .then(async (orderIds) => {
+        const { voidRoomChargeForOrderDB } = require("../services/pms.service");
+        for (const oid of orderIds || []) {
+          await voidRoomChargeForOrderDB(tenantId, oid, `Invoice #${invoiceId} voided: ${reason}`);
+        }
+      })
+      .catch((err) => console.error("[PMS] void room charge on invoice void failed:", err.message));
+
     // Fire-and-forget: never let a notification failure affect the void's
     // response, and never delay the response waiting on it (same contract as
     // notifyOrderReady/notifyCaptainCall).

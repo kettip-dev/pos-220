@@ -55,6 +55,8 @@ import RegisterPanel from '../components/register/RegisterPanel';
 import OpenRegisterModal from '../components/register/OpenRegisterModal';
 import { useTicketSide, TICKET_SIDES, useDisplayPrefs } from '../helpers/POSLayoutPrefs';
 import { CATEGORY_ALL_TONE, CATEGORY_FAVORITES_TONE, toneForIndex } from '../helpers/CategoryTones';
+import RoomPickerModal from '../components/pos/RoomPickerModal';
+import { getPmsSettings } from '../controllers/pms.controller';
 
 
 export default function POSPage() {
@@ -274,6 +276,10 @@ export default function POSPage() {
   const [isModifierDrawerOpen, setIsModifierDrawerOpen] = useState(false);
   const [activeCustomizingItem, setActiveCustomizingItem] = useState(null);
   const [guestCount, setGuestCount] = useState(1);
+  // Hotel room service: the checked-in guest this order goes to (null = none)
+  const [roomService, setRoomService] = useState(null);
+  const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
+  const [isRoomServiceEnabled, setIsRoomServiceEnabled] = useState(false);
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
   const [inlineNoteText, setInlineNoteText] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
@@ -525,6 +531,11 @@ export default function POSPage() {
   };
 
   const handleSelectDiningOption = (option) => {
+    if (option === 'roomservice') {
+      if (!roomService) setIsRoomPickerOpen(true);
+    } else if (roomService) {
+      setRoomService(null);
+    }
     setSelectedDiningOption(option);
     if (diningOptionRef.current) {
       diningOptionRef.current.value = option;
@@ -537,6 +548,8 @@ export default function POSPage() {
     _initSocket();
     // "Often ordered together" pairs (cached server-side for an hour).
     getUpsellPairs().then((res) => setUpsellPairs(res?.data?.pairs || {})).catch(() => {});
+    // Room Service only shows when the hotel PMS integration is on.
+    getPmsSettings().then((s) => setIsRoomServiceEnabled(Boolean(Number(s?.is_enabled)))).catch(() => {});
   },[]);
 
   // Offline queue: track connection, mirror the queue, send when back online.
@@ -1652,6 +1665,7 @@ export default function POSPage() {
       tableId: tableRef.current?.value || null,
       tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
       diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
+      roomService: roomService || null,
       customer: customer || null,
       customerType: customerType || "WALKIN",
       payableTotal: liveCartSummary.payableTotal,
@@ -1666,6 +1680,7 @@ export default function POSPage() {
     }
 
     if (diningOptionRef.current) diningOptionRef.current.value = "";
+    setRoomService(null);
     if (tableRef.current) tableRef.current.value = "";
     setSelectedTableTitle("");
     setActiveTableContext(null);
@@ -1715,6 +1730,7 @@ export default function POSPage() {
     if (diningOptionRef.current) {
       diningOptionRef.current.value = "";
     }
+    setRoomService(null);
     if (tableRef.current) {
       tableRef.current.value = "";
     }
@@ -1766,6 +1782,7 @@ export default function POSPage() {
 
   const btnSelectDraftItemToCart = (draftItem, index) => {
     const { nameRef, cart, tableId, tableTitle, diningOption, customer: draftCust, customerType: draftCustType } = draftItem;
+    setRoomService(draftItem.roomService || null);
 
     if (diningOption && diningOptionRef.current) {
       diningOptionRef.current.value = diningOption;
@@ -1821,6 +1838,7 @@ export default function POSPage() {
         tableId: tableRef.current?.value || null,
         tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
         diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
+        roomService: roomService || null,
         customer: customer || null,
         customerType: customerType || "WALKIN",
         payableTotal: liveCartSummary.payableTotal,
@@ -1831,6 +1849,8 @@ export default function POSPage() {
       setDrafts(nextDrafts);
 
       const { nameRef, cart, tableId, tableTitle, diningOption, customer: draftCust, customerType: draftCustType } = draftItem;
+
+      setRoomService(draftItem.roomService || null);
       if (diningOption && diningOptionRef.current) {
         diningOptionRef.current.value = diningOption;
         setSelectedDiningOption(diningOption);
@@ -2010,6 +2030,7 @@ export default function POSPage() {
         tableId: tableRef.current?.value || null,
         tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
         diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
+        roomService: roomService || null,
         customer: customer || null,
         customerType: customerType || "WALKIN",
         payableTotal: liveCartSummary.payableTotal,
@@ -2325,14 +2346,51 @@ export default function POSPage() {
     }
   };
 
+  // Charge to Room only makes sense once a guest room is linked to the order.
+  const availablePaymentTypes = roomService
+    ? (paymentTypes || [])
+    : (paymentTypes || []).filter((p) => !Number(p.is_room_charge));
+
+  const isRoomServiceOrder = () => (diningOptionRef.current?.value || selectedDiningOption) === 'roomservice';
+
+  /** Room service without a room: open the picker and stop. */
+  const needsRoomFirst = () => {
+    if (isRoomServiceOrder() && !roomService) {
+      toast(t('room_service.pick_room_first', 'Pick the guest room first'));
+      setIsRoomPickerOpen(true);
+      return true;
+    }
+    return false;
+  };
+
+  const roomReceiptFields = () => (roomService
+    ? { roomNumber: roomService.roomNumber, roomGuestName: roomService.guestName, roomServiceNote: roomService.note || null }
+    : {});
+
+  const showRoomChargeResult = (pmsCharge) => {
+    if (!pmsCharge) return;
+    if (pmsCharge.success === false) {
+      toast.error(pmsCharge.message || t('room_service.charge_failed', 'Room charge was not posted to the hotel.'), { duration: 8000 });
+    } else if (pmsCharge.queued) {
+      toast(t('room_service.charge_queued', 'Hotel PMS offline: room charge queued and will be sent automatically.'), { duration: 6000 });
+    } else if (pmsCharge.status === 'SYNCED') {
+      toast.success(t('room_service.charge_posted', 'Charged to room {{room}}', { room: roomService?.roomNumber || '' }));
+    }
+  };
+
   const btnShowPayAndSendToKitchenModal = () => {
     if(cartItems?.length == 0) {
       toast.error(t('pos.empty_cart'));
       return;
     }
 
+    if (needsRoomFirst()) return;
+
     const summary = calculateOrderSummary();
-    const defaultPayType = state.selectedPaymentType || (paymentTypes?.length > 0 ? paymentTypes[0].id : null);
+    // Room service for a guest who may charge: Charge to Room is the usual tender.
+    const roomType = roomService && roomService.canPostCharges !== false ? availablePaymentTypes.find((p) => Number(p.is_room_charge)) : null;
+    const currentStillValid = availablePaymentTypes.some((p) => p.id == state.selectedPaymentType);
+    const defaultPayType = roomType?.id || (currentStillValid ? state.selectedPaymentType : null) || (availablePaymentTypes.length > 0 ? availablePaymentTypes[0].id : null);
 
     setState(prev => ({
       ...prev,
@@ -2341,7 +2399,7 @@ export default function POSPage() {
     }));
     setTenderedAmount(summary.payableTotal > 0 ? summary.payableTotal.toFixed(2) : '');
     setIsPaymentDrawerOpen(true);
-    broadcastPaymentModalOpen(paymentTypes, defaultPayType);
+    broadcastPaymentModalOpen(availablePaymentTypes, defaultPayType);
   };
 
   const handleOpenSplitFromPOS = () => {
@@ -2405,6 +2463,7 @@ export default function POSPage() {
     if(!state.selectedPaymentType && !isPayLater) {
       return toast.error(t('orders.select_payment_method'));
     }
+    if (needsRoomFirst()) return;
     try {
       const deliveryType = diningOptionRef.current?.value || selectedDiningOption || "dinein";
       const tableId = tableRef.current?.value || null;
@@ -2430,6 +2489,7 @@ export default function POSPage() {
         tenderData?.payments || null,
         tenderData?.payLater || null,
         clientOrderId,
+        roomService,
       ];
       let res;
       try {
@@ -2437,7 +2497,9 @@ export default function POSPage() {
       } catch (payError) {
         if (!isNetworkError(payError)) throw payError;
         // Gift cards, pay later and loyalty points need the server to check balances.
-        const needsServer = isPayLater || loyaltyPointsRedeemed > 0 || (tenderData?.payments || []).some((l) => l.giftCardCode);
+        const roomTypeIds = (paymentTypes || []).filter((p) => Number(p.is_room_charge)).map((p) => String(p.id));
+        const usesRoomCharge = roomTypeIds.includes(String(state.selectedPaymentType)) || (tenderData?.payments || []).some((l) => roomTypeIds.includes(String(l.paymentTypeId)));
+        const needsServer = isPayLater || usesRoomCharge || loyaltyPointsRedeemed > 0 || (tenderData?.payments || []).some((l) => l.giftCardCode);
         if (needsServer) {
           toast.dismiss();
           setIsSubmittingPayment(false);
@@ -2513,7 +2575,10 @@ export default function POSPage() {
           loyaltyPointsRedeemed: tenderData?.loyaltyPointsRedeemed || 0,
           loyaltyDiscountAmount: tenderData?.loyaltyDiscountAmount || 0,
           loyaltyPointsEarned: tenderData?.loyaltyPointsEarned || 0,
+          ...roomReceiptFields(),
         };
+
+        showRoomChargeResult(data.pmsCharge);
 
         if (customer?.phone) {
           mutate((key) => typeof key === 'string' && (key.startsWith('/customers') || key.startsWith('/loyalty')));
@@ -2531,6 +2596,7 @@ export default function POSPage() {
         }
 
         if (diningOptionRef.current) diningOptionRef.current.value = "";
+        setRoomService(null);
         if (tableRef.current) tableRef.current.value = "";
 
         setState((prev) => ({
@@ -2798,6 +2864,8 @@ export default function POSPage() {
     const deliveryType = diningOptionRef.current?.value || selectedDiningOption || "dinein";
     const tableId = tableRef.current?.value;
 
+    if (needsRoomFirst()) return;
+
     // Smart Table Prompt: if dine-in and no table selected, open Table Picker
     if (deliveryType === "dinein" && !tableId) {
       toast(t('pos.select_table_to_send', 'Please select a table to send order to kitchen'), {
@@ -2825,6 +2893,7 @@ export default function POSPage() {
         customer?.customer_group_name || null,
         summary.customerGroupDiscountTotal || 0,
         clientOrderId,
+        roomService,
       ];
       let res;
       try {
@@ -2888,6 +2957,7 @@ export default function POSPage() {
           paymentStatus: "unpaid",
           billingMode: "postpaid",
           billingTag: "PAY LATER (POSTPAID)",
+          ...roomReceiptFields(),
         };
 
         setDetailsForReceiptPrint(receiptPayload);
@@ -2903,6 +2973,7 @@ export default function POSPage() {
         const tableLabel = currentSelectedTable?.table_title || activeTableContext?.tableTitle || "";
 
         if (diningOptionRef.current) diningOptionRef.current.value = "";
+        setRoomService(null);
         if (tableRef.current) tableRef.current.value = "";
         setSelectedTableTitle("");
         setActiveTableContext(null);
@@ -3093,6 +3164,7 @@ export default function POSPage() {
         <option value="dinein">{t('pos.dinein')}</option>
         <option value="delivery">{t('pos.delivery')}</option>
         <option value="takeaway">{t('pos.takeaway')}</option>
+        <option value="roomservice">{t('pos.room_service', 'Room Service')}</option>
       </select>
 
       <select ref={tableRef} className="hidden" onChange={() => broadcastOrderMeta()}>
@@ -3131,6 +3203,9 @@ export default function POSPage() {
         registerSession={registerSession}
         isRegisterEnforced={isRegisterEnforced}
         onOpenRegister={() => (registerSession ? setIsRegisterPanelOpen(true) : setIsOpenRegisterModalOpen(true))}
+        isRoomServiceEnabled={isRoomServiceEnabled}
+        roomService={roomService}
+        onOpenRoomPicker={() => setIsRoomPickerOpen(true)}
       />
 
       <RegisterPanel
@@ -4576,7 +4651,7 @@ export default function POSPage() {
           setIsPaymentDrawerOpen(false);
           closePaymentModalSync();
         }}
-        paymentTypes={paymentTypes}
+        paymentTypes={availablePaymentTypes}
         selectedPaymentType={state.selectedPaymentType}
         onSelectPaymentType={(newType) => {
           setState(prev => ({ ...prev, selectedPaymentType: newType }));
@@ -4605,7 +4680,7 @@ export default function POSPage() {
         customer={customer}
         customerType={customerType}
         diningOption={selectedDiningOption}
-        tableTitle={selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : '')}
+        tableTitle={roomService ? `${t('room_service.room', 'Room')} ${roomService.roomNumber}${roomService.guestName ? ` · ${roomService.guestName}` : ''}` : selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : '')}
         onOpenSplitBill={handleOpenSplitFromPOS}
       />
 
@@ -5547,6 +5622,23 @@ export default function POSPage() {
         onConfirm={posDeleteModalConfig?.onConfirm}
         title={posDeleteModalConfig?.title}
         description={posDeleteModalConfig?.description}
+      />
+
+      {/* Hotel Room Service: guest room picker */}
+      <RoomPickerModal
+        isOpen={isRoomPickerOpen}
+        onClose={() => setIsRoomPickerOpen(false)}
+        selectedRoom={roomService}
+        onConfirm={(room) => {
+          setRoomService(room);
+          setIsRoomPickerOpen(false);
+          setSelectedDiningOption('roomservice');
+          if (diningOptionRef.current) diningOptionRef.current.value = 'roomservice';
+          if (tableRef.current) tableRef.current.value = '';
+          setSelectedTableTitle('');
+          broadcastOrderMeta && broadcastOrderMeta(undefined, 'roomservice', '');
+          toast.success(t('room_service.room_selected', 'Room {{room}} · {{guest}}', { room: room.roomNumber, guest: room.guestName || '' }));
+        }}
       />
 
       {/* Visual Table Picker Modal */}

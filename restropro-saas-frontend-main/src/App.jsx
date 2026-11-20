@@ -26,6 +26,7 @@ import SettingDetailsPage from "./views/SettingsViews/SettingDetailsPage";
 import PrintSettingsPage from "./views/SettingsViews/PrintSettingsPage";
 import ThermalPrintersPage from "./views/SettingsViews/ThermalPrintersPage";
 import KitchenStationsSettingsPage from "./views/SettingsViews/KitchenStationsSettingsPage";
+import PmsSettingsPage from "./views/SettingsViews/PmsSettingsPage";
 import TelegramSettingsPage from "./views/SettingsViews/TelegramSettingsPage";
 import TablesSettingsPage from "./views/SettingsViews/TableSettingsPage";
 import TablesPage from "./views/TablesPage";
@@ -482,6 +483,7 @@ export default function App() {
               <Route path="details" element={<RequiresSingleBusiness><SettingDetailsPage /></RequiresSingleBusiness>} />
               <Route path="print-settings" element={<RequiresSingleBusiness><PrintSettingsPage /></RequiresSingleBusiness>} />
               <Route path="telegram" element={<RequiresSingleBusiness><TelegramSettingsPage /></RequiresSingleBusiness>} />
+              <Route path="hotel-pms" element={<RequiresSingleBusiness><PmsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="thermal-printers" element={<RequiresSingleBusiness><ThermalPrintersPage /></RequiresSingleBusiness>} />
               <Route path="kitchen-stations" element={<RequiresSingleBusiness><KitchenStationsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="tables" element={<RequiresSingleBusiness><TablesSettingsPage /></RequiresSingleBusiness>} />

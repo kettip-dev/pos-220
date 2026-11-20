@@ -16,7 +16,8 @@ import {
   IconTruckDelivery,
   IconBuildingStore,
   IconChevronDown,
-  IconCashRegister
+  IconCashRegister,
+  IconBed
 } from '@tabler/icons-react';
 import { iconStroke } from '../../config/config';
 import { clsx } from 'clsx';
@@ -62,6 +63,9 @@ export default function POSOrderHeader({
   registerSession = null,
   isRegisterEnforced = false,
   onOpenRegister,
+  isRoomServiceEnabled = false,
+  roomService = null,
+  onOpenRoomPicker,
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -69,8 +73,39 @@ export default function POSOrderHeader({
   const diningOptions = [
     { key: 'dinein', label: t('pos.dinein', 'Dine-In'), icon: IconToolsKitchen2, badgeBg: 'bg-[#008489]' },
     { key: 'takeaway', label: t('pos.takeaway', 'Takeaway'), icon: IconShoppingBag, badgeBg: 'bg-[#0077C5]' },
-    { key: 'delivery', label: t('pos.delivery', 'Delivery'), icon: IconTruckDelivery, badgeBg: 'bg-[#EA580C]' }
+    { key: 'delivery', label: t('pos.delivery', 'Delivery'), icon: IconTruckDelivery, badgeBg: 'bg-[#EA580C]' },
+    ...(isRoomServiceEnabled
+      ? [{ key: 'roomservice', label: t('pos.room_service', 'Room Service'), icon: IconBed, badgeBg: 'bg-[#7C3AED]' }]
+      : []),
   ];
+
+  // Room service: which room the tray goes to (mirrors the table pill for dine-in)
+  const renderRoomChip = ({ className = '' } = {}) => (
+    <button
+      type="button"
+      onClick={onOpenRoomPicker}
+      className={clsx(
+        "min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-xl border transition active:scale-95 flex items-center gap-2 touch-manipulation cursor-pointer shadow-2xs select-none shrink-0",
+        className,
+        roomService
+          ? "bg-violet-50 dark:bg-violet-500/15 border-[#7C3AED] text-gray-900 dark:text-white"
+          : "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-900 dark:text-amber-200 animate-pulse"
+      )}
+      title={t('room_service.pick_room', 'Pick guest room')}
+    >
+      <IconBed size={18} className={clsx("shrink-0", roomService ? "text-[#7C3AED]" : "text-amber-600")} stroke={iconStroke} />
+      <div className="text-left leading-tight min-w-0 max-w-[140px]">
+        <p className="text-[10px] uppercase font-bold tracking-wider leading-none text-gray-500 dark:text-slate-400">
+          {roomService ? `${t('room_service.room', 'Room')} ${roomService.roomNumber}` : t('pos.required', 'Required')}
+        </p>
+        <p className="text-xs font-bold truncate mt-0.5">
+          {roomService
+            ? roomService.guestName || t('room_service.guest', 'Guest')
+            : t('room_service.pick_room', 'Pick guest room')}
+        </p>
+      </div>
+    </button>
+  );
 
   const renderCustomerChip = ({ className = '', fluid = false } = {}) => {
     const isAttached = customerType !== 'WALKIN' && Boolean(customer);
@@ -186,7 +221,7 @@ export default function POSOrderHeader({
       <header className="w-full bg-white dark:bg-[#0D1829] border-b border-[#E3E5E8] dark:border-slate-800 px-1 pt-1 pb-2 space-y-2 select-none shrink-0">
         {/* Row 1: Dining type (full labels) + New ticket */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 grid grid-cols-3 p-1 rounded-2xl bg-[#F4F5F8] dark:bg-slate-800/80 border border-[#E3E5E8] dark:border-slate-700 gap-1">
+          <div className={clsx("flex-1 min-w-0 grid p-1 rounded-2xl", diningOptions.length > 3 ? "grid-cols-4" : "grid-cols-3", "bg-[#F4F5F8] dark:bg-slate-800/80 border border-[#E3E5E8] dark:border-slate-700 gap-1")}>
             {diningOptions.map(({ key, label, icon: IconComponent, badgeBg }) => {
               const isActive = selectedDiningOption === key;
               return (
@@ -245,6 +280,8 @@ export default function POSOrderHeader({
               </div>
             </button>
           )}
+
+          {selectedDiningOption === 'roomservice' && renderRoomChip({ className: 'flex-1 min-w-0' })}
 
           {renderCustomerChip({ className: 'flex-1 min-w-0', fluid: true })}
 
@@ -428,6 +465,9 @@ export default function POSOrderHeader({
               </div>
             </div>
           )}
+
+          {/* Room Service Context: guest room */}
+          {selectedDiningOption === 'roomservice' && renderRoomChip()}
 
           {/* Customer Quick Chip */}
           {renderCustomerChip()}

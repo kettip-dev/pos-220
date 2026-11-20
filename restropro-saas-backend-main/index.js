@@ -13,6 +13,7 @@ const { getTenantIdFromQRCode } = require("./src/services/settings.service");
 const { startDayEndReconciliationScheduler } = require("./src/schedulers/day_end_reconciliation.scheduler");
 const { attachPrintAgentNamespace } = require("./src/services/print_agent.service");
 const { flushAgentQueue, startPrintJobMaintenance } = require("./src/services/print_job.service");
+const { startPmsSyncWorker } = require("./src/services/pms.service");
 
 const PORT = process.env.PORT || 3000;
 
@@ -260,6 +261,7 @@ httpServer.listen(PORT);
 // can never prevent the API from coming up.
 startDayEndReconciliationScheduler();
 startPrintJobMaintenance();
+startPmsSyncWorker();
 
 // app.listen(PORT, ()=>{
 //     console.log(`Server Started on PORT: ${PORT}`);

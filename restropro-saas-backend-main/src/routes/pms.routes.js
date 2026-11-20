@@ -14,7 +14,9 @@ const {
   postRoomCharge,
   voidRoomCharge,
   getSyncQueue,
+  getUnpostedRoomCharges,
   retrySyncQueue,
+  testPmsConnection,
 } = require("../controllers/pms.controller");
 
 const router = Router();
@@ -38,6 +40,15 @@ router.post(
   savePmsSettings
 );
 
+router.post(
+  "/settings/test",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  testPmsConnection
+);
+
 // Room Verification & Directory Lookup
 router.get(
   "/verify-room",
@@ -58,6 +69,15 @@ router.get(
 );
 
 // Room Charge Posting & Voiding
+router.get(
+  "/unposted-charges",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS, SCOPES.POS, SCOPES.ORDERS]),
+  getUnpostedRoomCharges
+);
+
 router.post(
   "/orders/:id/post-charge",
   isLoggedIn,

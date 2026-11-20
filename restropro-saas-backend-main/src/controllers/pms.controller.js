@@ -6,8 +6,18 @@ const {
   postRoomChargeForOrderDB,
   voidRoomChargeForOrderDB,
   getSyncQueueDB,
+  getUnpostedRoomChargesDB,
   processSyncQueueDB,
+  toPublicPmsSettings,
+  testPmsConnectionDB,
 } = require("../services/pms.service");
+
+// Our own validation errors keep their status. Anything the PMS answered is sent
+// back as 502: passing a PMS 401 through would log the cashier out of the POS.
+function httpStatusFor(error) {
+  if (error?.isPmsError || error?.isConfigError) return error.status || 400;
+  return 502;
+}
 
 exports.getPmsSettings = async (req, res) => {
   try {
@@ -15,7 +25,7 @@ exports.getPmsSettings = async (req, res) => {
     const settings = await getPmsSettingsDB(tenantId);
     return res.status(200).json({
       success: true,
-      settings,
+      settings: toPublicPmsSettings(settings),
     });
   } catch (error) {
     console.error("getPmsSettings error:", error);
@@ -42,7 +52,7 @@ exports.savePmsSettings = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "PMS settings updated successfully.",
-      settings: updated,
+      settings: toPublicPmsSettings(updated),
     });
   } catch (error) {
     console.error("savePmsSettings error:", error);
@@ -72,7 +82,7 @@ exports.verifyRoom = async (req, res) => {
     });
   } catch (error) {
     console.error("verifyRoom error:", error);
-    return res.status(error.status || 500).json({
+    return res.status(httpStatusFor(error)).json({
       success: false,
       valid: false,
       message: error.message || "Error communicating with PMS to verify room.",
@@ -90,7 +100,7 @@ exports.getCheckedInRooms = async (req, res) => {
     });
   } catch (error) {
     console.error("getCheckedInRooms error:", error);
-    return res.status(error.status || 500).json({
+    return res.status(httpStatusFor(error)).json({
       success: false,
       message: error.message || "Error fetching checked-in rooms from PMS.",
     });
@@ -104,13 +114,10 @@ exports.postRoomCharge = async (req, res) => {
     const username = req.user.username || "Bong POS Cashier";
 
     const result = await postRoomChargeForOrderDB(tenantId, orderId, username);
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return res.status(result.success === false ? 400 : 200).json(result);
   } catch (error) {
     console.error("postRoomCharge error:", error);
-    return res.status(error.status || 500).json({
+    return res.status(httpStatusFor(error)).json({
       success: false,
       message: error.message || "Failed to post room charge to PMS.",
     });
@@ -124,15 +131,25 @@ exports.voidRoomCharge = async (req, res) => {
     const voidReason = req.body.void_reason || req.body.reason || "Order cancelled in POS";
 
     const result = await voidRoomChargeForOrderDB(tenantId, orderId, voidReason);
-    return res.status(200).json({
-      success: true,
-      ...result,
-    });
+    return res.status(result.success === false ? 400 : 200).json(result);
   } catch (error) {
     console.error("voidRoomCharge error:", error);
-    return res.status(error.status || 500).json({
+    return res.status(httpStatusFor(error)).json({
       success: false,
       message: error.message || "Failed to void room charge in PMS.",
+    });
+  }
+};
+
+exports.getUnpostedRoomCharges = async (req, res) => {
+  try {
+    const charges = await getUnpostedRoomChargesDB(req.user.tenant_id);
+    return res.status(200).json({ success: true, charges });
+  } catch (error) {
+    console.error("getUnpostedRoomCharges error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load room charges.",
     });
   }
 };
@@ -169,5 +186,15 @@ exports.retrySyncQueue = async (req, res) => {
       success: false,
       message: error.message || "Failed to process sync queue.",
     });
+  }
+};
+
+exports.testPmsConnection = async (req, res) => {
+  try {
+    const result = await testPmsConnectionDB(req.user.tenant_id, req.body || {});
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error("testPmsConnection error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Connection test failed." });
   }
 };

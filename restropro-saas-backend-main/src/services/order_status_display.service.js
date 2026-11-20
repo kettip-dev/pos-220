@@ -24,6 +24,7 @@ exports.getOrderStatusDisplayDB = async (tenantId) => {
         o.customer_type,
         o.table_id,
         st.table_title,
+        o.pms_room_number,
         st.\`floor\`,
         o.status,
         o.token_no
@@ -71,6 +72,8 @@ exports.getOrderStatusDisplayDB = async (tenantId) => {
           date: order.date,
           delivery_type: order.delivery_type,
           table_title: order.table_title,
+          // Room number only: this screen is public, so no guest name.
+          room_number: order.pms_room_number || null,
           floor: order.floor,
           status: order.status,
           token_no: order.token_no,

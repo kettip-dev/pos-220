@@ -556,10 +556,12 @@ export default function OrderStatusDisplayPage() {
     });
 
   const orderLabel = (order) => {
+    if (order.room_number) return `Room ${order.room_number}`;
     if (order.table_title) return order.table_title;
     const type = String(order.delivery_type || "").toLowerCase();
     if (type === "takeaway") return "Takeaway";
     if (type === "delivery") return "Delivery";
+    if (type === "roomservice") return "Room Service";
     if (type === "dinein") return "Dine-in";
     return "";
   };

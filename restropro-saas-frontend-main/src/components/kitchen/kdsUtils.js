@@ -179,12 +179,14 @@ export const filterCompanionItems = (items, stationId) => {
 };
 
 export const getOrderTitle = (order, t = fallbackT) => {
+  if (order?.pms_room_number) return t("kitchen.kds.room", "Room {{room}}", { room: order.pms_room_number });
   if (order?.table_id && order?.table_title) return order.table_title;
   if (order?.customer_name) return order.customer_name;
   return diningLabel(order?.delivery_type, t);
 };
 
 export const diningLabel = (type, t = fallbackT) => {
+  if (type === "roomservice") return t("kitchen.kds.dining_roomservice", "Room Service");
   const known = DINING_TYPES.find((d) => d.id === type && d.id !== "all");
   if (known) return t(`kitchen.kds.dining_${known.id}`, known.label);
   return type ? String(type) : t("kitchen.kds.order", "Order");

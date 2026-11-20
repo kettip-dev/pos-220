@@ -158,6 +158,7 @@ export default function POSPaymentDrawer({
     ? Number(selectedPaymentObj.is_cash) === 1
     : selectedPaymentTitle.includes('cash') || selectedPaymentTitle.includes('សាច់ប្រាក់') || !selectedPaymentType;
   const isQr = selectedPaymentTitle.includes('qr') || selectedPaymentTitle.includes('qrcode');
+  const isRoomCharge = Number(selectedPaymentObj?.is_room_charge) === 1;
 
   // Numerical tender conversions
   const numUSD = parseFloat(tenderedUSD) || 0;
@@ -481,9 +482,11 @@ export default function POSPaymentDrawer({
     ? t('pos.please_wait', 'Processing...')
     : isCash
       ? t('pos.settle_and_print', 'Settle & Print Receipt')
-      : isQr
-        ? t('pos.confirm_qr_payment', 'Confirm QR Payment & Print Receipt')
-        : t('pos.confirm_card_payment', 'Confirm Card Payment & Print Receipt');
+      : isRoomCharge
+        ? t('pos.confirm_room_charge', 'Charge to Room & Print Receipt')
+        : isQr
+          ? t('pos.confirm_qr_payment', 'Confirm QR Payment & Print Receipt')
+          : t('pos.confirm_card_payment', 'Confirm Card Payment & Print Receipt');
 
   const changeDisplay = changeAdviceMode === 'mixed' && changeBreakdownUSD > 0
     ? `$${changeBreakdownUSD} + ${fmtKHR(changeBreakdownKHR)}`
@@ -493,7 +496,9 @@ export default function POSPaymentDrawer({
     ? t('pos.dinein', 'Dine-In')
     : diningOption === 'takeaway'
       ? t('pos.takeaway', 'Takeaway')
-      : t('pos.delivery', 'Delivery');
+      : diningOption === 'roomservice'
+        ? t('pos.room_service', 'Room Service')
+        : t('pos.delivery', 'Delivery');
 
   // Only the active currency's banknotes are shown, keeping the keypad area uncluttered
   const activeNoteChips = (activeTenderCurrency === 'USD' ? usdChips : khrChips).slice(1);
@@ -981,14 +986,18 @@ export default function POSPaymentDrawer({
 
                 <div className="space-y-1">
                   <h4 className="text-xl font-bold text-slate-900 dark:text-white">
-                    {isQr
-                      ? t('pos.scan_khqr_guide', 'Scan to Pay with KHQR / Banking App')
-                      : t('pos.electronic_card_terminal', 'Electronic Payment Terminal')}
+                    {isRoomCharge
+                      ? t('pos.room_charge_title', 'Charge to Guest Room')
+                      : isQr
+                        ? t('pos.scan_khqr_guide', 'Scan to Pay with KHQR / Banking App')
+                        : t('pos.electronic_card_terminal', 'Electronic Payment Terminal')}
                   </h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-                    {isQr
-                      ? t('pos.scan_khqr_subtitle', 'Customer scans via ABA Mobile, Wing, Bakong, or any local banking app')
-                      : t('pos.card_terminal_guide', 'Swipe or tap customer card on the payment terminal')}
+                    {isRoomCharge
+                      ? t('pos.room_charge_guide', "Posted to the guest's hotel bill. Ask the guest to sign the receipt.")
+                      : isQr
+                        ? t('pos.scan_khqr_subtitle', 'Customer scans via ABA Mobile, Wing, Bakong, or any local banking app')
+                        : t('pos.card_terminal_guide', 'Swipe or tap customer card on the payment terminal')}
                   </p>
                 </div>
 
@@ -1061,7 +1070,9 @@ export default function POSPaymentDrawer({
                 ) : (
                 <div className="w-full max-w-sm text-left space-y-1.5">
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    {t('pos.card_reference_optional', 'Card Auth / Ref Number (Optional)')}
+                    {isRoomCharge
+                      ? t('pos.room_charge_reference', 'Reference (Optional)')
+                      : t('pos.card_reference_optional', 'Card Auth / Ref Number (Optional)')}
                   </label>
                   <input
                     type="text"

@@ -152,7 +152,9 @@ export function buildReceiptEscPos(receiptDetails) {
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   out += formatTwoColumns(`Date: ${dateStr}`, `Time: ${timeStr}`, width) + "\n";
 
-  if (tableName || tableId) {
+  if (receiptDetails.roomNumber) {
+    out += `Room: ${receiptDetails.roomNumber}${receiptDetails.roomGuestName ? ` (${receiptDetails.roomGuestName})` : ""}\n`;
+  } else if (tableName || tableId) {
     out += `Table: ${tableName || tableId}\n`;
   }
 
@@ -377,7 +379,13 @@ export function buildKotEscPos(kotDetails) {
     out += `TOKEN: #${tokenNo}\n`;
     out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
   }
-  if (tableName || tableId) {
+  if (kotDetails.roomNumber) {
+    out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
+    out += `ROOM: ${kotDetails.roomNumber}\n`;
+    out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
+    if (kotDetails.roomGuestName) out += `Guest: ${kotDetails.roomGuestName}\n`;
+    if (kotDetails.roomServiceNote) out += ESCPOS.BOLD_ON + `Deliver: ${kotDetails.roomServiceNote}\n` + ESCPOS.BOLD_OFF;
+  } else if (tableName || tableId) {
     out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_HEIGHT;
     out += `TABLE: ${tableName || tableId}\n`;
     out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;

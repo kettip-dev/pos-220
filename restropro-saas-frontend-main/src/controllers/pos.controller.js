@@ -1,4 +1,5 @@
 import ApiClient from "../helpers/ApiClient";
+import { roomServicePayload } from "./pms.controller";
 
 const DRAFTS_KEY = "RESTROPROSAAS__DRAFTS";
 
@@ -11,13 +12,14 @@ export async function initPOS() {
     }
 }
 
-export async function createOrder(cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, clientOrderId = null) {
+export async function createOrder(cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions = null, promotionDiscountTotal = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, clientOrderId = null, roomService = null) {
   try {
     const response = await ApiClient.post("/pos/create-order", {
       cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem,
       appliedPromotions, promotionDiscountTotal,
       customerGroupId, customerGroupName, customerGroupDiscountTotal,
-      clientOrderId
+      clientOrderId,
+      ...roomServicePayload(roomService),
     });
     return response;
   } catch (error) {
@@ -25,7 +27,7 @@ export async function createOrder(cart, deliveryType, customerType, customerId, 
   }
 }
 
-export async function createOrderAndInvoice(cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, payments = null, payLater = null, clientOrderId = null) {
+export async function createOrderAndInvoice(cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions = null, promotionDiscountTotal = 0, loyaltyPointsRedeemed = 0, customerGroupId = null, customerGroupName = null, customerGroupDiscountTotal = 0, payments = null, payLater = null, clientOrderId = null, roomService = null) {
   try {
     const response = await ApiClient.post("/pos/create-order-and-invoice", {
       clientOrderId,
@@ -36,7 +38,8 @@ export async function createOrderAndInvoice(cart, deliveryType, customerType, cu
       loyaltyPointsRedeemed,
       customerGroupId, customerGroupName, customerGroupDiscountTotal,
       payments,
-      payLater
+      payLater,
+      ...roomServicePayload(roomService),
     });
     return response;
   } catch (error) {

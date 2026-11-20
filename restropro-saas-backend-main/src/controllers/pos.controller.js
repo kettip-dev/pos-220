@@ -17,6 +17,9 @@ const {
 } = require("../services/menu_item.service");
 const { createOrderDB, getPOSQROrdersCountDB, getPOSQROrdersDB, updateQROrderStatusDB, approveQROrderDB, cancelAllQROrdersDB } = require("../services/pos.service");
 const { createInvoiceDB } = require("../services/orders.service");
+const { assertRoomChargeAllowedDB, autoPostRoomChargeDB } = require("../services/pms.service");
+
+const ROOM_SERVICE = "roomservice";
 const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB, buildTestPrintPayloadDB } = require("../services/printer.service");
 const { submitPrintJob } = require("../services/print_job.service");
 const { getPosPrintFormatDB, upsertPosPrintFormatDB } = require("../services/pos-print-format.service");
@@ -146,7 +149,7 @@ exports.createOrder = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal, clientOrderId, pmsReservationId, pmsRoomNumber, pmsGuestName} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, selectedQrOrderItem, appliedPromotions, promotionDiscountTotal, customerGroupId, customerGroupName, customerGroupDiscountTotal, clientOrderId, pmsReservationId, pmsRoomNumber, pmsGuestName, roomServiceNote, guestCount} = req.body;
 
     // Offline retry of an order that already reached the server: answer with it.
     const { findOrderByClientIdDB } = require("../services/pos.service");
@@ -162,7 +165,11 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null);
+    if (deliveryType === ROOM_SERVICE && (!pmsReservationId || !pmsRoomNumber)) {
+      return res.status(400).json({ success: false, code: "ROOM_REQUIRED", message: "Pick the guest's room for this room service order." });
+    }
+
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, { note: roomServiceNote, guestCount });
     emitAvailability(req, tenantId, result.availabilityChanges);
 
     if(selectedQrOrderItem) {
@@ -223,7 +230,7 @@ exports.createOrderAndInvoice = async (req, res) => {
   try {
     const tenantId = req.user.tenant_id;
     const username = req.user.username;
-    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments, payLater, clientOrderId, pmsReservationId, pmsRoomNumber, pmsGuestName} = req.body;
+    const {cart, deliveryType, customerType, customerId, tableId, netTotal, taxTotal, serviceChargeTotal, total, selectedQrOrderItem, selectedPaymentType, discountType, discountValue, discountTotal, appliedPromotions, promotionDiscountTotal, loyaltyPointsRedeemed, customerGroupId, customerGroupName, customerGroupDiscountTotal, payments, payLater, clientOrderId, pmsReservationId, pmsRoomNumber, pmsGuestName, roomServiceNote, guestCount} = req.body;
 
     const { findOrderByClientIdDB } = require("../services/pos.service");
     const existing = await findOrderByClientIdDB(tenantId, clientOrderId);
@@ -261,6 +268,12 @@ exports.createOrderAndInvoice = async (req, res) => {
     // Sold-out items must be rejected before the invoice is written.
     await precheckAvailability(tenantId, cart);
 
+    if (deliveryType === ROOM_SERVICE && (!pmsReservationId || !pmsRoomNumber)) {
+      return res.status(400).json({ success: false, code: "ROOM_REQUIRED", message: "Pick the guest's room for this room service order." });
+    }
+    // Charge to Room: the guest must still be in house and allowed to charge this much.
+    await assertRoomChargeAllowedDB(tenantId, { payments, selectedPaymentType, total, payLater, reservationId: pmsReservationId, roomNumber: pmsRoomNumber });
+
     // create invoice
     const now = new Date();
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
@@ -273,7 +286,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const isKitchenDisabled = storeSettings && (storeSettings.is_kitchen_enabled === 0 || storeSettings.is_kitchen_enabled === false);
     const targetOrderStatus = isKitchenDisabled ? 'completed' : 'created';
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null);
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, { note: roomServiceNote, guestCount });
     const orderId = result.orderId;
     const tokenNo = result.tokenNo;
     emitAvailability(req, tenantId, result.availabilityChanges);
@@ -282,15 +295,8 @@ exports.createOrderAndInvoice = async (req, res) => {
       await updateQROrderStatusDB(tenantId, selectedQrOrderItem, "completed", result.orderId);
     }
 
-    let pmsCharge = null;
-    if (pmsReservationId) {
-      try {
-        const { postRoomChargeForOrderDB } = require("../services/pms.service");
-        pmsCharge = await postRoomChargeForOrderDB(tenantId, orderId, username);
-      } catch (pmsErr) {
-        console.warn(`[PMS] Failed to auto-post room charge for Order #${orderId}:`, pmsErr.message);
-      }
-    }
+    // Only the Charge to Room part of the bill goes to the guest folio.
+    const pmsCharge = pmsReservationId ? await autoPostRoomChargeDB(tenantId, orderId, username) : null;
 
     return res.status(200).json({
       success: true,
@@ -306,6 +312,9 @@ exports.createOrderAndInvoice = async (req, res) => {
     if (known) return known;
     if (error?.isRegisterError) {
       return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
+    }
+    if (error?.isPmsError) {
+      return res.status(error.status || 400).json({ success: false, code: error.code, message: error.message });
     }
     console.error(error);
     return res.status(500).json({

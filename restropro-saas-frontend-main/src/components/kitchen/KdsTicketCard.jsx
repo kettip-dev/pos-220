@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useMenuLanguage } from "../../helpers/MenuLanguageHelper";
 import {
   IconArmchair,
+  IconBed,
   IconBoxSeam,
   IconMotorbike,
   IconCheck,
@@ -39,6 +40,7 @@ const HEADER_TONE = {
 };
 
 const DiningIcon = ({ type, size = 16 }) => {
+  if (type === "roomservice") return <IconBed size={size} stroke={2} />;
   if (type === "dinein") return <IconArmchair size={size} stroke={2} />;
   if (type === "delivery") return <IconMotorbike size={size} stroke={2} />;
   return <IconBoxSeam size={size} stroke={2} />;
@@ -171,6 +173,13 @@ export default function KdsTicketCard({
                 {order.table_id ? "" : ` · ${diningLabel(order.delivery_type, t)}`}
               </span>
             </div>
+            {order.pms_room_number && (order.pms_guest_name || order.room_service_note) && (
+              <div className={clsx("mt-1 font-semibold truncate", S.meta, urgency === "ontime" ? "text-[color:var(--kds-text-2)]" : "opacity-90")}>
+                {order.pms_guest_name}
+                {order.pms_guest_name && order.room_service_note ? " · " : ""}
+                {order.room_service_note}
+              </div>
+            )}
           </div>
 
           <div className="text-right shrink-0">

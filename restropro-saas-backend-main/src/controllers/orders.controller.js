@@ -377,10 +377,17 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
     const now = new Date();
     const date = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
 
+    // Charge to Room: the order's guest must still be in house and allowed to charge this much.
+    const { assertRoomChargeAllowedDB, autoPostRoomChargeDB, getRoomLinkForOrdersDB } = require("../services/pms.service");
+    const roomLink = await getRoomLinkForOrdersDB(tenantId, orderIds);
+    await assertRoomChargeAllowedDB(tenantId, { payments, selectedPaymentType, total, payLater, reservationId: roomLink?.pms_reservation_id, roomNumber: roomLink?.pms_room_number });
+
     // get invoice id
     const invoiceId = await createInvoiceDB(subTotal, taxTotal, serviceChargeTotal, total, date, selectedPaymentType, tenantId, username, discountType || null, discountValue || 0, discountTotal || null, appliedPromotions || null, promotionDiscountTotal || 0, loyaltyPointsRedeemed || 0, custPhone, orderIds[0] || null, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, { session: req.registerSession, payments, payLater: payLater || null });
 
     await completeOrdersAndSaveInvoiceIdDB(orderIds, invoiceId, tenantId, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0);
+
+    const pmsCharge = roomLink ? await autoPostRoomChargeDB(tenantId, roomLink.id, username) : null;
 
     // get encrypted invoice id and customer id.
     const result = await getEncryptedInvoiceIdDB(invoiceId, tenantId);
@@ -391,10 +398,14 @@ exports.payAndCompleteKitchenOrder = async (req, res) => {
       invoiceId: result?.invoice_id || null,
       invoiceNo: invoiceId,
       customerId: result?.customer_id || null,
+      pmsCharge,
     });
   } catch (error) {
     if (error?.isRegisterError) {
       return res.status(400).json({ success: false, code: error.code, message: translateError(req, error) });
+    }
+    if (error?.isPmsError) {
+      return res.status(error.status || 400).json({ success: false, code: error.code, message: error.message });
     }
     console.error(error);
     return res.status(500).json({
