@@ -556,13 +556,11 @@ export default function OrdersPage() {
   const drawerCustomerName = paymentDrawerState.orderGroup?.customer_name || drawerFirstOrder?.customer_name || "";
 
   // ── Payment Settlement Flow (POSPaymentDrawer) ──
-  const handleOpenPayDrawer = async (orderIds, orderGroup) => {
-    try {
-      toast.loading(t("orders.loading_message"));
+  // Bill totals for a group of orders, in the shape the payment drawer uses.
+  const buildPayState = async (orderIds, orderGroup) => {
       const res = await getCompleteOrderPaymentSummary(orderIds);
-      toast.dismiss();
-
-      if (res.status === 200) {
+      if (res.status !== 200) return null;
+      {
         const {
           subtotal = 0,
           taxTotal = 0,
@@ -600,8 +598,8 @@ export default function OrdersPage() {
         const customerGroupName = firstOrder.customer_group_name || orderGroup?.customer_group_name || null;
         const customerGroupDiscountTotal = Number(firstOrder.customer_group_discount_total || orderGroup?.customer_group_discount_total || 0);
 
-        setPaymentDrawerState({
-          isOpen: true,
+        return {
+          isOpen: false,
           orderIds,
           orderGroup,
           summaryOrders: orders,
@@ -620,13 +618,62 @@ export default function OrdersPage() {
           tenderedAmount: "",
           customExchangeRate: storeRate,
           isSubmitting: false,
-        });
+        };
       }
+  };
+
+  const handleOpenPayDrawer = async (orderIds, orderGroup) => {
+    try {
+      toast.loading(t("orders.loading_message"));
+      const next = await buildPayState(orderIds, orderGroup);
+      toast.dismiss();
+      if (next) setPaymentDrawerState({ ...next, isOpen: true });
     } catch (error) {
       toast.dismiss();
       console.error(error);
       toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
     }
+  };
+
+  // ── Charge to Room: one tap for hotel Room Service orders ──
+  // Completes the order with the "Charge to Room" tender; the backend checks the
+  // guest is still in house and posts the bill to their PMS folio.
+  const roomChargeType = useMemo(
+    () => (paymentTypes || []).find((p) => Number(p.is_room_charge) === 1) || null,
+    [paymentTypes]
+  );
+  const [roomChargeState, setRoomChargeState] = useState(null);
+
+  const handleChargeToRoom = async (orderIds, orderGroup) => {
+    if (!roomChargeType) {
+      toast.error(t("orders.charge_to_room_unavailable"));
+      return;
+    }
+    try {
+      toast.loading(t("orders.loading_message"));
+      const next = await buildPayState(orderIds, orderGroup);
+      toast.dismiss();
+      if (!next) return;
+      const roomOrder = (orderGroup?.orders || []).find((o) => o.pms_room_number) || {};
+      setRoomChargeState({
+        ...next,
+        selectedPaymentType: roomChargeType.id,
+        room: roomOrder.pms_room_number,
+        guest: roomOrder.pms_guest_name || "",
+      });
+      document.getElementById("modal-charge-to-room").showModal();
+    } catch (error) {
+      toast.dismiss();
+      console.error(error);
+      toast.error(error?.response?.data?.message || t("orders.error_processing_request"));
+    }
+  };
+
+  const confirmChargeToRoom = async () => {
+    document.getElementById("modal-charge-to-room").close();
+    const charge = roomChargeState;
+    setRoomChargeState(null);
+    if (charge) await handleConfirmPayAndComplete(null, charge);
   };
 
   const handlePaymentDrawerDiscountChange = (type, val) => {
@@ -651,7 +698,9 @@ export default function OrdersPage() {
     }));
   };
 
-  const handleConfirmPayAndComplete = async (tenderData) => {
+  // `override`: settle straight from a prepared bill (Charge to Room) instead of the drawer.
+  const handleConfirmPayAndComplete = async (tenderData, override = null) => {
+    const ds = override || paymentDrawerState;
     const {
       orderIds,
       selectedPaymentType,
@@ -664,7 +713,7 @@ export default function OrdersPage() {
       discountTotal,
       summaryOrders,
       orderGroup,
-    } = paymentDrawerState;
+    } = ds;
 
     const isPayLater = Boolean(tenderData?.payLater);
     if (!selectedPaymentType && !isPayLater) {
@@ -689,17 +738,24 @@ export default function OrdersPage() {
         0,
         loyaltyPointsRedeemed,
         orderGroup?.customer_id || orderGroup?.orders?.[0]?.customer_id || null,
-        paymentDrawerState.customerGroupId,
-        paymentDrawerState.customerGroupName,
-        paymentDrawerState.customerGroupDiscountTotal,
+        ds.customerGroupId,
+        ds.customerGroupName,
+        ds.customerGroupDiscountTotal,
         isPayLater ? tenderData?.payments || [] : null,
         isPayLater ? tenderData.payLater : null
       );
 
       if (res.status === 200) {
-        toast.success(
-          res.data?.message || t("orders.order_completed_successfully", "Bill settled and order completed!")
-        );
+        const pms = res.data?.pmsCharge;
+        if (override?.room) {
+          if (pms?.queued) toast(t("orders.charge_to_room_queued"), { duration: 6000 });
+          else if (pms && pms.success === false) toast.error(t("orders.charge_to_room_failed", { reason: pms.message || "" }), { duration: 8000 });
+          else toast.success(t("orders.charge_to_room_done", { room: override.room }));
+        } else {
+          toast.success(
+            res.data?.message || t("orders.order_completed_successfully", "Bill settled and order completed!")
+          );
+        }
 
         // Automatic Thermal / Browser Receipt Printing
         try {
@@ -754,9 +810,9 @@ export default function OrdersPage() {
             discountType,
             discountValue,
             discountAmount: discountTotal || 0,
-            customer_group_id: paymentDrawerState.customerGroupId,
-            customer_group_name: paymentDrawerState.customerGroupName,
-            customer_group_discount: paymentDrawerState.customerGroupDiscountTotal,
+            customer_group_id: ds.customerGroupId,
+            customer_group_name: ds.customerGroupName,
+            customer_group_discount: ds.customerGroupDiscountTotal,
             loyaltyPointsRedeemed: tenderData?.loyaltyPointsRedeemed || 0,
             loyaltyDiscountAmount: tenderData?.loyaltyDiscountAmount || 0,
             loyaltyPointsEarned: tenderData?.loyaltyPointsEarned || 0,
@@ -764,10 +820,10 @@ export default function OrdersPage() {
               paymentTypes.find((p) => p.id === selectedPaymentType)?.title || "Cash",
             tenderedAmount:
               tenderData?.totalReceivedUSD ??
-              (parseFloat(paymentDrawerState.tenderedAmount) || totalPayable),
+              (parseFloat(ds.tenderedAmount) || totalPayable),
             changeDue:
               tenderData?.changeTotalUSD ??
-              Math.max(0, (parseFloat(paymentDrawerState.tenderedAmount) || 0) - totalPayable),
+              Math.max(0, (parseFloat(ds.tenderedAmount) || 0) - totalPayable),
             invoiceNo: res?.data?.invoiceNo || res?.data?.invoiceId,
             ...(isPayLater
               ? {
@@ -1380,6 +1436,7 @@ export default function OrdersPage() {
               onCardClick={(grp) => setSelectedOrderGroup(grp)}
               onPrintReceipt={btnPrintReceipt}
               onPayAndComplete={handleOpenPayDrawer}
+              onChargeToRoom={roomChargeType ? handleChargeToRoom : null}
               onCompleteOrder={btnShowCompleteOrderModal}
               onCancelOrder={btnShowCancelOrderModal}
               onCollectFeedback={btnCollectFeedback}
@@ -1510,6 +1567,36 @@ export default function OrdersPage() {
                   btnCancelOrder();
                 }}
                 className="min-h-[42px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+              >
+                {t("orders.confirm")}
+              </button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+
+      {/* ── Confirmation Modal: Charge to Room ── */}
+      <dialog id="modal-charge-to-room" className="modal">
+        <div className="modal-box border border-slate-200 dark:border-zinc-800 rounded-3xl bg-white dark:bg-zinc-900 p-6">
+          <h3 className="font-black text-lg text-slate-900 dark:text-white">
+            {t("orders.charge_to_room_btn", { room: roomChargeState?.room || "" })}
+          </h3>
+          <p className="py-3 text-sm text-slate-600 dark:text-zinc-300">
+            {t("orders.charge_to_room_confirm", {
+              amount: `${currency}${Number(roomChargeState?.totalPayable || 0).toFixed(2)}`,
+              room: roomChargeState?.room || "",
+              guest: roomChargeState?.guest || "",
+            })}
+          </p>
+          <div className="modal-action">
+            <form method="dialog" className="flex items-center gap-2">
+              <button className="min-h-[42px] px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer">
+                {t("orders.dismiss")}
+              </button>
+              <button
+                type="button"
+                onClick={confirmChargeToRoom}
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
               >
                 {t("orders.confirm")}
               </button>

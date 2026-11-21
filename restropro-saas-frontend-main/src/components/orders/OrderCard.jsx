@@ -15,6 +15,7 @@ import {
   IconStars,
   IconX,
   IconFlame,
+  IconBed,
 } from "@tabler/icons-react";
 import { iconStroke } from "../../config/config";
 import { formatElapsedOrderTime, parseOrderDate } from "../../helpers/DateHelper";
@@ -55,6 +56,7 @@ export default function OrderCard({
   onCardClick,
   onPrintReceipt,
   onPayAndComplete,
+  onChargeToRoom,
   onCompleteOrder,
   onCancelOrder,
   onCollectFeedback,
@@ -80,7 +82,13 @@ export default function OrderCard({
   ).toLowerCase();
   const isDelivery = deliveryType.includes("deliv");
 
-  const customerName = orders.find((o) => o.customer_name)?.customer_name || null;
+  // Hotel Room Service: the order is linked to a checked-in guest's room.
+  const roomOrder = orders.find((o) => o.pms_room_number) || null;
+  const roomNumber = roomOrder?.pms_room_number || null;
+  const isRoomService = Boolean(roomNumber) || deliveryType === "roomservice";
+
+  const customerName =
+    orders.find((o) => o.customer_name)?.customer_name || roomOrder?.pms_guest_name || null;
 
   // Live elapsed timer (parent re-renders on an interval)
   const earliestDate = getEarliestOrderDate(orders);
@@ -130,6 +138,7 @@ export default function OrderCard({
   const allReady = activeItemsCount > 0 && readyItemsCount === activeItemsCount;
 
   const getDiningLabel = () => {
+    if (isRoomService) return t("orders.room_service", "Room Service");
     if (deliveryType.includes("dine")) return t("pos.dinein", "Dine-In");
     if (deliveryType.includes("take")) return t("pos.takeaway", "Takeaway");
     if (isDelivery) return t("pos.delivery", "Delivery");
@@ -203,7 +212,8 @@ export default function OrderCard({
   const displayItems = allItems.slice(0, maxDisplayItems);
   const remainingCount = allItems.length - maxDisplayItems;
 
-  const TypeIcon = table_id ? IconArmchair : isDelivery ? IconTruckDelivery : IconShoppingBag;
+  const TypeIcon = table_id ? IconArmchair : isRoomService ? IconBed : isDelivery ? IconTruckDelivery : IconShoppingBag;
+  const canChargeToRoom = Boolean(onChargeToRoom && roomNumber);
 
   return (
     <div
@@ -232,7 +242,7 @@ export default function OrderCard({
             isCompact ? "w-9 h-9 rounded-lg" : "w-11 h-11 rounded-xl",
             table_id
               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
-              : isDelivery
+              : isRoomService || isDelivery
               ? "bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-400"
               : "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400"
           )}
@@ -247,7 +257,7 @@ export default function OrderCard({
               isCompact ? "text-sm" : "text-lg"
             )}
           >
-            {table_id ? table_title : getDiningLabel()}
+            {table_id ? table_title : roomNumber ? t("orders.room_label", { room: roomNumber }) : getDiningLabel()}
           </h3>
           <div className={clsx("flex items-center gap-1.5 mt-0.5 min-w-0 text-slate-500 dark:text-zinc-400", isCompact ? "text-[11px]" : "text-xs")}>
             {floor && <span className="truncate font-medium">{floor}</span>}
@@ -465,7 +475,33 @@ export default function OrderCard({
           <IconPrinter size={isCompact ? 18 : 20} stroke={iconStroke} />
         </button>
 
-        {!isPaid ? (
+        {!isPaid && canChargeToRoom ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onPayAndComplete && onPayAndComplete(order_ids, orderGroup)}
+              title={t("orders.other_payment", "Other payment")}
+              aria-label={t("orders.other_payment", "Other payment")}
+              className={clsx(
+                "shrink-0 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-200 flex items-center justify-center transition active:scale-95 cursor-pointer",
+                isCompact ? "w-[42px] h-[42px]" : "w-12 h-12"
+              )}
+            >
+              <IconCash size={isCompact ? 18 : 20} stroke={iconStroke} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onChargeToRoom(order_ids, orderGroup)}
+              className={clsx(
+                "flex-1 min-w-0 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer",
+                isCompact ? "h-[42px] px-2.5 text-xs" : "h-12 px-3 text-sm"
+              )}
+            >
+              <IconBed size={isCompact ? 17 : 19} stroke={iconStroke} className="shrink-0" />
+              <span className="truncate">{t("orders.charge_to_room_btn", { room: roomNumber })}</span>
+            </button>
+          </>
+        ) : !isPaid ? (
           <button
             type="button"
             onClick={() => onPayAndComplete && onPayAndComplete(order_ids, orderGroup)}
