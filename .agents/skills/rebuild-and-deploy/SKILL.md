@@ -82,7 +82,7 @@ Deployments to the remote host (`10.36.200.125`) can be executed directly from y
 
 ### Target Server Configuration
 - **Host:** `10.36.200.125`
-- **SSH User:** `root`
+- **SSH User:** `livekit` (in the `docker` group, owns `/opt/restro-pos`; the second server still uses `root`)
 - **Remote Directory:** `/opt/restro-pos`
 - **Compose Config:** `docker-compose.prod.yml`
 - **Production Environment:** `.env.production`
@@ -116,7 +116,7 @@ Run from the root directory on Windows (PowerShell) or Linux (Bash):
 ```
 
 #### What the 1-Click Deployment Script Does Automatically:
-1. Verifies SSH connection to `root@10.36.200.125`.
+1. Verifies SSH connection to `livekit@10.36.200.125`.
 2. Creates remote `/opt/restro-pos` directory if not present.
 3. Archives workspace while excluding `node_modules`, `.git`, `dist`, `tmp`, `backups`, and logs.
 4. Streams the archive over SSH directly into `/opt/restro-pos`.
@@ -140,7 +140,7 @@ You can manage the remote server without opening an interactive SSH terminal:
 
 ### Method 3: Direct On-Server Deployment (Inside SSH Session)
 
-If already logged into the server (`ssh root@10.36.200.125`):
+If already logged into the server (`ssh livekit@10.36.200.125`):
 
 ```bash
 cd /opt/restro-pos

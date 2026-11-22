@@ -20,7 +20,9 @@ elif [[ "$REMOTE_INPUT" =~ ^(primary|1)$ ]]; then
 else
     REMOTE_HOST="$REMOTE_INPUT"
 fi
-REMOTE_USER="${2:-root}"
+# Primary server deploys as the docker-group user "livekit"; the second server still uses root
+if [[ "$REMOTE_HOST" == "rocky.tail5d006f.ts.net" ]]; then DEFAULT_USER="root"; else DEFAULT_USER="livekit"; fi
+REMOTE_USER="${2:-$DEFAULT_USER}"
 REMOTE_DIR="${3:-/opt/restro-pos}"
 ACTION="${4:-deploy}"
 

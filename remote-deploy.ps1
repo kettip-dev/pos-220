@@ -10,7 +10,7 @@
 param (
     [string]$Target = "",
     [string]$RemoteHost = "10.36.200.125",
-    [string]$RemoteUser = "root",
+    [string]$RemoteUser = "",
     [string]$RemoteDir = "/opt/restro-pos",
     [string]$Action = "deploy"
 )
@@ -19,6 +19,11 @@ if ($Target -match "^(second|rocky|2)$") {
     $RemoteHost = "rocky.tail5d006f.ts.net"
 } elseif ($Target -match "^(primary|1)$") {
     $RemoteHost = "10.36.200.125"
+}
+
+# Primary server deploys as the docker-group user "livekit"; the second server still uses root
+if (-not $RemoteUser) {
+    $RemoteUser = if ($RemoteHost -eq "rocky.tail5d006f.ts.net") { "root" } else { "livekit" }
 }
 
 $ErrorActionPreference = "Stop"

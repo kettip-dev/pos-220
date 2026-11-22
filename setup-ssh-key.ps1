@@ -16,7 +16,7 @@
 param (
     [string]$Target = "",
     [string]$RemoteHost = "10.36.200.125",
-    [string]$RemoteUser = "root",
+    [string]$RemoteUser = "",
     [string]$KeyName = "id_rsa"
 )
 
@@ -24,6 +24,11 @@ if ($Target -match "^(second|rocky|2)$") {
     $RemoteHost = "rocky.tail5d006f.ts.net"
 } elseif ($Target -match "^(primary|1)$") {
     $RemoteHost = "10.36.200.125"
+}
+
+# Primary server deploys as the docker-group user "livekit"; the second server still uses root
+if (-not $RemoteUser) {
+    $RemoteUser = if ($RemoteHost -eq "rocky.tail5d006f.ts.net") { "root" } else { "livekit" }
 }
 
 $ErrorActionPreference = "Stop"
@@ -92,7 +97,7 @@ $remoteCmd = "umask 077; mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && " +
 & ssh -o StrictHostKeyChecking=accept-new -o PreferredAuthentications=password,keyboard-interactive $SshTarget $remoteCmd
 if ($LASTEXITCODE -ne 0) {
     Write-Err "Could not install the key (wrong password, or password login disabled on the server)."
-    Write-Host "Manual fallback: append this line to /root/.ssh/authorized_keys on the server:" -ForegroundColor Yellow
+    Write-Host "Manual fallback: append this line to ~/.ssh/authorized_keys of $RemoteUser on the server:" -ForegroundColor Yellow
     Write-Host $PubKey
     exit 1
 }
