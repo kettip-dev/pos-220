@@ -205,10 +205,16 @@ export function describeMode(mode, settings = state.settings) {
 
 /** All selectable modes for the current language list. */
 export function getModeOptions(settings = state.settings) {
-  const options = [{ value: "primary", label: describeMode("primary", settings) }];
+  const norm = (s) => String(s || "").trim().toLowerCase();
+  const seen = new Set([norm(settings?.primary_label || "Default")]);
+  const options = [{ value: "primary", label: describeMode("primary", settings), kind: "single" }];
   (settings?.languages || []).forEach((l) => {
-    options.push({ value: l.code, label: describeMode(l.code, settings) });
-    options.push({ value: `both:${l.code}`, label: describeMode(`both:${l.code}`, settings) });
+    // Skip a language that repeats the primary one (e.g. "English" + "English").
+    const key = norm(l.label || l.code);
+    if (seen.has(key)) return;
+    seen.add(key);
+    options.push({ value: l.code, label: describeMode(l.code, settings), kind: "single", code: l.code });
+    options.push({ value: `both:${l.code}`, label: describeMode(`both:${l.code}`, settings), kind: "both", code: l.code });
   });
   return options;
 }
