@@ -13,7 +13,7 @@ import {
  * Hidden unless multi-language menu is on and the store allows device overrides.
  * The choice is stored on this device only; printing is not affected.
  */
-export default function MenuLanguageSwitcher({ className = "" }) {
+export default function MenuLanguageSwitcher({ className = "", bare = false }) {
   const { t } = useTranslation();
   const { settings, isEnabled, deviceDisplayMode, displayMode } = useMenuLanguage();
   if (!isEnabled || !settings.allow_device_override || !(settings.languages || []).length) return null;
@@ -23,11 +23,15 @@ export default function MenuLanguageSwitcher({ className = "" }) {
 
   return (
     <label
-      className={`relative min-h-[42px] min-w-[42px] rounded-xl border border-[#D4D7DC] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-[#F4F5F8] dark:hover:bg-slate-800 text-gray-600 dark:text-slate-300 flex items-center gap-1.5 px-2.5 transition active:scale-95 cursor-pointer ${className}`}
+      className={`relative min-h-[42px] min-w-[42px] flex items-center gap-1.5 px-2.5 transition active:scale-95 cursor-pointer text-slate-600 dark:text-slate-300 ${
+        bare
+          ? "rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+          : "rounded-xl border border-[#D4D7DC] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-[#F4F5F8] dark:hover:bg-slate-800"
+      } ${className}`}
       title={t("menu_language.current_language", { mode: describeMode(displayMode, settings) })}
     >
-      <IconLanguage size={18} stroke={1.75} className="shrink-0" />
-      <span className="hidden lg:inline text-xs font-semibold max-w-[110px] truncate">
+      <IconLanguage size={20} stroke={1.75} className="shrink-0" />
+      <span className="hidden 2xl:inline text-xs font-medium max-w-[110px] truncate">
         {describeMode(displayMode, settings)}
       </span>
       <select

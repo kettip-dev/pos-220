@@ -3316,14 +3316,14 @@ export default function POSPage() {
 
           <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
           {/* Sub-bar: current category (or phone chips) + tools */}
-          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-4 py-1.5 sm:py-2 border-b border-[#E3E5E8] dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 flex items-center justify-between gap-2 sticky top-0 w-full z-10 px-2 sm:px-3 py-2 border-b border-[#E3E5E8] dark:border-slate-800">
             {/* Tablet/desktop: selected category title + menu search (search sits right above
                 the grid it filters, which also frees room in the top header) */}
             <div className="hidden md:flex flex-1 min-w-0 items-center gap-3">
               <div className="flex items-center gap-2 min-w-0 shrink">
-                <span className={clsx("w-2.5 h-2.5 rounded-full shrink-0", selectedCategoryTile?.tone.solid)} />
-                <h2 className="truncate text-base font-bold text-gray-900 dark:text-white">{selectedCategoryTile?.label}</h2>
-                <span className="shrink-0 px-2 py-0.5 rounded-full bg-[#F4F5F8] dark:bg-slate-800 text-[11px] font-bold text-gray-600 dark:text-slate-300 tabular-nums">
+                <span className={clsx("w-1 h-5 rounded-full shrink-0", selectedCategoryTile?.tone.solid)} />
+                <h2 className="truncate text-[15px] font-semibold text-slate-900 dark:text-white">{selectedCategoryTile?.label}</h2>
+                <span className="shrink-0 text-[13px] font-medium text-slate-400 tabular-nums">
                   {selectedCategoryTile?.count || 0}
                 </span>
                 {(isFavoritesView || isFavoriteEditMode) && (
@@ -3343,8 +3343,8 @@ export default function POSPage() {
                 )}
               </div>
               <div className="relative flex-1 min-w-[160px] max-w-[420px] ml-auto">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
-                  <IconSearch size={17} stroke={2} />
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <IconSearch size={18} stroke={2} />
                 </span>
                 <input
                   ref={searchInputRef}
@@ -3353,19 +3353,19 @@ export default function POSPage() {
                   onChange={(e) => setState(prev => ({ ...prev, searchQuery: e.target.value }))}
                   placeholder={t('pos.search_items_placeholder', 'Search menu items...')}
                   aria-label={t('pos.search_items_placeholder', 'Search menu items...')}
-                  className="w-full pl-9 pr-10 min-h-[42px] rounded-xl text-sm font-medium border border-transparent focus:border-[#008489] bg-[#F4F5F8] hover:bg-[#ECEEF1] dark:bg-slate-800 text-gray-800 dark:text-slate-100 placeholder-gray-500 outline-none transition [&::-webkit-search-cancel-button]:hidden"
+                  className="w-full h-12 pl-10 pr-11 rounded-xl text-sm border border-slate-200 dark:border-slate-700 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/15 bg-slate-50 hover:bg-white focus:bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none transition [&::-webkit-search-cancel-button]:hidden"
                 />
                 {searchQuery ? (
                   <button
                     type="button"
                     onClick={() => setState(prev => ({ ...prev, searchQuery: '' }))}
                     aria-label={t('pos.close', 'Clear')}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 w-[38px] h-[38px] rounded-lg text-gray-500 hover:text-gray-900 hover:bg-white dark:hover:bg-slate-700 flex items-center justify-center cursor-pointer active:scale-95"
+                    className="absolute right-[3px] top-1/2 -translate-y-1/2 w-[42px] h-[42px] rounded-lg text-gray-500 hover:text-gray-900 hover:bg-white dark:hover:bg-slate-700 flex items-center justify-center cursor-pointer active:scale-95"
                   >
                     <IconX size={16} stroke={iconStroke} />
                   </button>
                 ) : (
-                  <span className="hidden xl:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-[10px] font-mono font-bold text-gray-400 border border-gray-200 dark:border-slate-700 pointer-events-none">
+                  <span className="hidden xl:flex absolute right-3 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-md bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-400 border border-slate-200 dark:border-slate-700 pointer-events-none">
                     /
                   </span>
                 )}
@@ -3390,14 +3390,14 @@ export default function POSPage() {
             </button>
 
             {/* View Switcher Button (Compact vs Detailed Grid) */}
-            <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 md:pl-1.5 md:border-l border-[#E3E5E8] dark:border-slate-800">
+            <div className="flex items-center justify-end gap-2 shrink-0">
               {(!isOnline || offlineQueue.length > 0) && (
                 <button
                   type="button"
                   onClick={() => setIsQueueDrawerOpen(true)}
                   title={t('pos_ops.offline_orders', 'Offline orders')}
                   className={clsx(
-                    "min-h-[42px] px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-black transition active:scale-95 cursor-pointer",
+                    "h-12 px-3 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition active:scale-95 cursor-pointer",
                     offlineQueue.some((e) => e.status === 'failed')
                       ? "bg-rose-50 text-rose-700 border-rose-300"
                       : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
@@ -3407,46 +3407,47 @@ export default function POSPage() {
                   {offlineQueue.length > 0 ? offlineQueue.length : t('pos_ops.offline', 'Offline')}
                 </button>
               )}
+              <div className="h-12 flex items-center gap-0.5 px-[2px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <button
                 type="button"
                 onClick={() => setIsGiftCardOpen(true)}
                 title={t('pos_ops.gift_cards', 'Gift cards')}
                 aria-label={t('pos_ops.gift_cards', 'Gift cards')}
-                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+                className="relative w-[42px] h-[42px] rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition active:scale-95 touch-manipulation cursor-pointer shrink-0"
               >
-                <IconGift size={18} stroke={iconStroke} />
+                <IconGift size={20} stroke={iconStroke} />
               </button>
               <button
                 type="button"
                 onClick={() => setIsOpenItemOpen(true)}
                 title={t('pos_ops.open_item', 'Open item')}
                 aria-label={t('pos_ops.open_item', 'Open item')}
-                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+                className="relative w-[42px] h-[42px] rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition active:scale-95 touch-manipulation cursor-pointer shrink-0"
               >
-                <IconPencilPlus size={18} stroke={iconStroke} />
+                <IconPencilPlus size={20} stroke={iconStroke} />
               </button>
               <button
                 type="button"
                 onClick={() => setSoldOutDrawer({ open: true, itemId: null })}
                 title={t('pos_ops.sold_out_board', '86 board')}
                 aria-label={t('pos_ops.sold_out_board', '86 board')}
-                className="relative min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+                className="relative w-[42px] h-[42px] rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition active:scale-95 touch-manipulation cursor-pointer shrink-0"
               >
-                <IconBan size={18} stroke={iconStroke} />
+                <IconBan size={20} stroke={iconStroke} />
                 {soldOutCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
+                  <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">
                     {soldOutCount}
                   </span>
                 )}
               </button>
-              <MenuLanguageSwitcher />
+              <MenuLanguageSwitcher bare />
               <button
                 type="button"
                 className={clsx(
-                  "min-h-[42px] min-w-[42px] p-2 rounded-xl border flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer",
-                  state.view === "compact" 
-                    ? "text-[#0D233A] dark:text-white bg-[#F4F5F8] dark:bg-slate-800 border-[#0D233A] dark:border-slate-600" 
-                    : "text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-900 border-[#D4D7DC] dark:border-slate-700 hover:bg-[#F4F5F8]"
+                  "w-[42px] h-[42px] rounded-lg flex items-center justify-center transition active:scale-95 touch-manipulation cursor-pointer shrink-0",
+                  state.view === "compact"
+                    ? "text-white bg-[#0D233A] dark:bg-white dark:text-slate-900"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 )}
                 title={state.view === "compact" ? t('pos.compact_view', 'Compact View') : t('pos.detailed_view', 'Detailed View')}
                 onClick={() => {
@@ -3458,8 +3459,9 @@ export default function POSPage() {
                   sessionStorage.setItem('view', newView);
                 }}
               >
-                <IconLayout2 size={18} stroke={iconStroke} />
+                <IconLayout2 size={20} stroke={iconStroke} />
               </button>
+              </div>
             </div>
           </div>
 
