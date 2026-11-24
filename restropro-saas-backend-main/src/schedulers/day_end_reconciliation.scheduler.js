@@ -28,6 +28,7 @@ const {
   notifyDayEndReconciliation,
 } = require("../services/notification.service");
 const { sendEodTelegramNotification } = require("../services/telegram.service");
+const { runStaffAlertForDate } = require("../services/staff_alerts.service");
 const { getTenantsWithManagerDevicesDB } = require("../services/device.service");
 const { getRevenueDB, getTotalPaymentsByPaymentTypesDB } = require("../services/reports.service");
 const { getCurrencyDB } = require("../services/settings.service");
@@ -161,6 +162,10 @@ const runTelegramEodSweep = async (date, currentMinutes) => {
       if (await tenantUsesBusinessDayCloseDB(item.tenant_id).catch(() => false)) continue;
       await sendEodTelegramNotification(item.tenant_id, date).catch((err) => {
         console.error(`[scheduler] TELEGRAM_EOD tenant=${item.tenant_id} error:`, err.message);
+      });
+      // Unusual staff activity: same chat and time, sent only when someone is flagged.
+      await runStaffAlertForDate(item.tenant_id, date).catch((err) => {
+        console.error(`[scheduler] STAFF_ALERTS tenant=${item.tenant_id} error:`, err.message);
       });
     }
   } catch (error) {

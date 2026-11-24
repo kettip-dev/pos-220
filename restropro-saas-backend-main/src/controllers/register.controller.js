@@ -22,6 +22,7 @@ const {
   getBusinessDaysDB,
   setPaymentTypeCashDB,
 } = require("../services/register.service");
+const { runStaffAlertForDate } = require("../services/staff_alerts.service");
 const { hasScope, resolveManagerApproval } = require("../middlewares/register.middleware");
 const { SCOPES } = require("../config/user.config");
 const { NOTIFICATION_TYPES, notifyDayEndReconciliation } = require("../services/notification.service");
@@ -394,6 +395,7 @@ const sendDayCloseNotifications = async (tenantId, summary) => {
     console.error("[register] day-close push failed:", error);
   }
   await sendEodTelegramNotification(tenantId, date).catch((error) => console.error("[register] day-close telegram failed:", error));
+  await runStaffAlertForDate(tenantId, date).catch((error) => console.error("[register] day-close staff alert failed:", error));
 };
 
 exports.closeBusinessDay = async (req, res) => {

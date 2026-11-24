@@ -2,6 +2,7 @@ const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { getCurrencyDB, getStoreSettingDB } = require("./settings.service");
 const { tenantFilter } = require("../utils/tenant_scope");
 const { nonVoidInvoiceFilter } = require("./invoice.service");
+const { DEFAULT_STAFF_ALERT_SETTINGS, flagStaffActivity } = require("../utils/staffActivityRules");
 
 const REPORT_TITLES = {
   "sales-summary": "Sales Summary",
@@ -12,6 +13,7 @@ const REPORT_TITLES = {
   "sales-by-month": "Sales by Month",
   "sales-by-order-type": "Sales by Order Type",
   "sales-by-delivery-app": "Sales by Delivery App",
+  "unusual-staff-activity": "Unusual Staff Activity",
   "sales-by-table": "Sales by Table",
   "invoice-detail": "Invoice Detail",
   "voids-cancellations": "Voids & Cancellations",
@@ -3132,6 +3134,139 @@ const getCashierExceptionsReport = async (conn, type, from, to, tenantIds, curre
   });
 };
 
+/**
+ * Per-staff sales and everything taken off them in a period: voided bills,
+ * refunds, bill discounts, item comps / discounts / voids, and no-sale drawer
+ * opens. Rows feed utils/staffActivityRules.
+ */
+const collectStaffActivity = async (conn, type, from, to, tenantIds) => {
+  const created = getFilterCondition("created_at", type, from, to);
+  const voided = getFilterCondition("voided_at", type, from, to);
+  const [sales, voids, refunds, discounts, lines, movements] = await Promise.all([
+    query(conn, `
+      SELECT created_by AS username, COUNT(*) AS bills, COALESCE(SUM(total), 0) AS amount
+      FROM invoices WHERE tenant_id IN (?) AND ${nonVoidInvoiceFilter("")} AND ${created.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...created.params]),
+    query(conn, `
+      SELECT voided_by AS username, COUNT(*) AS count, COALESCE(SUM(total), 0) AS amount
+      FROM invoices WHERE tenant_id IN (?) AND status = 'VOID' AND ${voided.filter}
+      GROUP BY voided_by
+    `, [tenantIds, ...voided.params]),
+    query(conn, `
+      SELECT created_by AS username, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount
+      FROM invoice_refunds WHERE tenant_id IN (?) AND ${created.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...created.params]),
+    query(conn, `
+      SELECT created_by AS username, COUNT(*) AS count, COALESCE(SUM(discount_total), 0) AS amount
+      FROM invoices WHERE tenant_id IN (?) AND discount_total > 0 AND ${nonVoidInvoiceFilter("")} AND ${created.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...created.params]),
+    query(conn, `
+      SELECT performed_by AS username, action, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount
+      FROM pos_line_adjustments WHERE tenant_id IN (?) AND action IN ('comp', 'discount', 'void') AND ${created.filter}
+      GROUP BY performed_by, action
+    `, [tenantIds, ...created.params]),
+    query(conn, `
+      SELECT created_by AS username, SUM(CASE WHEN type = 'NO_SALE' THEN 1 ELSE 0 END) AS no_sales
+      FROM register_cash_movements WHERE tenant_id IN (?) AND ${created.filter}
+      GROUP BY created_by
+    `, [tenantIds, ...created.params]),
+  ]);
+
+  const byUser = new Map();
+  const entry = (username) => {
+    const key = username || "unknown";
+    if (!byUser.has(key)) {
+      byUser.set(key, {
+        username: key, bills: 0, sales: 0,
+        voids: 0, void_amount: 0, refunds: 0, refund_amount: 0, discounts: 0, discount_amount: 0,
+        comps: 0, comp_amount: 0, item_discounts: 0, item_discount_amount: 0, item_voids: 0, item_void_amount: 0,
+        no_sales: 0,
+      });
+    }
+    return byUser.get(key);
+  };
+  sales.forEach((r) => Object.assign(entry(r.username), { bills: Number(r.bills), sales: money(r.amount) }));
+  voids.forEach((r) => Object.assign(entry(r.username), { voids: Number(r.count), void_amount: money(r.amount) }));
+  refunds.forEach((r) => Object.assign(entry(r.username), { refunds: Number(r.count), refund_amount: money(r.amount) }));
+  discounts.forEach((r) => Object.assign(entry(r.username), { discounts: Number(r.count), discount_amount: money(r.amount) }));
+  lines.forEach((r) => {
+    const e = entry(r.username);
+    if (r.action === "comp") Object.assign(e, { comps: Number(r.count), comp_amount: money(r.amount) });
+    if (r.action === "discount") Object.assign(e, { item_discounts: Number(r.count), item_discount_amount: money(r.amount) });
+    if (r.action === "void") Object.assign(e, { item_voids: Number(r.count), item_void_amount: money(r.amount) });
+  });
+  movements.forEach((r) => Object.assign(entry(r.username), { no_sales: Number(r.no_sales || 0) }));
+  return [...byUser.values()];
+};
+
+const loadStaffAlertSettings = async (conn, tenantId) => {
+  const rows = await query(conn, `SELECT * FROM staff_alert_settings WHERE tenant_id = ? LIMIT 1`, [tenantId]);
+  const r = rows[0];
+  if (!r) return { ...DEFAULT_STAFF_ALERT_SETTINGS };
+  return {
+    isEnabled: Boolean(r.is_enabled),
+    maxRatePercent: Number(r.max_rate_percent),
+    minAmount: Number(r.min_amount),
+    peerMultiple: Number(r.peer_multiple),
+    maxNoSales: Number(r.max_no_sales),
+  };
+};
+
+const getUnusualStaffActivityReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const settings = await loadStaffAlertSettings(conn, tenantIds[0]);
+  const raw = await collectStaffActivity(conn, type, from, to, tenantIds);
+  const { rows, teamRate, flaggedCount } = flagStaffActivity(raw, settings, (n) => `${currency ? `${currency} ` : ""}${Number(n).toFixed(2)}`);
+  const total = (key) => rows.reduce((sum, r) => sum + Number(r[key] || 0), 0);
+
+  return makeReport({
+    reportId: "unusual-staff-activity",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Staff Flagged", value: flaggedCount, type: "number" },
+      { label: "Taken Off Sales", value: total("exception_amount"), type: "money" },
+      { label: "Team Rate %", value: teamRate, type: "number" },
+      { label: "No-Sale Drawer Opens", value: total("no_sales"), type: "number" },
+    ],
+    tables: [{
+      title: "Staff Activity",
+      columns: [
+        { key: "username", label: "Staff" },
+        { key: "flag_text", label: "Why Flagged" },
+        { key: "sales", label: "Sales", type: "money" },
+        { key: "exception_amount", label: "Taken Off", type: "money" },
+        { key: "exception_rate", label: "Rate %", type: "number" },
+        { key: "void_amount", label: "Voided Bills", type: "money" },
+        { key: "refund_amount", label: "Refunds", type: "money" },
+        { key: "discount_amount", label: "Bill Discounts", type: "money" },
+        { key: "comp_amount", label: "Item Comps", type: "money" },
+        { key: "item_discount_amount", label: "Item Discounts", type: "money" },
+        { key: "item_void_amount", label: "Item Voids", type: "money" },
+        { key: "no_sales", label: "No Sales", type: "number" },
+      ],
+      rows: rows.map(({ flags, ...r }) => r),
+    }],
+  });
+};
+
+/** One business, one day: flagged staff for the Telegram alert and the "check now" preview. */
+exports.getStaffActivityForDateDB = async (tenantId, date, currency = "") => {
+  const conn = await getMySqlPromiseConnection();
+  try {
+    const settings = await loadStaffAlertSettings(conn, tenantId);
+    const raw = await collectStaffActivity(conn, "custom", date, date, [tenantId]);
+    return { settings, ...flagStaffActivity(raw, settings, (n) => `${currency ? `${currency} ` : ""}${Number(n).toFixed(2)}`) };
+  } finally {
+    conn.release();
+  }
+};
+
 const getRefundsReport = async (conn, type, from, to, tenantIds, currency, store) => {
   const { filter, params } = getFilterCondition("f.created_at", type, from, to);
   const rows = await query(conn, `
@@ -3316,6 +3451,7 @@ const REPORT_BUILDERS = {
   }),
   "sales-by-order-type": getSalesByOrderTypeReport,
   "sales-by-delivery-app": getSalesByDeliveryAppReport,
+  "unusual-staff-activity": getUnusualStaffActivityReport,
   "sales-by-table": getSalesByTableReport,
   "invoice-detail": getInvoiceDetailReport,
   "voids-cancellations": getVoidsCancellationsReport,
@@ -3504,6 +3640,7 @@ const SINGLE_BUSINESS_ONLY_REPORTS = new Set([
   "register-sessions",   // tills and Z numbers are per business
   "cash-variance",       // cashiers belong to one business
   "cashier-exceptions",  // same
+  "unusual-staff-activity", // same; thresholds are per business
   "refunds-report",      // refund numbers restart per business
   "cash-movements",      // drawer ledger of one store
 ]);

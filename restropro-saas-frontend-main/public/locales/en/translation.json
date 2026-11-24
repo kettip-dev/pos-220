@@ -2023,7 +2023,9 @@
     "sms_waitlist": "SMS for Waitlist",
     "desc_sms_waitlist": "Connect your PlasGate account to text walk-in guests when their table is ready.",
     "delivery_apps": "Delivery Apps",
-    "desc_delivery_apps": "Grab, Foodpanda, Nham24 and others: app price markup, commission and the payment type each app pays with."
+    "desc_delivery_apps": "Grab, Foodpanda, Nham24 and others: app price markup, commission and the payment type each app pays with.",
+    "staff_alerts": "Unusual Staff Activity",
+    "desc_staff_alerts": "Telegram alert at closing time when someone voids, refunds, discounts or comps far more than usual."
   },
   "reservation": {
     "view_notes": "View Notes",
@@ -5728,5 +5730,33 @@
     "selected_markup": "{{name}} prices (+{{n}}%)",
     "set_up": "Set up delivery apps",
     "use_app": "Use {{name}}"
+  },
+  "staff_alerts": {
+    "title": "Unusual Staff Activity",
+    "subtitle": "Get a Telegram alert at closing time when someone voids, refunds, discounts or comps far more than usual.",
+    "rules": "When to flag someone",
+    "rules_hint": "Counts voided bills, refunds, bill discounts, and item comps, discounts and voids, compared with what each person sold that day.",
+    "enabled": "Daily alert on",
+    "max_rate": "More than this % of their own sales",
+    "peer_multiple": "Or this many times the team average",
+    "min_amount": "Ignore amounts below",
+    "min_amount_hint": "So one small mistake doesn't raise an alert.",
+    "max_no_sales": "No-sale drawer opens in a day",
+    "max_no_sales_hint": "Flag at this many or more. 0 turns this check off.",
+    "telegram_note": "Sent to your end-of-day Telegram chat at its closing time, only on days when someone is flagged.",
+    "telegram_settings": "Telegram settings",
+    "check_today": "Check today",
+    "save": "Save",
+    "saved": "Saved",
+    "error": "Something went wrong",
+    "today_result": "Today ({{date}})",
+    "team_rate": "Team average: {{rate}}% of sales taken off",
+    "send_now": "Send alert now",
+    "sent": "Alert sent to Telegram",
+    "nothing_to_send": "Nobody is flagged today, so nothing was sent",
+    "no_telegram": "Set up Telegram (bot and chat) first",
+    "send_failed": "Telegram send failed",
+    "no_activity": "No sales or exceptions recorded today yet.",
+    "row_numbers": "Sales {{sales}} · taken off {{off}} ({{rate}})"
   }
 }

@@ -32,6 +32,7 @@ import PmsSettingsPage from "./views/SettingsViews/PmsSettingsPage";
 import TelegramSettingsPage from "./views/SettingsViews/TelegramSettingsPage";
 import SmsSettingsPage from "./views/SettingsViews/SmsSettingsPage";
 import DeliveryAppsSettingsPage from "./views/SettingsViews/DeliveryAppsSettingsPage";
+import StaffAlertsSettingsPage from "./views/SettingsViews/StaffAlertsSettingsPage";
 import TablesSettingsPage from "./views/SettingsViews/TableSettingsPage";
 import TablesPage from "./views/TablesPage";
 import TableAssignmentsPage from "./views/SettingsViews/TableAssignmentsPage";
@@ -504,6 +505,7 @@ export default function App() {
               <Route path="telegram" element={<RequiresSingleBusiness><TelegramSettingsPage /></RequiresSingleBusiness>} />
               <Route path="sms" element={<RequiresSingleBusiness><SmsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="delivery-apps" element={<RequiresSingleBusiness><DeliveryAppsSettingsPage /></RequiresSingleBusiness>} />
+              <Route path="staff-alerts" element={<RequiresSingleBusiness><StaffAlertsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="hotel-pms" element={<RequiresSingleBusiness><PmsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="thermal-printers" element={<RequiresSingleBusiness><ThermalPrintersPage /></RequiresSingleBusiness>} />
               <Route path="kitchen-stations" element={<RequiresSingleBusiness><KitchenStationsSettingsPage /></RequiresSingleBusiness>} />

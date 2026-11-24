@@ -219,6 +219,15 @@ export const REPORT_CATALOG = [
     priority: "High",
   },
   {
+    id: "unusual-staff-activity",
+    title: "Unusual Staff Activity",
+    category: "Operations",
+    description: "Loss prevention: who took the most off their own sales (voids, refunds, discounts, comps) compared with the team, and why they were flagged.",
+    icon: IconAlertTriangle,
+    status: "ready",
+    priority: "High",
+  },
+  {
     id: "cashier-exceptions",
     title: "Cashier Exceptions",
     category: "Operations",

@@ -33,6 +33,7 @@ const { ensurePosFavoritesSchema } = require("../utils/posFavoritesMigration");
 const { ensureWaitlistSchema } = require("../utils/waitlistMigration");
 const { ensureDietaryTagsSchema } = require("../utils/dietaryTagsMigration");
 const { ensureDeliveryPlatformsSchema } = require("../utils/deliveryPlatformsMigration");
+const { ensureStaffAlertsSchema } = require("../utils/staffAlertsMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -89,6 +90,7 @@ const MIGRATIONS = [
   ["waitlist & SMS", ensureWaitlistSchema],
   ["dietary tags", ensureDietaryTagsSchema], // needs POS features (menu_items columns)
   ["delivery apps", ensureDeliveryPlatformsSchema],
+  ["staff alerts", ensureStaffAlertsSchema],
 ];
 
 exports.schemaReady = (async () => {

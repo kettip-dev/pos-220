@@ -7,6 +7,7 @@ import {
   IconBrandTelegram,
   IconMessage2,
   IconTruckDelivery,
+  IconShieldExclamation,
   IconBed,
   IconChefHat,
   IconCreditCard,
@@ -238,6 +239,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/payment-types",
       category: t("settings.cat_finance_tax", "Finance & Tax"),
       icon: <IconCreditCard stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "staff-alerts",
+      title: t("settings.staff_alerts", "Unusual Staff Activity"),
+      description: t(
+        "settings.desc_staff_alerts",
+        "Telegram alert at closing time when someone voids, refunds, discounts or comps far more than usual."
+      ),
+      path: "/dashboard/settings/staff-alerts",
+      category: t("settings.cat_finance_tax", "Finance & Tax"),
+      icon: <IconShieldExclamation stroke={iconStroke} className="w-6 h-6 text-amber-500" />,
     },
     {
       id: "delivery-apps",

@@ -443,6 +443,13 @@ const CHARTS = {
       <BarChart key="aov" title="Average Order Value" rows={rows} labelKey="order_type" series={seriesFrom(columns, "average_order_value")} currency={currency} />,
     ];
   },
+  "unusual-staff-activity": ({ data, currency }) => {
+    const { rows, columns } = getTable(data);
+    return [
+      <BarChart key="off" title="Taken Off Sales by Staff" rows={rows} labelKey="username" series={seriesFrom(columns, "exception_amount")} currency={currency} horizontal limit={10} />,
+      <BarChart key="rate" title="Rate % of Own Sales" rows={rows.filter((r) => r.exception_rate !== null)} labelKey="username" series={seriesFrom(columns, "exception_rate")} currency={currency} horizontal limit={10} />,
+    ];
+  },
   "sales-by-delivery-app": ({ data, currency }) => {
     const { rows, columns } = getTable(data);
     return [
