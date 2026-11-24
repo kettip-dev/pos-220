@@ -2,6 +2,8 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
 import { useMenuLanguage } from "../../helpers/MenuLanguageHelper";
+import DietaryTagBadges from "../DietaryTagBadges";
+import { collectAllergens, dietaryTagLabel } from "../../config/dietaryTags";
 import {
   IconArmchair,
   IconBed,
@@ -110,6 +112,8 @@ export default function KdsTicketCard({
   const doneCount = liveItems.filter(isItemDone).length;
   const totalCount = liveItems.length;
   const progress = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+  // Allergens in items still to cook, so the whole ticket carries a warning
+  const ticketAllergens = collectAllergens(liveItems.filter((i) => !isItemDone(i)));
   const hasNew = displayItems.some((i) => i.status === "created");
   const hasActive = displayItems.some((i) => i.status === "created" || i.status === "preparing");
   const isFresh = elapsedSec < 60;
@@ -217,6 +221,17 @@ export default function KdsTicketCard({
             </span>
           </div>
         )}
+        {ticketAllergens.length > 0 && (
+          <div
+            role="alert"
+            className={clsx("mt-2 flex items-start gap-1.5 px-2 py-1.5 rounded-lg bg-red-600 text-white font-black leading-snug", S.meta)}
+          >
+            <IconAlertTriangle size={15} stroke={2.6} className="mt-[1px] shrink-0" />
+            <span>
+              {t("dietary.kds_contains", "Contains")}: {ticketAllergens.map((tag) => dietaryTagLabel(t, tag)).join(", ")}
+            </span>
+          </div>
+        )}
       </header>
 
       {/* Progress */}
@@ -287,6 +302,9 @@ export default function KdsTicketCard({
                     {view.item_title}
                     {view.variant_title && <span className={clsx("font-semibold", done ? "" : "text-[color:var(--kds-text-2)]")}> · {view.variant_title}</span>}
                   </span>
+                  {!done && !voided && (
+                    <DietaryTagBadges tags={item.dietary_tags} only="allergen" onDark className="mt-1" />
+                  )}
 
                   {addonsText && (
                     <span className={clsx("block mt-0.5 font-medium", S.meta, done ? "text-[color:var(--kds-faint)]" : "text-sky-300")}>+ {addonsText}</span>

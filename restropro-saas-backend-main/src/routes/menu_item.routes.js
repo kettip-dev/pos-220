@@ -35,6 +35,7 @@ const {
   updateRecipeItem,
   setMenuItemBarcode,
   setMenuItemPrepMinutes,
+  setMenuItemDietaryTags,
 } = require("../controllers/menu_item.controller");
 const {
   exportMenuItems,
@@ -96,6 +97,14 @@ router.delete(
   isSubscriptionActive,
   authorize([SCOPES.SETTINGS]),
   deleteMenuItem
+);
+router.patch(
+  "/update/:id/dietary-tags",
+  isLoggedIn,
+  isAuthenticated,
+  isSubscriptionActive,
+  authorize([SCOPES.SETTINGS]),
+  setMenuItemDietaryTags
 );
 router.patch(
   "/update/:id/prep-time",

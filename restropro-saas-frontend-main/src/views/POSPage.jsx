@@ -2768,6 +2768,7 @@ export default function POSPage() {
             hold: l.hold,
             kitchen_station_id: c.kitchen_station_id,
             kitchen_station_name: c.kitchen_station_name,
+            dietary_tags: (menuItems || []).find((m) => String(m.id) === String(c.menu_item_id))?.dietary_tags || null,
           }))
         : [l]
     );

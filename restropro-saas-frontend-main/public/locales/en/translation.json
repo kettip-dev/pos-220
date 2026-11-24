@@ -5661,5 +5661,28 @@
     "join_template": "Joined waitlist message",
     "save": "Save",
     "privacy": "Your key and secret are stored encrypted and are never shown again after saving."
+  },
+  "dietary": {
+    "peanuts": "Peanuts",
+    "tree_nuts": "Tree nuts",
+    "gluten": "Gluten",
+    "dairy": "Dairy",
+    "egg": "Egg",
+    "soy": "Soy",
+    "fish": "Fish",
+    "shellfish": "Shellfish",
+    "sesame": "Sesame",
+    "vegetarian": "Vegetarian",
+    "vegan": "Vegan",
+    "halal": "Halal",
+    "gluten_free": "Gluten-free",
+    "spicy": "Spicy",
+    "contains": "Contains",
+    "diet": "Dietary",
+    "section_label": "Allergens & dietary",
+    "section_hint": "Shown on the POS, QR menu and kitchen screen. Allergens also appear as a red warning on kitchen tickets.",
+    "no_tag": "No {{name}}",
+    "filter_disclaimer": "Based on the restaurant's labels. Kitchens share equipment, so please tell staff about any allergy.",
+    "kds_contains": "Contains"
   }
 }

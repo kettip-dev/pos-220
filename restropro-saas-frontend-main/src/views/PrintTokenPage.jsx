@@ -1,6 +1,7 @@
 import React from "react";
 import { getDetailsForReceiptPrint } from "../helpers/ReceiptHelper";
 import { useTranslation } from "react-i18next";
+import { collectAllergens } from "../config/dietaryTags";
 
 export default function PrintTokenPage() {
   const { t } = useTranslation();
@@ -65,6 +66,11 @@ export default function PrintTokenPage() {
       {receiptDetails?.billingTag && (
         <p className="mt-0.5 text-center font-bold text-xs tracking-wider">
           [{receiptDetails.billingTag}]
+        </p>
+      )}
+      {collectAllergens(cartItems).length > 0 && (
+        <p className="mt-2 bg-black px-2 py-1 text-center text-sm font-black text-white">
+          CONTAINS: {collectAllergens(cartItems).map((a) => a.label.toUpperCase()).join(", ")}
         </p>
       )}
       <div className="border-b border-dashed mt-2"></div>

@@ -291,3 +291,7 @@ export async function setMenuItemBarcode(id, barcode) {
 export async function setMenuItemPrepMinutes(id, prepMinutes) {
   return ApiClient.patch(`/menu-items/update/${id}/prep-time`, { prepMinutes });
 }
+
+export async function setMenuItemDietaryTags(id, tags) {
+  return ApiClient.patch(`/menu-items/update/${id}/dietary-tags`, { tags });
+}

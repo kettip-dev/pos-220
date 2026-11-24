@@ -70,6 +70,7 @@ exports.getKitchenOrdersDB = async (tenantId, stationId = null) => {
         oi.fire_status,
         oi.fired_at,
         COALESCE(mi.prep_minutes, cat.prep_minutes) AS prep_minutes,
+        mi.dietary_tags,
         oi.delay_minutes,
         oi.delay_reason,
         oi.kitchen_station_id,

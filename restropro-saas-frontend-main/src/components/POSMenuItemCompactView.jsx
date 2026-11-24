@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import useLongPress from '../helpers/useLongPress';
+import DietaryTagBadges from "./DietaryTagBadges";
 
 // Smart POS price formatter: adds thousands commas and strips unnecessary .00 for KHR (៛) or whole numbers
 export const formatPOSPrice = (price, currency = '') => {
@@ -322,6 +323,7 @@ const POSMenuItemCompactView = ({
                       {formatPOSPrice(price, currency)}
                     </p>
                   )}
+                  <DietaryTagBadges tags={menuItem.dietary_tags} onDark max={5} className="mt-1" />
                   <p
                     title={title}
                     className={`mt-0.5 ${showPhoto ? 'line-clamp-2' : 'line-clamp-3'} ${showPhoto ? size.name : size.textName} font-bold leading-[1.2] text-white drop-shadow-sm`}

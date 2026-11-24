@@ -1,3 +1,4 @@
+import { collectAllergens } from "../config/dietaryTags";
 /**
  * ESC/POS 80mm Thermal Print Engine & RawBT Print Bridge
  * Supports direct network printing via RawBT background service on Android tablets without browser print dialogs.
@@ -389,6 +390,14 @@ export function buildKotEscPos(kotDetails) {
     out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_HEIGHT;
     out += `TABLE: ${tableName || tableId}\n`;
     out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
+  }
+
+  // Allergen warning (from menu item tags), white on black
+  const kotAllergens = collectAllergens(cartItems);
+  if (kotAllergens.length > 0) {
+    out += "\x1DB\x01" + ESCPOS.BOLD_ON;
+    out += ` CONTAINS: ${kotAllergens.map((a) => a.label.toUpperCase()).join(", ")} \n`;
+    out += ESCPOS.BOLD_OFF + "\x1DB\x00";
   }
 
   out += ESCPOS.ALIGN_LEFT;

@@ -31,6 +31,7 @@ const { ensureKitchenTimingSchema } = require("../utils/kitchenTimingMigration")
 const { ensurePmsIntegrationSchema } = require("../utils/pmsIntegrationMigration");
 const { ensurePosFavoritesSchema } = require("../utils/posFavoritesMigration");
 const { ensureWaitlistSchema } = require("../utils/waitlistMigration");
+const { ensureDietaryTagsSchema } = require("../utils/dietaryTagsMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -85,6 +86,7 @@ const MIGRATIONS = [
   ["POS features", ensurePosFeaturesSchema], // extends register/invoice tables
   ["POS favorites", ensurePosFavoritesSchema],
   ["waitlist & SMS", ensureWaitlistSchema],
+  ["dietary tags", ensureDietaryTagsSchema], // needs POS features (menu_items columns)
 ];
 
 exports.schemaReady = (async () => {

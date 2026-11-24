@@ -4,6 +4,7 @@ import { getImageURL } from '../helpers/ImageHelper';
 import { IconAlertTriangleFilled, IconMinus, IconSearch, IconAdjustmentsHorizontal, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import useLongPress from '../helpers/useLongPress';
+import DietaryTagBadges from "./DietaryTagBadges";
 import {
   formatPOSPrice,
   getCategoryFallbackIcon,
@@ -241,6 +242,7 @@ const POSMenuItemDetailedView = ({
                         {description}
                       </p>
                     ) : null}
+                    <DietaryTagBadges tags={menuItem.dietary_tags} onDark max={6} className="mt-1" />
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">

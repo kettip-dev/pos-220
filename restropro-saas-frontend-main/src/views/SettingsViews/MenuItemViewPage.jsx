@@ -19,10 +19,13 @@ import {
   updateMenuItem,
   setMenuItemBarcode,
   setMenuItemPrepMinutes,
+  setMenuItemDietaryTags,
   updateMenuItemRecipeItem,
   updateMenuItemVariant,
   uploadMenuItemPhoto,
 } from "../../controllers/menu_item.controller";
+import { DietaryTagPicker } from "../../components/DietaryTagBadges";
+import { parseDietaryTags } from "../../config/dietaryTags";
 import {
   useCategories,
   useTaxes,
@@ -88,6 +91,7 @@ export default function MenuItemViewPage() {
   const [formNetPrice, setFormNetPrice] = useState("");
   const [formBarcode, setFormBarcode] = useState("");
   const [formPrepMinutes, setFormPrepMinutes] = useState("");
+  const [formDietaryTags, setFormDietaryTags] = useState([]);
   const [formCategoryId, setFormCategoryId] = useState("");
   const [formTaxId, setFormTaxId] = useState("");
   const [formKitchenStationId, setFormKitchenStationId] = useState("");
@@ -180,6 +184,7 @@ export default function MenuItemViewPage() {
         setFormCategoryId(item.category_id ? String(item.category_id) : "");
         setFormBarcode(item.barcode || "");
         setFormPrepMinutes(item.prep_minutes ? String(item.prep_minutes) : "");
+        setFormDietaryTags(parseDietaryTags(item.dietary_tags).map((tag) => tag.code));
         setFormTaxId(item.tax_id ? String(item.tax_id) : "");
         setFormKitchenStationId(
           item.kitchen_station_id ? String(item.kitchen_station_id) : ""
@@ -260,6 +265,9 @@ export default function MenuItemViewPage() {
         }
         if (String(formPrepMinutes || "") !== String(state.menuItem?.prep_minutes || "") && isValidPrepInput(formPrepMinutes)) {
           await setMenuItemPrepMinutes(id, formPrepMinutes === "" ? null : Number(formPrepMinutes));
+        }
+        if (formDietaryTags.join(",") !== parseDietaryTags(state.menuItem?.dietary_tags).map((tag) => tag.code).join(",")) {
+          await setMenuItemDietaryTags(id, formDietaryTags);
         }
         await _init(itemId);
         toast.dismiss();
@@ -1147,6 +1155,16 @@ export default function MenuItemViewPage() {
                   inheritedMinutes={categories?.find((c) => String(c.id) === String(formCategoryId))?.prep_minutes || null}
                   inheritedLabel={categories?.find((c) => String(c.id) === String(formCategoryId))?.title || null}
                 />
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wide mb-1.5 block text-gray-500">
+                  {t("dietary.section_label", "Allergens & dietary")}
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  {t("dietary.section_hint", "Shown on the POS, QR menu and kitchen screen. Allergens also appear as a red warning on kitchen tickets.")}
+                </p>
+                <DietaryTagPicker value={formDietaryTags} onChange={setFormDietaryTags} />
               </div>
 
               <div>

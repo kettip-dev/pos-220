@@ -1,5 +1,6 @@
 const { getMySqlPromiseConnection } = require("../config/mysql.db");
 const { getOrSetCache, invalidateTenantCatalog } = require("../utils/cache.util");
+const { normalizeDietaryTags } = require("../utils/dietaryTags");
 const { linkUnlinkedAddons } = require("../utils/addonLibraryMigration");
 
 /**
@@ -164,7 +165,7 @@ exports.getAllMenuItemsDB = async (tenantId) => {
             SELECT
             i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
             category as category_id, c.title AS category_title, image, i.is_enabled,
-            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo, i.barcode,
+            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo, i.barcode, i.dietary_tags,
             i.translations, c.translations AS category_translations,
             i.kitchen_station_id,
             ks.name AS kitchen_station_name,
@@ -203,7 +204,7 @@ exports.getMenuItemDB = async (id, tenantId) => {
             SELECT
             i.id, i.title, i.description, price, net_price, tax_id, t.title AS tax_title, t.rate AS tax_rate, t.type AS tax_type, 
             category as category_id, c.title AS category_title, image, i.is_enabled,
-            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo, i.barcode, i.prep_minutes,
+            i.is_sold_out, i.stock_limit, i.sold_out_auto_reset, i.is_combo, i.barcode, i.prep_minutes, i.dietary_tags,
             i.translations, c.translations AS category_translations,
             i.kitchen_station_id,
             ks.name AS kitchen_station_name,
@@ -782,6 +783,20 @@ exports.setMenuItemPrepMinutesDB = async (id, minutes, tenantId) => {
     try {
         await conn.query(`UPDATE menu_items SET prep_minutes = ? WHERE id = ? AND tenant_id = ?`, [value || null, id, tenantId]);
         await invalidateTenantCatalog(tenantId);
+    } finally {
+        conn.release();
+    }
+};
+
+
+/** Allergen / dietary tags shown on the POS, QR menu and KDS; empty clears them. */
+exports.setMenuItemDietaryTagsDB = async (id, tags, tenantId) => {
+    const value = normalizeDietaryTags(tags);
+    const conn = await getMySqlPromiseConnection();
+    try {
+        const [result] = await conn.query(`UPDATE menu_items SET dietary_tags = ? WHERE id = ? AND tenant_id = ?`, [value, id, tenantId]);
+        await invalidateTenantCatalog(tenantId);
+        return { updated: result.affectedRows > 0, tags: value };
     } finally {
         conn.release();
     }

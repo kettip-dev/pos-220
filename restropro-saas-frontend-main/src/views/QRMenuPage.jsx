@@ -38,6 +38,8 @@ import { getImageURL, setImageStorageConfig } from "../helpers/ImageHelper";
 import toast from "react-hot-toast";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { getQRMenuLink } from "../helpers/QRMenuHelper";
+import DietaryTagBadges from "../components/DietaryTagBadges";
+import { DIETARY_TAGS, parseDietaryTags, dietaryTagLabel } from "../config/dietaryTags";
 import { useTranslation } from "react-i18next";
 import LanguageChanger from "../components/LanguageChanger";
 
@@ -95,6 +97,8 @@ export default function QRMenuPage() {
   const [selectedAddonIds, setSelectedAddonIds] = useState([]);
   const [customQuantity, setCustomQuantity] = useState(1);
   const [customNotes, setCustomNotes] = useState("");
+  // Guest filters: diet codes keep items that have the tag; allergen codes hide items that contain it.
+  const [dietFilter, setDietFilter] = useState([]);
 
   // Table & PIN Verification Modal state
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
@@ -244,6 +248,14 @@ export default function QRMenuPage() {
     return kCount + pCount;
   }, [activeSessionSummary]);
 
+  // Diet / allergen filter chips, offered only for tags this restaurant actually uses
+  const dietFilterOptions = useMemo(() => {
+    const used = new Set();
+    (menuItems || []).forEach((item) => parseDietaryTags(item.dietary_tags).forEach((tag) => used.add(tag.code)));
+    return DIETARY_TAGS.filter((tag) => used.has(tag.code) && tag.code !== "spicy");
+  }, [menuItems]);
+  const hasAllergenFilter = dietFilter.some((code) => DIETARY_TAGS.find((tag) => tag.code === code)?.kind === "allergen");
+
   // Menu grouped into one section per enabled category (uncategorized items last)
   const menuSections = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -255,6 +267,13 @@ export default function QRMenuPage() {
           String(menuItem.title || "").toLowerCase().includes(q) ||
           String(menuItem.description || "").toLowerCase().includes(q) ||
           String(menuItem.category_title || "").toLowerCase().includes(q)
+        );
+      })
+      .filter((menuItem) => {
+        if (dietFilter.length === 0) return true;
+        const codes = new Set(parseDietaryTags(menuItem.dietary_tags).map((tag) => tag.code));
+        return dietFilter.every((code) =>
+          DIETARY_TAGS.find((tag) => tag.code === code)?.kind === "allergen" ? !codes.has(code) : codes.has(code)
         );
       });
 
@@ -276,7 +295,7 @@ export default function QRMenuPage() {
     }
 
     return sections.filter((section) => section.items.length > 0);
-  }, [menuItems, categories, searchQuery, t]);
+  }, [menuItems, categories, searchQuery, dietFilter, t]);
 
   // Category tabs follow scroll position (scroll-spy)
   const [activeSectionId, setActiveSectionId] = useState(null);
@@ -804,6 +823,36 @@ export default function QRMenuPage() {
                 </button>
               )}
             </div>
+            {dietFilterOptions.length > 0 && (
+              <div className="mt-2 flex gap-1.5 overflow-x-auto no-scrollbar">
+                {dietFilterOptions.map((tag) => {
+                  const on = dietFilter.includes(tag.code);
+                  const label = tag.kind === "allergen"
+                    ? t("dietary.no_tag", "No {{name}}", { name: dietaryTagLabel(t, tag).toLowerCase() })
+                    : dietaryTagLabel(t, tag);
+                  return (
+                    <button
+                      key={tag.code}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setDietFilter((prev) => (prev.includes(tag.code) ? prev.filter((c) => c !== tag.code) : [...prev, tag.code]))}
+                      className={`shrink-0 inline-flex items-center gap-1 h-[42px] px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap border transition active:scale-95 ${
+                        on
+                          ? "bg-emerald-600 border-emerald-600 text-white"
+                          : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {hasAllergenFilter && (
+              <p className="mt-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
+                {t("dietary.filter_disclaimer", "Based on the restaurant's labels. Kitchens share equipment, so please tell staff about any allergy.")}
+              </p>
+            )}
           </div>
 
           {menuSections.length > 1 && (
@@ -884,6 +933,7 @@ export default function QRMenuPage() {
                               {description}
                             </p>
                           )}
+                          <DietaryTagBadges tags={item.dietary_tags} variant="chips" className="mt-1.5" />
                           <div className="mt-auto pt-2.5 flex items-center gap-2 flex-wrap">
                             <span className="text-base font-extrabold text-slate-900 dark:text-white tabular-nums">
                               {currency}
@@ -995,6 +1045,7 @@ export default function QRMenuPage() {
                   {customizingItem.description}
                 </p>
               )}
+              <DietaryTagBadges tags={customizingItem.dietary_tags} variant="chips" className="mt-2" />
             </div>
 
             {/* Modal Body */}

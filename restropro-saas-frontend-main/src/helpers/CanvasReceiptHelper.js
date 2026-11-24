@@ -7,6 +7,7 @@
  */
 
 import ApiClient from "./ApiClient";
+import { collectAllergens } from "../config/dietaryTags";
 
 // ─── Font Constants ─────────────────────────────────────────────────────────────
 const FONT_FAMILY =
@@ -671,6 +672,24 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
         ctx.fillText(line.length > 48 ? `${line.slice(0, 47)}…` : line, width / 2, y);
         y += paperSize === 58 ? 20 : 24;
       }
+    }
+
+    // Allergen warning from menu item tags: white text on a black bar
+    const kotAllergens = collectAllergens(cartItems);
+    if (kotAllergens.length > 0) {
+      const text = `CONTAINS: ${kotAllergens.map((a) => a.label.toUpperCase()).join(", ")}`;
+      const barH = paperSize === 58 ? 30 : 36;
+      ctx.save();
+      ctx.font = `bold ${paperSize === 58 ? 16 : 20}px ${FONT_FAMILY}`;
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(padding, y - barH / 2 - 4, contentWidth, barH);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textBaseline = "middle";
+      let shown = text;
+      while (ctx.measureText(shown).width > contentWidth - 12 && shown.length > 12) shown = `${shown.slice(0, -2)}…`;
+      ctx.fillText(shown, width / 2, y - 4);
+      ctx.restore();
+      y += barH;
     }
 
     ctx.font = `normal ${paperSize === 58 ? 15 : 18}px ${FONT_FAMILY}`;
