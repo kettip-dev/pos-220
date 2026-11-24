@@ -56,6 +56,8 @@ import OpenRegisterModal from '../components/register/OpenRegisterModal';
 import { useTicketSide, TICKET_SIDES, useDisplayPrefs } from '../helpers/POSLayoutPrefs';
 import { CATEGORY_ALL_TONE, CATEGORY_FAVORITES_TONE, toneForIndex } from '../helpers/CategoryTones';
 import RoomPickerModal from '../components/pos/RoomPickerModal';
+import DeliveryAppPickerModal from '../components/pos/DeliveryAppPickerModal';
+import { useDeliveryPlatforms, applyMarkup, platformLabel } from '../controllers/delivery_platform.controller';
 import { getPmsSettings } from '../controllers/pms.controller';
 
 
@@ -279,6 +281,10 @@ export default function POSPage() {
   // Hotel room service: the checked-in guest this order goes to (null = none)
   const [roomService, setRoomService] = useState(null);
   const [isRoomPickerOpen, setIsRoomPickerOpen] = useState(false);
+  // Delivery-app order (Grab, Foodpanda, ...): { id, name, color, markup, paymentTypeId, ref }
+  const [deliveryApp, setDeliveryApp] = useState(null);
+  const [isAppPickerOpen, setIsAppPickerOpen] = useState(false);
+  const { data: deliveryPlatforms } = useDeliveryPlatforms({ activeOnly: true });
   const [isRoomServiceEnabled, setIsRoomServiceEnabled] = useState(false);
   const [editingNoteIndex, setEditingNoteIndex] = useState(null);
   const [inlineNoteText, setInlineNoteText] = useState('');
@@ -536,6 +542,11 @@ export default function POSPage() {
     } else if (roomService) {
       setRoomService(null);
     }
+    if (option === 'deliveryapp') {
+      if (!deliveryApp) setIsAppPickerOpen(true);
+    } else if (deliveryApp) {
+      setDeliveryApp(null);
+    }
     setSelectedDiningOption(option);
     if (diningOptionRef.current) {
       diningOptionRef.current.value = option;
@@ -737,6 +748,33 @@ export default function POSPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPaymentDrawerOpen, isModifierDrawerOpen, isCustomerDrawerOpen, isQrOrdersDrawerOpen, isDraftsDrawerOpen, editingNoteIndex, cartItems, state.searchQuery, state.storeSettings]);
+
+  // Delivery-app price markup on every cart line. A line whose price was changed
+  // elsewhere (variant edit, etc.) takes that price as its new base; comped or
+  // discounted lines and open items keep their price.
+  useEffect(() => {
+    const markup = deliveryApp ? Number(deliveryApp.markup || 0) : 0;
+    setState((prev) => {
+      let changed = false;
+      const next = (prev.cartItems || []).map((line) => {
+        if (line.adjust || line.is_open_item) return line;
+        const price = Number(line.price);
+        const touched = line.markup_price !== undefined && price !== line.markup_price;
+        const base = touched || line.base_price === undefined ? price : line.base_price;
+        if (markup > 0) {
+          const want = applyMarkup(base, markup);
+          if (price === want && line.base_price === base && line.markup_price === want) return line;
+          changed = true;
+          return { ...line, base_price: base, markup_price: want, price: want };
+        }
+        if (line.base_price === undefined && line.markup_price === undefined) return line;
+        changed = true;
+        const { base_price, markup_price, ...rest } = line;
+        return { ...rest, price: base };
+      });
+      return changed ? { ...prev, cartItems: next } : prev;
+    });
+  }, [deliveryApp, state.cartItems]);
 
   // Helper for dual screen cart summary calculations
   const getCartSummary = () => {
@@ -1666,6 +1704,7 @@ export default function POSPage() {
       tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
       diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
       roomService: roomService || null,
+        deliveryApp: deliveryApp || null,
       customer: customer || null,
       customerType: customerType || "WALKIN",
       payableTotal: liveCartSummary.payableTotal,
@@ -1681,6 +1720,7 @@ export default function POSPage() {
 
     if (diningOptionRef.current) diningOptionRef.current.value = "";
     setRoomService(null);
+    setDeliveryApp(null);
     if (tableRef.current) tableRef.current.value = "";
     setSelectedTableTitle("");
     setActiveTableContext(null);
@@ -1731,6 +1771,7 @@ export default function POSPage() {
       diningOptionRef.current.value = "";
     }
     setRoomService(null);
+    setDeliveryApp(null);
     if (tableRef.current) {
       tableRef.current.value = "";
     }
@@ -1783,6 +1824,7 @@ export default function POSPage() {
   const btnSelectDraftItemToCart = (draftItem, index) => {
     const { nameRef, cart, tableId, tableTitle, diningOption, customer: draftCust, customerType: draftCustType } = draftItem;
     setRoomService(draftItem.roomService || null);
+    setDeliveryApp(draftItem.deliveryApp || null);
 
     if (diningOption && diningOptionRef.current) {
       diningOptionRef.current.value = diningOption;
@@ -1839,6 +1881,7 @@ export default function POSPage() {
         tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
         diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
         roomService: roomService || null,
+        deliveryApp: deliveryApp || null,
         customer: customer || null,
         customerType: customerType || "WALKIN",
         payableTotal: liveCartSummary.payableTotal,
@@ -1851,6 +1894,7 @@ export default function POSPage() {
       const { nameRef, cart, tableId, tableTitle, diningOption, customer: draftCust, customerType: draftCustType } = draftItem;
 
       setRoomService(draftItem.roomService || null);
+    setDeliveryApp(draftItem.deliveryApp || null);
       if (diningOption && diningOptionRef.current) {
         diningOptionRef.current.value = diningOption;
         setSelectedDiningOption(diningOption);
@@ -2031,6 +2075,7 @@ export default function POSPage() {
         tableTitle: currentSelectedTable?.table_title || selectedTableTitle || null,
         diningOption: diningOptionRef.current?.value || selectedDiningOption || "dinein",
         roomService: roomService || null,
+        deliveryApp: deliveryApp || null,
         customer: customer || null,
         customerType: customerType || "WALKIN",
         payableTotal: liveCartSummary.payableTotal,
@@ -2360,12 +2405,20 @@ export default function POSPage() {
       setIsRoomPickerOpen(true);
       return true;
     }
+    if ((diningOptionRef.current?.value || selectedDiningOption) === 'deliveryapp' && !deliveryApp) {
+      toast(t('delivery_apps.pick_app_first', 'Pick the delivery app first'));
+      setIsAppPickerOpen(true);
+      return true;
+    }
     return false;
   };
 
-  const roomReceiptFields = () => (roomService
-    ? { roomNumber: roomService.roomNumber, roomGuestName: roomService.guestName, roomServiceNote: roomService.note || null }
-    : {});
+  const roomReceiptFields = () => ({
+    ...(roomService
+      ? { roomNumber: roomService.roomNumber, roomGuestName: roomService.guestName, roomServiceNote: roomService.note || null }
+      : {}),
+    ...(deliveryApp ? { deliveryAppLabel: platformLabel(deliveryApp.name, deliveryApp.ref) } : {}),
+  });
 
   const showRoomChargeResult = (pmsCharge) => {
     if (!pmsCharge) return;
@@ -2390,7 +2443,8 @@ export default function POSPage() {
     // Room service for a guest who may charge: Charge to Room is the usual tender.
     const roomType = roomService && roomService.canPostCharges !== false ? availablePaymentTypes.find((p) => Number(p.is_room_charge)) : null;
     const currentStillValid = availablePaymentTypes.some((p) => p.id == state.selectedPaymentType);
-    const defaultPayType = roomType?.id || (currentStillValid ? state.selectedPaymentType : null) || (availablePaymentTypes.length > 0 ? availablePaymentTypes[0].id : null);
+    const appPayType = deliveryApp?.paymentTypeId ? availablePaymentTypes.find((p) => String(p.id) === String(deliveryApp.paymentTypeId)) : null;
+    const defaultPayType = appPayType?.id || roomType?.id || (currentStillValid ? state.selectedPaymentType : null) || (availablePaymentTypes.length > 0 ? availablePaymentTypes[0].id : null);
 
     setState(prev => ({
       ...prev,
@@ -2490,6 +2544,7 @@ export default function POSPage() {
         tenderData?.payLater || null,
         clientOrderId,
         roomService,
+        deliveryApp,
       ];
       let res;
       try {
@@ -2597,6 +2652,7 @@ export default function POSPage() {
 
         if (diningOptionRef.current) diningOptionRef.current.value = "";
         setRoomService(null);
+        setDeliveryApp(null);
         if (tableRef.current) tableRef.current.value = "";
 
         setState((prev) => ({
@@ -2895,6 +2951,7 @@ export default function POSPage() {
         summary.customerGroupDiscountTotal || 0,
         clientOrderId,
         roomService,
+        deliveryApp,
       ];
       let res;
       try {
@@ -2975,6 +3032,7 @@ export default function POSPage() {
 
         if (diningOptionRef.current) diningOptionRef.current.value = "";
         setRoomService(null);
+        setDeliveryApp(null);
         if (tableRef.current) tableRef.current.value = "";
         setSelectedTableTitle("");
         setActiveTableContext(null);
@@ -3207,6 +3265,9 @@ export default function POSPage() {
         isRoomServiceEnabled={isRoomServiceEnabled}
         roomService={roomService}
         onOpenRoomPicker={() => setIsRoomPickerOpen(true)}
+        isDeliveryAppEnabled={(deliveryPlatforms || []).length > 0}
+        deliveryApp={deliveryApp}
+        onOpenDeliveryAppPicker={() => setIsAppPickerOpen(true)}
       />
 
       <RegisterPanel
@@ -4683,7 +4744,7 @@ export default function POSPage() {
         customer={customer}
         customerType={customerType}
         diningOption={selectedDiningOption}
-        tableTitle={roomService ? `${t('room_service.room', 'Room')} ${roomService.roomNumber}${roomService.guestName ? ` · ${roomService.guestName}` : ''}` : selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : '')}
+        tableTitle={deliveryApp ? platformLabel(deliveryApp.name, deliveryApp.ref) : roomService ? `${t('room_service.room', 'Room')} ${roomService.roomNumber}${roomService.guestName ? ` · ${roomService.guestName}` : ''}` : selectedTableTitle || (tableRef.current?.value ? storeTables?.find(t => String(t.id) === String(tableRef.current.value))?.table_title : '')}
         onOpenSplitBill={handleOpenSplitFromPOS}
       />
 
@@ -5625,6 +5686,27 @@ export default function POSPage() {
         onConfirm={posDeleteModalConfig?.onConfirm}
         title={posDeleteModalConfig?.title}
         description={posDeleteModalConfig?.description}
+      />
+
+      {/* Delivery app (Grab, Foodpanda, ...) picker */}
+      <DeliveryAppPickerModal
+        isOpen={isAppPickerOpen}
+        platforms={deliveryPlatforms || []}
+        selected={deliveryApp}
+        onClose={() => setIsAppPickerOpen(false)}
+        onConfirm={(app) => {
+          setDeliveryApp(app);
+          setIsAppPickerOpen(false);
+          setSelectedDiningOption('deliveryapp');
+          if (diningOptionRef.current) diningOptionRef.current.value = 'deliveryapp';
+          if (tableRef.current) tableRef.current.value = '';
+          setSelectedTableTitle('');
+          if (roomService) setRoomService(null);
+          broadcastOrderMeta && broadcastOrderMeta(undefined, 'deliveryapp', '');
+          toast.success(app.markup > 0
+            ? t('delivery_apps.selected_markup', '{{name}} prices (+{{n}}%)', { name: app.name, n: app.markup })
+            : t('delivery_apps.selected', '{{name}} order', { name: app.name }));
+        }}
       />
 
       {/* Hotel Room Service: guest room picker */}

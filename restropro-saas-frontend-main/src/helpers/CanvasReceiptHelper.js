@@ -178,6 +178,11 @@ function normalizePrintDetails(details = {}) {
     roomNumber: firstDefined(details.roomNumber, details.pms_room_number, null),
     roomGuestName: firstDefined(details.roomGuestName, details.pms_guest_name, null),
     roomServiceNote: firstDefined(details.roomServiceNote, details.room_service_note, null),
+    deliveryAppLabel: firstDefined(
+      details.deliveryAppLabel,
+      details.platform_name ? [details.platform_name, details.platform_order_ref ? `#${details.platform_order_ref}` : null].filter(Boolean).join(" ") : null,
+      null
+    ),
     customer: details.customer || (details.customer_name ? { name: details.customer_name } : null),
     itemsTotal: Number(firstDefined(details.itemsTotal, details.sub_total, 0)),
     discountAmount: Number(firstDefined(details.discountAmount, details.discount_total, 0)),
@@ -571,6 +576,7 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     roomNumber,
     roomGuestName,
     roomServiceNote,
+    deliveryAppLabel,
   } = normalizePrintDetails(details);
 
   // Measurement canvas
@@ -656,7 +662,7 @@ export function renderKotToCanvas(details = {}, paperSize = 80) {
     ctx.textAlign = "center";
     ctx.font = `bold ${paperSize === 58 ? 20 : 26}px ${FONT_FAMILY}`;
     const locationStr = [
-      deliveryType ? deliveryType.toUpperCase() : null,
+      deliveryAppLabel ? String(deliveryAppLabel).toUpperCase() : deliveryType ? deliveryType.toUpperCase() : null,
       roomNumber ? `ROOM ${roomNumber}` : tableName || tableId ? `TABLE ${tableName || tableId}` : null,
     ]
       .filter(Boolean)

@@ -18,6 +18,7 @@ import {
   IconChevronDown,
   IconCashRegister,
   IconBed,
+  IconMotorbike,
 } from '@tabler/icons-react';
 import { iconStroke } from '../../config/config';
 import { clsx } from 'clsx';
@@ -104,6 +105,9 @@ export default function POSOrderHeader({
   isRoomServiceEnabled = false,
   roomService = null,
   onOpenRoomPicker,
+  isDeliveryAppEnabled = false,
+  deliveryApp = null,
+  onOpenDeliveryAppPicker,
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -115,6 +119,9 @@ export default function POSOrderHeader({
     { key: 'delivery', label: t('pos.delivery', 'Delivery'), icon: IconTruckDelivery, accent: 'text-orange-600 dark:text-orange-400' },
     ...(isRoomServiceEnabled
       ? [{ key: 'roomservice', label: t('pos.room_service', 'Room Service'), icon: IconBed, accent: 'text-violet-600 dark:text-violet-400' }]
+      : []),
+    ...(isDeliveryAppEnabled
+      ? [{ key: 'deliveryapp', label: t('pos.delivery_app', 'Delivery app'), icon: IconMotorbike, accent: 'text-pink-600 dark:text-pink-400' }]
       : []),
   ];
 
@@ -252,6 +259,43 @@ export default function POSOrderHeader({
         </p>
         <p className={VALUE}>
           {roomService ? roomService.guestName || t('room_service.guest', 'Guest') : t('room_service.pick_room', 'Pick guest room')}
+        </p>
+      </div>
+      <IconChevronDown size={16} stroke={2} className="text-slate-400 shrink-0 ml-auto" />
+    </button>
+  );
+
+  // Delivery app (Grab, Foodpanda, ...): which app and its order code
+  const renderDeliveryAppSegment = ({ className = '' } = {}) => (
+    <button
+      type="button"
+      onClick={onOpenDeliveryAppPicker}
+      className={clsx(SEGMENT, !deliveryApp && 'bg-amber-50/70 dark:bg-amber-500/10', className)}
+      title={t('delivery_apps.pick_app', 'Pick delivery app')}
+    >
+      {deliveryApp ? (
+        <span className="h-5 w-5 shrink-0 rounded-md" style={{ background: deliveryApp.color || '#64748b' }} />
+      ) : (
+        <IconMotorbike size={20} stroke={iconStroke} className="shrink-0 text-amber-600" />
+      )}
+      <div className="min-w-0 max-w-[170px]">
+        <p className={clsx(LABEL, 'flex items-center gap-1.5', !deliveryApp && '!text-amber-700 dark:!text-amber-300')}>
+          {deliveryApp ? (
+            <>
+              {deliveryApp.name}
+              {Number(deliveryApp.markup) > 0 && <span className="font-bold text-pink-600 dark:text-pink-400">+{deliveryApp.markup}%</span>}
+            </>
+          ) : (
+            <>
+              <RequiredDot />
+              {t('pos.required', 'Required')}
+            </>
+          )}
+        </p>
+        <p className={VALUE}>
+          {deliveryApp
+            ? deliveryApp.ref ? `#${deliveryApp.ref}` : t('delivery_apps.no_code', 'No order code')
+            : t('delivery_apps.pick_app', 'Pick delivery app')}
         </p>
       </div>
       <IconChevronDown size={16} stroke={2} className="text-slate-400 shrink-0 ml-auto" />
@@ -416,6 +460,12 @@ export default function POSOrderHeader({
               <span className={DIVIDER} />
             </>
           )}
+          {selectedDiningOption === 'deliveryapp' && (
+            <>
+              {renderDeliveryAppSegment({ className: 'flex-1' })}
+              <span className={DIVIDER} />
+            </>
+          )}
           {renderCustomerSegment({ className: 'flex-1', fluid: true })}
         </div>
 
@@ -481,6 +531,12 @@ export default function POSOrderHeader({
           {selectedDiningOption === 'roomservice' && (
             <>
               {renderRoomSegment()}
+              <span className={DIVIDER} />
+            </>
+          )}
+          {selectedDiningOption === 'deliveryapp' && (
+            <>
+              {renderDeliveryAppSegment()}
               <span className={DIVIDER} />
             </>
           )}

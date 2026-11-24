@@ -44,7 +44,7 @@ const HEADER_TONE = {
 const DiningIcon = ({ type, size = 16 }) => {
   if (type === "roomservice") return <IconBed size={size} stroke={2} />;
   if (type === "dinein") return <IconArmchair size={size} stroke={2} />;
-  if (type === "delivery") return <IconMotorbike size={size} stroke={2} />;
+  if (type === "delivery" || type === "deliveryapp") return <IconMotorbike size={size} stroke={2} />;
   return <IconBoxSeam size={size} stroke={2} />;
 };
 
@@ -170,7 +170,11 @@ export default function KdsTicketCard({
               )}
             </div>
             <div className={clsx("mt-1.5 flex items-center gap-1.5 font-bold truncate", S.meta, urgency === "ontime" ? "text-[color:var(--kds-text-2)]" : "opacity-90")}>
-              <DiningIcon type={order.delivery_type} size={15} />
+              {order.platform_color ? (
+                <span className="h-3.5 w-3.5 shrink-0 rounded" style={{ background: order.platform_color }} />
+              ) : (
+                <DiningIcon type={order.delivery_type} size={15} />
+              )}
               <span className="truncate">
                 {getOrderTitle(order, t)}
                 {order.table_id && order.floor ? ` · ${order.floor}` : ""}

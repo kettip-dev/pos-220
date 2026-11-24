@@ -22,6 +22,10 @@ exports.getOrdersDB = async (tenantId) => {
       o.pms_room_number,
       o.pms_guest_name,
       o.room_service_note,
+      o.delivery_platform_id,
+      o.platform_order_ref,
+      dp.name AS platform_name,
+      dp.color AS platform_color,
       st. \`floor\`,
       o.status,
       o.payment_status,
@@ -34,6 +38,7 @@ exports.getOrdersDB = async (tenantId) => {
       orders o
       LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = o.tenant_id
       LEFT JOIN store_tables st ON o.table_id = st.id
+      LEFT JOIN delivery_platforms dp ON dp.id = o.delivery_platform_id AND dp.tenant_id = o.tenant_id
     WHERE
       date >= DATE_SUB(NOW(), INTERVAL 1 DAY)
       AND date <= DATE_ADD(NOW(), INTERVAL 1 DAY)
@@ -400,6 +405,10 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
       o.pms_room_number,
       o.pms_guest_name,
       o.room_service_note,
+      o.delivery_platform_id,
+      o.platform_order_ref,
+      dp.name AS platform_name,
+      dp.color AS platform_color,
       st. \`floor\`,
       o.status,
       o.payment_status,
@@ -412,6 +421,7 @@ exports.getOrdersPaymentSummaryDB = async (orderIdsToFindSummary, tenantId) => {
       orders o
       LEFT JOIN customers c ON o.customer_id = c.phone AND c.tenant_id = o.tenant_id
       LEFT JOIN store_tables st ON o.table_id = st.id
+      LEFT JOIN delivery_platforms dp ON dp.id = o.delivery_platform_id AND dp.tenant_id = o.tenant_id
     WHERE
       date >= DATE_SUB(NOW(), INTERVAL 1 DAY)
       AND date <= DATE_ADD(NOW(), INTERVAL 1 DAY)

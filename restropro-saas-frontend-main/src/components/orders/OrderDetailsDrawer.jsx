@@ -1,3 +1,4 @@
+import { platformLabel } from "../../controllers/delivery_platform.controller";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -143,6 +144,10 @@ export default function OrderDetailsDrawer({
 
   const getDiningLabel = (type) => {
     const k = String(type || "").toLowerCase();
+    if (k === "deliveryapp") {
+      const o = orders?.[0];
+      return o?.platform_name ? platformLabel(o.platform_name, o.platform_order_ref) : t("pos.delivery_app", "Delivery app");
+    }
     if (k.includes("dine")) return t("pos.dinein", "Dine-In");
     if (k.includes("take")) return t("pos.takeaway", "Takeaway");
     if (k.includes("deliv")) return t("pos.delivery", "Delivery");

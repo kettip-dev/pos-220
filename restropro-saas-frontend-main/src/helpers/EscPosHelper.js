@@ -380,6 +380,11 @@ export function buildKotEscPos(kotDetails) {
     out += `TOKEN: #${tokenNo}\n`;
     out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
   }
+  if (kotDetails.deliveryAppLabel) {
+    out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
+    out += `${String(kotDetails.deliveryAppLabel).toUpperCase()}\n`;
+    out += ESCPOS.BOLD_OFF + ESCPOS.TEXT_NORMAL;
+  }
   if (kotDetails.roomNumber) {
     out += ESCPOS.BOLD_ON + ESCPOS.TEXT_DOUBLE_SIZE;
     out += `ROOM: ${kotDetails.roomNumber}\n`;

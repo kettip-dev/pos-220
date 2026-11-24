@@ -111,6 +111,15 @@ export const REPORT_CATALOG = [
     priority: "Core",
   },
   {
+    id: "sales-by-delivery-app",
+    title: "Sales by Delivery App",
+    category: "Sales",
+    description: "Grab, Foodpanda and other app orders: revenue, estimated commission and what you keep.",
+    icon: IconTruckDelivery,
+    status: "ready",
+    priority: "High",
+  },
+  {
     id: "sales-by-table",
     title: "Sales by Table",
     category: "Sales",

@@ -11,6 +11,7 @@ const REPORT_TITLES = {
   "sales-by-day": "Sales by Day",
   "sales-by-month": "Sales by Month",
   "sales-by-order-type": "Sales by Order Type",
+  "sales-by-delivery-app": "Sales by Delivery App",
   "sales-by-table": "Sales by Table",
   "invoice-detail": "Invoice Detail",
   "voids-cancellations": "Voids & Cancellations",
@@ -414,6 +415,74 @@ const getSalesByOrderTypeReport = async (conn, type, from, to, tenantIds, curren
       rows,
     }],
     charts: [{ type: "bar", title: "Revenue by Order Type", data: rows }],
+  });
+};
+
+/**
+ * Delivery apps (Grab, Foodpanda, ...): paid orders, revenue net of refunds,
+ * and estimated commission at each app's current rate. Each invoice is
+ * counted once even if it ever covered several orders.
+ */
+const getSalesByDeliveryAppReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const { filter, params } = getFilterCondition("o.date", type, from, to);
+  const rows = await query(conn, `
+    SELECT
+      dp.name AS delivery_app,
+      oc.orders,
+      COALESCE(g.revenue, 0) AS revenue,
+      dp.commission_percent,
+      ROUND(COALESCE(g.revenue, 0) * dp.commission_percent / 100, 2) AS commission,
+      ROUND(COALESCE(g.revenue, 0) * (100 - dp.commission_percent) / 100, 2) AS net_after_commission
+    FROM delivery_platforms dp
+    JOIN (
+      SELECT o.delivery_platform_id AS pid, COUNT(*) AS orders
+      FROM orders o
+      WHERE o.tenant_id IN (?) AND o.delivery_platform_id IS NOT NULL AND o.invoice_id IS NOT NULL
+        AND o.status <> 'cancelled' AND ${filter}
+      GROUP BY o.delivery_platform_id
+    ) oc ON oc.pid = dp.id
+    LEFT JOIN (
+      SELECT d.pid, SUM(i.total - COALESCE(i.refunded_total, 0)) AS revenue
+      FROM (
+        SELECT DISTINCT o.delivery_platform_id AS pid, o.invoice_id, o.tenant_id
+        FROM orders o
+        WHERE o.tenant_id IN (?) AND o.delivery_platform_id IS NOT NULL AND o.invoice_id IS NOT NULL
+          AND o.status <> 'cancelled' AND ${filter}
+      ) d
+      JOIN invoices i ON i.id = d.invoice_id AND i.tenant_id = d.tenant_id AND ${nonVoidInvoiceFilter()}
+      GROUP BY d.pid
+    ) g ON g.pid = dp.id
+    WHERE dp.tenant_id IN (?)
+    ORDER BY revenue DESC
+  `, [tenantIds, ...params, tenantIds, ...params, tenantIds]);
+
+  const total = (key) => rows.reduce((sum, row) => sum + money(row[key]), 0);
+  return makeReport({
+    reportId: "sales-by-delivery-app",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "App Revenue", value: total("revenue"), type: "money" },
+      { label: "Est. Commission", value: total("commission"), type: "money" },
+      { label: "Net After Commission", value: total("net_after_commission"), type: "money" },
+      { label: "App Orders", value: total("orders"), type: "number" },
+    ],
+    tables: [{
+      title: "Sales by Delivery App",
+      columns: [
+        { key: "delivery_app", label: "Delivery App" },
+        { key: "orders", label: "Orders", type: "number" },
+        { key: "revenue", label: "Revenue", type: "money" },
+        { key: "commission_percent", label: "Commission %", type: "number" },
+        { key: "commission", label: "Est. Commission", type: "money" },
+        { key: "net_after_commission", label: "Net After Commission", type: "money" },
+      ],
+      rows,
+    }],
+    charts: [{ type: "bar", title: "Revenue by Delivery App", data: rows }],
   });
 };
 
@@ -3246,6 +3315,7 @@ const REPORT_BUILDERS = {
     ],
   }),
   "sales-by-order-type": getSalesByOrderTypeReport,
+  "sales-by-delivery-app": getSalesByDeliveryAppReport,
   "sales-by-table": getSalesByTableReport,
   "invoice-detail": getInvoiceDetailReport,
   "voids-cancellations": getVoidsCancellationsReport,

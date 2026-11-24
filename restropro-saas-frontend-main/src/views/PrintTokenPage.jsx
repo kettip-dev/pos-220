@@ -55,7 +55,9 @@ export default function PrintTokenPage() {
 
       <p className="mt-2 text-center">{new Date().toLocaleString('en-US', {hour12: true, dateStyle: "long", timeStyle: "short"})}</p>
 
-      {deliveryType && <p className="mt-1 text-center font-bold text-lg">{deliveryType}</p>}
+      {receiptDetails?.deliveryAppLabel ? (
+        <p className="mt-1 text-center font-black text-2xl">{receiptDetails.deliveryAppLabel}</p>
+      ) : deliveryType && <p className="mt-1 text-center font-bold text-lg">{deliveryType}</p>}
       {receiptDetails?.roomNumber && (
         <div className="mt-1 text-center">
           <p className="font-black text-2xl">ROOM {receiptDetails.roomNumber}</p>

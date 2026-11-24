@@ -443,6 +443,13 @@ const CHARTS = {
       <BarChart key="aov" title="Average Order Value" rows={rows} labelKey="order_type" series={seriesFrom(columns, "average_order_value")} currency={currency} />,
     ];
   },
+  "sales-by-delivery-app": ({ data, currency }) => {
+    const { rows, columns } = getTable(data);
+    return [
+      <DonutChart key="mix" title="Revenue by Delivery App" rows={rows} labelKey="delivery_app" valueKey="revenue" valueType="money" currency={currency} />,
+      <BarChart key="keep" title="Commission vs. What You Keep" rows={rows} labelKey="delivery_app" series={seriesFrom(columns, "commission", "net_after_commission")} currency={currency} />,
+    ];
+  },
   "sales-by-table": ({ data, currency }) => {
     const { rows, columns } = getTable(data);
     return [

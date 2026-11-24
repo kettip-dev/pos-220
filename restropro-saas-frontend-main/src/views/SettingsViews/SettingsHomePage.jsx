@@ -6,6 +6,7 @@ import {
   IconBook,
   IconBrandTelegram,
   IconMessage2,
+  IconTruckDelivery,
   IconBed,
   IconChefHat,
   IconCreditCard,
@@ -237,6 +238,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/payment-types",
       category: t("settings.cat_finance_tax", "Finance & Tax"),
       icon: <IconCreditCard stroke={iconStroke} className="w-6 h-6" />,
+    },
+    {
+      id: "delivery-apps",
+      title: t("settings.delivery_apps", "Delivery Apps"),
+      description: t(
+        "settings.desc_delivery_apps",
+        "Grab, Foodpanda, Nham24 and others: app price markup, commission and the payment type each app pays with."
+      ),
+      path: "/dashboard/settings/delivery-apps",
+      category: t("settings.cat_finance_tax", "Finance & Tax"),
+      icon: <IconTruckDelivery stroke={iconStroke} className="w-6 h-6 text-orange-500" />,
     },
     {
       id: "registers",

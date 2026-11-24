@@ -20,6 +20,8 @@ const { createInvoiceDB } = require("../services/orders.service");
 const { assertRoomChargeAllowedDB, autoPostRoomChargeDB } = require("../services/pms.service");
 
 const ROOM_SERVICE = "roomservice";
+const DELIVERY_APP = "deliveryapp";
+const { isActiveDeliveryPlatformDB } = require("../services/delivery_platform.service");
 const { getPrinterConfigsDB, addPrinterConfigDB, updatePrinterConfigDB, deletePrinterConfigDB, buildTestPrintPayloadDB } = require("../services/printer.service");
 const { submitPrintJob } = require("../services/print_job.service");
 const { getPosPrintFormatDB, upsertPosPrintFormatDB } = require("../services/pos-print-format.service");
@@ -58,6 +60,9 @@ async function precheckAvailability(tenantId, cart) {
 /** Known business-rule errors (sold out, bad approval) go back to the POS as-is. */
 function knownErrorResponse(res, error) {
   if (error?.code === "ITEM_SOLD_OUT") return soldOutResponse(res, error);
+  if (error?.code === "UNKNOWN_DELIVERY_PLATFORM") {
+    return res.status(400).json({ success: false, code: error.code, message: "That delivery app is not set up or is turned off." });
+  }
   if (error?.statusCode && error?.code && (String(error.code).startsWith("LINE_ADJUST") || error.code === "COMBO_INVALID" || String(error.code).startsWith("GIFT_CARD"))) {
     return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
   }
@@ -165,11 +170,17 @@ exports.createOrder = async (req, res) => {
       });
     }
 
+    if (deliveryType === DELIVERY_APP && !req.body.deliveryPlatformId) {
+      return res.status(400).json({ success: false, code: "DELIVERY_APP_REQUIRED", message: "Pick the delivery app for this order." });
+    }
+    if (req.body.deliveryPlatformId && !(await isActiveDeliveryPlatformDB(req.user.tenant_id, req.body.deliveryPlatformId))) {
+      return res.status(400).json({ success: false, code: "UNKNOWN_DELIVERY_PLATFORM", message: "That delivery app is not set up or is turned off." });
+    }
     if (deliveryType === ROOM_SERVICE && (!pmsReservationId || !pmsRoomNumber)) {
       return res.status(400).json({ success: false, code: "ROOM_REQUIRED", message: "Pick the guest's room for this room service order." });
     }
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, { note: roomServiceNote, guestCount });
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, customerId?.phone || null, tableId || null, 'pending', null, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, 'created', clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, { note: roomServiceNote, guestCount }, { platformId: req.body.deliveryPlatformId || null, ref: req.body.platformOrderRef || null });
     emitAvailability(req, tenantId, result.availabilityChanges);
 
     if(selectedQrOrderItem) {
@@ -268,6 +279,12 @@ exports.createOrderAndInvoice = async (req, res) => {
     // Sold-out items must be rejected before the invoice is written.
     await precheckAvailability(tenantId, cart);
 
+    if (deliveryType === DELIVERY_APP && !req.body.deliveryPlatformId) {
+      return res.status(400).json({ success: false, code: "DELIVERY_APP_REQUIRED", message: "Pick the delivery app for this order." });
+    }
+    if (req.body.deliveryPlatformId && !(await isActiveDeliveryPlatformDB(req.user.tenant_id, req.body.deliveryPlatformId))) {
+      return res.status(400).json({ success: false, code: "UNKNOWN_DELIVERY_PLATFORM", message: "That delivery app is not set up or is turned off." });
+    }
     if (deliveryType === ROOM_SERVICE && (!pmsReservationId || !pmsRoomNumber)) {
       return res.status(400).json({ success: false, code: "ROOM_REQUIRED", message: "Pick the guest's room for this room service order." });
     }
@@ -286,7 +303,7 @@ exports.createOrderAndInvoice = async (req, res) => {
     const isKitchenDisabled = storeSettings && (storeSettings.is_kitchen_enabled === 0 || storeSettings.is_kitchen_enabled === false);
     const targetOrderStatus = isKitchenDisabled ? 'completed' : 'created';
 
-    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, { note: roomServiceNote, guestCount });
+    const result = await createOrderDB(tenantId, cart, deliveryType, customerType, custPhone, tableId || null, 'paid', invoiceId, username, appliedPromotions || null, promotionDiscountTotal || 0, customerGroupId || null, customerGroupName || null, customerGroupDiscountTotal || 0, targetOrderStatus, clientOrderId || null, pmsReservationId || null, pmsRoomNumber || null, pmsGuestName || null, { note: roomServiceNote, guestCount }, { platformId: req.body.deliveryPlatformId || null, ref: req.body.platformOrderRef || null });
     const orderId = result.orderId;
     const tokenNo = result.tokenNo;
     emitAvailability(req, tenantId, result.availabilityChanges);

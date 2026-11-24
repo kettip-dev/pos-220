@@ -60,7 +60,7 @@ const DATE_FILTERS = [
 
 const READY_REPORTS = new Set([
   "sales-summary", "gross-sales", "net-sales", "sales-by-hour", "sales-by-day",
-  "sales-by-month", "sales-by-order-type", "sales-by-table", "invoice-detail",
+  "sales-by-month", "sales-by-order-type", "sales-by-delivery-app", "sales-by-table", "invoice-detail",
   "voids-cancellations", "average-order-value", "payment-summary", "cash-report",
   "card-report", "unpaid-orders", "payment-type-mix", "top-selling-items",
   "low-selling-items", "item-sales", "category-sales", "variant-sales",

@@ -1,3 +1,4 @@
+import { platformLabel } from "../../controllers/delivery_platform.controller";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -139,6 +140,8 @@ export default function OrderCard({
 
   const getDiningLabel = () => {
     if (isRoomService) return t("orders.room_service", "Room Service");
+    if (orders[0]?.platform_name) return platformLabel(orders[0].platform_name, orders[0].platform_order_ref);
+    if (deliveryType === "deliveryapp") return t("pos.delivery_app", "Delivery app");
     if (deliveryType.includes("dine")) return t("pos.dinein", "Dine-In");
     if (deliveryType.includes("take")) return t("pos.takeaway", "Takeaway");
     if (isDelivery) return t("pos.delivery", "Delivery");

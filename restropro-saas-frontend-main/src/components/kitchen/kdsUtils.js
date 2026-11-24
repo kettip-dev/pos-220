@@ -1,3 +1,4 @@
+import { platformLabel } from "../../controllers/delivery_platform.controller";
 import { parseOrderDate } from "../../helpers/DateHelper";
 
 export const DONE_STATUSES = ["completed", "delivered", "cancelled"];
@@ -66,6 +67,7 @@ export const DINING_TYPES = [
   { id: "dinein", label: "Dine-in" },
   { id: "takeaway", label: "Takeaway" },
   { id: "delivery", label: "Delivery" },
+  { id: "deliveryapp", label: "Delivery apps" },
 ];
 
 export const DEFAULT_KDS_SETTINGS = {
@@ -180,6 +182,7 @@ export const filterCompanionItems = (items, stationId) => {
 
 export const getOrderTitle = (order, t = fallbackT) => {
   if (order?.pms_room_number) return t("kitchen.kds.room", "Room {{room}}", { room: order.pms_room_number });
+  if (order?.platform_name) return platformLabel(order.platform_name, order.platform_order_ref);
   if (order?.table_id && order?.table_title) return order.table_title;
   if (order?.customer_name) return order.customer_name;
   return diningLabel(order?.delivery_type, t);
