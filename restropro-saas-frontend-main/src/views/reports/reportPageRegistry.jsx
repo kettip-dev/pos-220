@@ -443,6 +443,13 @@ const CHARTS = {
       <BarChart key="aov" title="Average Order Value" rows={rows} labelKey="order_type" series={seriesFrom(columns, "average_order_value")} currency={currency} />,
     ];
   },
+  "profit-and-loss": ({ data, currency }) => {
+    const daily = getTable(data, 1);
+    return [
+      <BarChart key="daily" wide title="Sales vs. Net Profit by Day" rows={daily.rows} labelKey="date" labelType="date" series={seriesFrom(daily.columns, "sales", "net_profit")} currency={currency} limit={31} />,
+      <BarChart key="costs" title="Where the Money Went" rows={daily.rows} labelKey="date" labelType="date" series={seriesFrom(daily.columns, "food_cost", "commission", "expenses", "payouts")} currency={currency} stacked limit={31} />,
+    ];
+  },
   "unusual-staff-activity": ({ data, currency }) => {
     const { rows, columns } = getTable(data);
     return [

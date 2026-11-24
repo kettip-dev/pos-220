@@ -2,6 +2,7 @@ import {
   IconArmchair,
   IconArmchair2,
   IconListNumbers,
+  IconReceipt2,
   IconBook,
   IconChartArea,
   IconChefHat,
@@ -185,6 +186,14 @@ export default function AppBar() {
       icon: <IconChartArea stroke={iconStroke} />,
       link: "/dashboard/reports",
       scopes: [SCOPES.REPORTS],
+      features: [PLAN_FEATURES.REPORTS],
+    },
+    {
+      title: t("navbar.expenses", "Expenses"),
+      description: "",
+      icon: <IconReceipt2 stroke={iconStroke} />,
+      link: "/dashboard/expenses",
+      scopes: [SCOPES.REPORTS, SCOPES.SETTINGS],
       features: [PLAN_FEATURES.REPORTS],
     },
     {

@@ -1821,7 +1821,8 @@
     "menu_languages": "Menu Languages",
     "combos": "Combos",
     "waitlist": "Waitlist",
-    "waitlist_short": "Waitlist"
+    "waitlist_short": "Waitlist",
+    "expenses": "Expenses"
   },
   "pos_menu": {
     "not_found_title": "Bummer!",
@@ -5758,5 +5759,43 @@
     "send_failed": "Telegram send failed",
     "no_activity": "No sales or exceptions recorded today yet.",
     "row_numbers": "Sales {{sales}} · taken off {{off}} ({{rate}})"
+  },
+  "expenses": {
+    "title": "Expenses",
+    "subtitle": "Rent, wages, gas, market buys and other costs, for your Profit & Loss.",
+    "view_pnl": "Profit & Loss",
+    "add": "Add expense",
+    "edit": "Edit",
+    "edit_title": "Edit expense",
+    "delete": "Delete",
+    "deleted": "Deleted",
+    "saved": "Saved",
+    "save": "Save",
+    "error": "Something went wrong",
+    "today": "Today",
+    "last_7days": "Last 7 days",
+    "this_month": "This month",
+    "last_month": "Last month",
+    "total": "Total",
+    "empty": "No expenses in this period",
+    "pick_category": "Pick a category",
+    "date": "Date",
+    "paid_with": "Paid with",
+    "paid_cash": "Cash",
+    "paid_bank": "Bank transfer",
+    "paid_card": "Card",
+    "paid_other": "Other",
+    "note_placeholder": "Note (optional), e.g. November rent",
+    "payout_note": "Cash taken from the till with a Pay Out is already counted in Profit & Loss. Don't enter it here as well.",
+    "cat_rent": "Rent",
+    "cat_staff": "Staff wages",
+    "cat_utilities": "Electricity & water",
+    "cat_gas": "Gas",
+    "cat_market": "Market buys",
+    "cat_supplies": "Supplies",
+    "cat_repairs": "Repairs",
+    "cat_marketing": "Marketing",
+    "cat_bank_fees": "Bank & card fees",
+    "cat_other": "Other"
   }
 }

@@ -14,6 +14,7 @@ const REPORT_TITLES = {
   "sales-by-order-type": "Sales by Order Type",
   "sales-by-delivery-app": "Sales by Delivery App",
   "unusual-staff-activity": "Unusual Staff Activity",
+  "profit-and-loss": "Profit & Loss",
   "sales-by-table": "Sales by Table",
   "invoice-detail": "Invoice Detail",
   "voids-cancellations": "Voids & Cancellations",
@@ -3267,6 +3268,198 @@ exports.getStaffActivityForDateDB = async (tenantId, date, currency = "") => {
   }
 };
 
+/**
+ * Profit & Loss for a period.
+ *
+ *   Sales (excl. tax) - refunds - delivery app commission
+ *   - food cost (ingredients used by orders x latest purchase-order unit cost)
+ *   - wastage (same costing)                              = gross profit
+ *   - till pay-outs (register PAY_OUT) - recorded expenses = net profit
+ *
+ * Ingredients never bought through a completed purchase order have no cost;
+ * they are listed so the owner knows the food cost is incomplete.
+ */
+const LATEST_INGREDIENT_COST_SQL = `
+  SELECT tenant_id, inventory_item_id, unit_cost FROM (
+    SELECT poi.tenant_id, poi.inventory_item_id, poi.unit_cost,
+           ROW_NUMBER() OVER (
+             PARTITION BY poi.tenant_id, poi.inventory_item_id
+             ORDER BY COALESCE(po.fullfilled_at, po.created_at) DESC, poi.id DESC
+           ) AS rn
+    FROM inventory_purchase_order_items poi
+    JOIN inventory_purchase_orders po ON po.id = poi.purchase_order_id AND po.tenant_id = poi.tenant_id
+    WHERE poi.tenant_id IN (?) AND po.status = 'completed' AND poi.unit_cost > 0
+  ) ranked WHERE rn = 1`;
+
+const STOCK_USED_SQL = `((il.type = 'OUT' AND il.order_id IS NOT NULL) OR il.type = 'WASTAGE')`;
+
+const getProfitAndLossReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const inv = getFilterCondition("i.created_at", type, from, to);
+  const ref = getFilterCondition("f.created_at", type, from, to);
+  const stock = getFilterCondition("il.created_at", type, from, to);
+  const pay = getFilterCondition("m.created_at", type, from, to);
+  const exp = getFilterCondition("e.expense_date", type, from, to);
+  const ord = getFilterCondition("o.date", type, from, to);
+
+  const [sales, refunds, commission, stockCost, costCoverage, payouts, expenses] = await Promise.all([
+    query(conn, `
+      SELECT DATE_FORMAT(i.created_at, '%Y-%m-%d') AS day, COUNT(*) AS bills,
+             COALESCE(SUM(i.total - COALESCE(i.tax_total, 0)), 0) AS amount
+      FROM invoices i
+      WHERE i.tenant_id IN (?) AND ${nonVoidInvoiceFilter()} AND ${inv.filter}
+      GROUP BY day
+    `, [tenantIds, ...inv.params]),
+    query(conn, `
+      SELECT DATE_FORMAT(f.created_at, '%Y-%m-%d') AS day, COALESCE(SUM(f.amount), 0) AS amount
+      FROM invoice_refunds f
+      WHERE f.tenant_id IN (?) AND ${ref.filter}
+      GROUP BY day
+    `, [tenantIds, ...ref.params]),
+    query(conn, `
+      SELECT DATE_FORMAT(i.created_at, '%Y-%m-%d') AS day,
+             COALESCE(SUM((i.total - COALESCE(i.refunded_total, 0)) * dp.commission_percent / 100), 0) AS amount
+      FROM (SELECT DISTINCT o.tenant_id, o.delivery_platform_id, o.invoice_id
+            FROM orders o
+            WHERE o.tenant_id IN (?) AND o.delivery_platform_id IS NOT NULL AND o.invoice_id IS NOT NULL
+              AND o.status <> 'cancelled' AND ${ord.filter}) d
+      JOIN invoices i ON i.id = d.invoice_id AND i.tenant_id = d.tenant_id AND ${nonVoidInvoiceFilter()}
+      JOIN delivery_platforms dp ON dp.id = d.delivery_platform_id AND dp.tenant_id = d.tenant_id
+      GROUP BY day
+    `, [tenantIds, ...ord.params]),
+    query(conn, `
+      SELECT DATE_FORMAT(il.created_at, '%Y-%m-%d') AS day, il.type,
+             COALESCE(SUM(il.quantity_change * lc.unit_cost), 0) AS amount
+      FROM inventory_logs il
+      LEFT JOIN (${LATEST_INGREDIENT_COST_SQL}) lc
+        ON lc.inventory_item_id = il.inventory_item_id AND lc.tenant_id = il.tenant_id
+      WHERE il.tenant_id IN (?) AND ${STOCK_USED_SQL} AND ${stock.filter}
+      GROUP BY day, il.type
+    `, [tenantIds, tenantIds, ...stock.params]),
+    query(conn, `
+      SELECT ii.title, (lc.unit_cost IS NULL) AS missing
+      FROM (SELECT DISTINCT il.tenant_id, il.inventory_item_id
+            FROM inventory_logs il
+            WHERE il.tenant_id IN (?) AND ${STOCK_USED_SQL} AND ${stock.filter}) used
+      JOIN inventory_items ii ON ii.id = used.inventory_item_id AND ii.tenant_id = used.tenant_id
+      LEFT JOIN (${LATEST_INGREDIENT_COST_SQL}) lc
+        ON lc.inventory_item_id = used.inventory_item_id AND lc.tenant_id = used.tenant_id
+      ORDER BY ii.title
+    `, [tenantIds, ...stock.params, tenantIds]),
+    query(conn, `
+      SELECT DATE_FORMAT(m.created_at, '%Y-%m-%d') AS day, COALESCE(SUM(m.amount_primary), 0) AS amount
+      FROM register_cash_movements m
+      WHERE m.tenant_id IN (?) AND m.type = 'PAY_OUT' AND ${pay.filter}
+      GROUP BY day
+    `, [tenantIds, ...pay.params]),
+    query(conn, `
+      SELECT DATE_FORMAT(e.expense_date, '%Y-%m-%d') AS day, e.category, COALESCE(SUM(e.amount), 0) AS amount
+      FROM expenses e
+      WHERE e.tenant_id IN (?) AND ${exp.filter}
+      GROUP BY day, e.category
+    `, [tenantIds, ...exp.params]),
+  ]);
+
+  const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+  const days = new Map();
+  const day = (d) => {
+    if (!days.has(d)) days.set(d, { date: d, sales: 0, refunds: 0, commission: 0, food_cost: 0, wastage: 0, payouts: 0, expenses: 0 });
+    return days.get(d);
+  };
+  sales.forEach((r) => { day(r.day).sales += money(r.amount); });
+  refunds.forEach((r) => { day(r.day).refunds += money(r.amount); });
+  commission.forEach((r) => { day(r.day).commission += money(r.amount); });
+  stockCost.forEach((r) => {
+    if (r.type === "OUT") day(r.day).food_cost += money(r.amount);
+    else day(r.day).wastage += money(r.amount);
+  });
+  payouts.forEach((r) => { day(r.day).payouts += money(r.amount); });
+  const byCategory = {};
+  expenses.forEach((r) => {
+    day(r.day).expenses += money(r.amount);
+    byCategory[r.category] = (byCategory[r.category] || 0) + money(r.amount);
+  });
+
+  const daily = [...days.values()]
+    .map((d) => {
+      const gross = d.sales - d.refunds - d.commission - d.food_cost - d.wastage;
+      const net = gross - d.payouts - d.expenses;
+      const out = { date: d.date };
+      Object.entries({ ...d, gross_profit: gross, net_profit: net }).forEach(([k, v]) => {
+        if (k !== "date") out[k] = r2(v);
+      });
+      return out;
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  const sum = (key) => r2(daily.reduce((s, d) => s + Number(d[key] || 0), 0));
+  const totalSales = sum("sales");
+  const pct = (n) => (totalSales > 0 ? r2((n / totalSales) * 100) : 0);
+  const lines = [
+    { line: "Sales (excl. tax)", amount: totalSales },
+    { line: "Refunds", amount: -sum("refunds") },
+    { line: "Delivery app commission (est.)", amount: -sum("commission") },
+    { line: "Food cost (ingredients used)", amount: -sum("food_cost") },
+    { line: "Wastage", amount: -sum("wastage") },
+    { line: "Gross profit", amount: sum("gross_profit") },
+    { line: "Till pay-outs", amount: -sum("payouts") },
+    ...Object.entries(byCategory)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => ({ line: `Expense: ${cat.replace(/_/g, " ")}`, amount: -r2(amt) })),
+    { line: "Net profit", amount: sum("net_profit") },
+  ].map((l) => ({ ...l, percent_of_sales: pct(l.amount) }));
+
+  const missing = costCoverage.filter((u) => Number(u.missing) === 1).map((u) => u.title);
+  const used = costCoverage.length;
+
+  return makeReport({
+    reportId: "profit-and-loss",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Sales (excl. tax)", value: totalSales, type: "money" },
+      { label: "Gross Profit", value: sum("gross_profit"), type: "money" },
+      { label: "Net Profit", value: sum("net_profit"), type: "money" },
+      { label: "Net Margin %", value: pct(sum("net_profit")), type: "number" },
+      { label: "Ingredients With a Cost", value: used ? `${used - missing.length} of ${used}` : "No stock used", type: "text" },
+    ],
+    tables: [
+      {
+        title: "Profit & Loss",
+        columns: [
+          { key: "line", label: "Line" },
+          { key: "amount", label: "Amount", type: "money" },
+          { key: "percent_of_sales", label: "% of Sales", type: "number" },
+        ],
+        rows: lines,
+      },
+      {
+        title: "By Day",
+        columns: [
+          { key: "date", label: "Date", type: "date" },
+          { key: "sales", label: "Sales", type: "money" },
+          { key: "food_cost", label: "Food Cost", type: "money" },
+          { key: "commission", label: "App Commission", type: "money" },
+          { key: "expenses", label: "Expenses", type: "money" },
+          { key: "payouts", label: "Till Pay-outs", type: "money" },
+          { key: "gross_profit", label: "Gross Profit", type: "money" },
+          { key: "net_profit", label: "Net Profit", type: "money" },
+        ],
+        rows: daily,
+      },
+      ...(missing.length
+        ? [{
+            title: "Ingredients Without a Purchase Price",
+            columns: [{ key: "ingredient", label: "Ingredient (add a purchase order with a unit cost to include it in food cost)" }],
+            rows: missing.map((m) => ({ ingredient: m })),
+          }]
+        : []),
+    ],
+  });
+};
+
 const getRefundsReport = async (conn, type, from, to, tenantIds, currency, store) => {
   const { filter, params } = getFilterCondition("f.created_at", type, from, to);
   const rows = await query(conn, `
@@ -3452,6 +3645,7 @@ const REPORT_BUILDERS = {
   "sales-by-order-type": getSalesByOrderTypeReport,
   "sales-by-delivery-app": getSalesByDeliveryAppReport,
   "unusual-staff-activity": getUnusualStaffActivityReport,
+  "profit-and-loss": getProfitAndLossReport,
   "sales-by-table": getSalesByTableReport,
   "invoice-detail": getInvoiceDetailReport,
   "voids-cancellations": getVoidsCancellationsReport,

@@ -22,6 +22,7 @@ import UsersPage from "./views/UsersPage";
 import RosterShiftsPage from "./views/RosterShiftsPage";
 import AttendancePage from "./views/AttendancePage";
 import ReportsPage from "./views/ReportsPage";
+import ExpensesPage from "./views/ExpensesPage";
 import SettingsPage from "./views/SettingsPage";
 import SettingsHomePage from "./views/SettingsViews/SettingsHomePage";
 import SettingDetailsPage from "./views/SettingsViews/SettingDetailsPage";
@@ -457,6 +458,14 @@ export default function App() {
               element={
                 <ScopeProtectedRoute scopes={[SCOPES.REPORTS]}>
                   <ReportsPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="expenses"
+              element={
+                <ScopeProtectedRoute scopes={[SCOPES.REPORTS, SCOPES.SETTINGS]}>
+                  <RequiresSingleBusiness><ExpensesPage /></RequiresSingleBusiness>
                 </ScopeProtectedRoute>
               }
             />

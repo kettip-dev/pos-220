@@ -51,6 +51,7 @@ const pmsRoutes = require("./routes/pms.routes");
 const waitlistRoutes = require("./routes/waitlist.routes");
 const deliveryPlatformRoutes = require("./routes/delivery_platform.routes");
 const staffAlertsRoutes = require("./routes/staff_alerts.routes");
+const expensesRoutes = require("./routes/expenses.routes");
 // routes import
 
 
@@ -165,6 +166,7 @@ app.use("/api/v1/reservations", reservationRoutes);
 app.use("/api/v1/waitlist", waitlistRoutes);
 app.use("/api/v1/delivery-platforms", deliveryPlatformRoutes);
 app.use("/api/v1/staff-alerts", staffAlertsRoutes);
+app.use("/api/v1/expenses", expensesRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/menu-items", menuItemRoutes);
 app.use("/api/v1/addon-library", addonLibraryRoutes);

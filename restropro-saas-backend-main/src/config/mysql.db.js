@@ -34,6 +34,7 @@ const { ensureWaitlistSchema } = require("../utils/waitlistMigration");
 const { ensureDietaryTagsSchema } = require("../utils/dietaryTagsMigration");
 const { ensureDeliveryPlatformsSchema } = require("../utils/deliveryPlatformsMigration");
 const { ensureStaffAlertsSchema } = require("../utils/staffAlertsMigration");
+const { ensureExpensesSchema } = require("../utils/expensesMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -91,6 +92,7 @@ const MIGRATIONS = [
   ["dietary tags", ensureDietaryTagsSchema], // needs POS features (menu_items columns)
   ["delivery apps", ensureDeliveryPlatformsSchema],
   ["staff alerts", ensureStaffAlertsSchema],
+  ["expenses", ensureExpensesSchema],
 ];
 
 exports.schemaReady = (async () => {

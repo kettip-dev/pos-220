@@ -219,6 +219,15 @@ export const REPORT_CATALOG = [
     priority: "High",
   },
   {
+    id: "profit-and-loss",
+    title: "Profit & Loss",
+    category: "Accounting",
+    description: "Sales minus refunds, app commission, food cost, wastage, till pay-outs and expenses: what you actually made.",
+    icon: IconReportMoney,
+    status: "ready",
+    priority: "Core",
+  },
+  {
     id: "unusual-staff-activity",
     title: "Unusual Staff Activity",
     category: "Operations",
