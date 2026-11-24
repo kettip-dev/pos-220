@@ -6,6 +6,7 @@ import {
   IconDeviceIpadHorizontal,
   IconChefHat,
   IconCalendarEvent,
+  IconListNumbers,
   IconToolsKitchen3,
   IconSearch,
   IconHome,
@@ -120,6 +121,13 @@ export default function OperationalBar({ isCollapsed = false, onToggleCollapse }
       label: t("navbar.reservation", "Reservations"),
       Icon: IconCalendarEvent,
       path: "/dashboard/reservation",
+    },
+    {
+      id: "waitlist",
+      shortLabel: t("navbar.waitlist_short", "Waitlist"),
+      label: t("navbar.waitlist", "Waitlist"),
+      Icon: IconListNumbers,
+      path: "/dashboard/waitlist",
     },
   ];
 
@@ -379,6 +387,7 @@ export function OperationalBottomNav() {
   const moreLinks = [
     { id: "home", label: storeName || t("navbar.home", "Home"), Icon: IconHome, path: "/dashboard/home" },
     { id: "reservation", label: t("navbar.reservation", "Reservations"), Icon: IconCalendarEvent, path: "/dashboard/reservation" },
+    { id: "waitlist", label: t("navbar.waitlist", "Waitlist"), Icon: IconListNumbers, path: "/dashboard/waitlist" },
     ...shiftTabs.map(({ id, label, Icon, path, state, isNeverActive }) => ({ id, label, Icon, path, state, isNeverActive })),
     { id: "settings", label: t("navbar.settings", "Settings"), Icon: IconSettings, path: "/dashboard/settings" },
   ];

@@ -11,6 +11,8 @@ import POSPage from "./views/POSPage";
 import OrdersPage from "./views/OrdersPage";
 import KitchenPage from "./views/KitchenPage";
 import ReservationPage from "./views/ReservationPage";
+import WaitlistPage from "./views/WaitlistPage";
+import WaitlistStatusPage from "./views/WaitlistStatusPage";
 import CustomersPage from "./views/CustomersPage";
 import CustomerDuesPage from "./views/CustomerDuesPage";
 import Customer360Page from "./views/Customer360Page";
@@ -28,6 +30,7 @@ import ThermalPrintersPage from "./views/SettingsViews/ThermalPrintersPage";
 import KitchenStationsSettingsPage from "./views/SettingsViews/KitchenStationsSettingsPage";
 import PmsSettingsPage from "./views/SettingsViews/PmsSettingsPage";
 import TelegramSettingsPage from "./views/SettingsViews/TelegramSettingsPage";
+import SmsSettingsPage from "./views/SettingsViews/SmsSettingsPage";
 import TablesSettingsPage from "./views/SettingsViews/TableSettingsPage";
 import TablesPage from "./views/TablesPage";
 import TableAssignmentsPage from "./views/SettingsViews/TableAssignmentsPage";
@@ -143,6 +146,7 @@ export default function App() {
           <Route path="/m/:qrcode/feedback" element={<FeedbackCollectPage />} />
           <Route path="/m/:qrcode/feedback/success" element={<FeedbackCollectSuccessPage />} />
           <Route path="/order-status/:qrcode" element={<OrderStatusDisplayPage />} />
+          <Route path="/w/:code" element={<WaitlistStatusPage />} />
           <Route
             path="/customer/pos/:roomId"
             element={
@@ -239,6 +243,20 @@ export default function App() {
                   ]}
                 >
                   <ReservationPage />
+                </ScopeProtectedRoute>
+              }
+            />
+            <Route
+              path="waitlist"
+              element={
+                <ScopeProtectedRoute
+                  scopes={[
+                    SCOPES.RESERVATIONS,
+                    SCOPES.MANAGE_RESERVATIONS,
+                    SCOPES.POS,
+                  ]}
+                >
+                  <RequiresSingleBusiness><WaitlistPage /></RequiresSingleBusiness>
                 </ScopeProtectedRoute>
               }
             />
@@ -483,6 +501,7 @@ export default function App() {
               <Route path="details" element={<RequiresSingleBusiness><SettingDetailsPage /></RequiresSingleBusiness>} />
               <Route path="print-settings" element={<RequiresSingleBusiness><PrintSettingsPage /></RequiresSingleBusiness>} />
               <Route path="telegram" element={<RequiresSingleBusiness><TelegramSettingsPage /></RequiresSingleBusiness>} />
+              <Route path="sms" element={<RequiresSingleBusiness><SmsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="hotel-pms" element={<RequiresSingleBusiness><PmsSettingsPage /></RequiresSingleBusiness>} />
               <Route path="thermal-printers" element={<RequiresSingleBusiness><ThermalPrintersPage /></RequiresSingleBusiness>} />
               <Route path="kitchen-stations" element={<RequiresSingleBusiness><KitchenStationsSettingsPage /></RequiresSingleBusiness>} />

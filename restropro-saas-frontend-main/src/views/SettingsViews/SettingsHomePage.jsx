@@ -5,6 +5,7 @@ import {
   IconArrowUpRight,
   IconBook,
   IconBrandTelegram,
+  IconMessage2,
   IconBed,
   IconChefHat,
   IconCreditCard,
@@ -104,6 +105,17 @@ export default function SettingsHomePage() {
       path: "/dashboard/settings/telegram",
       category: t("settings.cat_general_operations", "General & Operations"),
       icon: <IconBrandTelegram stroke={iconStroke} className="w-6 h-6 text-[#229ED9]" />,
+    },
+    {
+      id: "sms-waitlist",
+      title: t("settings.sms_waitlist", "SMS for Waitlist"),
+      description: t(
+        "settings.desc_sms_waitlist",
+        "Connect your PlasGate account to text walk-in guests when their table is ready."
+      ),
+      path: "/dashboard/settings/sms",
+      category: t("settings.cat_general_operations", "General & Operations"),
+      icon: <IconMessage2 stroke={iconStroke} className="w-6 h-6 text-[#59A352]" />,
     },
     {
       id: "hotel-pms",

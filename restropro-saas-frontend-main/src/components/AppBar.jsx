@@ -1,6 +1,7 @@
 import {
   IconArmchair,
   IconArmchair2,
+  IconListNumbers,
   IconBook,
   IconChartArea,
   IconChefHat,
@@ -128,6 +129,14 @@ export default function AppBar() {
       icon: <IconArmchair2 stroke={iconStroke} />,
       link: "/dashboard/reservation",
       scopes: [SCOPES.RESERVATIONS, SCOPES.VIEW_RESERVATIONS, SCOPES.MANAGE_RESERVATIONS],
+      features: [PLAN_FEATURES.RESERVATIONS],
+    },
+    {
+      title: t("navbar.waitlist", "Waitlist"),
+      description: "",
+      icon: <IconListNumbers stroke={iconStroke} />,
+      link: "/dashboard/waitlist",
+      scopes: [SCOPES.RESERVATIONS, SCOPES.MANAGE_RESERVATIONS, SCOPES.POS],
       features: [PLAN_FEATURES.RESERVATIONS],
     },
     {

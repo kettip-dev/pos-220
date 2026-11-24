@@ -38,6 +38,7 @@ export default function DashboardLayout() {
     "/dashboard/kitchen",
     "/dashboard/orders",
     "/dashboard/reservation",
+    "/dashboard/waitlist",
   ].some((route) => location.pathname.startsWith(route));
 
   // Back-office pages also reachable from the OperationalBar rail. They keep whichever

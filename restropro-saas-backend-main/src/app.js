@@ -48,6 +48,7 @@ const customerGroupsRoutes = require("./routes/customer_groups.routes");
 const profileRoutes = require("./routes/profile.routes");
 const registerRoutes = require("./routes/register.routes");
 const pmsRoutes = require("./routes/pms.routes");
+const waitlistRoutes = require("./routes/waitlist.routes");
 // routes import
 
 
@@ -159,6 +160,7 @@ app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/customers", customerRoutes);
 app.use("/api/v1/loyalty", loyaltyRoutes);
 app.use("/api/v1/reservations", reservationRoutes);
+app.use("/api/v1/waitlist", waitlistRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/menu-items", menuItemRoutes);
 app.use("/api/v1/addon-library", addonLibraryRoutes);

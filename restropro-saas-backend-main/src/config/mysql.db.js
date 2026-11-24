@@ -30,6 +30,7 @@ const { ensurePosFeaturesSchema } = require("../utils/posFeaturesMigration");
 const { ensureKitchenTimingSchema } = require("../utils/kitchenTimingMigration");
 const { ensurePmsIntegrationSchema } = require("../utils/pmsIntegrationMigration");
 const { ensurePosFavoritesSchema } = require("../utils/posFavoritesMigration");
+const { ensureWaitlistSchema } = require("../utils/waitlistMigration");
 
 const dbBaseUrl = CONFIG.DATABASE_URL || "";
 const hasParams = dbBaseUrl.includes("?");
@@ -83,6 +84,7 @@ const MIGRATIONS = [
   ["customer credit", ensureCustomerCreditSchema], // needs invoices.customer_phone
   ["POS features", ensurePosFeaturesSchema], // extends register/invoice tables
   ["POS favorites", ensurePosFavoritesSchema],
+  ["waitlist & SMS", ensureWaitlistSchema],
 ];
 
 exports.schemaReady = (async () => {
