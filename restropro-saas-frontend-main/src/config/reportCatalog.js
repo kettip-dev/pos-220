@@ -228,6 +228,15 @@ export const REPORT_CATALOG = [
     priority: "Core",
   },
   {
+    id: "menu-engineering",
+    title: "Menu Engineering",
+    category: "Accounting",
+    description: "Cost and profit per plate for every dish, grouped into Stars, Plowhorses, Puzzles and Dogs.",
+    icon: IconChartDots,
+    status: "ready",
+    priority: "Core",
+  },
+  {
     id: "unusual-staff-activity",
     title: "Unusual Staff Activity",
     category: "Operations",

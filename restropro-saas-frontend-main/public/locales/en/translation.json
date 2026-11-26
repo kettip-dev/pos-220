@@ -725,6 +725,10 @@
       "recommendation-score": {
         "title": "Recommendation Score",
         "desc": "Recommend rating trend and distribution by period."
+      },
+      "menu-engineering": {
+        "title": "Menu Engineering",
+        "description": "Cost and profit per plate for every dish, grouped into Stars, Plowhorses, Puzzles and Dogs."
       }
     },
     "back_to_reports": "Back to Reports",

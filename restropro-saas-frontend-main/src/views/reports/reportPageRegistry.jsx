@@ -387,6 +387,80 @@ const ratingMetrics = (rows, columns, keys) => keys
 
 const VALUE = (label, type) => [{ key: "value", name: label, type }];
 
+// Menu Engineering: units sold (x) against profit per plate (y). The dashed
+// lines are the popularity threshold and the average profit per plate, so each
+// quarter is one group: Star, Plowhorse, Puzzle, Dog.
+const MENU_GROUPS = [
+  { key: "Star", color: "#2CA01C" },
+  { key: "Plowhorse", color: "#F59E0B" },
+  { key: "Puzzle", color: "#0EA5E9" },
+  { key: "Dog", color: "#F43F5E" },
+];
+
+function MenuMatrixChart({ title, subtitle, rows, popularity = 0, averageProfit = 0, currency }) {
+  const { baseOptions, foreColor } = useChartTheme();
+  if (!MenuMatrixChart.isVisible({ rows })) return null;
+  const series = MENU_GROUPS.map((group) => ({
+    name: group.key,
+    data: rows
+      .filter((row) => row.class === group.key)
+      .map((row) => ({ x: Number(row.quantity_sold) || 0, y: Number(row.profit_per_plate) || 0, dish: row.dish })),
+  }));
+  const guide = (label) => ({
+    borderColor: foreColor,
+    strokeDashArray: 5,
+    opacity: 0.6,
+    label: { text: label, borderWidth: 0, style: { background: "transparent", color: foreColor, fontWeight: 600 } },
+  });
+
+  return (
+    <ChartPanel title={title} subtitle={subtitle}>
+      <ReactApexChart
+        type="scatter"
+        height={360}
+        series={series}
+        options={{
+          ...baseOptions,
+          colors: MENU_GROUPS.map((group) => group.color),
+          chart: { ...baseOptions.chart, zoom: { enabled: false } },
+          markers: { size: 7, strokeWidth: 0, hover: { sizeOffset: 2 } },
+          legend: { ...baseOptions.legend, position: "top", horizontalAlign: "left" },
+          xaxis: {
+            type: "numeric",
+            min: 0,
+            tickAmount: 6,
+            title: { text: "Units sold", style: { color: foreColor, fontWeight: 600 } },
+            labels: { formatter: (value) => formatAxis(value, "quantity", currency) },
+          },
+          yaxis: {
+            title: { text: "Profit per plate", style: { color: foreColor, fontWeight: 600 } },
+            labels: { formatter: (value) => formatAxis(value, "money", currency) },
+          },
+          annotations: {
+            xaxis: popularity > 0 ? [{ x: popularity, ...guide("Popular →") }] : [],
+            yaxis: [{ y: averageProfit, ...guide("Average profit") }],
+          },
+          tooltip: {
+            ...baseOptions.tooltip,
+            custom: ({ seriesIndex, dataPointIndex, w }) => {
+              const point = w.config.series[seriesIndex]?.data?.[dataPointIndex];
+              if (!point) return "";
+              const esc = (text) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+              return `<div style="padding:8px 10px;font-size:12px;line-height:1.5">
+                <div style="font-weight:800">${esc(point.dish)}</div>
+                <div>${esc(w.config.series[seriesIndex].name)}</div>
+                <div>Sold: ${esc(formatReportValue(point.x, "quantity", currency))}</div>
+                <div>Profit per plate: ${esc(formatReportValue(point.y, "money", currency))}</div>
+              </div>`;
+            },
+          },
+        }}
+      />
+    </ChartPanel>
+  );
+}
+MenuMatrixChart.isVisible = ({ rows = [] }) => rows.some((row) => row.class);
+
 const timeTrendCharts = (rows, columns, labelKey, labelType, trendKeys, volumeKeys, currency, titles = {}) => {
   const sorted = sortAsc(rows, labelKey);
   return [
@@ -441,6 +515,27 @@ const CHARTS = {
     return [
       <DonutChart key="mix" title="Revenue by Order Type" rows={rows} labelKey="order_type" valueKey="revenue" valueType="money" currency={currency} />,
       <BarChart key="aov" title="Average Order Value" rows={rows} labelKey="order_type" series={seriesFrom(columns, "average_order_value")} currency={currency} />,
+    ];
+  },
+  "menu-engineering": ({ data, currency }) => {
+    const { rows, columns } = getTable(data);
+    const matrix = (data?.charts || []).find((chart) => chart.type === "menu-matrix") || {};
+    const highCost = rows
+      .filter((row) => row.class && row.food_cost_percent !== null && row.quantity_sold > 0)
+      .sort((a, b) => b.food_cost_percent - a.food_cost_percent);
+    return [
+      <MenuMatrixChart
+        key="matrix"
+        wide
+        title="Menu Engineering Matrix"
+        subtitle="Each dot is a dish. Right = sells well, up = earns more per plate."
+        rows={rows}
+        popularity={Number(matrix.popularity_threshold) || 0}
+        averageProfit={Number(matrix.average_profit_per_plate) || 0}
+        currency={currency}
+      />,
+      <BarChart key="foodcost" title="Highest Food Cost %" subtitle="Dishes that cost the most to make, relative to price" rows={highCost} labelKey="dish" series={seriesFrom(columns, "food_cost_percent")} currency={currency} horizontal limit={10} />,
+      <DonutChart key="profit" title="Profit by Group" rows={MENU_GROUPS.map((group) => ({ label: group.key, value: rows.filter((row) => row.class === group.key).reduce((sum, row) => sum + Math.max(0, Number(row.total_profit) || 0), 0) }))} valueType="money" currency={currency} />,
     ];
   },
   "profit-and-loss": ({ data, currency }) => {

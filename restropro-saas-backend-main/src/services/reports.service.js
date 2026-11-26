@@ -3,6 +3,7 @@ const { getCurrencyDB, getStoreSettingDB } = require("./settings.service");
 const { tenantFilter } = require("../utils/tenant_scope");
 const { nonVoidInvoiceFilter } = require("./invoice.service");
 const { DEFAULT_STAFF_ALERT_SETTINGS, flagStaffActivity } = require("../utils/staffActivityRules");
+const { computeMenuEngineering, loadMenuEngineeringData } = require("./menu_engineering.service");
 
 const REPORT_TITLES = {
   "sales-summary": "Sales Summary",
@@ -15,6 +16,7 @@ const REPORT_TITLES = {
   "sales-by-delivery-app": "Sales by Delivery App",
   "unusual-staff-activity": "Unusual Staff Activity",
   "profit-and-loss": "Profit & Loss",
+  "menu-engineering": "Menu Engineering",
   "sales-by-table": "Sales by Table",
   "invoice-detail": "Invoice Detail",
   "voids-cancellations": "Voids & Cancellations",
@@ -3460,6 +3462,106 @@ const getProfitAndLossReport = async (conn, type, from, to, tenantIds, currency,
   });
 };
 
+const getMenuEngineeringReport = async (conn, type, from, to, tenantIds, currency, store) => {
+  const data = await loadMenuEngineeringData(conn, {
+    tenantIds,
+    dateFilter: getFilterCondition("oi.date", type, from, to),
+    nonVoidFilter: nonVoidInvoiceFilter(),
+    latestCostSql: LATEST_INGREDIENT_COST_SQL,
+  });
+  const result = computeMenuEngineering(data);
+  const t = result.totals;
+
+  return makeReport({
+    reportId: "menu-engineering",
+    currency,
+    store,
+    type,
+    from,
+    to,
+    summary: [
+      { label: "Profit After Food Cost", value: t.profit, type: "money" },
+      { label: "Food Cost %", value: t.food_cost_percent ?? 0, type: "number" },
+      { label: "Stars", value: t.counts.Star, type: "number" },
+      { label: "Plowhorses", value: t.counts.Plowhorse, type: "number" },
+      { label: "Puzzles", value: t.counts.Puzzle, type: "number" },
+      { label: "Dogs", value: t.counts.Dog, type: "number" },
+      { label: "Dishes With a Cost", value: `${t.costed_count} of ${t.dish_count}`, type: "text" },
+    ],
+    tables: [
+      {
+        title: "Dishes",
+        columns: [
+          { key: "dish", label: "Dish" },
+          { key: "category", label: "Category" },
+          { key: "class", label: "Group" },
+          { key: "class_in_category", label: "Group in Category" },
+          { key: "quantity_sold", label: "Sold", type: "quantity" },
+          { key: "average_price", label: "Avg Price (excl. tax)", type: "money" },
+          { key: "cost_per_plate", label: "Cost per Plate", type: "money" },
+          { key: "profit_per_plate", label: "Profit per Plate", type: "money" },
+          { key: "food_cost_percent", label: "Food Cost %", type: "number" },
+          { key: "total_profit", label: "Total Profit", type: "money" },
+          { key: "advice", label: "Suggestion" },
+        ],
+        rows: result.dishes,
+      },
+      {
+        title: "By Category",
+        columns: [
+          { key: "category", label: "Category" },
+          { key: "dishes", label: "Dishes", type: "number" },
+          { key: "quantity_sold", label: "Sold", type: "quantity" },
+          { key: "sales", label: "Sales (excl. tax)", type: "money" },
+          { key: "food_cost", label: "Food Cost", type: "money" },
+          { key: "food_cost_percent", label: "Food Cost %", type: "number" },
+          { key: "total_profit", label: "Profit", type: "money" },
+          { key: "stars", label: "Stars", type: "number" },
+          { key: "plowhorses", label: "Plowhorses", type: "number" },
+          { key: "puzzles", label: "Puzzles", type: "number" },
+          { key: "dogs", label: "Dogs", type: "number" },
+        ],
+        rows: result.categories,
+      },
+      {
+        title: "By Channel",
+        columns: [
+          { key: "channel", label: "Channel" },
+          { key: "quantity_sold", label: "Sold", type: "quantity" },
+          { key: "sales", label: "Sales (excl. tax)", type: "money" },
+          { key: "food_cost", label: "Food Cost", type: "money" },
+          { key: "commission", label: "App Commission", type: "money" },
+          { key: "food_cost_percent", label: "Food Cost %", type: "number" },
+          { key: "total_profit", label: "Profit", type: "money" },
+        ],
+        rows: result.channels,
+      },
+      ...(result.missing.length
+        ? [{
+            title: "Dishes Without a Full Cost",
+            columns: [
+              { key: "dish", label: "Dish (not grouped until costed)" },
+              { key: "reason", label: "Reason" },
+            ],
+            rows: result.missing,
+          }]
+        : []),
+      ...(result.ingredientsWithoutCost.length
+        ? [{
+            title: "Ingredients Without a Purchase Price",
+            columns: [{ key: "ingredient", label: "Ingredient (add a purchase order with a unit cost)" }],
+            rows: result.ingredientsWithoutCost.map((ingredient) => ({ ingredient })),
+          }]
+        : []),
+    ],
+    charts: [{
+      type: "menu-matrix",
+      popularity_threshold: t.popularity_threshold,
+      average_profit_per_plate: t.average_profit_per_plate,
+    }],
+  });
+};
+
 const getRefundsReport = async (conn, type, from, to, tenantIds, currency, store) => {
   const { filter, params } = getFilterCondition("f.created_at", type, from, to);
   const rows = await query(conn, `
@@ -3646,6 +3748,7 @@ const REPORT_BUILDERS = {
   "sales-by-delivery-app": getSalesByDeliveryAppReport,
   "unusual-staff-activity": getUnusualStaffActivityReport,
   "profit-and-loss": getProfitAndLossReport,
+  "menu-engineering": getMenuEngineeringReport,
   "sales-by-table": getSalesByTableReport,
   "invoice-detail": getInvoiceDetailReport,
   "voids-cancellations": getVoidsCancellationsReport,
@@ -3837,6 +3940,7 @@ const SINGLE_BUSINESS_ONLY_REPORTS = new Set([
   "unusual-staff-activity", // same; thresholds are per business
   "refunds-report",      // refund numbers restart per business
   "cash-movements",      // drawer ledger of one store
+  "menu-engineering",    // menus, recipes and averages are per business
 ]);
 exports.SINGLE_BUSINESS_ONLY_REPORTS = SINGLE_BUSINESS_ONLY_REPORTS;
 
